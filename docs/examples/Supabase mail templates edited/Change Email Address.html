@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Change of Email - Optiqo</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #374151;
+            background-color: #f3f4f6;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background-color: #F28C28;
+            padding: 24px;
+            text-align: center;
+        }
+        
+        .logo {
+            color: #ffffff;
+            font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            text-transform: uppercase;
+        }
+        
+        .content {
+            padding: 32px 24px;
+        }
+        
+        .title {
+            font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+        
+        .message {
+            font-size: 16px;
+            color: #374151;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+        
+        .email-info {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+        
+        .email-from, .email-to {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .email-from:last-child, .email-to:last-child {
+            margin-bottom: 0;
+        }
+        
+        .email-label {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .email-value {
+            color: #111827;
+            font-weight: 500;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background-color: #F28C28;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            transition: background-color 0.2s ease;
+            margin: 20px 0;
+        }
+        
+        .cta-button:hover {
+            background-color: #e3730f;
+        }
+        
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px 24px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .footer-text {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        
+        .footer-logo {
+            width: 24px;
+            height: 24px;
+            opacity: 0.6;
+        }
+        
+        .security-note {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 24px;
+        }
+        
+        .security-note-title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 8px;
+        }
+        
+        .security-note-text {
+            font-size: 14px;
+            color: #92400e;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .content {
+                padding: 24px 16px;
+            }
+            
+            .header {
+                padding: 20px 16px;
+            }
+            
+            .title {
+                font-size: 20px;
+            }
+            
+            .email-info {
+                padding: 12px;
+            }
+            
+            .email-from, .email-to {
+                flex-direction: column;
+                gap: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">Optiqo</div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content">
+            <h1 class="title">Confirm Change of Email</h1>
+            
+            <p class="message">
+                We received a request to change the email address associated with your Optiqo account. 
+                Please confirm this change by clicking the button below.
+            </p>
+            
+            <!-- Email Change Information -->
+            <div class="email-info">
+                <div class="email-from">
+                    <span class="email-label">Current Email:</span>
+                    <span class="email-value">{{ .Email }}</span>
+                </div>
+                <div class="email-to">
+                    <span class="email-label">New Email:</span>
+                    <span class="email-value">{{ .NewEmail }}</span>
+                </div>
+            </div>
+            
+            <!-- Call to Action Button -->
+            <div style="text-align: center;">
+                <a href="{{ .ConfirmationURL }}" class="cta-button">
+                    Confirm Email Change
+                </a>
+            </div>
+            
+            <!-- Security Note -->
+            <div class="security-note">
+                <div class="security-note-title">Security Notice</div>
+                <div class="security-note-text">
+                    If you did not request this email change, please ignore this message and contact our support team immediately. 
+                    This link will expire in 24 hours for security purposes.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-text">
+                This email was sent by Optiqo Dashboard
+            </div>
+            <div class="footer-text">
+                If you have any questions, please contact our support team.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

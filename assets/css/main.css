@@ -1,0 +1,438 @@
+/* Import Barlow font for headers and Inter for body text */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global typography to match Optiqo logo */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Header typography using Barlow font */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Logo-style text for brand elements */
+.logo-text {
+  font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+/* Custom styles for Optiqo Dashboard */
+:root {
+  /* Primary brand color - Orange-700 from user preference */
+  --color-primary: #c2410c;
+  --color-primary-foreground: #ffffff;
+  --color-primary-50: #fff7ed;
+  --color-primary-100: #ffedd5;
+  --color-primary-200: #fed7aa;
+  --color-primary-300: #fdba74;
+  --color-primary-400: #fb923c;
+  --color-primary-500: #f97316;
+  --color-primary-600: #ea580c;
+  --color-primary-700: #c2410c;
+  --color-primary-800: #9a3412;
+  --color-primary-900: #7c2d12;
+  
+  /* Dark theme colors from modal example */
+  --color-dark: #222222;
+  --color-dark-light: #363636;
+  --color-dark-lighter: #595959;
+  --color-dark-foreground: #ffffff;
+  
+  /* Secondary colors */
+  --color-secondary: #64748b;
+  --color-secondary-foreground: #ffffff;
+  
+  /* Status colors */
+  --color-success: #c2410c;
+  --color-success-foreground: #ffffff;
+  --color-info: #06b6d4;
+  --color-info-foreground: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #ffffff;
+  --color-error: #ef4444;
+  --color-error-foreground: #ffffff;
+  
+  /* Neutral grays for dark theme */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+}
+
+/* Sidebar styles - updated with lighter colors for better contrast */
+.sidebar {
+  @apply bg-neutral-800 text-white;
+}
+
+.sidebar-item {
+  @apply flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors w-full text-neutral-200;
+}
+
+.sidebar-item:hover {
+  @apply bg-neutral-700 text-white;
+}
+
+.sidebar-item.active {
+  @apply text-white;
+  background-color: #f97316; /* Orange-500 for light mode */
+}
+
+/* Sidebar text improvements */
+.sidebar .text-neutral-400 {
+  @apply text-neutral-300;
+}
+
+.sidebar .text-xs {
+  @apply text-neutral-300;
+}
+
+/* Logo container with light gray background for better visibility */
+.logo-container {
+  @apply bg-neutral-200 rounded-lg p-3 shadow-sm;
+}
+
+.dark .logo-container {
+  @apply bg-neutral-300 shadow-md;
+}
+
+/* Ensure logo is properly centered and sized */
+.logo-container img {
+  @apply max-w-full h-auto;
+}
+
+/* Theme toggle button styling */
+.theme-toggle {
+  @apply transition-colors duration-200;
+}
+
+.theme-toggle:hover {
+  @apply bg-neutral-700 text-white;
+}
+
+/* Top bar styles - light mode with lighter orange */
+.topbar {
+  @apply text-white px-6 py-3;
+  background-color: #f97316; /* Orange-500 for light mode */
+}
+
+/* Card styles - updated with custom RGB colors */
+.dashboard-card {
+  @apply rounded-lg shadow-sm border border-neutral-200 p-6;
+  background-color: rgb(37 33 34);
+}
+
+/* Card content styling */
+.dashboard-card .card-content {
+  background-color: rgb(77 46 21);
+  @apply rounded p-4;
+}
+
+/* Chart placeholder - updated with neutral colors */
+.chart-placeholder {
+  @apply bg-neutral-100 rounded flex items-center justify-center;
+}
+
+/* Modal styles - updated with dark theme and semi-transparent overlay */
+.modal-overlay {
+  @apply fixed inset-0 bg-dark-lighter bg-opacity-75 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-dark rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+}
+
+/* Dark modal form styles */
+.modal-content .form-group label {
+  @apply text-white;
+}
+
+.modal-content .form-group input,
+.modal-content .form-group textarea,
+.modal-content .form-group select {
+  @apply bg-black border-neutral-400 text-white placeholder-neutral-400;
+}
+
+.modal-content .form-group input:focus,
+.modal-content .form-group textarea:focus,
+.modal-content .form-group select:focus {
+  @apply border-primary ring-primary;
+}
+
+/* Button styles for dark modals */
+.modal-content .btn-primary {
+  @apply text-white;
+  background-color: var(--color-primary);
+}
+
+.modal-content .btn-primary:hover {
+  background-color: var(--color-primary-600);
+}
+
+/* Teal button styles */
+.btn-teal {
+  @apply text-white;
+  background-color: var(--color-primary);
+}
+
+.btn-teal:hover {
+  background-color: var(--color-primary-600);
+}
+
+.modal-content .btn-secondary {
+  @apply bg-neutral-600 text-white hover:bg-neutral-700;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 1024px) {
+  .sidebar {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .topbar {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .topbar nav {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .topbar nav {
+    display: none;
+  }
+  
+  .chart-placeholder {
+    height: 8rem;
+  }
+}
+
+/* Mobile panel animations */
+.mobile-panel-enter-active,
+.mobile-panel-leave-active {
+  transition: transform 0.3s ease-in-out;
+}
+
+.mobile-panel-enter-from,
+.mobile-panel-leave-to {
+  transform: translateX(-100%);
+}
+
+/* Responsive text sizing */
+@media (max-width: 640px) {
+  .text-2xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-xl {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-lg {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+/* Dark theme styles */
+.dark {
+  /* Dark theme background colors */
+  --color-background: #0f0f0f;
+  --color-surface: #1a1a1a;
+  --color-surface-elevated: #262626;
+  
+  /* Dark theme text colors */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a3a3a3;
+  --color-text-tertiary: #737373;
+  
+  /* Dark theme border colors */
+  --color-border: #404040;
+  --color-border-light: #525252;
+}
+
+/* Dark theme body and main content */
+.dark body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.dark main {
+  background-color: var(--color-background);
+}
+
+/* Light theme main content */
+main {
+  @apply bg-gray-50;
+}
+
+.dark main {
+  @apply bg-neutral-900;
+}
+
+/* Dark theme cards */
+.dark .dashboard-card {
+  @apply border-neutral-700 text-white;
+  background-color: rgb(37 33 34);
+}
+
+.dark .dashboard-card .card-content {
+  background-color: rgb(77 46 21);
+}
+
+/* Dark theme form elements */
+.dark input,
+.dark textarea,
+.dark select {
+  @apply bg-neutral-800 border-neutral-600 text-white placeholder-neutral-400;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  @apply border-primary ring-primary;
+}
+
+/* Dark theme buttons */
+.dark .btn-secondary {
+  @apply bg-neutral-700 text-white hover:bg-neutral-600 border-neutral-600;
+}
+
+/* Footer styling - always dark regardless of theme */
+footer {
+  @apply bg-neutral-800 border-neutral-700;
+}
+
+/* Ensure footer stays dark in light theme */
+.light footer {
+  @apply bg-neutral-800 border-neutral-700;
+}
+
+/* Dark theme footer - ensure consistency */
+.dark footer {
+  @apply bg-neutral-800 border-neutral-700;
+}
+
+/* Dark theme sidebar adjustments - lighter colors for better usability */
+.dark .sidebar {
+  @apply bg-neutral-800;
+}
+
+.dark .sidebar-item {
+  @apply text-neutral-200;
+}
+
+.dark .sidebar-item:hover {
+  @apply bg-neutral-700 text-white;
+}
+
+.dark .sidebar-item.active {
+  @apply text-white;
+  background-color: #c2410c; /* Orange-700 for dark mode */
+}
+
+.dark .sidebar .text-neutral-400 {
+  @apply text-neutral-300;
+}
+
+.dark .sidebar .text-xs {
+  @apply text-neutral-300;
+}
+
+/* Dark theme top bar - use darker orange */
+.dark .topbar {
+  @apply text-white;
+  background-color: #c2410c; /* Orange-700 for dark mode */
+}
+
+/* Dark theme chart placeholders */
+.dark .chart-placeholder {
+  @apply bg-neutral-800;
+}
+
+/* Dark theme modal adjustments */
+.dark .modal-content {
+  @apply bg-neutral-800 border-neutral-700;
+}
+
+/* Dark theme dropdown menus */
+.dark [data-headlessui-state] {
+  @apply bg-neutral-800 border-neutral-700;
+}
+
+/* Dark theme navigation links */
+.dark nav button {
+  @apply text-white hover:text-primary;
+}
+
+/* Dark theme account dropdown */
+.dark .account-dropdown {
+  @apply bg-neutral-800 border-neutral-700;
+}
+
+/* Dark theme user info section */
+.dark .user-info {
+  @apply bg-neutral-800;
+}
+
+/* Avatar styling improvements */
+.avatar-custom {
+  @apply rounded-full;
+}
+
+.avatar-custom .bg-gray-900 {
+  @apply bg-gray-300;
+}
+
+.dark .avatar-custom .bg-gray-900 {
+  @apply bg-gray-500;
+}
+
+/* Remove dropdown background */
+[data-headlessui-state] {
+  @apply bg-transparent;
+}
+
+.dark [data-headlessui-state] {
+  @apply bg-transparent;
+}
+
+/* Remove button hover background */
+.avatar-button:hover {
+  @apply bg-transparent;
+}
+
+.dark .avatar-button:hover {
+  @apply bg-transparent;
+}

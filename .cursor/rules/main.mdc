@@ -1,0 +1,16 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+This is a Nuxt/Supabase app.
+
+The Optiqo application is a robust business intelligence and data visualization platform. It is designed to assist users in a comprehensive workflow, from connecting to data sources and analyzing information to creating and sharing interactive dashboards and reports. The application appears to be a multi-faceted tool for both technical users (data connection) and business users (dashboard creation and reporting).
+
+Supabase migrations are manually applied.
+
+Please don't start Nuxt yourself. This results in many instances running simultaneously. I start Nuxt manually when needed.
+
+Please don't edit .env file.
+
+There are 2 project in workspace. We work on optiqo-dashboard.
