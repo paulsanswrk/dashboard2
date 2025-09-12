@@ -89,6 +89,10 @@ const handleAuthCallback = async () => {
       loadingMessage.value = 'Resetting your password...'
       successMessage.value = 'Password Reset Complete!'
       successDescription.value = 'Your password has been successfully updated. You can now sign in with your new password.'
+    } else if (type === 'email') {
+      loadingMessage.value = 'Confirming your email...'
+      successMessage.value = 'Email Confirmed!'
+      successDescription.value = 'Your email has been successfully confirmed. You can now access your dashboard.'
     } else {
       loadingMessage.value = 'Completing authentication...'
       successMessage.value = 'Authentication Complete!'

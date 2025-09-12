@@ -13,7 +13,7 @@
     
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-heading font-bold tracking-tight">
-        Welcome back, {{ userProfile?.full_name || 'User' }}
+        Welcome back, {{ userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'User' }}
       </h1>
     </div>
 

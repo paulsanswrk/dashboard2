@@ -9,7 +9,7 @@
             class="h-10 w-auto"
           />
         </div>
-        <h2 class="mt-6 text-center text-3xl font-heading font-bold text-black tracking-tight">
+        <h2 class="mt-6 mb-4 text-center text-3xl font-heading text-black tracking-tight">
           Sign in to Optiqo
         </h2>
         <p class="mt-2 text-center text-sm text-gray-700">

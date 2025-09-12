@@ -57,13 +57,13 @@
               <img 
                 v-if="userProfile.avatar_url" 
                 :src="userProfile.avatar_url" 
-                :alt="`${userProfile.first_name} ${userProfile.last_name}`"
+                :alt="`${userProfile.firstName} ${userProfile.lastName}`"
                 class="w-full h-full object-cover"
               />
               <Icon v-else name="heroicons:user" class="w-4 h-4 text-white" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-white truncate">{{ userProfile.first_name }} {{ userProfile.last_name }}</p>
+              <p class="text-sm font-medium text-white truncate">{{ userProfile.firstName }} {{ userProfile.lastName }}</p>
               <p class="text-xs text-neutral-400 truncate">{{ userProfile.email }}</p>
             </div>
           </div>
@@ -112,22 +112,22 @@
             </button>
             
             <!-- Account Dropdown -->
-            <UDropdown :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-transparent' }">
+            <UDropdown :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-white dark:bg-gray-800' }">
               <UButton variant="ghost" class="p-1 hover:bg-transparent avatar-button">
                 <UAvatar 
                   :alt="userDisplayName"
                   :src="userProfile?.avatar_url"
                   :text="userInitials"
                   size="sm"
-                  class="ring-2 ring-gray-200 avatar-custom"
-                  :ui="{ background: 'bg-gray-300 dark:bg-gray-500' }"
+                  :class="userProfile?.avatar_url ? 'avatar-custom' : 'ring-2 ring-gray-200 avatar-custom'"
+                  :ui="{ background: userProfile?.avatar_url ? '' : 'bg-gray-300 dark:bg-gray-500' }"
                 />
               </UButton>
               
               <template #account>
                 <div class="px-2 py-1.5">
-                  <p class="text-sm font-medium text-gray-900">{{ userDisplayName }}</p>
-                  <p class="text-xs text-gray-500">{{ userProfile?.email }}</p>
+                  <p class="text-sm font-medium text-gray-900 dark:text-white">{{ userDisplayName }}</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ userProfile?.email }}</p>
                 </div>
               </template>
             </UDropdown>
@@ -171,13 +171,13 @@ const organization = computed(() => userProfile.value?.organization)
 // User display properties
 const userDisplayName = computed(() => {
   if (!userProfile.value) return 'User'
-  return `${userProfile.value.first_name} ${userProfile.value.last_name}`
+  return `${userProfile.value.firstName} ${userProfile.value.lastName}`
 })
 
 const userInitials = computed(() => {
   if (!userProfile.value) return 'U'
-  const first = userProfile.value.first_name?.charAt(0) || ''
-  const last = userProfile.value.last_name?.charAt(0) || ''
+  const first = userProfile.value.firstName?.charAt(0) || ''
+  const last = userProfile.value.lastName?.charAt(0) || ''
   return `${first}${last}`.toUpperCase()
 })
 

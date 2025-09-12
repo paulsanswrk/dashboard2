@@ -97,8 +97,15 @@ export const useAuth = () => {
         return { success: true, requiresEmailConfirmation: true }
       }
 
+      // If user has a session, they're immediately authenticated
+      if (data.user && data.session) {
+        setMessage('Account created successfully!', 'success')
+        return { success: true, requiresEmailConfirmation: false }
+      }
+
+      // Fallback case
       setMessage('Account created successfully!', 'success')
-      return { success: true, requiresEmailConfirmation: false }
+      return { success: true, requiresEmailConfirmation: true }
     } catch (err: any) {
       setMessage(err.message || 'Registration failed', 'error')
       return { success: false, error: err.message }
@@ -201,15 +208,31 @@ export const useAuth = () => {
 
       const { data, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          organization:organizations(*)
+        `)
         .eq('user_id', user.value.id)
         .single()
 
       if (profileError) throw profileError
 
+      // Transform database fields to frontend format
+      const transformedProfile = {
+        id: data.user_id,
+        email: user.value.email,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        organizationId: data.organization_id,
+        role: data.role,
+        avatar_url: data.avatar_url,
+        created_at: data.created_at,
+        organization: data.organization
+      }
+
       // Update the reactive profile ref
-      userProfile.value = data
-      return data
+      userProfile.value = transformedProfile
+      return transformedProfile
     } catch (err: any) {
       console.error('Error fetching user profile:', err)
       userProfile.value = null
@@ -254,19 +277,32 @@ export const useAuth = () => {
       loading.value = true
       clearMessages()
 
+      // Convert camelCase to snake_case for database
+      const dbUpdates: any = {}
+      if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName
+      if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName
+      if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url
+
       const { data, error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update(dbUpdates)
         .eq('user_id', user.value.id)
         .select()
         .single()
 
       if (error) throw error
 
+      // Transform the returned data to frontend format
+      const transformedData = {
+        firstName: data.first_name,
+        lastName: data.last_name,
+        avatar_url: data.avatar_url
+      }
+
       // Update local profile state
-      userProfile.value = { ...userProfile.value, ...data }
+      userProfile.value = { ...userProfile.value, ...transformedData }
       setMessage('Profile updated successfully!', 'success')
-      return { success: true, profile: data }
+      return { success: true, profile: transformedData }
     } catch (err: any) {
       setMessage(err.message || 'Failed to update profile', 'error')
       return { success: false, error: err.message }
@@ -307,10 +343,10 @@ export const useAuth = () => {
       loading.value = true
       clearMessages()
 
-      // Generate unique filename
+      // Generate unique filename with user ID as folder
       const fileExt = file.name.split('.').pop()
-      const fileName = `${user.value.id}-${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
+      const fileName = `${Date.now()}.${fileExt}`
+      const filePath = `${user.value.id}/${fileName}`
 
       // Upload file to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -367,6 +403,29 @@ export const useAuth = () => {
     }
   }
 
+  // Resend confirmation email
+  const resendConfirmationEmail = async (email: string) => {
+    try {
+      loading.value = true
+      clearMessages()
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email
+      })
+
+      if (error) throw error
+
+      setMessage('Confirmation email sent!', 'success')
+      return { success: true }
+    } catch (err: any) {
+      setMessage(err.message || 'Failed to resend confirmation email', 'error')
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
   // Watch for user changes and load profile
   watch(user, async (newUser) => {
     if (newUser) {
@@ -401,6 +460,7 @@ export const useAuth = () => {
     updatePassword,
     uploadAvatar,
     deleteAvatar,
+    resendConfirmationEmail,
     clearMessages
   }
 }

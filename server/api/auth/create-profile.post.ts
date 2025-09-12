@@ -31,14 +31,12 @@ export default defineEventHandler(async (event) => {
 
     // Prepare profile data for optiqo-dashboard structure
     const profileDataToCreate = {
-      id: userId,
-      email: email,
+      user_id: userId,
       first_name: profileData?.firstName || userMetadata?.firstName || null,
       last_name: profileData?.lastName || userMetadata?.lastName || null,
       role: profileData?.role || userMetadata?.role || 'EDITOR',
       organization_id: null, // Will be set later if organization is created
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: new Date().toISOString()
     }
 
     console.log('Profile data to create:', profileDataToCreate)
@@ -58,8 +56,7 @@ export default defineEventHandler(async (event) => {
         .update({
           first_name: profileDataToCreate.first_name,
           last_name: profileDataToCreate.last_name,
-          role: profileDataToCreate.role,
-          updated_at: new Date().toISOString()
+          role: profileDataToCreate.role
         })
         .eq('user_id', userId)
         .select()
@@ -106,7 +103,6 @@ export default defineEventHandler(async (event) => {
           .from('organizations')
           .insert({
             name: profileData.organizationName,
-            created_by: userId,
             viewer_count: 0
           })
           .select()
@@ -152,8 +148,14 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     console.error('Error in create-profile API:', error)
     
+    // If it's already a createError, re-throw it
+    if (error.statusCode) {
+      throw error
+    }
+    
+    // Otherwise, create a new error
     throw createError({
-      statusCode: error.statusCode || 500,
+      statusCode: 500,
       statusMessage: error.message || 'Internal server error'
     })
   }

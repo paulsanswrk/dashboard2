@@ -61,21 +61,28 @@ USING (
 );
 ```
 
-### 3. Test the Setup
+### 3. Apply Database Migrations
 
-1. Apply the database migration: `007_add_avatar_to_profiles.sql`
-2. Start your Nuxt application
-3. Navigate to `/account`
-4. Try uploading an avatar image
-5. Verify the image appears and the URL is stored in the database
+Apply the following migrations in order:
+1. `20250912124858_add_avatar_to_profiles.sql` - Adds avatar_url field to profiles table
+2. `20250912130557_add_avatar_storage_policies.sql` - Creates RLS policies for avatars storage
+
+### 4. Test the Setup
+
+1. Start your Nuxt application
+2. Navigate to `/account`
+3. Try uploading an avatar image
+4. Verify the image appears and the URL is stored in the database
 
 ## File Structure
 
 The storage bucket will organize files as follows:
 ```
 avatars/
-├── {user-id}-{timestamp}.jpg
-├── {user-id}-{timestamp}.png
+├── {user-id}/
+│   ├── {timestamp}.jpg
+│   ├── {timestamp}.png
+│   └── ...
 └── ...
 ```
 

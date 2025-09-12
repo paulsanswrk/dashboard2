@@ -29,11 +29,12 @@
           <div class="flex flex-col items-center">
             <!-- Avatar Display -->
             <div class="relative mb-4">
-              <div class="w-24 h-24 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+              <div class="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center"
+                   :class="userProfile?.avatar_url ? '' : 'bg-gray-100 dark:bg-gray-700'">
                 <img 
                   v-if="userProfile?.avatar_url" 
                   :src="userProfile.avatar_url" 
-                  :alt="`${userProfile.first_name} ${userProfile.last_name}`"
+                  :alt="`${userProfile.firstName} ${userProfile.lastName}`"
                   class="w-full h-full object-cover"
                 />
                 <Icon v-else name="heroicons:user" class="w-12 h-12 text-gray-400" />
@@ -196,11 +197,32 @@
               <UButton 
                 type="submit" 
                 :loading="loading"
-                :disabled="!isPasswordFormValid"
                 color="orange"
               >
                 Update Password
               </UButton>
+            </div>
+            
+            <!-- Password validation errors - only show after button press -->
+            <div v-if="passwordErrors.showErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
+              <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+                <div class="flex">
+                  <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2" />
+                  <div class="text-sm text-red-800 dark:text-red-200">
+                    <h4 class="font-medium mb-2">Please fix the following errors:</h4>
+                    <ul class="space-y-1">
+                      <li v-for="error in passwordValidationErrors" :key="error" class="flex items-center">
+                        <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                        {{ error }}
+                      </li>
+                      <li v-if="passwordConfirmError" class="flex items-center">
+                        <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                        {{ passwordConfirmError }}
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -225,14 +247,40 @@ const passwordForm = ref({
   confirmPassword: ''
 })
 
+const passwordErrors = ref({
+  showErrors: false
+})
+
 // File input ref
 const fileInput = ref(null)
 
 // Computed properties
 const hasProfileChanges = computed(() => {
   if (!userProfile.value) return false
-  return profileForm.value.firstName !== userProfile.value.first_name ||
-         profileForm.value.lastName !== userProfile.value.last_name
+  return profileForm.value.firstName !== userProfile.value.firstName ||
+         profileForm.value.lastName !== userProfile.value.lastName
+})
+
+// Password validation function
+const validatePassword = (password) => {
+  const errors = []
+  
+  if (password.length < 6) {
+    errors.push('Password must be at least 6 characters long')
+  }
+  
+  return errors
+}
+
+const passwordValidationErrors = computed(() => {
+  return validatePassword(passwordForm.value.newPassword)
+})
+
+const passwordConfirmError = computed(() => {
+  if (passwordForm.value.confirmPassword && passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    return 'Passwords do not match'
+  }
+  return null
 })
 
 const isPasswordFormValid = computed(() => {
@@ -245,8 +293,8 @@ const isPasswordFormValid = computed(() => {
 watch(userProfile, (profile) => {
   if (profile) {
     profileForm.value = {
-      firstName: profile.first_name || '',
-      lastName: profile.last_name || ''
+      firstName: profile.firstName || '',
+      lastName: profile.lastName || ''
     }
   }
 }, { immediate: true })
@@ -294,17 +342,31 @@ const handleUpdateProfile = async () => {
 }
 
 const handleUpdatePassword = async () => {
-  if (!isPasswordFormValid.value) return
+  // Always show errors when button is clicked
+  passwordErrors.value.showErrors = true
   
-  // Note: Supabase doesn't require current password for password updates
-  // In a production app, you might want to implement this verification
-  await updatePassword(passwordForm.value.newPassword)
+  // Check if form is valid before proceeding
+  if (!isPasswordFormValid.value) {
+    return
+  }
   
-  // Reset password form
-  passwordForm.value = {
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  try {
+    // Note: Supabase doesn't require current password for password updates
+    // In a production app, you might want to implement this verification
+    const result = await updatePassword(passwordForm.value.newPassword)
+    
+    if (result.success) {
+      // Reset password form only on success
+      passwordForm.value = {
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }
+      passwordErrors.value.showErrors = false
+    }
+  } catch (err) {
+    // Error is handled by the updatePassword function
+    console.error('Password update error:', err)
   }
 }
 

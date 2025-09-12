@@ -12,6 +12,7 @@ The initial authentication implementation had several issues:
 - Manual profile management instead of leveraging Supabase's reactive user state
 - Complex cookie checking and manual session management
 - Authentication state wasn't properly synchronized across components
+- **Email confirmation was not enforced** - users could access the app without confirming their email
 
 ## Solution Architecture
 
@@ -21,21 +22,31 @@ The initial authentication implementation had several issues:
 2. **Auth Middleware** (`middleware/auth.ts`)
 3. **App Initialization** (`app.vue`)
 4. **Profile Creation API** (`server/api/auth/create-profile.post.ts`)
-5. **UI Components** (Login, Signup, AppLayout)
+5. **UI Components** (Login, Signup, AppLayout, Email Confirmation)
+6. **Email Confirmation Flow** (`pages/signup/confirm-email.vue`, `pages/auth/callback.vue`)
 
 ### Authentication Flow
 
 ```mermaid
 graph TD
-    A[User Signs Up/In] --> B[Supabase Auth]
-    B --> C[User State Updates]
-    C --> D[Profile Creation/Loading]
-    D --> E[Reactive UI Updates]
-    E --> F[Protected Route Access]
+    A[User Signs Up] --> B[Supabase Auth]
+    B --> C{Email Confirmation Required?}
+    C -->|Yes| D[Redirect to Email Confirmation Page]
+    D --> E[User Clicks Email Link]
+    E --> F[Auth Callback Processing]
+    F --> G[User State Updates]
+    G --> H[Profile Creation/Loading]
+    H --> I[Reactive UI Updates]
+    I --> J[Protected Route Access]
     
-    G[Page Refresh] --> H[Supabase Session Check]
-    H --> I[User State Restored]
-    I --> E
+    C -->|No| G
+    
+    K[User Signs In] --> L[Supabase Auth]
+    L --> G
+    
+    M[Page Refresh] --> N[Supabase Session Check]
+    N --> O[User State Restored]
+    O --> I
 ```
 
 ## Implementation Details
@@ -64,6 +75,9 @@ const loadUserProfile = async () => { /* ... */ }
 const signUp = async (email, password, firstName, lastName, role, organizationName) => { /* ... */ }
 const signIn = async (email, password) => { /* ... */ }
 const signOut = async () => { /* ... */ }
+
+// Email confirmation
+const resendConfirmationEmail = async (email) => { /* ... */ }
 ```
 
 ### 2. Auth Middleware
@@ -139,10 +153,25 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
 **Updated Components:**
 - **Login Page**: Uses new authentication methods
-- **Signup Page**: Integrated with profile creation
-- **Auth Callback**: Fixed to use Supabase user state
+- **Signup Page**: Integrated with profile creation and email confirmation flow
+- **Email Confirmation Page**: Handles email confirmation with resend functionality
+- **Auth Callback**: Fixed to use Supabase user state and handles email confirmation
 - **AppLayout**: Updated to work with new auth system
 - **Account Dropdown**: Added user avatar and dropdown menu
+
+### 6. Email Confirmation Flow
+
+**New Implementation:**
+- **Signup Process**: Checks if email confirmation is required after account creation
+- **Email Confirmation Page**: Shows user-friendly interface with resend functionality
+- **Auth Callback**: Handles email confirmation completion and redirects to dashboard
+- **Resend Functionality**: Allows users to resend confirmation emails if needed
+
+**Key Features:**
+- Enforces email confirmation before dashboard access
+- Clear user messaging and instructions
+- Proper error handling for confirmation failures
+- Seamless redirect flow after confirmation
 
 ## Key Benefits
 
@@ -161,7 +190,12 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 - User-friendly error states
 - Consistent error handling patterns
 
-### 4. Simplified Code
+### 4. Email Confirmation Security
+- Enforces email verification before app access
+- Prevents unauthorized access with unverified emails
+- Follows Supabase security best practices
+
+### 5. Simplified Code
 - Removed complex manual authentication management
 - Cleaner, more maintainable code
 - Better separation of concerns
@@ -213,7 +247,10 @@ CREATE TABLE organizations (
 
 ### Manual Testing Checklist
 - [ ] User can sign up with email/password
-- [ ] User is automatically authenticated after signup
+- [ ] User is redirected to email confirmation page when required
+- [ ] User can resend confirmation email if needed
+- [ ] User can complete email confirmation via email link
+- [ ] User is redirected to dashboard after email confirmation
 - [ ] User can sign in with existing credentials
 - [ ] Authentication persists across page refreshes
 - [ ] User can navigate between protected routes
@@ -227,6 +264,8 @@ CREATE TABLE organizations (
 - [ ] Network errors are handled gracefully
 - [ ] Database errors don't break authentication
 - [ ] Session expiration is handled properly
+- [ ] Email confirmation failures are handled gracefully
+- [ ] Resend email functionality works correctly
 
 ## Migration Notes
 
@@ -236,12 +275,14 @@ CREATE TABLE organizations (
 3. **Simplified middleware** to use Supabase user state
 4. **Updated UI components** to work with new system
 5. **Added profile creation API** for user management
+6. **Implemented email confirmation flow** for security
 
 ### Breaking Changes
 - Authentication methods now return different response formats
 - User state is now reactive and automatic
 - Profile management is handled differently
 - Error handling patterns have changed
+- **Email confirmation is now enforced** - users must confirm email before accessing the app
 
 ## Future Enhancements
 
@@ -287,4 +328,4 @@ CREATE TABLE organizations (
 
 The migration to Supabase's built-in authentication system has significantly improved the application's reliability, maintainability, and user experience. The reactive nature of Supabase's authentication state eliminates many common authentication bugs and provides a more robust foundation for future development.
 
-The implementation follows best practices for security, error handling, and user experience, providing a solid foundation for the Optiqo Dashboard application.
+The implementation follows best practices for security, error handling, and user experience, providing a solid foundation for the Optiqo Dashboard application. The addition of email confirmation enforcement ensures that only verified users can access the application, significantly improving security posture.

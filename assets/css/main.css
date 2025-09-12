@@ -419,12 +419,12 @@ footer {
   @apply bg-gray-500;
 }
 
-/* Remove dropdown background */
-[data-headlessui-state] {
+/* Remove dropdown background for specific elements */
+[data-headlessui-state]:not([role="menu"]) {
   @apply bg-transparent;
 }
 
-.dark [data-headlessui-state] {
+.dark [data-headlessui-state]:not([role="menu"]) {
   @apply bg-transparent;
 }
 

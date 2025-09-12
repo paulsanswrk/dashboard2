@@ -9,7 +9,7 @@
             class="h-10 w-auto"
           />
         </div>
-        <h2 class="mt-6 text-center text-3xl font-heading font-bold text-black tracking-tight">
+        <h2 class="mt-6 text-center text-3xl font-heading text-black tracking-tight">
           Check Your Email
         </h2>
         <p class="mt-2 text-center text-sm text-gray-700">
@@ -18,6 +18,12 @@
         <p class="text-center text-sm font-medium text-primary">
           {{ email }}
         </p>
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p class="text-sm text-blue-800 text-center">
+            <Icon name="heroicons:information-circle" class="w-4 h-4 inline mr-1" />
+            <strong>Important:</strong> You must click the confirmation link in your email before you can access your account.
+          </p>
+        </div>
       </div>
       
       <UCard class="mt-8 bg-gray-50 shadow-lg">
@@ -29,7 +35,7 @@
 
           <!-- Instructions -->
           <div class="text-center space-y-4">
-            <h3 class="text-lg font-medium text-black">Almost there!</h3>
+            <h3 class="text-lg text-black">Almost there!</h3>
             <p class="text-gray-600">
               Click the confirmation link in your email to activate your Optiqo account and start building amazing dashboards.
             </p>
@@ -95,7 +101,7 @@ const resending = ref(false)
 const resendMessage = ref('')
 
 // Auth composable
-const { resetPassword } = useAuth()
+const { resendConfirmationEmail } = useAuth()
 
 // Resend confirmation email
 const resendConfirmation = async () => {
@@ -105,9 +111,8 @@ const resendConfirmation = async () => {
     resending.value = true
     resendMessage.value = ''
     
-    // Use the reset password function to resend confirmation
-    // This will send a new confirmation email
-    await resetPassword(email.value)
+    // Resend confirmation email
+    await resendConfirmationEmail(email.value)
     
     resendMessage.value = 'Confirmation email sent! Please check your inbox.'
   } catch (err) {

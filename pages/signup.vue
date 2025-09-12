@@ -9,7 +9,7 @@
             class="h-10 w-auto"
           />
         </div>
-        <h2 class="mt-6 text-center text-3xl font-heading font-bold text-black tracking-tight">
+        <h2 class="mt-6 mb-4 text-center text-3xl font-heading text-black tracking-tight">
           Create your Optiqo account
         </h2>
         <p class="mt-2 text-center text-sm text-gray-700">
@@ -24,7 +24,7 @@
         <UForm :state="form" @submit="handleSignUp" class="space-y-6 p-6 ">
           <!-- Personal Information -->
           <div class="space-y-4">
-            <h3 class="text-lg font-medium text-black">Personal Information</h3>
+            <h3 class="text-lg text-black">Personal Information</h3>
             
             <div class="grid grid-cols-2 gap-4">
               <UFormGroup label="First Name" required class="text-black">
@@ -84,7 +84,7 @@
 
           <!-- Organization Information -->
             <div class="space-y-4 pt-6 border-t border-gray-300">
-            <h3 class="text-lg font-medium text-black">Organization Information</h3>
+            <h3 class="text-lg text-black">Organization Information</h3>
             
             <UFormGroup label="Organization Name (Optional)" class="text-black">
               <UInput
@@ -121,16 +121,62 @@
             class="mt-4"
           />
 
+          <div v-if="showEmailConfirmationMessage" class="mt-4">
+            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-6">
+              <div class="flex">
+                <Icon name="heroicons:check-circle" class="w-6 h-6 text-green-400 mr-3 mt-0.5" />
+                <div class="flex-1">
+                  <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">Account Created Successfully!</h4>
+                  <p class="text-sm text-green-700 dark:text-green-300 mb-4">
+                    We've sent a confirmation link to <strong>{{ form.email }}</strong>. 
+                    Please check your email and click the confirmation link to activate your account.
+                  </p>
+                  <div class="flex justify-center">
+                    <UButton 
+                      @click="goToSignIn"
+                      color="green"
+                      size="sm"
+                    >
+                      Continue to Sign In
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <UButton
+            v-if="!showEmailConfirmationMessage"
             type="submit"
             :loading="loading"
-            :disabled="!isFormValid"
             class="w-full text-center text-white border-0 hover:opacity-90 transition-opacity text-center block"
             style="background-color: #F28C28;"
             size="lg"
           >
             Create Account
           </UButton>
+          
+          <!-- Password validation errors - only show after button press -->
+          <div v-if="showPasswordErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+              <div class="flex">
+                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2" />
+                <div class="text-sm text-red-800 dark:text-red-200">
+                  <h4 class="font-medium mb-2">Please fix the following errors:</h4>
+                  <ul class="space-y-1">
+                    <li v-for="error in passwordValidationErrors" :key="error" class="flex items-center">
+                      <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                      {{ error }}
+                    </li>
+                    <li v-if="passwordConfirmError" class="flex items-center">
+                      <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                      {{ passwordConfirmError }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </UForm>
       </UCard>
     </div>
@@ -157,9 +203,33 @@ const form = ref({
 })
 
 const errors = ref({})
+const showPasswordErrors = ref(false)
+const showEmailConfirmationMessage = ref(false)
 
 // Auth composable
 const { signUp, loading, error } = useAuth()
+
+// Password validation function
+const validatePassword = (password) => {
+  const errors = []
+  
+  if (password.length < 6) {
+    errors.push('Password must be at least 6 characters long')
+  }
+  
+  return errors
+}
+
+const passwordValidationErrors = computed(() => {
+  return validatePassword(form.value.password)
+})
+
+const passwordConfirmError = computed(() => {
+  if (form.value.confirmPassword && form.value.password !== form.value.confirmPassword) {
+    return 'Passwords do not match'
+  }
+  return null
+})
 
 // Form validation
 const validateForm = () => {
@@ -182,14 +252,10 @@ const validateForm = () => {
   
   if (!form.value.password) {
     errors.value.password = 'Password is required'
-  } else if (form.value.password.length < 6) {
-    errors.value.password = 'Password must be at least 6 characters'
   }
   
   if (!form.value.confirmPassword) {
     errors.value.confirmPassword = 'Please confirm your password'
-  } else if (form.value.password !== form.value.confirmPassword) {
-    errors.value.confirmPassword = 'Passwords do not match'
   }
   
   if (!form.value.acceptTerms) {
@@ -207,12 +273,24 @@ const isFormValid = computed(() => {
          form.value.password &&
          form.value.confirmPassword &&
          form.value.acceptTerms &&
-         form.value.password === form.value.confirmPassword
+         passwordValidationErrors.value.length === 0 &&
+         !passwordConfirmError.value
 })
 
 // Handle form submission
 const handleSignUp = async () => {
-  if (!validateForm()) return
+  // Always show password errors when button is clicked
+  showPasswordErrors.value = true
+  
+  // Check basic form validation first
+  if (!validateForm()) {
+    return
+  }
+  
+  // Check password validation
+  if (passwordValidationErrors.value.length > 0 || passwordConfirmError.value) {
+    return
+  }
   
   try {
     const result = await signUp(
@@ -224,12 +302,24 @@ const handleSignUp = async () => {
       form.value.organizationName || undefined
     )
     
-    // User is immediately authenticated, redirect to dashboard
-    await navigateTo('/my-dashboard?welcome=true')
+    if (result.success) {
+      if (result.requiresEmailConfirmation) {
+        // Show email confirmation message with continue button
+        showEmailConfirmationMessage.value = true
+      } else {
+        // User is immediately authenticated, redirect to dashboard
+        await navigateTo('/my-dashboard?welcome=true')
+      }
+    }
   } catch (err) {
     // Error is handled by the composable
     console.error('Sign up error:', err)
   }
+}
+
+// Navigation functions
+const goToSignIn = async () => {
+  await navigateTo('/login')
 }
 
 // Page meta
