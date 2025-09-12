@@ -148,7 +148,7 @@
             alt="Q" 
             class="h-4 lg:h-6 w-auto opacity-60"
           />
-          <span class="text-sm text-neutral-300">
+          <span class="text-sm" style="color: #bc5a0a;">
             © {{ currentYear }} Optiqo. All rights reserved
           </span>
         </div>

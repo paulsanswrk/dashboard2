@@ -20,6 +20,79 @@
       </div>
     </div>
 
+    <!-- Organization Information Section -->
+    <div v-if="userProfile?.organizationId || userProfile?.organization" class="mb-8">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <!-- Loading State -->
+        <div v-if="orgLoading" class="flex items-center justify-center py-8">
+          <Icon name="heroicons:arrow-path" class="w-6 h-6 text-gray-400 animate-spin mr-2" />
+          <span class="text-gray-500">Loading organization details...</span>
+        </div>
+        
+        <!-- Error State -->
+        <div v-else-if="orgError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+          <div class="flex">
+            <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2" />
+            <div>
+              <h4 class="text-sm font-medium text-red-800 dark:text-red-200">Error loading organization</h4>
+              <p class="text-sm text-red-700 dark:text-red-300 mt-1">{{ orgError }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Organization Details -->
+        <div v-else-if="hasOrganization">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Organization Information</h3>
+          <UButton 
+            variant="outline" 
+            size="sm"
+            @click="navigateTo('/users')"
+            v-if="userProfile?.role === 'ADMIN'"
+          >
+            <Icon name="heroicons:users" class="w-4 h-4 mr-2" />
+            Manage Users
+          </UButton>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Organization Name -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Organization Name
+            </label>
+            <div class="text-lg font-medium text-gray-900 dark:text-white">
+              {{ organizationName }}
+            </div>
+          </div>
+          
+          <!-- Total Members -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Total Members
+            </label>
+            <div class="text-lg font-medium text-gray-900 dark:text-white">
+              {{ totalMembers }}
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              {{ userCount }} users, {{ viewerCount }} viewers
+            </div>
+          </div>
+          
+          <!-- Created Date -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Created
+            </label>
+            <div class="text-lg font-medium text-gray-900 dark:text-white">
+              {{ formatDate(organizationDetails?.created_at) }}
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Profile Picture Section -->
       <div class="lg:col-span-1">
@@ -235,6 +308,20 @@
 // Authentication
 const { userProfile, updateProfile, updatePassword, uploadAvatar, deleteAvatar, loading, error, success, clearMessages } = useAuth()
 
+// Organization
+const { 
+  organizationDetails, 
+  loading: orgLoading, 
+  error: orgError, 
+  getOrganizationDetails, 
+  fetchUserCount, 
+  hasOrganization, 
+  organizationName, 
+  totalMembers, 
+  userCount, 
+  viewerCount 
+} = useOrganization()
+
 // Form data
 const profileForm = ref({
   firstName: '',
@@ -296,8 +383,21 @@ watch(userProfile, (profile) => {
       firstName: profile.firstName || '',
       lastName: profile.lastName || ''
     }
+    
+    // Get organization details from user profile
+    getOrganizationDetails(profile)
   }
 }, { immediate: true })
+
+// Date formatting function
+const formatDate = (dateString) => {
+  if (!dateString) return 'Unknown'
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+}
 
 // Methods
 const triggerFileInput = () => {
