@@ -27,7 +27,7 @@
         <h2 class="text-xl font-semibold text-gray-900">Authentication Error</h2>
         <p class="text-gray-600">{{ error }}</p>
         
-        <!-- Show different actions based on error type -->
+        <!-- Show different actions based on error type test -->
         <div class="flex gap-2">
           <UButton 
             v-if="isMagicLinkError" 
