@@ -1,11 +1,13 @@
 <template>
   <div class="p-6">
-    <div class="flex justify-between items-center mb-6">
-      <UButton color="orange" @click="navigateTo('/integration-wizard')">
-        <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
-        add data source
-      </UButton>
-      <div class="text-sm text-gray-600">2 / 20 DATA SOURCES USED</div>
+    <div class="mb-6">
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <UButton color="orange" @click="navigateTo('/integration-wizard')" class="w-fit">
+          <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+          add data source
+        </UButton>
+        <div class="text-sm text-gray-600 text-center sm:text-right">2 / 20 DATA SOURCES USED</div>
+      </div>
     </div>
 
     <div class="max-w-2xl mx-auto">

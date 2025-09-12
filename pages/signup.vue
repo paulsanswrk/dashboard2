@@ -59,27 +59,30 @@
               />
             </UFormGroup>
 
-            <UFormGroup label="Password" required class="text-black">
-              <UInput
-                v-model="form.password"
-                type="password"
-                placeholder="Create a password"
-                :error="errors.password"
-                class="bg-white border-gray-300 text-black placeholder-gray-500"
-                required
-              />
-            </UFormGroup>
+            <!-- Password fields - only show in password mode -->
+            <template v-if="!magicLinkMode">
+              <UFormGroup label="Password" required class="text-black">
+                <UInput
+                  v-model="form.password"
+                  type="password"
+                  placeholder="Create a password"
+                  :error="errors.password"
+                  class="bg-white border-gray-300 text-black placeholder-gray-500"
+                  required
+                />
+              </UFormGroup>
 
-            <UFormGroup label="Confirm Password" required class="text-black">
-              <UInput
-                v-model="form.confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                :error="errors.confirmPassword"
-                class="bg-white border-gray-300 text-black placeholder-gray-500"
-                required
-              />
-            </UFormGroup>
+              <UFormGroup label="Confirm Password" required class="text-black">
+                <UInput
+                  v-model="form.confirmPassword"
+                  type="password"
+                  placeholder="Confirm your password"
+                  :error="errors.confirmPassword"
+                  class="bg-white border-gray-300 text-black placeholder-gray-500"
+                  required
+                />
+              </UFormGroup>
+            </template>
           </div>
 
           <!-- Organization Information -->
@@ -126,10 +129,18 @@
               <div class="flex">
                 <Icon name="heroicons:check-circle" class="w-6 h-6 text-green-400 mr-3 mt-0.5" />
                 <div class="flex-1">
-                  <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">Account Created Successfully!</h4>
+                  <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">
+                    {{ magicLinkMode ? 'Magic Link Sent!' : 'Account Created Successfully!' }}
+                  </h4>
                   <p class="text-sm text-green-700 dark:text-green-300 mb-4">
-                    We've sent a confirmation link to <strong>{{ form.email }}</strong>. 
-                    Please check your email and click the confirmation link to activate your account.
+                    <template v-if="magicLinkMode">
+                      We've sent a magic link to <strong>{{ form.email }}</strong>. 
+                      Please check your email and click the link to complete your registration.
+                    </template>
+                    <template v-else>
+                      We've sent a confirmation link to <strong>{{ form.email }}</strong>. 
+                      Please check your email and click the confirmation link to activate your account.
+                    </template>
                   </p>
                   <div class="flex justify-center">
                     <UButton 
@@ -149,12 +160,36 @@
             v-if="!showEmailConfirmationMessage"
             type="submit"
             :loading="loading"
-            class="w-full text-center text-white border-0 hover:opacity-90 transition-opacity text-center block"
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity flex items-center justify-center"
             style="background-color: #F28C28;"
             size="lg"
           >
-            Create Account
+            <Icon v-if="magicLinkMode" name="heroicons:envelope-open" class="w-5 h-5 mr-2" />
+            {{ magicLinkMode ? 'Send Magic Link' : 'Create Account' }}
           </UButton>
+
+          <!-- Toggle between password and magic link modes -->
+          <div v-if="!showEmailConfirmationMessage" class="mt-4">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300" />
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-gray-50 text-gray-500">Or</span>
+              </div>
+            </div>
+
+            <UButton
+              type="button"
+              @click="toggleMagicLinkMode"
+              variant="outline"
+              class="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50 font-heading flex items-center justify-center"
+              size="lg"
+            >
+              <Icon :name="magicLinkMode ? 'heroicons:key' : 'heroicons:envelope-open'" class="w-5 h-5 mr-2" />
+              {{ magicLinkMode ? 'Create Account with Password' : 'Create Account with Magic Link' }}
+            </UButton>
+          </div>
           
           <!-- Password validation errors - only show after button press -->
           <div v-if="showPasswordErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
@@ -207,7 +242,16 @@ const showPasswordErrors = ref(false)
 const showEmailConfirmationMessage = ref(false)
 
 // Auth composable
-const { signUp, loading, error } = useAuth()
+const { signUp, signUpWithMagicLink, loading, error } = useAuth()
+
+// Magic link state
+const magicLinkMode = ref(false)
+
+// Check if we should start in magic link mode
+const route = useRoute()
+if (route.query.mode === 'magic-link') {
+  magicLinkMode.value = true
+}
 
 // Password validation function
 const validatePassword = (password) => {
@@ -250,12 +294,15 @@ const validateForm = () => {
     errors.value.email = 'Please enter a valid email address'
   }
   
-  if (!form.value.password) {
-    errors.value.password = 'Password is required'
-  }
-  
-  if (!form.value.confirmPassword) {
-    errors.value.confirmPassword = 'Please confirm your password'
+  // Only validate password fields if not in magic link mode
+  if (!magicLinkMode.value) {
+    if (!form.value.password) {
+      errors.value.password = 'Password is required'
+    }
+    
+    if (!form.value.confirmPassword) {
+      errors.value.confirmPassword = 'Please confirm your password'
+    }
   }
   
   if (!form.value.acceptTerms) {
@@ -267,54 +314,89 @@ const validateForm = () => {
 
 // Computed property for form validity
 const isFormValid = computed(() => {
-  return form.value.firstName &&
-         form.value.lastName &&
-         form.value.email &&
-         form.value.password &&
-         form.value.confirmPassword &&
-         form.value.acceptTerms &&
-         passwordValidationErrors.value.length === 0 &&
-         !passwordConfirmError.value
+  const baseValid = form.value.firstName &&
+                   form.value.lastName &&
+                   form.value.email &&
+                   form.value.acceptTerms
+  
+  if (magicLinkMode.value) {
+    return baseValid
+  } else {
+    return baseValid &&
+           form.value.password &&
+           form.value.confirmPassword &&
+           passwordValidationErrors.value.length === 0 &&
+           !passwordConfirmError.value
+  }
 })
 
 // Handle form submission
 const handleSignUp = async () => {
-  // Always show password errors when button is clicked
-  showPasswordErrors.value = true
+  // Always show password errors when button is clicked (only for password mode)
+  if (!magicLinkMode.value) {
+    showPasswordErrors.value = true
+  }
   
   // Check basic form validation first
   if (!validateForm()) {
     return
   }
   
-  // Check password validation
-  if (passwordValidationErrors.value.length > 0 || passwordConfirmError.value) {
+  // Check password validation only for password mode
+  if (!magicLinkMode.value && (passwordValidationErrors.value.length > 0 || passwordConfirmError.value)) {
     return
   }
   
   try {
-    const result = await signUp(
-      form.value.email,
-      form.value.password,
-      form.value.firstName,
-      form.value.lastName,
-      'ADMIN', // First user is always admin
-      form.value.organizationName || undefined
-    )
+    let result
     
-    if (result.success) {
-      if (result.requiresEmailConfirmation) {
-        // Show email confirmation message with continue button
+    if (magicLinkMode.value) {
+      // Magic link signup
+      result = await signUpWithMagicLink(
+        form.value.email,
+        form.value.firstName,
+        form.value.lastName,
+        'ADMIN', // First user is always admin
+        form.value.organizationName || undefined
+      )
+      
+      if (result.success) {
+        // Show magic link confirmation message
         showEmailConfirmationMessage.value = true
-      } else {
-        // User is immediately authenticated, redirect to dashboard
-        await navigateTo('/my-dashboard?welcome=true')
+      }
+    } else {
+      // Regular password signup
+      result = await signUp(
+        form.value.email,
+        form.value.password,
+        form.value.firstName,
+        form.value.lastName,
+        'ADMIN', // First user is always admin
+        form.value.organizationName || undefined
+      )
+      
+      if (result.success) {
+        if (result.requiresEmailConfirmation) {
+          // Show email confirmation message with continue button
+          showEmailConfirmationMessage.value = true
+        } else {
+          // User is immediately authenticated, redirect to dashboard
+          await navigateTo('/my-dashboard?welcome=true')
+        }
       }
     }
   } catch (err) {
     // Error is handled by the composable
     console.error('Sign up error:', err)
   }
+}
+
+// Toggle between password and magic link modes
+const toggleMagicLinkMode = () => {
+  magicLinkMode.value = !magicLinkMode.value
+  errors.value = {}
+  showPasswordErrors.value = false
+  showEmailConfirmationMessage.value = false
 }
 
 // Navigation functions

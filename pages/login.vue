@@ -21,7 +21,8 @@
       </div>
       
       <UCard class="mt-8 bg-gray-50 shadow-lg">
-        <UForm :state="form" @submit="handleSignIn" class="space-y-6 p-6">
+        <!-- Password Sign In Form -->
+        <UForm v-if="!magicLinkMode" :state="form" @submit="handleSignIn" class="space-y-6 p-6">
           <UFormGroup label="Email address" required class="text-black">
             <UInput
               v-model="form.email"
@@ -76,12 +77,103 @@
             type="submit"
             :loading="loading"
             :disabled="!form.email || !form.password"
-            class="w-full text-white border-0 hover:opacity-90 transition-opacity text-center block "
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity text-center block"
             style="background-color: #F28C28;"
             size="lg"
           >
             Sign in
           </UButton>
+
+          <div class="mt-4">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300" />
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-gray-50 text-gray-500">Or</span>
+              </div>
+            </div>
+
+            <UButton
+              type="button"
+              @click="toggleMagicLinkMode"
+              variant="outline"
+              class="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50 font-heading flex items-center justify-center"
+              size="lg"
+            >
+              <Icon name="heroicons:envelope-open" class="w-5 h-5 mr-2" />
+              Sign in with Magic Link
+            </UButton>
+          </div>
+        </UForm>
+
+        <!-- Magic Link Sign In Form -->
+        <UForm v-else :state="{ magicLinkEmail }" @submit="handleMagicLinkSignIn" class="space-y-6 p-6">
+          <div class="text-center mb-4">
+            <h3 class="text-lg font-heading font-semibold text-black">Sign in with Magic Link</h3>
+            <p class="text-sm text-gray-600 mt-1">We'll send you a secure link to sign in</p>
+          </div>
+
+          <UFormGroup label="Email address" required class="text-black">
+            <UInput
+              v-model="magicLinkEmail"
+              type="email"
+              placeholder="Enter your email"
+              :error="errors.magicLinkEmail"
+              class="bg-white border-gray-300 text-black placeholder-gray-500"
+              required
+            />
+          </UFormGroup>
+
+          <UAlert
+            v-if="error"
+            color="red"
+            variant="soft"
+            :title="error"
+            class="mt-4"
+          />
+
+          <UAlert
+            v-if="successMessage"
+            color="green"
+            variant="soft"
+            :title="successMessage"
+            class="mt-4"
+          />
+
+          <UButton
+            type="submit"
+            :loading="loading"
+            :disabled="!magicLinkEmail"
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity flex items-center justify-center"
+            style="background-color: #F28C28;"
+            size="lg"
+          >
+            <Icon name="heroicons:envelope-open" class="w-5 h-5 mr-2" />
+            Send Magic Link
+          </UButton>
+
+          <div class="mt-4">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300" />
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-gray-50 text-gray-500">Or</span>
+              </div>
+            </div>
+
+            <UButton
+              type="button"
+              @click="toggleMagicLinkMode"
+              variant="outline"
+              class="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50 font-heading flex items-center justify-center"
+              size="lg"
+            >
+              <Icon name="heroicons:key" class="w-5 h-5 mr-2" />
+              Sign in with Password
+            </UButton>
+          </div>
         </UForm>
       </UCard>
     </div>
@@ -103,16 +195,26 @@ const form = ref({
   rememberMe: false
 })
 
+// Magic link state
+const magicLinkMode = ref(false)
+const magicLinkEmail = ref('')
+
 const errors = ref({})
 const successMessage = ref('')
 
 // Auth composable
-const { signIn, loading, error } = useAuth()
+const { signIn, signInWithMagicLink, loading, error } = useAuth()
 
 // Check for success messages from query params
 const route = useRoute()
 if (route.query.message === 'password-updated') {
   successMessage.value = 'Password updated successfully! You can now sign in with your new password.'
+}
+
+// Check if we should start in magic link mode
+if (route.query.mode === 'magic-link') {
+  magicLinkMode.value = true
+  successMessage.value = 'Please request a new magic link below.'
 }
 
 // Form validation
@@ -134,6 +236,19 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0
 }
 
+// Magic link validation
+const validateMagicLinkForm = () => {
+  errors.value = {}
+  
+  if (!magicLinkEmail.value) {
+    errors.value.magicLinkEmail = 'Email is required'
+  } else if (!/\S+@\S+\.\S+/.test(magicLinkEmail.value)) {
+    errors.value.magicLinkEmail = 'Please enter a valid email address'
+  }
+  
+  return Object.keys(errors.value).length === 0
+}
+
 // Handle form submission
 const handleSignIn = async () => {
   if (!validateForm()) return
@@ -150,6 +265,37 @@ const handleSignIn = async () => {
   } catch (err) {
     // Error is handled by the composable
     console.error('❌ Login page: Sign in error:', err)
+  }
+}
+
+// Handle magic link submission
+const handleMagicLinkSignIn = async () => {
+  if (!validateMagicLinkForm()) return
+  
+  try {
+    console.log('🔗 Login page: Starting magic link process')
+    const result = await signInWithMagicLink(magicLinkEmail.value)
+    console.log('✅ Login page: Magic link sent, result:', result)
+    
+    if (result.success) {
+      successMessage.value = result.message
+    }
+  } catch (err) {
+    // Error is handled by the composable
+    console.error('❌ Login page: Magic link error:', err)
+  }
+}
+
+// Toggle between password and magic link modes
+const toggleMagicLinkMode = () => {
+  magicLinkMode.value = !magicLinkMode.value
+  errors.value = {}
+  successMessage.value = ''
+  
+  if (magicLinkMode.value) {
+    magicLinkEmail.value = form.value.email
+  } else {
+    form.value.email = magicLinkEmail.value
   }
 }
 

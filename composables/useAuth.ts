@@ -426,6 +426,79 @@ export const useAuth = () => {
     }
   }
 
+  // Sign in with magic link
+  const signInWithMagicLink = async (email: string) => {
+    try {
+      loading.value = true
+      clearMessages()
+
+      console.log('🔗 Client: Starting magic link sign in for email:', email)
+
+      const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
+
+      if (magicLinkError) throw magicLinkError
+
+      console.log('✅ Client: Magic link sent successfully')
+      setMessage('Magic link sent! Please check your email and click the link to sign in.', 'success')
+      
+      return { 
+        success: true,
+        message: 'Magic link sent! Please check your email and click the link to sign in.'
+      }
+    } catch (err: any) {
+      console.log('❌ Client: Magic link error:', err)
+      setMessage(err.message || 'Failed to send magic link', 'error')
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Sign up with magic link (for new users)
+  const signUpWithMagicLink = async (email: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' = 'EDITOR', organizationName?: string) => {
+    try {
+      loading.value = true
+      clearMessages()
+
+      console.log('🔗 Client: Starting magic link sign up for email:', email)
+
+      const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            firstName,
+            lastName,
+            role,
+            organizationName,
+            isSignUp: true
+          }
+        }
+      })
+
+      if (magicLinkError) throw magicLinkError
+
+      console.log('✅ Client: Magic link sent successfully for sign up')
+      setMessage('Magic link sent! Please check your email and click the link to complete your registration.', 'success')
+      
+      return { 
+        success: true,
+        message: 'Magic link sent! Please check your email and click the link to complete your registration.'
+      }
+    } catch (err: any) {
+      console.log('❌ Client: Magic link sign up error:', err)
+      setMessage(err.message || 'Failed to send magic link', 'error')
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
   // Watch for user changes and load profile
   watch(user, async (newUser) => {
     if (newUser) {
@@ -452,6 +525,8 @@ export const useAuth = () => {
     signUp,
     signIn,
     signOut,
+    signInWithMagicLink,
+    signUpWithMagicLink,
     fetchUserProfile,
     createUserProfile,
     getUserProfile,

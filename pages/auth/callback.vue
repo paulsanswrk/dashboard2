@@ -14,7 +14,7 @@
         </div>
         <h2 class="text-xl font-semibold text-gray-900">{{ successMessage }}</h2>
         <p class="text-gray-600">{{ successDescription }}</p>
-        <UButton @click="redirectToDashboard" class="w-full">
+        <UButton @click="redirectToDashboard" class="w-full justify-center">
           Continue to Dashboard
         </UButton>
       </div>
@@ -26,11 +26,30 @@
         </div>
         <h2 class="text-xl font-semibold text-gray-900">Authentication Error</h2>
         <p class="text-gray-600">{{ error }}</p>
+        
+        <!-- Show different actions based on error type -->
         <div class="flex gap-2">
-          <UButton variant="outline" @click="retry" class="flex-1">
+          <UButton 
+            v-if="isMagicLinkError" 
+            @click="goToLoginWithMagicLink" 
+            class="flex-1"
+            style="background-color: #F28C28;"
+          >
+            Request New Magic Link
+          </UButton>
+          <UButton 
+            v-else 
+            variant="outline" 
+            @click="retry" 
+            class="flex-1"
+          >
             Try Again
           </UButton>
-          <UButton @click="goToLogin" class="flex-1">
+          <UButton 
+            @click="goToLogin" 
+            variant="outline" 
+            class="flex-1"
+          >
             Go to Login
           </UButton>
         </div>
@@ -56,28 +75,87 @@ const loadingMessage = ref('Completing authentication...')
 const successMessage = ref('')
 const successDescription = ref('')
 
+// Computed property to detect magic link errors
+const isMagicLinkError = computed(() => {
+  if (!error.value) return false
+  const errorText = error.value.toLowerCase()
+  return errorText.includes('magic link') || 
+         errorText.includes('expired') || 
+         errorText.includes('invalid') ||
+         errorText.includes('access denied')
+})
+
 // Auth composable
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const route = useRoute()
+const { createUserProfile } = useAuth()
 
 // Handle different auth scenarios
 const handleAuthCallback = async () => {
   try {
+    // Get the URL parameters first to check if this is actually an auth callback
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const queryParams = new URLSearchParams(window.location.search)
+    const hasAuthParams = hashParams.get('access_token') || hashParams.get('code') || queryParams.get('code') || queryParams.get('error')
+    
+    // Check if user is already authenticated before showing loading
+    if (user.value) {
+      console.log('User already authenticated, checking if auth callback is needed')
+      
+      if (!hasAuthParams) {
+        // No auth parameters, user is already authenticated, redirect immediately
+        console.log('No auth parameters, redirecting to dashboard')
+        await navigateTo('/dashboard')
+        return
+      }
+      
+      // There are auth parameters, so this is a legitimate callback
+      console.log('Auth parameters detected, processing callback')
+    }
+
     loading.value = true
     error.value = ''
-
-    // Get the URL hash parameters
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    
+    // Check for errors in both hash and query parameters
+    const errorParam = hashParams.get('error') || queryParams.get('error')
+    const errorCode = hashParams.get('error_code') || queryParams.get('error_code')
+    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
+    
+    // Handle both implicit flow (hash) and authorization code flow (query)
     const accessToken = hashParams.get('access_token')
     const refreshToken = hashParams.get('refresh_token')
     const type = hashParams.get('type')
-    const errorParam = hashParams.get('error')
-    const errorDescription = hashParams.get('error_description')
+    const code = queryParams.get('code')
+    
+    console.log('Auth callback params:', {
+      hashParams: Object.fromEntries(hashParams),
+      queryParams: Object.fromEntries(queryParams),
+      errorParam,
+      errorCode,
+      errorDescription,
+      accessToken,
+      refreshToken,
+      type,
+      code
+    })
 
-    // Handle errors from URL
+    // Handle specific error cases with user-friendly messages
     if (errorParam) {
-      throw new Error(errorDescription || errorParam)
+      let userFriendlyMessage = errorDescription || errorParam
+      
+      // Handle specific error codes
+      if (errorCode === 'otp_expired') {
+        userFriendlyMessage = 'This magic link has expired. Please request a new one.'
+      } else if (errorCode === 'invalid_request') {
+        userFriendlyMessage = 'The magic link is invalid. Please request a new one.'
+      } else if (errorParam === 'access_denied') {
+        userFriendlyMessage = 'Access was denied. The magic link may have expired or been used already.'
+      } else if (errorParam === 'server_error') {
+        userFriendlyMessage = 'A server error occurred. Please try again later.'
+      }
+      
+      throw new Error(userFriendlyMessage)
     }
 
     // Handle different auth types
@@ -99,14 +177,83 @@ const handleAuthCallback = async () => {
       successDescription.value = 'You have been successfully authenticated.'
     }
 
+    // Handle magic link flow - Supabase should automatically process the session
+    // when the page loads with the magic link parameters
+    if (code || accessToken) {
+      console.log('Magic link detected, waiting for Supabase to process...')
+      loadingMessage.value = 'Verifying magic link...'
+      
+      // Wait for Supabase to automatically process the magic link
+      // The session should be available through the reactive user state
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      console.log('Magic link processing completed')
+    }
+
     // Wait for auth state to be processed
     await new Promise(resolve => setTimeout(resolve, 2000))
 
+    // Debug: Check current user state
+    console.log('Current user state:', user.value)
+    console.log('Current session:', await supabase.auth.getSession())
+
     // Check if user is authenticated
     if (user.value) {
+      console.log('User authenticated:', user.value.id)
+      
+      // Check if this is a magic link signup (user has metadata indicating signup)
+      const userMetadata = user.value.user_metadata
+      if (userMetadata && userMetadata.isSignUp) {
+        loadingMessage.value = 'Creating your profile...'
+        
+        try {
+          // Create profile for magic link signup
+          await createUserProfile(user.value, {
+            firstName: userMetadata.firstName,
+            lastName: userMetadata.lastName,
+            role: userMetadata.role || 'ADMIN',
+            organizationName: userMetadata.organizationName
+          })
+          
+          successMessage.value = 'Account Created Successfully!'
+          successDescription.value = 'Your account has been created and you are now signed in. Welcome to Optiqo!'
+        } catch (profileError) {
+          console.error('Profile creation error:', profileError)
+          // Continue anyway - profile creation is not critical for basic functionality
+          successMessage.value = 'Authentication Complete!'
+          successDescription.value = 'You have been successfully authenticated.'
+        }
+      }
+      
       success.value = true
       loading.value = false
     } else {
+      console.error('No user found after authentication attempt')
+      
+      // If we have a code but no user, this might be a magic link that needs manual processing
+      if (code) {
+        console.log('Attempting to process magic link manually...')
+        try {
+          // Try to get the session manually
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+          
+          if (sessionError) {
+            console.error('Session error:', sessionError)
+            throw new Error(`Magic link verification failed: ${sessionError.message}`)
+          }
+          
+          if (sessionData.session && sessionData.session.user) {
+            console.log('Found session after manual check:', sessionData.session.user.id)
+            // Set success and continue
+            success.value = true
+            loading.value = false
+            return
+          }
+        } catch (manualErr) {
+          console.error('Manual magic link processing failed:', manualErr)
+        }
+      }
+      
       throw new Error('Authentication failed. Please try again.')
     }
   } catch (err) {
@@ -129,6 +276,11 @@ const retry = async () => {
 // Go to login page
 const goToLogin = async () => {
   await navigateTo('/login')
+}
+
+// Go to login page with magic link focus
+const goToLoginWithMagicLink = async () => {
+  await navigateTo('/login?mode=magic-link')
 }
 
 // Initialize on mount

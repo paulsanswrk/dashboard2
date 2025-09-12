@@ -15,11 +15,11 @@
       <h1 class="text-2xl font-heading font-bold tracking-tight">My Dashboard</h1>
       <div class="flex gap-2">
         <UButton color="orange" variant="outline" @click="openShareModal">
-          <Icon name="heroicons:share" class="w-4 h-4 mr-2" />
+          <Icon name="heroicons:share" class="w-4 h-4 mr-1" />
           Share
         </UButton>
         <UButton color="orange" @click="openCreateReportModal">
-          <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+          <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
           New report
         </UButton>
       </div>
@@ -111,17 +111,17 @@
     </div>
 
     <!-- Dashboard Actions -->
-    <div class="mt-8 flex justify-center gap-4">
-      <UButton color="orange" variant="outline" @click="editDashboard">
-        <Icon name="heroicons:pencil" class="w-4 h-4 mr-2" />
+    <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+      <UButton color="orange" variant="outline" @click="editDashboard" class="w-full sm:w-auto">
+        <Icon name="heroicons:pencil" class="w-4 h-4 mr-1" />
         Edit Dashboard
       </UButton>
-      <UButton color="orange" variant="outline" @click="duplicateDashboard">
-        <Icon name="heroicons:document-duplicate" class="w-4 h-4 mr-2" />
+      <UButton color="orange" variant="outline" @click="duplicateDashboard" class="w-full sm:w-auto">
+        <Icon name="heroicons:document-duplicate" class="w-4 h-4 mr-1" />
         Duplicate
       </UButton>
-      <UButton color="red" variant="outline" @click="deleteDashboard">
-        <Icon name="heroicons:trash" class="w-4 h-4 mr-2" />
+      <UButton color="red" variant="outline" @click="deleteDashboard" class="w-full sm:w-auto">
+        <Icon name="heroicons:trash" class="w-4 h-4 mr-1" />
         Delete
       </UButton>
     </div>

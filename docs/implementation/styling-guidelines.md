@@ -103,13 +103,14 @@ h1 {
   letter-spacing: -0.02em;
 }
 
-/* H2 - Section Titles */
+/* H2 - Section Titles (Form Headers) */
 h2 {
   font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  font-weight: 600;
+  font-weight: 600; /* Not bold for better readability */
   font-size: 1.5rem; /* 24px */
   line-height: 1.2;
   letter-spacing: -0.02em;
+  margin-bottom: 1rem; /* Added spacing for better visual hierarchy */
 }
 
 /* H3 - Card Headers */
@@ -147,8 +148,8 @@ body {
 <!-- Page Titles -->
 <h1 class="text-2xl font-heading font-bold tracking-tight">Page Title</h1>
 
-<!-- Section Headers -->
-<h2 class="text-xl font-heading font-semibold tracking-tight">Section Title</h2>
+<!-- Section Headers (Form Headers) -->
+<h2 class="text-xl font-heading font-semibold tracking-tight mb-4">Section Title</h2>
 
 <!-- Card Headers -->
 <h3 class="text-lg font-heading font-semibold tracking-tight">Card Title</h3>
@@ -212,6 +213,24 @@ body {
 />
 ```
 
+#### Form Validation
+```html
+<!-- Error Summary (shown after button click) -->
+<div v-if="showErrors && validationErrors.length > 0" class="mt-4">
+  <div class="bg-red-50 border border-red-200 rounded-md p-4">
+    <div class="flex">
+      <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2 mt-0.5" />
+      <div>
+        <h4 class="text-sm font-medium text-red-800 mb-1">Please fix the following errors:</h4>
+        <ul class="text-sm text-red-700 list-disc list-inside">
+          <li v-for="error in validationErrors" :key="error">{{ error }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
 #### Form Groups
 ```html
 <!-- Form Group with Label -->
@@ -245,6 +264,27 @@ body {
   </template>
   <!-- Card Content -->
 </UCard>
+```
+
+#### Success Message Card
+```html
+<!-- Success Message Card -->
+<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-6">
+  <div class="flex">
+    <Icon name="heroicons:check-circle" class="w-6 h-6 text-green-400 mr-3 mt-0.5" />
+    <div class="flex-1">
+      <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">Success Title</h4>
+      <p class="text-sm text-green-700 dark:text-green-300 mb-4">
+        Success message content with clear instructions.
+      </p>
+      <div class="flex justify-center">
+        <UButton color="green" size="sm">
+          Action Button
+        </UButton>
+      </div>
+    </div>
+  </div>
+</div>
 ```
 
 #### Dark Card
@@ -512,12 +552,16 @@ assets/css/
 - **Use Inter for body text** for optimal readability
 - **Apply consistent letter spacing** (-0.01em to -0.03em)
 - **Maintain proper hierarchy** with appropriate font sizes
+- **Form headers should not be bold** (font-weight: 600) for better readability
+- **Add proper spacing** (mb-4) under form headers for visual hierarchy
 
 ### Component Consistency
 - **Follow the established patterns** for buttons, forms, and cards
 - **Use Tailwind classes** for consistent spacing and sizing
 - **Apply hover states** consistently across interactive elements
 - **Maintain responsive behavior** on all screen sizes
+- **Show validation errors only after user interaction** (button click) for better UX
+- **Always make action buttons clickable** with error summary display on click
 
 ### Performance
 - **Use inline styles sparingly** and only when necessary
@@ -556,8 +600,24 @@ assets/css/
 - **Include examples** for complex styling patterns
 - **Maintain a style inventory** of all components
 
+## Recent Improvements
+
+### Enhanced User Experience
+- **Improved form typography** with non-bold headers and better spacing
+- **Enhanced validation UX** with error summaries shown only after user interaction
+- **Clear success messaging** with prominent visual feedback
+- **Consistent button behavior** - always clickable with proper error handling
+
+### Authentication Flow Enhancements
+- **Success message cards** with clear instructions and action buttons
+- **Improved error handling** with user-friendly validation messages
+- **Better visual hierarchy** across all authentication forms
+- **Enhanced accessibility** with proper focus states and error indicators
+
 ## Conclusion
 
 These styling guidelines ensure that the Optiqo Dashboard maintains a consistent, professional appearance that aligns with the brand identity. By following these guidelines, developers can create components that integrate seamlessly with the overall design system while providing an excellent user experience across all devices and screen sizes.
 
 The combination of the warm orange brand color, modern typography (Barlow for headings, Inter for body text), and clean design principles creates a cohesive visual identity that reflects the professional nature of the Optiqo business intelligence platform.
+
+Recent improvements focus on enhancing user experience through better form validation, clearer messaging, and improved visual hierarchy, ensuring that users have a smooth and intuitive experience when interacting with the authentication system and other application features.

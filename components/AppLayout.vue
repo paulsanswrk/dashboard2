@@ -1,12 +1,5 @@
 <template>
   <div class="flex h-screen bg-gray-50">
-    <!-- Mobile Menu Button -->
-    <button 
-      @click="toggleMobileMenu"
-      class="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-md"
-    >
-      <Icon :name="isMobileMenuOpen ? 'heroicons:x-mark' : 'heroicons:bars-3'" class="w-6 h-6" />
-    </button>
 
     <!-- Mobile Overlay -->
     <div 
@@ -90,7 +83,14 @@
       <div class="topbar">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2 lg:gap-6">
-            <span class="text-sm font-heading font-semibold tracking-wide">OPTIQO</span>
+            <!-- Mobile Menu Button -->
+            <button 
+              @click="toggleMobileMenu"
+              class="lg:hidden p-2 hover:bg-black/10 rounded-md transition-colors"
+            >
+              <Icon :name="isMobileMenuOpen ? 'heroicons:x-mark' : 'heroicons:bars-3'" class="w-5 h-5" />
+            </button>
+            <span class="text-xl lg:text-sm font-heading font-semibold tracking-wide">OPTIQO</span>
             <!-- Desktop Navigation -->
             <nav class="hidden lg:flex gap-6">
               <button class="hover:underline hover:text-orange-300 font-heading font-medium text-sm tracking-wide transition-colors">CONNECT</button>
