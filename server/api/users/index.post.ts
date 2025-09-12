@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { capitalizeRole } from '../../utils/roleUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -42,19 +43,30 @@ export default defineEventHandler(async (event) => {
     }
 
     const userId = user.id
-    const viewerId = getRouterParam(event, 'id')
-
-    if (!viewerId) {
-      setResponseStatus(event, 400)
-      return {
-        success: false,
-        error: 'Viewer ID is required'
-      }
-    }
 
     // Get the request body
     const body = await readBody(event)
-    const { firstName, lastName, type, group } = body
+    const { email, firstName, lastName, role } = body
+
+    if (!email) {
+      setResponseStatus(event, 400)
+      return {
+        success: false,
+        error: 'Email is required'
+      }
+    }
+
+    // Capitalize and validate role
+    let capitalizedRole: string
+    try {
+      capitalizedRole = capitalizeRole(role || 'EDITOR')
+    } catch (error: any) {
+      setResponseStatus(event, 400)
+      return {
+        success: false,
+        error: error.message
+      }
+    }
 
     // Get user's organization from profiles table
     const { data: profile, error: profileError } = await supabase
@@ -79,74 +91,72 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Check if viewer exists and belongs to the user's organization
-    const { data: existingViewer, error: viewerError } = await supabase
-      .from('viewers')
-      .select('user_id, organization_id')
-      .eq('user_id', viewerId)
-      .eq('organization_id', profile.organization_id)
-      .single()
-
-    if (viewerError) {
-      if (viewerError.code === 'PGRST116') {
-        setResponseStatus(event, 404)
-        return {
-          success: false,
-          error: 'Viewer not found'
-        }
+    // Create a new user in Supabase Auth first (passwordless)
+    const { data: authData, error: createUserError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        first_name: firstName,
+        last_name: lastName
       }
-      setResponseStatus(event, 500)
+    })
+
+    if (createUserError) {
+      console.error('Error creating auth user:', createUserError)
+      setResponseStatus(event, 400)
       return {
         success: false,
-        error: 'Failed to check viewer'
+        error: `Failed to create user: ${createUserError.message}`
       }
     }
 
-    // Update the viewer
-    const { data: updatedViewer, error: updateError } = await supabase
-      .from('viewers')
-      .update({
+    const newUserId = authData.user.id
+
+    // Create the profile
+    const { data: newUser, error: createError } = await supabase
+      .from('profiles')
+      .insert({
+        user_id: newUserId,
+        organization_id: profile.organization_id,
         first_name: firstName || null,
         last_name: lastName || null,
-        viewer_type: type || 'Viewer',
-        group_name: group || null
+        role: capitalizedRole
       })
-      .eq('user_id', viewerId)
-      .eq('organization_id', profile.organization_id)
-      .select('user_id, first_name, last_name, viewer_type, group_name, created_at')
+      .select('user_id, first_name, last_name, role, created_at')
       .single()
 
-    if (updateError) {
-      console.error('Error updating viewer:', updateError)
+    if (createError) {
+      console.error('Error creating profile:', createError)
+      // Clean up the auth user if profile creation fails
+      await supabase.auth.admin.deleteUser(newUserId)
       setResponseStatus(event, 500)
       return {
         success: false,
-        error: 'Failed to update viewer'
+        error: 'Failed to create user profile'
       }
     }
 
     // Transform the response to match frontend format
-    const transformedViewer = {
-      id: updatedViewer.user_id,
-      email: `user-${updatedViewer.user_id.slice(0, 8)}@viewer.com`, // Placeholder email
-      name: updatedViewer.first_name && updatedViewer.last_name 
-        ? `${updatedViewer.first_name} ${updatedViewer.last_name}` 
-        : updatedViewer.first_name || updatedViewer.last_name || '',
-      type: updatedViewer.viewer_type || 'Viewer',
-      group: updatedViewer.group_name || '',
-      firstName: updatedViewer.first_name || '',
-      lastName: updatedViewer.last_name || '',
-      createdAt: updatedViewer.created_at
+    const transformedUser = {
+      id: newUser.user_id,
+      email: email,
+      name: newUser.first_name && newUser.last_name 
+        ? `${newUser.first_name} ${newUser.last_name}` 
+        : newUser.first_name || newUser.last_name || '',
+      role: newUser.role || 'EDITOR',
+      firstName: newUser.first_name || '',
+      lastName: newUser.last_name || '',
+      createdAt: newUser.created_at
     }
 
     return {
       success: true,
-      viewer: transformedViewer,
-      message: 'Viewer updated successfully'
+      user: transformedUser,
+      message: 'User created successfully. They will receive a magic link to log in.'
     }
 
   } catch (error: any) {
-    console.error('Update viewer error:', error)
+    console.error('Create user error:', error)
     
     setResponseStatus(event, 500)
     return {

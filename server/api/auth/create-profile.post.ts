@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { capitalizeRole } from '../../utils/roleUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -29,12 +30,24 @@ export default defineEventHandler(async (event) => {
 
     console.log('Creating profile for user:', userId, email)
 
+    // Capitalize and validate role
+    const rawRole = profileData?.role || userMetadata?.role || 'EDITOR'
+    let capitalizedRole: string
+    try {
+      capitalizedRole = capitalizeRole(rawRole)
+    } catch (error: any) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: error.message
+      })
+    }
+
     // Prepare profile data for optiqo-dashboard structure
     const profileDataToCreate = {
       user_id: userId,
       first_name: profileData?.firstName || userMetadata?.firstName || null,
       last_name: profileData?.lastName || userMetadata?.lastName || null,
-      role: profileData?.role || userMetadata?.role || 'EDITOR',
+      role: capitalizedRole,
       organization_id: null, // Will be set later if organization is created
       created_at: new Date().toISOString()
     }
@@ -56,7 +69,7 @@ export default defineEventHandler(async (event) => {
         .update({
           first_name: profileDataToCreate.first_name,
           last_name: profileDataToCreate.last_name,
-          role: profileDataToCreate.role
+          role: capitalizedRole
         })
         .eq('user_id', userId)
         .select()
@@ -84,7 +97,7 @@ export default defineEventHandler(async (event) => {
 
     // Handle organization creation if needed
     let organizationId = null
-    if (profileData?.organizationName && profileData?.role === 'ADMIN') {
+    if (profileData?.organizationName && capitalizedRole === 'ADMIN') {
       console.log('Creating organization for admin user...')
       
       // Check if organization already exists

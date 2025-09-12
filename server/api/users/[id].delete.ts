@@ -42,19 +42,24 @@ export default defineEventHandler(async (event) => {
     }
 
     const userId = user.id
-    const viewerId = getRouterParam(event, 'id')
+    const targetUserId = getRouterParam(event, 'id')
 
-    if (!viewerId) {
+    if (!targetUserId) {
       setResponseStatus(event, 400)
       return {
         success: false,
-        error: 'Viewer ID is required'
+        error: 'User ID is required'
       }
     }
 
-    // Get the request body
-    const body = await readBody(event)
-    const { firstName, lastName, type, group } = body
+    // Prevent users from deleting themselves
+    if (targetUserId === userId) {
+      setResponseStatus(event, 400)
+      return {
+        success: false,
+        error: 'Cannot delete your own account'
+      }
+    }
 
     // Get user's organization from profiles table
     const { data: profile, error: profileError } = await supabase
@@ -79,74 +84,53 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Check if viewer exists and belongs to the user's organization
-    const { data: existingViewer, error: viewerError } = await supabase
-      .from('viewers')
+    // Check if target user exists and belongs to the same organization
+    const { data: existingUser, error: userError } = await supabase
+      .from('profiles')
       .select('user_id, organization_id')
-      .eq('user_id', viewerId)
+      .eq('user_id', targetUserId)
       .eq('organization_id', profile.organization_id)
       .single()
 
-    if (viewerError) {
-      if (viewerError.code === 'PGRST116') {
+    if (userError) {
+      if (userError.code === 'PGRST116') {
         setResponseStatus(event, 404)
         return {
           success: false,
-          error: 'Viewer not found'
+          error: 'User not found'
         }
       }
       setResponseStatus(event, 500)
       return {
         success: false,
-        error: 'Failed to check viewer'
+        error: 'Failed to check user'
       }
     }
 
-    // Update the viewer
-    const { data: updatedViewer, error: updateError } = await supabase
-      .from('viewers')
-      .update({
-        first_name: firstName || null,
-        last_name: lastName || null,
-        viewer_type: type || 'Viewer',
-        group_name: group || null
-      })
-      .eq('user_id', viewerId)
+    // Delete the user profile
+    const { error: deleteError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('user_id', targetUserId)
       .eq('organization_id', profile.organization_id)
-      .select('user_id, first_name, last_name, viewer_type, group_name, created_at')
-      .single()
 
-    if (updateError) {
-      console.error('Error updating viewer:', updateError)
+    if (deleteError) {
+      console.error('Error deleting user:', deleteError)
       setResponseStatus(event, 500)
       return {
         success: false,
-        error: 'Failed to update viewer'
+        error: 'Failed to delete user'
       }
-    }
-
-    // Transform the response to match frontend format
-    const transformedViewer = {
-      id: updatedViewer.user_id,
-      email: `user-${updatedViewer.user_id.slice(0, 8)}@viewer.com`, // Placeholder email
-      name: updatedViewer.first_name && updatedViewer.last_name 
-        ? `${updatedViewer.first_name} ${updatedViewer.last_name}` 
-        : updatedViewer.first_name || updatedViewer.last_name || '',
-      type: updatedViewer.viewer_type || 'Viewer',
-      group: updatedViewer.group_name || '',
-      firstName: updatedViewer.first_name || '',
-      lastName: updatedViewer.last_name || '',
-      createdAt: updatedViewer.created_at
     }
 
     return {
       success: true,
-      viewer: transformedViewer,
-      message: 'Viewer updated successfully'
+      message: 'User deleted successfully',
+      userId: targetUserId
     }
 
   } catch (error: any) {
-    console.error('Update viewer error:', error)
+    console.error('Delete user error:', error)
     
     setResponseStatus(event, 500)
     return {

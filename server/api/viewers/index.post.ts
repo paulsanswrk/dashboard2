@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check if viewer already exists
-    const { data: existingViewer } = await supabase
+/*    const { data: existingViewer } = await supabase
       .from('viewers')
       .select('user_id')
       .eq('user_id', userId)
@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
         statusCode: 409,
         statusMessage: 'Viewer already exists'
       })
-    }
+    }*/
 
     // Create viewer record using admin client
     const { data: newViewer, error: createError } = await supabase

@@ -42,15 +42,6 @@ export default defineEventHandler(async (event) => {
     }
 
     const userId = user.id
-    const viewerId = getRouterParam(event, 'id')
-
-    if (!viewerId) {
-      setResponseStatus(event, 400)
-      return {
-        success: false,
-        error: 'Viewer ID is required'
-      }
-    }
 
     // Get user's organization from profiles table
     const { data: profile, error: profileError } = await supabase
@@ -75,53 +66,49 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Check if viewer exists and belongs to the user's organization
-    const { data: existingViewer, error: viewerError } = await supabase
-      .from('viewers')
-      .select('user_id, organization_id')
-      .eq('user_id', viewerId)
+    // Fetch users (profiles) for the current organization
+    const { data: users, error: usersError } = await supabase
+      .from('profiles')
+      .select(`
+        user_id,
+        first_name,
+        last_name,
+        role,
+        created_at
+      `)
       .eq('organization_id', profile.organization_id)
-      .single()
+      .order('created_at', { ascending: false })
 
-    if (viewerError) {
-      if (viewerError.code === 'PGRST116') {
-        setResponseStatus(event, 404)
-        return {
-          success: false,
-          error: 'Viewer not found'
-        }
-      }
+    if (usersError) {
+      console.error('Error fetching users:', usersError)
       setResponseStatus(event, 500)
       return {
         success: false,
-        error: 'Failed to check viewer'
+        error: 'Failed to fetch users'
       }
     }
 
-    // Delete the viewer
-    const { error: deleteError } = await supabase
-      .from('viewers')
-      .delete()
-      .eq('user_id', viewerId)
-      .eq('organization_id', profile.organization_id)
-
-    if (deleteError) {
-      console.error('Error deleting viewer:', deleteError)
-      setResponseStatus(event, 500)
-      return {
-        success: false,
-        error: 'Failed to delete viewer'
-      }
-    }
+    // Transform the data to match the expected format
+    const transformedUsers = users.map(user => ({
+      id: user.user_id,
+      email: `user-${user.user_id.slice(0, 8)}@company.com`, // Placeholder email
+      name: user.first_name && user.last_name 
+        ? `${user.first_name} ${user.last_name}` 
+        : user.first_name || user.last_name || '',
+      role: user.role || 'Editor',
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      createdAt: user.created_at
+    }))
 
     return {
       success: true,
-      message: 'Viewer deleted successfully',
-      viewerId: viewerId
+      users: transformedUsers,
+      total: transformedUsers.length
     }
 
   } catch (error: any) {
-    console.error('Delete viewer error:', error)
+    console.error('Get users error:', error)
     
     setResponseStatus(event, 500)
     return {

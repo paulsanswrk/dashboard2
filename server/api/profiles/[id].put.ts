@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../supabase'
+import { capitalizeRole } from '../../utils/roleUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -53,12 +54,17 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Validate role if provided
-    if (role && !['ADMIN', 'EDITOR'].includes(role)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Invalid role. Must be ADMIN or EDITOR'
-      })
+    // Capitalize and validate role if provided
+    let capitalizedRole = null
+    if (role) {
+      try {
+        capitalizedRole = capitalizeRole(role)
+      } catch (error: any) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: error.message
+        })
+      }
     }
 
     // Only admins can change roles
@@ -73,7 +79,7 @@ export default defineEventHandler(async (event) => {
     const updateData: any = {}
     if (firstName !== undefined) updateData.first_name = firstName
     if (lastName !== undefined) updateData.last_name = lastName
-    if (role !== undefined) updateData.role = role
+    if (capitalizedRole !== null) updateData.role = capitalizedRole
     if (organizationId !== undefined) updateData.organization_id = organizationId
 
     // Update profile
