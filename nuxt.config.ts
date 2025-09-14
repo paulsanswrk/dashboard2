@@ -20,7 +20,7 @@ export default defineNuxtConfig({
     redirectOptions: {
       login: '/login',
       callback: '/auth/callback',
-      exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password']
+      exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback']
     },
     // Explicitly set the URL and key
     url: process.env.SUPABASE_URL,

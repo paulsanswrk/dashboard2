@@ -426,6 +426,36 @@ export const useAuth = () => {
     }
   }
 
+  // Reset password
+  const resetPassword = async (email: string) => {
+    try {
+      loading.value = true
+      clearMessages()
+
+      console.log('🔑 Client: Starting password reset for email:', email)
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      })
+
+      if (error) throw error
+
+      console.log('✅ Client: Password reset email sent successfully')
+      setMessage('Password reset email sent! Check your email for instructions.', 'success')
+      
+      return { 
+        success: true,
+        message: 'Password reset email sent! Check your email for instructions.'
+      }
+    } catch (err: any) {
+      console.log('❌ Client: Password reset error:', err)
+      setMessage(err.message || 'Failed to send password reset email', 'error')
+      return { success: false, error: err.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
   // Sign in with magic link
   const signInWithMagicLink = async (email: string) => {
     try {
@@ -536,6 +566,7 @@ export const useAuth = () => {
     uploadAvatar,
     deleteAvatar,
     resendConfirmationEmail,
+    resetPassword,
     clearMessages
   }
 }

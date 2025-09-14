@@ -29,7 +29,7 @@
         }
         
         .header {
-            background-color: #CC5500;
+            background-color: #f1e0b4;
             padding: 24px;
             text-align: center;
         }
@@ -128,8 +128,6 @@
         }
         
         .instructions-item {
-            display: flex;
-            align-items: flex-start;
             margin-bottom: 8px;
             font-size: 14px;
             color: #0c4a6e;
@@ -140,18 +138,18 @@
         }
         
         .step-number {
-            background-color: #CC5500;
+            background-color: #f29027;
             color: #ffffff;
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             font-size: 12px;
             font-weight: 600;
+            text-align: center;
+            line-height: 20px;
+            display: inline-block;
             margin-right: 12px;
-            flex-shrink: 0;
+            vertical-align: top;
         }
         
         .footer {
@@ -264,20 +262,38 @@
             <!-- Instructions -->
             <div class="instructions">
                 <h3 class="instructions-title">How to use this code:</h3>
-                <ul class="instructions-list">
-                    <li class="instructions-item">
-                        <div class="step-number">1</div>
-                        <div>Return to the Optiqo application</div>
-                    </li>
-                    <li class="instructions-item">
-                        <div class="step-number">2</div>
-                        <div>Enter the verification code above when prompted</div>
-                    </li>
-                    <li class="instructions-item">
-                        <div class="step-number">3</div>
-                        <div>Complete the reauthentication process</div>
-                    </li>
-                </ul>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <tr>
+                        <td style="padding: 0; vertical-align: top;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 0 12px 8px 0; vertical-align: top; width: 20px;">
+                                        <div class="step-number" style="width: 20px; height: 20px; background-color: #f29027; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 600; text-align: center; line-height: 20px; display: inline-block;">1</div>
+                                    </td>
+                                    <td style="padding: 0 0 8px 0; vertical-align: top; font-size: 14px; color: #0c4a6e;">
+                                        Return to the Optiqo application
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0 12px 8px 0; vertical-align: top; width: 20px;">
+                                        <div class="step-number" style="width: 20px; height: 20px; background-color: #f29027; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 600; text-align: center; line-height: 20px; display: inline-block;">2</div>
+                                    </td>
+                                    <td style="padding: 0 0 8px 0; vertical-align: top; font-size: 14px; color: #0c4a6e;">
+                                        Enter the verification code above when prompted
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 0 12px 0 0; vertical-align: top; width: 20px;">
+                                        <div class="step-number" style="width: 20px; height: 20px; background-color: #f29027; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 600; text-align: center; line-height: 20px; display: inline-block;">3</div>
+                                    </td>
+                                    <td style="padding: 0; vertical-align: top; font-size: 14px; color: #0c4a6e;">
+                                        Complete the reauthentication process
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
             </div>
             
             <!-- Expiry Warning -->

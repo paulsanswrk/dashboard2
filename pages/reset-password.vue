@@ -96,7 +96,7 @@ const form = ref({
 
 const errors = ref({})
 const loading = ref(false)
-const error = ref<string | null>(null)
+const error = ref(null)
 const success = ref(false)
 
 // Auth composable

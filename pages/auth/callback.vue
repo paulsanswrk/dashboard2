@@ -27,15 +27,15 @@
         <h2 class="text-xl font-semibold text-gray-900">Authentication Error</h2>
         <p class="text-gray-600">{{ error }}</p>
         
-        <!-- Show different actions based on error type test -->
+        <!-- Show different actions based on error type -->
         <div class="flex gap-2">
           <UButton 
             v-if="isMagicLinkError" 
-            @click="goToLoginWithMagicLink" 
+            @click="goToForgotPassword" 
             class="flex-1"
             style="background-color: #F28C28;"
           >
-            Request New Magic Link
+            {{ error.includes('password reset') ? 'Request New Reset Link' : 'Request New Magic Link' }}
           </UButton>
           <UButton 
             v-else 
@@ -75,11 +75,12 @@ const loadingMessage = ref('Completing authentication...')
 const successMessage = ref('')
 const successDescription = ref('')
 
-// Computed property to detect magic link errors
+// Computed property to detect magic link and password reset errors
 const isMagicLinkError = computed(() => {
   if (!error.value) return false
   const errorText = error.value.toLowerCase()
   return errorText.includes('magic link') || 
+         errorText.includes('password reset') ||
          errorText.includes('expired') || 
          errorText.includes('invalid') ||
          errorText.includes('access denied')
@@ -99,6 +100,36 @@ const handleAuthCallback = async () => {
     const queryParams = new URLSearchParams(window.location.search)
     const hasAuthParams = hashParams.get('access_token') || hashParams.get('code') || queryParams.get('code') || queryParams.get('error')
     
+    // Check for errors FIRST, before any other processing
+    const errorParam = hashParams.get('error') || queryParams.get('error')
+    const errorCode = hashParams.get('error_code') || queryParams.get('error_code')
+    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
+    
+    // Handle errors immediately
+    if (errorParam) {
+      let userFriendlyMessage = errorDescription || errorParam
+      
+      // Handle specific error codes and combinations
+      if (errorCode === 'otp_expired') {
+        if (errorParam === 'access_denied') {
+          userFriendlyMessage = 'This password reset link has expired. Please request a new one.'
+        } else {
+          userFriendlyMessage = 'This magic link has expired. Please request a new one.'
+        }
+      } else if (errorCode === 'invalid_request') {
+        userFriendlyMessage = 'The magic link is invalid. Please request a new one.'
+      } else if (errorParam === 'access_denied') {
+        userFriendlyMessage = 'Access was denied. The magic link may have expired or been used already.'
+      } else if (errorParam === 'server_error') {
+        userFriendlyMessage = 'A server error occurred. Please try again later.'
+      }
+      
+      // Set error state and stop processing
+      error.value = userFriendlyMessage
+      loading.value = false
+      return
+    }
+    
     // Check if user is already authenticated before showing loading
     if (user.value) {
       console.log('User already authenticated, checking if auth callback is needed')
@@ -116,11 +147,6 @@ const handleAuthCallback = async () => {
 
     loading.value = true
     error.value = ''
-    
-    // Check for errors in both hash and query parameters
-    const errorParam = hashParams.get('error') || queryParams.get('error')
-    const errorCode = hashParams.get('error_code') || queryParams.get('error_code')
-    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
     
     // Handle both implicit flow (hash) and authorization code flow (query)
     const accessToken = hashParams.get('access_token')
@@ -140,23 +166,6 @@ const handleAuthCallback = async () => {
       code
     })
 
-    // Handle specific error cases with user-friendly messages
-    if (errorParam) {
-      let userFriendlyMessage = errorDescription || errorParam
-      
-      // Handle specific error codes
-      if (errorCode === 'otp_expired') {
-        userFriendlyMessage = 'This magic link has expired. Please request a new one.'
-      } else if (errorCode === 'invalid_request') {
-        userFriendlyMessage = 'The magic link is invalid. Please request a new one.'
-      } else if (errorParam === 'access_denied') {
-        userFriendlyMessage = 'Access was denied. The magic link may have expired or been used already.'
-      } else if (errorParam === 'server_error') {
-        userFriendlyMessage = 'A server error occurred. Please try again later.'
-      }
-      
-      throw new Error(userFriendlyMessage)
-    }
 
     // Handle different auth types
     if (type === 'signup') {
@@ -281,6 +290,11 @@ const goToLogin = async () => {
 // Go to login page with magic link focus
 const goToLoginWithMagicLink = async () => {
   await navigateTo('/login?mode=magic-link')
+}
+
+// Go to forgot password page
+const goToForgotPassword = async () => {
+  await navigateTo('/forgot-password')
 }
 
 // Initialize on mount

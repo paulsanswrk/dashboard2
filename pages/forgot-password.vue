@@ -47,7 +47,7 @@
             type="submit"
             :loading="loading"
             :disabled="!form.email"
-            class="w-full"
+            class="w-full flex justify-center"
             size="lg"
           >
             Send reset link
@@ -79,7 +79,7 @@ const form = ref({
 
 const errors = ref({})
 const loading = ref(false)
-const error = ref<string | null>(null)
+const error = ref(null)
 const success = ref(false)
 
 // Auth composable
