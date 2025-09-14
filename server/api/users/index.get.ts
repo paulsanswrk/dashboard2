@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Fetch users (profiles) for the current organization
+    // Fetch users (profiles with EDITOR or ADMIN roles) for the current organization
     const { data: users, error: usersError } = await supabase
       .from('profiles')
       .select(`
@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
         created_at
       `)
       .eq('organization_id', profile.organization_id)
+      .in('role', ['EDITOR', 'ADMIN'])
       .order('created_at', { ascending: false })
 
     if (usersError) {
@@ -88,14 +89,37 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Get email addresses for all users
+    const userIds = users.map(u => u.user_id)
+    const { data: authUsers, error: listUsersError } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000
+    })
+
+    if (listUsersError) {
+      console.error('Error fetching auth users:', listUsersError)
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Failed to fetch user emails'
+      })
+    }
+
+    // Create a map of user_id to email
+    const userEmailMap = new Map()
+    authUsers.users.forEach(user => {
+      if (userIds.includes(user.id)) {
+        userEmailMap.set(user.id, user.email)
+      }
+    })
+
     // Transform the data to match the expected format
     const transformedUsers = users.map(user => ({
       id: user.user_id,
-      email: `user-${user.user_id.slice(0, 8)}@company.com`, // Placeholder email
+      email: userEmailMap.get(user.user_id) || `user-${user.user_id.slice(0, 8)}@company.com`,
       name: user.first_name && user.last_name 
         ? `${user.first_name} ${user.last_name}` 
         : user.first_name || user.last_name || '',
-      role: user.role || 'Editor',
+      role: user.role || 'EDITOR',
       firstName: user.first_name || '',
       lastName: user.last_name || '',
       createdAt: user.created_at

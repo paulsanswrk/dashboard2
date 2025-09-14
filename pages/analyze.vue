@@ -46,7 +46,7 @@
     <div class="flex-1 p-4 lg:p-6 flex flex-col">
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h1 class="text-xl sm:text-2xl font-bold">Analysis</h1>
-        <UButton @click="openCreateReportModal" class="w-full sm:w-auto">
+        <UButton @click="openCreateReportModal" class="w-full sm:w-auto" color="green">
           Save
         </UButton>
       </div>

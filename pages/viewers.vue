@@ -23,7 +23,7 @@
     >
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h2 class="text-xl font-bold">Viewers ({{ filteredViewers.length }} / {{ totalViewers }})</h2>
-        <UButton size="sm" @click="openAddViewerModal" class="w-full sm:w-auto">
+        <UButton size="sm" @click="openAddViewerModal" class="w-full sm:w-auto" color="green">
           <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
           Add Viewer
         </UButton>
@@ -151,7 +151,7 @@
       <div v-else class="text-center py-8">
         <Icon name="heroicons:eye" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
         <p class="text-gray-500 mb-4">No viewers found</p>
-        <UButton @click="openAddViewerModal" size="sm">
+        <UButton @click="openAddViewerModal" size="sm" color="green">
           Add First Viewer
         </UButton>
       </div>
@@ -224,10 +224,10 @@
           <h3 class="text-lg font-semibold">Add Viewer</h3>
         </template>
         
-        <div class="space-y-4">
+        <form @submit.prevent="addViewer" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Email">
-              <UInput placeholder="viewer@example.com" v-model="newViewer.email" />
+            <UFormGroup label="Email" required>
+              <UInput placeholder="viewer@example.com" v-model="newViewer.email" type="email" required />
             </UFormGroup>
             <UFormGroup label="First Name">
               <UInput placeholder="First Name" v-model="newViewer.firstName" />
@@ -247,11 +247,12 @@
             </UFormGroup>
           </div>
 
-          <UFormGroup label="Viewer Type">
+          <UFormGroup label="Viewer Type" required>
             <USelect 
               v-model="newViewer.type"
               :options="viewerTypeOptions"
               placeholder="Select type"
+              required
             />
           </UFormGroup>
 
@@ -273,14 +274,14 @@
           </div>
 
           <div class="flex justify-end gap-2">
-            <UButton variant="outline" @click="closeAddViewerModal" :disabled="loading">
+            <UButton type="button" variant="outline" @click="closeAddViewerModal" :disabled="loading">
               Cancel
             </UButton>
-            <UButton @click="addViewer" :loading="loading" :disabled="loading">
+            <UButton type="submit" :loading="loading" :disabled="loading" color="green">
               Add Viewer
             </UButton>
           </div>
-        </div>
+        </form>
       </UCard>
     </UModal>
 

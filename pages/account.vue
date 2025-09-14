@@ -49,6 +49,7 @@
             size="sm"
             @click="navigateTo('/users')"
             v-if="userProfile?.role === 'ADMIN'"
+            color="green"
           >
             <Icon name="heroicons:users" class="w-4 h-4 mr-2" />
             Manage Users
@@ -136,6 +137,7 @@
                 :loading="loading"
                 class="w-full"
                 size="sm"
+                color="green"
               >
                 <Icon name="heroicons:photo" class="w-4 h-4 mr-2" />
                 {{ userProfile?.avatar_url ? 'Change Photo' : 'Upload Photo' }}
@@ -215,6 +217,7 @@
                 type="submit" 
                 :loading="loading"
                 :disabled="!hasProfileChanges"
+                color="green"
               >
                 Save Changes
               </UButton>

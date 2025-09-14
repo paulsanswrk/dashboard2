@@ -56,6 +56,13 @@ This document outlines the comprehensive styling guidelines for the Optiqo Dashb
 - **Text on Orange**: Always white (#ffffff)
 - **Hover States**: Use primary-600 (#e3730f)
 
+#### Green Colors
+- **Light Mode**: Standard Tailwind green (#10b981)
+- **Dark Mode**: Custom darker green (rgb(23 99 51))
+- **Usage**: Success messages, action buttons, badges
+- **Text on Green**: Always white (#ffffff)
+- **Hover States**: Slightly darker green (rgb(20 85 45))
+
 #### Dark Colors
 - **#222222**: Modal backgrounds, sidebar
 - **#363636**: Hover states, secondary backgrounds
@@ -174,6 +181,11 @@ body {
 >
   Primary Action
 </UButton>
+
+<!-- Green Action Button (Success/Actions) -->
+<UButton color="green">
+  Save Changes
+</UButton>
 ```
 
 #### Secondary Buttons
@@ -286,6 +298,11 @@ body {
   </div>
 </div>
 ```
+
+**Note**: Success message backgrounds and text automatically use custom dark mode colors:
+- Background: `rgb(20 85 45)` for `bg-green-50`, `rgb(23 99 51)` for `bg-green-100`
+- Borders: `rgb(23 99 51)` for `border-green-200` and `border-green-800`
+- Text: Various shades of green for `text-green-400`, `text-green-600`, `text-green-700`, `text-green-800`, etc.
 
 #### Dark Card
 ```html
@@ -614,6 +631,12 @@ assets/css/
 - **Better visual hierarchy** across all authentication forms
 - **Enhanced accessibility** with proper focus states and error indicators
 
+### Dark Mode Green Color Implementation
+- **Custom green colors for dark mode**: All green buttons, badges, and success messages now use `rgb(23 99 51)` in dark mode
+- **Comprehensive coverage**: Applied to all pages including Dashboard, Users, Viewers, Account, Analyze, and Integration Wizard
+- **Consistent styling**: Green elements maintain proper contrast and visual hierarchy in both light and dark modes
+- **Automatic application**: CSS rules automatically apply dark mode colors to all green elements without requiring individual component updates
+
 ## Conclusion
 
 These styling guidelines ensure that the Optiqo Dashboard maintains a consistent, professional appearance that aligns with the brand identity. By following these guidelines, developers can create components that integrate seamlessly with the overall design system while providing an excellent user experience across all devices and screen sizes.
@@ -621,3 +644,5 @@ These styling guidelines ensure that the Optiqo Dashboard maintains a consistent
 The combination of the warm orange brand color, modern typography (Barlow for headings, Inter for body text), and clean design principles creates a cohesive visual identity that reflects the professional nature of the Optiqo business intelligence platform.
 
 Recent improvements focus on enhancing user experience through better form validation, clearer messaging, and improved visual hierarchy, ensuring that users have a smooth and intuitive experience when interacting with the authentication system and other application features.
+
+The implementation of custom green colors for dark mode ensures visual consistency across all themes, providing users with a professional and cohesive experience regardless of their preferred display settings.

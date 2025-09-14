@@ -81,10 +81,11 @@ export default defineEventHandler(async (event) => {
 
     // Check if viewer exists and belongs to the user's organization
     const { data: existingViewer, error: viewerError } = await supabase
-      .from('viewers')
-      .select('user_id, organization_id')
+      .from('profiles')
+      .select('user_id, organization_id, role')
       .eq('user_id', viewerId)
       .eq('organization_id', profile.organization_id)
+      .eq('role', 'VIEWER')
       .single()
 
     if (viewerError) {
@@ -102,9 +103,9 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Update the viewer
+    // Update the viewer profile
     const { data: updatedViewer, error: updateError } = await supabase
-      .from('viewers')
+      .from('profiles')
       .update({
         first_name: firstName || null,
         last_name: lastName || null,
@@ -113,7 +114,8 @@ export default defineEventHandler(async (event) => {
       })
       .eq('user_id', viewerId)
       .eq('organization_id', profile.organization_id)
-      .select('user_id, first_name, last_name, viewer_type, group_name, created_at')
+      .eq('role', 'VIEWER')
+      .select('user_id, first_name, last_name, role, viewer_type, group_name, created_at')
       .single()
 
     if (updateError) {
@@ -125,10 +127,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Get the email address from auth
+    const { data: authUser, error: getUserError } = await supabase.auth.admin.getUserById(viewerId)
+    let email = `user-${viewerId.slice(0, 8)}@viewer.com`
+    if (!getUserError && authUser.user) {
+      email = authUser.user.email || email
+    }
+
     // Transform the response to match frontend format
     const transformedViewer = {
       id: updatedViewer.user_id,
-      email: `user-${updatedViewer.user_id.slice(0, 8)}@viewer.com`, // Placeholder email
+      email: email,
       name: updatedViewer.first_name && updatedViewer.last_name 
         ? `${updatedViewer.first_name} ${updatedViewer.last_name}` 
         : updatedViewer.first_name || updatedViewer.last_name || '',
@@ -136,6 +145,7 @@ export default defineEventHandler(async (event) => {
       group: updatedViewer.group_name || '',
       firstName: updatedViewer.first_name || '',
       lastName: updatedViewer.last_name || '',
+      role: updatedViewer.role || 'VIEWER',
       createdAt: updatedViewer.created_at
     }
 

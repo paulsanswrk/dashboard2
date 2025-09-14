@@ -23,7 +23,7 @@
     >
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h2 class="text-xl font-bold">Users ({{ filteredUsers.length }} / {{ totalUsers }})</h2>
-        <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto">
+        <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto" color="green">
           <Icon name="heroicons:user-plus" class="w-4 h-4 mr-2" />
           Add User
         </UButton>
@@ -90,27 +90,15 @@
               @update:model-value="toggleSelectAll"
             />
           </div>
-          <div class="col-span-3 font-medium text-gray-700 dark:text-gray-300">
+          <div class="col-span-5 font-medium text-gray-700 dark:text-gray-300">
             <div class="flex items-center gap-1">
               Email
               <Icon name="heroicons:chevron-up-down" class="w-4 h-4" />
             </div>
           </div>
-          <div class="col-span-3 font-medium text-gray-700 dark:text-gray-300">
+          <div class="col-span-6 font-medium text-gray-700 dark:text-gray-300">
             <div class="flex items-center gap-1">
               Name
-              <Icon name="heroicons:chevron-up-down" class="w-4 h-4" />
-            </div>
-          </div>
-          <div class="col-span-2 font-medium text-gray-700 dark:text-gray-300">
-            <div class="flex items-center gap-1">
-              Role
-              <Icon name="heroicons:chevron-up-down" class="w-4 h-4" />
-            </div>
-          </div>
-          <div class="col-span-3 font-medium text-gray-700 dark:text-gray-300">
-            <div class="flex items-center gap-1">
-              Last Login
               <Icon name="heroicons:chevron-up-down" class="w-4 h-4" />
             </div>
           </div>
@@ -130,19 +118,11 @@
               @click.stop
             />
           </div>
-          <div class="col-span-3 text-sm text-gray-900 dark:text-gray-100 truncate">
+          <div class="col-span-5 text-sm text-gray-900 dark:text-gray-100 truncate">
             {{ user.email }}
           </div>
-          <div class="col-span-3 text-sm text-gray-900 dark:text-gray-100 truncate">
+          <div class="col-span-6 text-sm text-gray-900 dark:text-gray-100 truncate">
             {{ user.name || 'No name' }}
-          </div>
-          <div class="col-span-2">
-            <UBadge v-if="user.role" :color="user.role === 'Admin' ? 'red' : user.role === 'Editor' ? 'blue' : 'green'" size="xs">
-              {{ user.role }}
-            </UBadge>
-          </div>
-          <div class="col-span-3 text-sm text-gray-600 dark:text-gray-400 truncate">
-            {{ user.lastLogin || 'Never' }}
           </div>
         </div>
       </div>
@@ -151,7 +131,7 @@
       <div v-else class="text-center py-8">
         <Icon name="heroicons:users" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
         <p class="text-gray-500 mb-4">No users found</p>
-        <UButton @click="openAddUserModal" variant="outline">
+        <UButton @click="openAddUserModal" color="green">
           Add First User
         </UButton>
       </div>
@@ -183,17 +163,6 @@
               <UInput v-model="selectedUser.email" disabled />
             </UFormGroup>
             
-            <UFormGroup label="Role">
-              <USelect 
-                v-model="selectedUser.role"
-                :options="roleOptions"
-              />
-            </UFormGroup>
-            
-            <UFormGroup label="Last Login">
-              <UInput v-model="selectedUser.lastLogin" readonly />
-            </UFormGroup>
-            
             <div class="flex flex-col sm:flex-row gap-2 pt-4">
               <UButton @click="saveUser" :loading="loading" :disabled="loading" class="w-full sm:w-auto">
                 Save Changes
@@ -221,9 +190,9 @@
           <h3 class="text-lg font-semibold">Add New User</h3>
         </template>
         
-        <div class="space-y-4">
+        <form @submit.prevent="addUser" class="space-y-4">
           <UFormGroup label="Email" required>
-            <UInput v-model="newUser.email" placeholder="user@company.com" />
+            <UInput v-model="newUser.email" placeholder="user@company.com" type="email" required />
           </UFormGroup>
           
           <UFormGroup label="First Name">
@@ -234,26 +203,19 @@
             <UInput v-model="newUser.lastName" placeholder="Doe" />
           </UFormGroup>
           
-          <UFormGroup label="Role" required>
-            <USelect 
-              v-model="newUser.role"
-              :options="roleOptions"
-            />
-          </UFormGroup>
-          
           <div v-if="error" class="text-red-600 text-sm">
             {{ error }}
           </div>
           
           <div class="flex justify-end gap-2 pt-4">
-            <UButton variant="outline" @click="closeAddUserModal" :disabled="loading">
+            <UButton type="button" variant="outline" @click="closeAddUserModal" :disabled="loading">
               Cancel
             </UButton>
-            <UButton @click="addUser" :loading="loading" :disabled="loading">
+            <UButton type="submit" :loading="loading" :disabled="loading" color="green">
               Add User
             </UButton>
           </div>
-        </div>
+        </form>
       </UCard>
     </UModal>
 
@@ -334,28 +296,22 @@ const users = ref([
     id: 1, 
     name: 'John Smith', 
     email: 'john@company.com', 
-    role: 'ADMIN', 
     firstName: 'John',
-    lastName: 'Smith',
-    lastLogin: '2024-01-09' 
+    lastName: 'Smith'
   },
   { 
     id: 2, 
     name: 'Sarah Johnson', 
     email: 'sarah@company.com', 
-    role: 'EDITOR', 
     firstName: 'Sarah',
-    lastName: 'Johnson',
-    lastLogin: '2024-01-08' 
+    lastName: 'Johnson'
   },
   { 
     id: 3, 
     name: 'Mike Chen', 
     email: 'mike@company.com', 
-    role: 'EDITOR', 
     firstName: 'Mike',
-    lastName: 'Chen',
-    lastLogin: '2024-01-09' 
+    lastName: 'Chen'
   }
 ])
 
@@ -370,8 +326,7 @@ const filteredUsers = computed(() => {
   const query = searchQuery.value.toLowerCase()
   return users.value.filter(user => 
     user.name?.toLowerCase().includes(query) ||
-    user.email?.toLowerCase().includes(query) ||
-    user.role?.toLowerCase().includes(query)
+    user.email?.toLowerCase().includes(query)
   )
 })
 
@@ -401,16 +356,10 @@ const toggleUserSelection = (userId, checked) => {
   }
 }
 
-const roleOptions = [
-  { label: 'Admin', value: 'ADMIN' },
-  { label: 'Editor', value: 'EDITOR' }
-]
-
 const newUser = ref({
   email: '',
   firstName: '',
-  lastName: '',
-  role: 'EDITOR'
+  lastName: ''
 })
 
 // API functions
@@ -486,8 +435,7 @@ const closeAddUserModal = () => {
   newUser.value = {
     email: '',
     firstName: '',
-    lastName: '',
-    role: 'Editor'
+    lastName: ''
   }
 }
 
@@ -511,8 +459,7 @@ const addUser = async () => {
       body: {
         email: newUser.value.email,
         firstName: newUser.value.firstName,
-        lastName: newUser.value.lastName,
-        role: newUser.value.role
+        lastName: newUser.value.lastName
       }
     })
 
@@ -552,8 +499,7 @@ const saveUser = async () => {
       },
       body: {
         firstName: selectedUser.value.firstName,
-        lastName: selectedUser.value.lastName,
-        role: selectedUser.value.role
+        lastName: selectedUser.value.lastName
       }
     })
 

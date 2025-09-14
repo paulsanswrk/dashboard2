@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { capitalizeRole } from '../../utils/roleUtils'
+import { validateNewUserRole } from '../../utils/roleUtils'
+import { generateUserInvitationTemplate, sendEmail, generateMagicLink } from '../../utils/emailUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -56,17 +57,8 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Capitalize and validate role
-    let capitalizedRole: string
-    try {
-      capitalizedRole = capitalizeRole(role || 'EDITOR')
-    } catch (error: any) {
-      setResponseStatus(event, 400)
-      return {
-        success: false,
-        error: error.message
-      }
-    }
+    // Always create new users as EDITOR (ignore any role passed in)
+    const userRole = validateNewUserRole(role)
 
     // Get user's organization from profiles table
     const { data: profile, error: profileError } = await supabase
@@ -120,7 +112,7 @@ export default defineEventHandler(async (event) => {
         organization_id: profile.organization_id,
         first_name: firstName || null,
         last_name: lastName || null,
-        role: capitalizedRole
+        role: userRole
       })
       .select('user_id, first_name, last_name, role, created_at')
       .single()
@@ -149,10 +141,32 @@ export default defineEventHandler(async (event) => {
       createdAt: newUser.created_at
     }
 
+    // Send invitation email
+    try {
+      const confirmationUrl = generateMagicLink(newUserId, email)
+      const emailTemplate = generateUserInvitationTemplate({
+        email,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        role: userRole,
+        confirmationUrl
+      })
+
+      const emailSent = await sendEmail(email, emailTemplate)
+      if (emailSent) {
+        console.log(`Invitation email sent to ${email}`)
+      } else {
+        console.warn(`Failed to send invitation email to ${email}`)
+      }
+    } catch (emailError) {
+      console.error('Error sending invitation email:', emailError)
+      // Don't fail the user creation if email fails
+    }
+
     return {
       success: true,
       user: transformedUser,
-      message: 'User created successfully. They will receive a magic link to log in.'
+      message: 'User created successfully. They will receive an invitation email to complete their account setup.'
     }
 
   } catch (error: any) {

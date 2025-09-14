@@ -140,7 +140,7 @@
           </div>
           <div class="mt-4">
             <h4 class="text-sm font-medium mb-2 text-gray-900 dark:text-white">Reports +</h4>
-            <UButton size="sm" class="w-full bg-orange-600 hover:bg-orange-700 text-white">
+            <UButton size="sm" class="w-full bg-green-600 hover:bg-green-700 text-white">
               Create report
             </UButton>
           </div>

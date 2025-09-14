@@ -77,10 +77,11 @@ export default defineEventHandler(async (event) => {
 
     // Check if viewer exists and belongs to the user's organization
     const { data: existingViewer, error: viewerError } = await supabase
-      .from('viewers')
-      .select('user_id, organization_id')
+      .from('profiles')
+      .select('user_id, organization_id, role')
       .eq('user_id', viewerId)
       .eq('organization_id', profile.organization_id)
+      .eq('role', 'VIEWER')
       .single()
 
     if (viewerError) {
@@ -98,12 +99,18 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Delete the viewer
+    // Delete the viewer profile and auth user
     const { error: deleteError } = await supabase
-      .from('viewers')
+      .from('profiles')
       .delete()
       .eq('user_id', viewerId)
       .eq('organization_id', profile.organization_id)
+      .eq('role', 'VIEWER')
+
+    if (!deleteError) {
+      // Also delete the auth user
+      await supabase.auth.admin.deleteUser(viewerId)
+    }
 
     if (deleteError) {
       console.error('Error deleting viewer:', deleteError)

@@ -61,18 +61,20 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Fetch viewers for the current organization using admin client
+    // Fetch viewers (profiles with VIEWER role) for the current organization
     const { data: viewers, error: viewersError } = await supabase
-      .from('viewers')
+      .from('profiles')
       .select(`
         user_id,
         first_name,
         last_name,
+        role,
         viewer_type,
         group_name,
         created_at
       `)
       .eq('organization_id', profile.organization_id)
+      .eq('role', 'VIEWER')
       .order('created_at', { ascending: false })
 
     if (viewersError) {
@@ -83,10 +85,33 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Get email addresses for all viewers
+    const userIds = viewers.map(v => v.user_id)
+    const { data: authUsers, error: listUsersError } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000
+    })
+
+    if (listUsersError) {
+      console.error('Error fetching auth users:', listUsersError)
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Failed to fetch user emails'
+      })
+    }
+
+    // Create a map of user_id to email
+    const userEmailMap = new Map()
+    authUsers.users.forEach(user => {
+      if (userIds.includes(user.id)) {
+        userEmailMap.set(user.id, user.email)
+      }
+    })
+
     // Transform the data to match the expected format
     const transformedViewers = viewers.map(viewer => ({
       id: viewer.user_id,
-      email: `user-${viewer.user_id.slice(0, 8)}@viewer.com`, // Placeholder email
+      email: userEmailMap.get(viewer.user_id) || `user-${viewer.user_id.slice(0, 8)}@viewer.com`,
       name: viewer.first_name && viewer.last_name 
         ? `${viewer.first_name} ${viewer.last_name}` 
         : viewer.first_name || viewer.last_name || '',
@@ -94,6 +119,7 @@ export default defineEventHandler(async (event) => {
       group: viewer.group_name || '',
       firstName: viewer.first_name || '',
       lastName: viewer.last_name || '',
+      role: viewer.role || 'VIEWER',
       createdAt: viewer.created_at
     }))
 

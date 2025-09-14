@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { validateNewViewerRole } from '../../utils/roleUtils'
+import { generateViewerInvitationTemplate, sendEmail, generateMagicLink } from '../../utils/emailUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -44,6 +46,9 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { email, firstName, lastName, type, group, sendInvitation } = body
 
+    // Always create new viewers as VIEWER (ignore any role passed in)
+    const viewerRole = validateNewViewerRole()
+
     // Validate required fields
     if (!email) {
       throw createError({
@@ -73,54 +78,57 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Check if viewer already exists
-/*    const { data: existingViewer } = await supabase
-      .from('viewers')
-      .select('user_id')
-      .eq('user_id', userId)
-      .eq('organization_id', profile.organization_id)
-      .single()
+    // Create a new user in Supabase Auth first (passwordless)
+    const { data: authData, error: createUserError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        first_name: firstName,
+        last_name: lastName,
+        viewer_type: type || 'Viewer',
+        group_name: group
+      }
+    })
 
-    if (existingViewer) {
+    if (createUserError) {
+      console.error('Error creating auth user for viewer:', createUserError)
       throw createError({
-        statusCode: 409,
-        statusMessage: 'Viewer already exists'
+        statusCode: 400,
+        statusMessage: `Failed to create viewer user: ${createUserError.message}`
       })
-    }*/
+    }
 
-    // Create viewer record using admin client
+    const newViewerId = authData.user.id
+
+    // Create the profile with VIEWER role
     const { data: newViewer, error: createError } = await supabase
-      .from('viewers')
+      .from('profiles')
       .insert({
-        user_id: userId,
+        user_id: newViewerId,
         organization_id: profile.organization_id,
         first_name: firstName || null,
         last_name: lastName || null,
+        role: viewerRole,
         viewer_type: type || 'Viewer',
         group_name: group || null
       })
-      .select(`
-        user_id,
-        first_name,
-        last_name,
-        viewer_type,
-        group_name,
-        created_at
-      `)
+      .select('user_id, first_name, last_name, role, viewer_type, group_name, created_at')
       .single()
 
     if (createError) {
-      console.error('Error creating viewer:', createError)
+      console.error('Error creating viewer profile:', createError)
+      // Clean up the auth user if profile creation fails
+      await supabase.auth.admin.deleteUser(newViewerId)
       throw createError({
         statusCode: 500,
-        statusMessage: 'Failed to create viewer'
+        statusMessage: 'Failed to create viewer profile'
       })
     }
 
     // Transform the data to match the expected format
     const transformedViewer = {
       id: newViewer.user_id,
-      email: `user-${newViewer.user_id.slice(0, 8)}@viewer.com`, // Placeholder email
+      email: email,
       name: newViewer.first_name && newViewer.last_name 
         ? `${newViewer.first_name} ${newViewer.last_name}` 
         : newViewer.first_name || newViewer.last_name || '',
@@ -128,18 +136,41 @@ export default defineEventHandler(async (event) => {
       group: newViewer.group_name || '',
       firstName: newViewer.first_name || '',
       lastName: newViewer.last_name || '',
+      role: newViewer.role || 'VIEWER',
       createdAt: newViewer.created_at
     }
 
-    // TODO: Send invitation email if sendInvitation is true
+    // Send invitation email if requested
     if (sendInvitation) {
-      // Implement email sending logic here
-      console.log('Sending invitation email to:', email)
+      try {
+        const confirmationUrl = generateMagicLink(newViewerId, email)
+        const emailTemplate = generateViewerInvitationTemplate({
+          email,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          type: type || 'Viewer',
+          group: group || undefined,
+          confirmationUrl
+        })
+
+        const emailSent = await sendEmail(email, emailTemplate)
+        if (emailSent) {
+          console.log(`Viewer invitation email sent to ${email}`)
+        } else {
+          console.warn(`Failed to send viewer invitation email to ${email}`)
+        }
+      } catch (emailError) {
+        console.error('Error sending viewer invitation email:', emailError)
+        // Don't fail the viewer creation if email fails
+      }
     }
 
     return {
       success: true,
-      viewer: transformedViewer
+      viewer: transformedViewer,
+      message: sendInvitation 
+        ? 'Viewer created successfully. They will receive an invitation email to access the dashboards.'
+        : 'Viewer created successfully.'
     }
 
   } catch (error: any) {

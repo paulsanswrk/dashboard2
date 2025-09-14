@@ -113,7 +113,7 @@
             <UButton variant="outline" @click="goBack" class="w-full sm:w-auto">
               Back
             </UButton>
-            <UButton @click="nextStep" class="w-full sm:w-auto">
+            <UButton @click="nextStep" class="w-full sm:w-auto" color="green">
               Next Step
             </UButton>
           </div>

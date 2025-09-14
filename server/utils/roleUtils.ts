@@ -15,12 +15,32 @@ export function capitalizeRole(role: string): string {
   const capitalizedRole = role.toUpperCase().trim()
   
   // Validate against allowed roles
-  const allowedRoles = ['ADMIN', 'EDITOR']
+  const allowedRoles = ['ADMIN', 'EDITOR', 'VIEWER']
   if (!allowedRoles.includes(capitalizedRole)) {
     throw new Error(`Invalid role: ${capitalizedRole}. Must be one of: ${allowedRoles.join(', ')}`)
   }
 
   return capitalizedRole
+}
+
+/**
+ * Validates role for new user creation - only allows EDITOR
+ * @param role - The role string to validate
+ * @returns Always returns 'EDITOR' for new user creation
+ */
+export function validateNewUserRole(role?: string): string {
+  // Always create new users as EDITOR regardless of input
+  return 'EDITOR'
+}
+
+/**
+ * Validates role for new viewer creation - only allows VIEWER
+ * @param role - The role string to validate
+ * @returns Always returns 'VIEWER' for new viewer creation
+ */
+export function validateNewViewerRole(role?: string): string {
+  // Always create new viewers as VIEWER regardless of input
+  return 'VIEWER'
 }
 
 /**

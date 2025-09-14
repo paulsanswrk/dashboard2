@@ -313,6 +313,15 @@ CREATE TABLE organizations (
 - [ ] Organization creation works for admin users
 - [ ] Password validation shows clear error messages
 - [ ] Form headings are properly styled (not bold, good spacing)
+- [ ] **Add User workflow sends invitation emails automatically**
+- [ ] **Add Viewer workflow sends emails only when "Send invitation emails" is checked**
+- [ ] **Email templates display correctly with Optiqo branding**
+- [ ] **Email buttons show white text on orange background (Gmail compatibility)**
+- [ ] **Custom magic links work for user invitations**
+- [ ] **Custom magic links work for viewer invitations**
+- [ ] **Form validation works with HTML5 form elements**
+- [ ] **Email sending failures don't break user/viewer creation**
+- [ ] **SendGrid configuration is properly set up**
 
 ### Error Scenarios
 - [ ] Invalid credentials show proper error messages
@@ -331,6 +340,14 @@ CREATE TABLE organizations (
 - [ ] **Invalid magic links provide clear recovery options**
 - [ ] **Authorization code flow errors are handled properly**
 - [ ] **Already authenticated users are redirected without loading states**
+- [ ] **SendGrid API errors are handled gracefully**
+- [ ] **Email template rendering errors are handled properly**
+- [ ] **Invalid invitation tokens show appropriate error messages**
+- [ ] **Email sending failures don't break user/viewer creation**
+- [ ] **Missing SendGrid configuration is handled gracefully**
+- [ ] **Invalid email addresses are validated before sending**
+- [ ] **Custom magic link verification errors are handled properly**
+- [ ] **Email delivery failures are logged for debugging**
 
 ### Magic Link Error Handling
 
@@ -423,3 +440,68 @@ The migration to Supabase's built-in authentication system has significantly imp
 The implementation follows best practices for security, error handling, and user experience, providing a solid foundation for the Optiqo Dashboard application. The addition of email confirmation enforcement ensures that only verified users can access the application, significantly improving security posture.
 
 Recent improvements include enhanced user experience with clear success messaging, improved error handling with user-friendly validation, consistent typography across forms, robust profile creation with proper database schema alignment, and **comprehensive magic link authentication for passwordless sign-in and sign-up**. The implementation now includes smart redirect logic for already authenticated users, proper button alignment with flexbox, comprehensive error handling for expired and invalid magic links, and support for both implicit and authorization code flows. These enhancements ensure a smooth, professional authentication flow that reflects the quality of the Optiqo business intelligence platform while providing users with flexible and reliable authentication options.
+
+## Recent Enhancements: Email-Based User Invitations
+
+### 8. Email-Based User and Viewer Invitations
+
+**New Implementation:**
+- **User Invitation Emails**: Automatically sent when creating new users via the Add User workflow
+- **Viewer Invitation Emails**: Conditionally sent when "Send invitation emails" is checked in the Add Viewer workflow
+- **Professional Email Templates**: Based on Supabase mail templates with Optiqo branding
+- **Custom Magic Link Handling**: Proper authentication flow for invitation links
+- **SendGrid Integration**: Reliable email delivery with proper error handling
+
+**Key Features:**
+- **Always Send User Invitations**: New users automatically receive invitation emails with role information
+- **Optional Viewer Invitations**: Viewers only receive emails when explicitly requested
+- **Professional Email Design**: Responsive templates with Optiqo branding and clear call-to-action buttons
+- **Custom Magic Link Authentication**: Invitation links use custom token/email parameters for proper verification
+- **Server-Side Verification**: API endpoint validates invitation tokens and generates proper Supabase sessions
+- **Graceful Error Handling**: Email failures don't break user/viewer creation
+- **Gmail Compatibility**: Fixed button text color issues for consistent display across email clients
+
+**Technical Implementation:**
+- **Email Utility Functions** (`server/utils/emailUtils.ts`): Centralized email template generation and SendGrid integration
+- **Custom Magic Link Processing** (`pages/auth/callback.vue`): Handles invitation links with token/email parameters
+- **Invitation Verification API** (`server/api/auth/verify-invitation.post.ts`): Server-side validation and session generation
+- **Form Integration**: Both Add User and Add Viewer modals wrapped in proper `<form>` elements with HTML5 validation
+- **Environment Configuration**: SendGrid API key and sender email configuration
+
+**Email Template Features:**
+- **User Invitation Template**: Includes role information, professional branding, and clear setup instructions
+- **Viewer Invitation Template**: Shows access details, viewer type, and group information
+- **Responsive Design**: Works on mobile and desktop email clients
+- **Security Notices**: Clear information about link expiration and security
+- **Gmail Button Fix**: Inline styles and CSS pseudo-classes to force white text on orange buttons
+
+**Workflow Integration:**
+- **Add User Workflow**: Form submission → User creation → Automatic email sending → Magic link authentication
+- **Add Viewer Workflow**: Form submission → Viewer creation → Conditional email sending → Magic link authentication
+- **Error Resilience**: User/viewer creation succeeds even if email sending fails
+- **Comprehensive Logging**: Detailed console logging for debugging email delivery issues
+
+**Security Considerations:**
+- **Token Validation**: UUID format validation for invitation tokens
+- **Email Verification**: Server-side validation that email matches the user's account
+- **Session Generation**: Proper Supabase session creation for authenticated access
+- **Link Expiration**: Clear messaging about invitation link expiration
+- **Error Handling**: Secure error messages that don't expose sensitive information
+
+**Configuration Requirements:**
+```env
+# SendGrid Email Configuration
+SENDGRID_API_KEY=your_sendgrid_api_key
+SENDGRID_SENDER_EMAIL=noreply@yourdomain.com
+
+# Site Configuration
+SITE_URL=http://localhost:3000
+```
+
+**Benefits:**
+- **Professional User Experience**: Users receive beautifully designed invitation emails
+- **Flexible Email Control**: Admins can choose when to send viewer invitations
+- **Reliable Delivery**: SendGrid integration ensures high email deliverability
+- **Proper Authentication**: Custom magic links provide secure, seamless access
+- **Form Accessibility**: HTML5 form validation and proper form semantics
+- **Cross-Client Compatibility**: Email templates work consistently across all email clients

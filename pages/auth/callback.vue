@@ -98,12 +98,61 @@ const handleAuthCallback = async () => {
     // Get the URL parameters first to check if this is actually an auth callback
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
     const queryParams = new URLSearchParams(window.location.search)
-    const hasAuthParams = hashParams.get('access_token') || hashParams.get('code') || queryParams.get('code') || queryParams.get('error')
+    const hasAuthParams = hashParams.get('access_token') || hashParams.get('code') || queryParams.get('code') || queryParams.get('error') || queryParams.get('token')
     
     // Check for errors FIRST, before any other processing
     const errorParam = hashParams.get('error') || queryParams.get('error')
     const errorCode = hashParams.get('error_code') || queryParams.get('error_code')
     const errorDescription = hashParams.get('error_description') || queryParams.get('error_description')
+    
+    // Check for custom magic link parameters
+    const customToken = queryParams.get('token')
+    const customEmail = queryParams.get('email')
+    
+    // Handle custom magic link first
+    if (customToken && customEmail) {
+      console.log('Custom magic link detected:', { token: customToken, email: customEmail })
+      loadingMessage.value = 'Verifying your invitation...'
+      
+      try {
+        // Call the server API to verify the invitation and get session
+        const response = await $fetch('/api/auth/verify-invitation', {
+          method: 'POST',
+          body: {
+            token: customToken,
+            email: customEmail
+          }
+        })
+
+        if (!response.success) {
+          throw new Error(response.error || 'Invalid invitation')
+        }
+
+        console.log('Invitation verified successfully:', response.user)
+        
+        // If we have a session URL, redirect to it to complete authentication
+        if (response.sessionUrl) {
+          console.log('Redirecting to session URL for authentication...')
+          window.location.href = response.sessionUrl
+          return
+        }
+
+        // Fallback: show success but user won't be authenticated
+        successMessage.value = 'Welcome to Optiqo!'
+        successDescription.value = 'Your invitation has been verified. You can now access your dashboard.'
+        
+        // Set success state
+        success.value = true
+        loading.value = false
+        return
+        
+      } catch (customError) {
+        console.error('Custom magic link error:', customError)
+        error.value = customError.message || 'Invalid or expired invitation link. Please contact your administrator for a new invitation.'
+        loading.value = false
+        return
+      }
+    }
     
     // Handle errors immediately
     if (errorParam) {
@@ -163,7 +212,9 @@ const handleAuthCallback = async () => {
       accessToken,
       refreshToken,
       type,
-      code
+      code,
+      customToken,
+      customEmail
     })
 
 
