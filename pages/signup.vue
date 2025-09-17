@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style="background-color: #f3f4f6;">
+  <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-100 dark:bg-gray-900">
     <div class="max-w-md w-full space-y-8">
       <div>
         <div class="mx-auto h-12 flex items-center justify-center">
@@ -9,10 +9,10 @@
             class="h-10 w-auto"
           />
         </div>
-        <h2 class="mt-6 mb-4 text-center text-3xl font-heading text-black tracking-tight">
+        <h2 class="mt-6 mb-4 text-center text-3xl font-heading text-black dark:text-white tracking-tight">
           Create your Optiqo account
         </h2>
-        <p class="mt-2 text-center text-sm text-gray-700">
+        <p class="mt-2 text-center text-sm text-gray-700 dark:text-gray-300">
           Already have an account?
           <NuxtLink to="/login" class="font-medium text-primary hover:text-primary-600">
             Sign in here
@@ -20,65 +20,65 @@
         </p>
       </div>
       
-      <UCard class="mt-8 bg-gray-50 shadow-lg">
+      <UCard class="mt-8 bg-gray-50 dark:bg-gray-800 shadow-lg">
         <UForm :state="form" @submit="handleSignUp" class="space-y-6 p-6 ">
           <!-- Personal Information -->
           <div class="space-y-4">
-            <h3 class="text-lg text-black">Personal Information</h3>
+            <h3 class="text-lg text-black dark:text-white">Personal Information</h3>
             
             <div class="grid grid-cols-2 gap-4">
-              <UFormGroup label="First Name" required class="text-black">
+              <UFormGroup label="First Name" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.firstName"
                   placeholder="First name"
                   :error="errors.firstName"
-                  class="bg-white border-gray-300 text-black placeholder-gray-500"
+                  class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
               </UFormGroup>
 
-              <UFormGroup label="Last Name" required class="text-black">
+              <UFormGroup label="Last Name" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.lastName"
                   placeholder="Last name"
                   :error="errors.lastName"
-                  class="bg-white border-gray-300 text-black placeholder-gray-500"
+                  class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
               </UFormGroup>
             </div>
 
-            <UFormGroup label="Email address" required class="text-black">
+            <UFormGroup label="Email address" required class="text-black dark:text-white">
               <UInput
                 v-model="form.email"
                 type="email"
                 placeholder="Enter your email"
                 :error="errors.email"
-                class="bg-white border-gray-300 text-black placeholder-gray-500"
+                class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                 required
               />
             </UFormGroup>
 
             <!-- Password fields - only show in password mode -->
             <template v-if="!magicLinkMode">
-              <UFormGroup label="Password" required class="text-black">
+              <UFormGroup label="Password" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.password"
                   type="password"
                   placeholder="Create a password"
                   :error="errors.password"
-                  class="bg-white border-gray-300 text-black placeholder-gray-500"
+                  class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
               </UFormGroup>
 
-              <UFormGroup label="Confirm Password" required class="text-black">
+              <UFormGroup label="Confirm Password" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.confirmPassword"
                   type="password"
                   placeholder="Confirm your password"
                   :error="errors.confirmPassword"
-                  class="bg-white border-gray-300 text-black placeholder-gray-500"
+                  class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
               </UFormGroup>
@@ -86,18 +86,18 @@
           </div>
 
           <!-- Organization Information -->
-            <div class="space-y-4 pt-6 border-t border-gray-300">
-            <h3 class="text-lg text-black">Organization Information</h3>
+            <div class="space-y-4 pt-6 border-t border-gray-300 dark:border-gray-600">
+            <h3 class="text-lg text-black dark:text-white">Organization Information</h3>
             
-            <UFormGroup label="Organization Name (Optional)" class="text-black">
+            <UFormGroup label="Organization Name (Optional)" class="text-black dark:text-white">
               <UInput
                 v-model="form.organizationName"
                 placeholder="Enter your organization name"
                 :error="errors.organizationName"
-                class="bg-white border-gray-300 text-black placeholder-gray-500"
+                class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
               />
               <template #help>
-                <p class="text-sm text-gray-600 mt-1">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Leave blank if you don't want to create an organization yet.
                 </p>
               </template>
@@ -106,8 +106,8 @@
 
           <!-- Terms and Conditions -->
           <div class="pt-4">
-            <UCheckbox v-model="form.acceptTerms" :error="errors.acceptTerms" label="Accept Terms and Conditions" class="text-black">
-              <span class="text-sm text-gray-700">
+            <UCheckbox v-model="form.acceptTerms" :error="errors.acceptTerms" label="Accept Terms and Conditions" class="text-black dark:text-white">
+              <span class="text-sm text-gray-700 dark:text-gray-300">
                 I agree to the 
                 <a href="#" class="text-primary hover:text-primary-600">Terms of Service</a>
                 and 
@@ -129,10 +129,10 @@
               <div class="flex">
                 <Icon name="heroicons:check-circle" class="w-6 h-6 text-green-400 mr-3 mt-0.5" />
                 <div class="flex-1">
-                  <h4 class="text-lg font-medium text-green-800 dark:text-green-200 mb-2">
+                  <h4 class="text-lg font-medium text-green-800 dark:text-white mb-2">
                     {{ magicLinkMode ? 'Magic Link Sent!' : 'Account Created Successfully!' }}
                   </h4>
-                  <p class="text-sm text-green-700 dark:text-green-300 mb-4">
+                  <p class="text-sm text-green-700 dark:text-white mb-4">
                     <template v-if="magicLinkMode">
                       We've sent a magic link to <strong>{{ form.email }}</strong>. 
                       Please check your email and click the link to complete your registration.
@@ -172,10 +172,10 @@
           <div v-if="!showEmailConfirmationMessage" class="mt-4">
             <div class="relative">
               <div class="absolute inset-0 flex items-center">
-                <div class="w-full border-t border-gray-300" />
+                <div class="w-full border-t border-gray-300 dark:border-gray-600" />
               </div>
               <div class="relative flex justify-center text-sm">
-                <span class="px-2 bg-gray-50 text-gray-500">Or</span>
+                <span class="px-2 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400">Or</span>
               </div>
             </div>
 
@@ -183,7 +183,7 @@
               type="button"
               @click="toggleMagicLinkMode"
               variant="outline"
-              class="w-full mt-4 border-gray-300 text-gray-700 hover:bg-gray-50 font-heading flex items-center justify-center"
+              class="w-full mt-4 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-heading flex items-center justify-center"
               size="lg"
             >
               <Icon :name="magicLinkMode ? 'heroicons:key' : 'heroicons:envelope-open'" class="w-5 h-5 mr-2" />
@@ -356,7 +356,7 @@ const handleSignUp = async () => {
         form.value.email,
         form.value.firstName,
         form.value.lastName,
-        'ADMIN', // First user is always admin
+        'EDITOR', // New users are assigned EDITOR role
         form.value.organizationName || undefined
       )
       
@@ -371,7 +371,7 @@ const handleSignUp = async () => {
         form.value.password,
         form.value.firstName,
         form.value.lastName,
-        'ADMIN', // First user is always admin
+        'EDITOR', // New users are assigned EDITOR role
         form.value.organizationName || undefined
       )
       

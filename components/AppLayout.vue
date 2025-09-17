@@ -186,41 +186,77 @@ const currentYear = computed(() => new Date().getFullYear())
 
 const isMobileMenuOpen = ref(false)
 
-const navigationItems = [
-  { icon: 'heroicons:home', label: 'Dashboard', route: '/dashboard' },
-  { icon: 'heroicons:circle-stack', label: 'Data Sources', route: '/data-sources' },
-  { icon: 'heroicons:chart-bar', label: 'My Desk', route: '/my-dashboard' },
-  { icon: 'heroicons:users', label: 'Users', route: '/users' },
-  { icon: 'heroicons:eye', label: 'Viewers', route: '/viewers' },
-  { icon: 'heroicons:shield-check', label: 'SSO', route: '/sso' },
-  { icon: 'heroicons:user', label: 'Account', route: '/account' },
-  { icon: 'heroicons:question-mark-circle', label: 'Support', route: '/support' },
-  { icon: 'heroicons:credit-card', label: 'Plan & Billing', route: '/billing' }
-]
+// Navigation items based on current route
+const route = useRoute()
+const navigationItems = computed(() => {
+  // If we're on admin pages, show admin navigation
+  if (route.path.startsWith('/admin') || route.path.startsWith('/organizations')) {
+    return [
+      { icon: 'heroicons:home', label: 'Dashboard', route: '/admin' },
+      { icon: 'heroicons:users', label: 'Users', route: '/users' },
+      { icon: 'heroicons:eye', label: 'Viewers', route: '/viewers' },
+      { icon: 'heroicons:building-office', label: 'Organizations', route: '/organizations' }
+    ]
+  } else {
+    // For all other pages, show regular user navigation
+    return [
+      { icon: 'heroicons:home', label: 'Dashboard', route: '/dashboard' },
+      { icon: 'heroicons:circle-stack', label: 'Data Sources', route: '/data-sources' },
+      { icon: 'heroicons:chart-bar', label: 'My Desk', route: '/my-dashboard' },
+      { icon: 'heroicons:users', label: 'Users', route: '/users' },
+      { icon: 'heroicons:eye', label: 'Viewers', route: '/viewers' },
+      { icon: 'heroicons:shield-check', label: 'SSO', route: '/sso' },
+      { icon: 'heroicons:user', label: 'Account', route: '/account' },
+      { icon: 'heroicons:question-mark-circle', label: 'Support', route: '/support' },
+      { icon: 'heroicons:credit-card', label: 'Plan & Billing', route: '/billing' }
+    ]
+  }
+})
 
 // Account dropdown menu items
-const accountMenuItems = computed(() => [
-  [{
-    label: userDisplayName.value,
-    slot: 'account',
-    disabled: true
-  }],
-  [{
-    label: 'Account Settings',
-    icon: 'heroicons:user',
-    click: () => navigateTo('/account')
-  }],
-  [{
-    label: themeLabel.value,
-    icon: themeIcon.value,
-    click: toggleTheme
-  }],
-  [{
-    label: 'Sign Out',
-    icon: 'heroicons:arrow-right-on-rectangle',
-    click: handleSignOut
-  }]
-])
+const accountMenuItems = computed(() => {
+  const baseItems = [
+    [{
+      label: userDisplayName.value,
+      slot: 'account',
+      disabled: true
+    }]
+  ]
+
+  // Add dashboard navigation for ADMIN users
+  if (userProfile.value?.role === 'ADMIN') {
+    baseItems.push([{
+      label: 'Admin Dashboard',
+      icon: 'heroicons:shield-check',
+      click: () => navigateTo('/admin')
+    }, {
+      label: 'User Dashboard',
+      icon: 'heroicons:home',
+      click: () => navigateTo('/dashboard')
+    }])
+  }
+
+  // Add common menu items
+  baseItems.push(
+    [{
+      label: 'Account Settings',
+      icon: 'heroicons:user',
+      click: () => navigateTo('/account')
+    }],
+    [{
+      label: themeLabel.value,
+      icon: themeIcon.value,
+      click: toggleTheme
+    }],
+    [{
+      label: 'Sign Out',
+      icon: 'heroicons:arrow-right-on-rectangle',
+      click: handleSignOut
+    }]
+  )
+
+  return baseItems
+})
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value

@@ -185,8 +185,13 @@ const handleAuthCallback = async () => {
       
       if (!hasAuthParams) {
         // No auth parameters, user is already authenticated, redirect immediately
-        console.log('No auth parameters, redirecting to dashboard')
-        await navigateTo('/dashboard')
+        console.log('No auth parameters, redirecting based on role')
+        const { userProfile } = useAuth()
+        if (userProfile.value?.role === 'ADMIN') {
+          await navigateTo('/admin')
+        } else {
+          await navigateTo('/dashboard')
+        }
         return
       }
       
@@ -224,9 +229,9 @@ const handleAuthCallback = async () => {
       successMessage.value = 'Email Confirmed!'
       successDescription.value = 'Your account has been successfully created and your email has been confirmed. You can now access your dashboard.'
     } else if (type === 'recovery') {
-      loadingMessage.value = 'Resetting your password...'
-      successMessage.value = 'Password Reset Complete!'
-      successDescription.value = 'Your password has been successfully updated. You can now sign in with your new password.'
+      loadingMessage.value = 'Verifying your password reset...'
+      successMessage.value = 'Password Reset Verified!'
+      successDescription.value = 'Your password reset has been verified. You can now set your new password.'
     } else if (type === 'email') {
       loadingMessage.value = 'Confirming your email...'
       successMessage.value = 'Email Confirmed!'
@@ -237,21 +242,63 @@ const handleAuthCallback = async () => {
       successDescription.value = 'You have been successfully authenticated.'
     }
 
-    // Handle magic link flow - Supabase should automatically process the session
-    // when the page loads with the magic link parameters
-    if (code || accessToken) {
-      console.log('Magic link detected, waiting for Supabase to process...')
+    // Handle authorization code flow - for password reset, use verifyOtp instead
+    if (code) {
+      console.log('Authorization code detected, verifying OTP...')
+      loadingMessage.value = 'Verifying your request...'
+      
+      try {
+        // For password reset, we need to verify the OTP with the code
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: code,
+          type: 'recovery'
+        })
+        
+        if (verifyError) {
+          throw verifyError
+        }
+        
+        console.log('OTP verified successfully for user:', data.user?.id)
+      } catch (verifyErr) {
+        console.error('OTP verification error:', verifyErr)
+        
+        // Try alternative approach - the code might be a direct token
+        try {
+          const { data, error: altVerifyError } = await supabase.auth.verifyOtp({
+            token: code,
+            type: 'recovery'
+          })
+          
+          if (altVerifyError) {
+            throw altVerifyError
+          }
+          
+          console.log('OTP verified successfully (alternative method) for user:', data.user?.id)
+        } catch (altErr) {
+          console.error('Alternative OTP verification error:', altErr)
+          throw new Error(`Failed to verify your request: ${altErr.message}`)
+        }
+      }
+    }
+    
+    // Handle implicit flow (access token in hash)
+    if (accessToken) {
+      console.log('Access token detected, processing...')
       loadingMessage.value = 'Verifying magic link...'
       
       // Wait for Supabase to automatically process the magic link
       // The session should be available through the reactive user state
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
       console.log('Magic link processing completed')
     }
 
-    // Wait for auth state to be processed
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // Wait for auth state to be processed after code exchange
+    if (code) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
 
     // Debug: Check current user state
     console.log('Current user state:', user.value)
@@ -271,7 +318,7 @@ const handleAuthCallback = async () => {
           await createUserProfile(user.value, {
             firstName: userMetadata.firstName,
             lastName: userMetadata.lastName,
-            role: userMetadata.role || 'ADMIN',
+            role: userMetadata.role || 'EDITOR',
             organizationName: userMetadata.organizationName
           })
           
@@ -285,35 +332,19 @@ const handleAuthCallback = async () => {
         }
       }
       
+      // For password reset, redirect to reset password page
+      if (type === 'recovery') {
+        loading.value = false
+        setTimeout(async () => {
+          await redirectToResetPassword()
+        }, 2000)
+        return
+      }
+      
       success.value = true
       loading.value = false
     } else {
       console.error('No user found after authentication attempt')
-      
-      // If we have a code but no user, this might be a magic link that needs manual processing
-      if (code) {
-        console.log('Attempting to process magic link manually...')
-        try {
-          // Try to get the session manually
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-          
-          if (sessionError) {
-            console.error('Session error:', sessionError)
-            throw new Error(`Magic link verification failed: ${sessionError.message}`)
-          }
-          
-          if (sessionData.session && sessionData.session.user) {
-            console.log('Found session after manual check:', sessionData.session.user.id)
-            // Set success and continue
-            success.value = true
-            loading.value = false
-            return
-          }
-        } catch (manualErr) {
-          console.error('Manual magic link processing failed:', manualErr)
-        }
-      }
-      
       throw new Error('Authentication failed. Please try again.')
     }
   } catch (err) {
@@ -323,9 +354,19 @@ const handleAuthCallback = async () => {
   }
 }
 
-// Redirect to dashboard
+// Redirect to dashboard based on user role
 const redirectToDashboard = async () => {
-  await navigateTo('/dashboard')
+  const { userProfile } = useAuth()
+  if (userProfile.value?.role === 'ADMIN') {
+    await navigateTo('/admin')
+  } else {
+    await navigateTo('/dashboard')
+  }
+}
+
+// Redirect to reset password page
+const redirectToResetPassword = async () => {
+  await navigateTo('/reset-password')
 }
 
 // Retry authentication

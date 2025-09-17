@@ -14,12 +14,12 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
   console.log('🛡️ Auth middleware: User authenticated:', user.value.id)
 
-  // Validate user exists in database
+  // Validate user exists in database and get role
   try {
     console.log('🛡️ Auth middleware: Validating user profile in database...')
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('user_id')
+      .select('user_id, role')
       .eq('user_id', user.value.id)
       .single()
 
@@ -37,6 +37,13 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
     
     console.log('✅ Auth middleware: User profile validated, allowing access')
+    
+    // Check if user is not ADMIN and trying to access admin - redirect to dashboard
+    if (profile.role !== 'ADMIN' && to.path === '/admin') {
+      console.log('🛡️ Auth middleware: Non-ADMIN user accessing admin, redirecting to dashboard')
+      return navigateTo('/dashboard')
+    }
+    
     // User exists in database - allow access
     return
   } catch (err) {

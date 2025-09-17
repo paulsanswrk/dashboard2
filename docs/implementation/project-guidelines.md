@@ -1217,30 +1217,128 @@ CREATE POLICY "Users can update own profile" ON public.profiles
 - **Reactive state management**: Use computed properties and watchers for automatic updates
 - **Service role for server operations**: Use service role for profile creation to bypass RLS
 
-### 2. Mobile Responsiveness
+### 2. Role-Based Access Control (RBAC)
+- **Route-based navigation**: Navigation should adapt based on current page context, not just user role
+- **Flexible admin access**: Allow admin users to access both admin and user interfaces for testing
+- **Context-aware UI**: Show appropriate navigation and content based on current route
+- **Dual dashboard system**: Implement separate admin and user dashboards for different use cases
+
+### 3. Navigation Architecture
+- **Route-based navigation logic**: Use `route.path` to determine navigation items instead of user role
+- **Context switching**: Enable seamless switching between admin and user views
+- **Account menu enhancement**: Provide quick access to different dashboard types for admin users
+- **Consistent user experience**: Maintain consistent navigation patterns across different user types
+
+### 4. Dashboard Design Patterns
+- **Distinct dashboard content**: Admin and user dashboards should show different metrics and actions
+- **Organization vs personal focus**: Admin dashboards show organization-wide data, user dashboards show personal data
+- **Quick action differentiation**: Admin actions focus on management, user actions focus on creation and analysis
+- **Mock data structure**: Use consistent mock data patterns for development and testing
+
+#### Admin Dashboard Implementation Patterns
+```vue
+<!-- ✅ DO: Route-based navigation logic -->
+<script setup>
+const route = useRoute()
+const navigationItems = computed(() => {
+  // If we're on admin pages, show admin navigation
+  if (route.path.startsWith('/admin') || route.path.startsWith('/organizations')) {
+    return [
+      { icon: 'heroicons:home', label: 'Dashboard', route: '/admin' },
+      { icon: 'heroicons:users', label: 'Users', route: '/users' },
+      { icon: 'heroicons:eye', label: 'Viewers', route: '/viewers' },
+      { icon: 'heroicons:building-office', label: 'Organizations', route: '/organizations' }
+    ]
+  } else {
+    // For all other pages, show regular user navigation
+    return [
+      { icon: 'heroicons:home', label: 'Dashboard', route: '/dashboard' },
+      { icon: 'heroicons:circle-stack', label: 'Data Sources', route: '/data-sources' },
+      // ... other user navigation items
+    ]
+  }
+})
+</script>
+```
+
+#### Dual Dashboard System
+```vue
+<!-- ✅ DO: Separate admin and user dashboard pages -->
+<!-- pages/admin.vue - Organization-wide management -->
+<template>
+  <div class="p-6 space-y-6">
+    <h1>Admin Dashboard - {{ userProfile?.firstName }} {{ userProfile?.lastName }}</h1>
+    <!-- Organization overview, management actions -->
+  </div>
+</template>
+
+<!-- pages/dashboard.vue - Personal workspace -->
+<template>
+  <div class="p-6 space-y-6">
+    <h1>Welcome back, {{ userProfile?.firstName }} {{ userProfile?.lastName }}</h1>
+    <!-- Personal workspace, creation actions -->
+  </div>
+</template>
+```
+
+#### Account Menu Enhancement
+```vue
+<!-- ✅ DO: Provide dual dashboard access for admin users -->
+<script setup>
+const accountMenuItems = computed(() => {
+  const baseItems = [
+    [{ label: userDisplayName.value, slot: 'account', disabled: true }]
+  ]
+
+  // Add dashboard navigation for ADMIN users
+  if (userProfile.value?.role === 'ADMIN') {
+    baseItems.push([{
+      label: 'Admin Dashboard',
+      icon: 'heroicons:shield-check',
+      click: () => navigateTo('/admin')
+    }, {
+      label: 'User Dashboard',
+      icon: 'heroicons:home',
+      click: () => navigateTo('/dashboard')
+    }])
+  }
+
+  // Add common menu items
+  baseItems.push(
+    [{ label: 'Account Settings', icon: 'heroicons:user', click: () => navigateTo('/account') }],
+    [{ label: 'Sign Out', icon: 'heroicons:arrow-right-on-rectangle', click: handleSignOut }]
+  )
+
+  return baseItems
+})
+</script>
+```
+
+### 5. Mobile Responsiveness
 - **Mobile-first approach**: Design for mobile first, then enhance for larger screens
 - **Collapsible sidebars**: Use toggle panels for complex layouts on mobile
 - **Touch-friendly controls**: Ensure adequate touch target sizes (44px minimum)
 - **Progressive enhancement**: Start with basic functionality, add features for larger screens
 
-### 3. PostCSS and Tailwind Configuration
+### 6. PostCSS and Tailwind Configuration
 - **Use Nuxt's built-in PostCSS**: Configure PostCSS in `nuxt.config.ts`, not separate config file
 - **Avoid @apply in media queries**: Use regular CSS properties instead
 - **Pin Tailwind version**: Use specific version (3.4.0) for stability
 - **Module type declaration**: Add `"type": "module"` to package.json
 
-### 4. Build Optimization
+### 7. Build Optimization
 - **Remove unnecessary dependencies**: Avoid packages that cause build conflicts
 - **SSR considerations**: Disable SSR if experiencing chunk splitting issues
 - **Vite optimization**: Only include necessary packages in optimizeDeps
 - **Version compatibility**: Ensure all packages are compatible with Nuxt 4
 
-### 5. Development Workflow
+### 8. Development Workflow
 - **Test on multiple devices**: Use browser dev tools and real devices
 - **Progressive enhancement**: Ensure core functionality works on all screen sizes
 - **Performance monitoring**: Monitor bundle size and load times
 - **Documentation**: Keep implementation guidelines updated
 - **Authentication testing**: Test all authentication flows thoroughly
+- **Role-based testing**: Test both admin and user experiences thoroughly
 
 ## Conclusion
 

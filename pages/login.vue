@@ -78,8 +78,7 @@
           <UButton
             type="submit"
             :loading="loading"
-            :disabled="!form.email || !form.password"
-            class="w-full text-white border-0 hover:opacity-90 transition-opacity text-center block"
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity text-center block cursor-pointer"
             style="background-color: #F28C28;"
             size="lg"
           >
@@ -146,8 +145,7 @@
           <UButton
             type="submit"
             :loading="loading"
-            :disabled="!magicLinkEmail"
-            class="w-full text-white border-0 hover:opacity-90 transition-opacity flex items-center justify-center"
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity flex items-center justify-center cursor-pointer"
             style="background-color: #F28C28;"
             size="lg"
           >
@@ -184,10 +182,14 @@
 
 <script setup>
 // Redirect if already authenticated
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, userProfile } = useAuth()
 
 if (isAuthenticated.value) {
-  await navigateTo('/dashboard')
+  if (userProfile.value?.role === 'ADMIN') {
+    await navigateTo('/admin')
+  } else {
+    await navigateTo('/dashboard')
+  }
 }
 
 // Form state
@@ -219,50 +221,27 @@ if (route.query.mode === 'magic-link') {
   successMessage.value = 'Please request a new magic link below.'
 }
 
-// Form validation
-const validateForm = () => {
-  errors.value = {}
-  
-  if (!form.value.email) {
-    errors.value.email = 'Email is required'
-  } else if (!/\S+@\S+\.\S+/.test(form.value.email)) {
-    errors.value.email = 'Please enter a valid email address'
-  }
-  
-  if (!form.value.password) {
-    errors.value.password = 'Password is required'
-  } else if (form.value.password.length < 6) {
-    errors.value.password = 'Password must be at least 6 characters'
-  }
-  
-  return Object.keys(errors.value).length === 0
-}
-
-// Magic link validation
-const validateMagicLinkForm = () => {
-  errors.value = {}
-  
-  if (!magicLinkEmail.value) {
-    errors.value.magicLinkEmail = 'Email is required'
-  } else if (!/\S+@\S+\.\S+/.test(magicLinkEmail.value)) {
-    errors.value.magicLinkEmail = 'Please enter a valid email address'
-  }
-  
-  return Object.keys(errors.value).length === 0
-}
+// Form validation functions removed - server handles validation
 
 // Handle form submission
 const handleSignIn = async () => {
-  if (!validateForm()) return
-  
   try {
     console.log('🚀 Login page: Starting login process')
     const result = await signIn(form.value.email, form.value.password)
     console.log('✅ Login page: Login successful, result:', result)
     
-    // Redirect to dashboard after successful login
-    console.log('🔄 Login page: Redirecting to dashboard...')
-    await navigateTo('/my-dashboard')
+    // Wait for user profile to load to check role
+    const { userProfile } = useAuth()
+    await nextTick()
+    
+    // Redirect based on user role
+    if (userProfile.value?.role === 'ADMIN') {
+      console.log('🔄 Login page: ADMIN user, redirecting to admin dashboard...')
+      await navigateTo('/admin')
+    } else {
+      console.log('🔄 Login page: Regular user, redirecting to dashboard...')
+      await navigateTo('/my-dashboard')
+    }
     console.log('✅ Login page: Redirect completed')
   } catch (err) {
     // Error is handled by the composable
@@ -272,8 +251,6 @@ const handleSignIn = async () => {
 
 // Handle magic link submission
 const handleMagicLinkSignIn = async () => {
-  if (!validateMagicLinkForm()) return
-  
   try {
     console.log('🔗 Login page: Starting magic link process')
     const result = await signInWithMagicLink(magicLinkEmail.value)
