@@ -114,13 +114,24 @@
         <!-- Users Section -->
         <UCard class="bg-white dark:bg-gray-800">
           <template #header>
-            <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-              Internal Users ({{ organization.profiles?.length || 0 }})
-            </h3>
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+                Internal Users ({{ internalUsers?.length || 0 }})
+              </h3>
+              <UButton 
+                color="orange" 
+                size="sm" 
+                @click="openAddUserModal"
+                :disabled="isLoading"
+              >
+                <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+                Add User
+              </UButton>
+            </div>
           </template>
           
-          <div v-if="organization.profiles?.length > 0" class="space-y-3">
-            <div v-for="profile in organization.profiles" :key="profile.user_id" 
+          <div v-if="internalUsers?.length > 0" class="space-y-3">
+            <div v-for="profile in internalUsers" :key="profile.user_id" 
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
@@ -135,8 +146,20 @@
                   </div>
                 </div>
               </div>
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                {{ formatDate(profile.created_at, true) }}
+              <div class="flex items-center gap-3">
+                <div class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ formatDate(profile.created_at, true) }}
+                </div>
+                <UButton 
+                  variant="ghost" 
+                  size="sm" 
+                  color="red" 
+                  @click="deleteUser(profile)"
+                  :disabled="isDeletingUser"
+                  :loading="isDeletingUser && deletingUserId === profile.user_id"
+                >
+                  <Icon name="heroicons:trash" class="w-4 h-4" />
+                </UButton>
               </div>
             </div>
           </div>
@@ -150,13 +173,24 @@
         <!-- Viewers Section -->
         <UCard class="bg-white dark:bg-gray-800">
           <template #header>
-            <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-              Viewers ({{ organization.viewers?.length || 0 }})
-            </h3>
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+                Viewers ({{ allViewers?.length || 0 }})
+              </h3>
+              <UButton 
+                color="purple" 
+                size="sm" 
+                @click="openAddViewerModal"
+                :disabled="isLoading"
+              >
+                <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+                Add Viewer
+              </UButton>
+            </div>
           </template>
           
-          <div v-if="organization.viewers?.length > 0" class="space-y-3">
-            <div v-for="viewer in organization.viewers" :key="viewer.user_id" 
+          <div v-if="allViewers?.length > 0" class="space-y-3">
+            <div v-for="viewer in allViewers" :key="viewer.user_id" 
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
@@ -174,8 +208,20 @@
                   </div>
                 </div>
               </div>
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                {{ formatDate(viewer.created_at, true) }}
+              <div class="flex items-center gap-3">
+                <div class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ formatDate(viewer.created_at, true) }}
+                </div>
+                <UButton 
+                  variant="ghost" 
+                  size="sm" 
+                  color="red" 
+                  @click="deleteViewer(viewer)"
+                  :disabled="isDeletingViewer"
+                  :loading="isDeletingViewer && deletingViewerId === viewer.user_id"
+                >
+                  <Icon name="heroicons:trash" class="w-4 h-4" />
+                </UButton>
               </div>
             </div>
           </div>
@@ -254,6 +300,186 @@
         </UButton>
       </div>
 
+      <!-- Add User Modal -->
+      <UModal v-model="showAddUserModal">
+        <UCard>
+          <template #header>
+            <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+              Add New User
+            </h3>
+          </template>
+          
+          <form @submit.prevent="addUser" class="space-y-4">
+            <UFormGroup label="Email Address" required>
+              <UInput v-model="userForm.email" type="email" placeholder="Enter email address" />
+            </UFormGroup>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <UFormGroup label="First Name" required>
+                <UInput v-model="userForm.firstName" placeholder="Enter first name" />
+              </UFormGroup>
+              
+              <UFormGroup label="Last Name" required>
+                <UInput v-model="userForm.lastName" placeholder="Enter last name" />
+              </UFormGroup>
+            </div>
+            
+            <UFormGroup label="Role">
+              <USelect 
+                v-model="userForm.role" 
+                :options="userRoleOptions"
+                placeholder="Select role"
+              />
+            </UFormGroup>
+            
+            <div class="flex justify-end gap-3 pt-4">
+              <UButton variant="ghost" @click="closeAddUserModal">Cancel</UButton>
+              <UButton type="submit" color="orange" :loading="isAddingUser">
+                Add User
+              </UButton>
+            </div>
+          </form>
+        </UCard>
+      </UModal>
+
+      <!-- Add Viewer Modal -->
+      <UModal v-model="showAddViewerModal">
+        <UCard>
+          <template #header>
+            <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+              Add New Viewer
+            </h3>
+          </template>
+          
+          <form @submit.prevent="addViewer" class="space-y-4">
+            <UFormGroup label="Email Address" required>
+              <UInput v-model="viewerForm.email" type="email" placeholder="Enter email address" />
+            </UFormGroup>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <UFormGroup label="First Name" required>
+                <UInput v-model="viewerForm.firstName" placeholder="Enter first name" />
+              </UFormGroup>
+              
+              <UFormGroup label="Last Name" required>
+                <UInput v-model="viewerForm.lastName" placeholder="Enter last name" />
+              </UFormGroup>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <UFormGroup label="Viewer Type">
+                <UInput v-model="viewerForm.type" placeholder="e.g., Viewer, Manager" />
+              </UFormGroup>
+              
+              <UFormGroup label="Group">
+                <UInput v-model="viewerForm.group" placeholder="e.g., Sales, Marketing" />
+              </UFormGroup>
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-4">
+              <UButton variant="ghost" @click="closeAddViewerModal">Cancel</UButton>
+              <UButton type="submit" color="purple" :loading="isAddingViewer">
+                Add Viewer
+              </UButton>
+            </div>
+          </form>
+        </UCard>
+      </UModal>
+
+      <!-- Delete User Confirmation Modal -->
+      <UModal v-model="showDeleteUserModal">
+        <UCard>
+          <template #header>
+            <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
+              Delete User
+            </h3>
+          </template>
+          
+          <div class="space-y-4">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
+                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div class="space-y-2">
+                <p class="text-gray-900 dark:text-white font-medium">
+                  Are you sure you want to delete this user?
+                </p>
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                  <p class="text-sm text-red-800 dark:text-red-200 font-medium mb-1">This will permanently delete:</p>
+                  <ul class="text-sm text-red-700 dark:text-red-300 space-y-1">
+                    <li>• User account and all associated data</li>
+                    <li>• All dashboards created by this user</li>
+                  </ul>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-4">
+              <UButton variant="ghost" @click="cancelDeleteUser" :disabled="isDeletingUser">
+                Cancel
+              </UButton>
+              <UButton 
+                color="red" 
+                @click="confirmDeleteUser"
+                :loading="isDeletingUser"
+              >
+                Delete User
+              </UButton>
+            </div>
+          </div>
+        </UCard>
+      </UModal>
+
+      <!-- Delete Viewer Confirmation Modal -->
+      <UModal v-model="showDeleteViewerModal">
+        <UCard>
+          <template #header>
+            <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
+              Delete Viewer
+            </h3>
+          </template>
+          
+          <div class="space-y-4">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
+                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div class="space-y-2">
+                <p class="text-gray-900 dark:text-white font-medium">
+                  Are you sure you want to delete this viewer?
+                </p>
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                  <p class="text-sm text-red-800 dark:text-red-200 font-medium mb-1">This will permanently delete:</p>
+                  <ul class="text-sm text-red-700 dark:text-red-300 space-y-1">
+                    <li>• Viewer account and all associated data</li>
+                    <li>• Access to all shared dashboards</li>
+                  </ul>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-4">
+              <UButton variant="ghost" @click="cancelDeleteViewer" :disabled="isDeletingViewer">
+                Cancel
+              </UButton>
+              <UButton 
+                color="red" 
+                @click="confirmDeleteViewer"
+                :loading="isDeletingViewer"
+              >
+                Delete Viewer
+              </UButton>
+            </div>
+          </div>
+        </UCard>
+      </UModal>
+
       <template #fallback>
         <!-- Server-side fallback -->
         <div class="flex justify-center items-center py-12">
@@ -280,15 +506,87 @@ const organization = ref(null)
 const isLoading = ref(false)
 const isUpdating = ref(false)
 
+// Modal states
+const showAddUserModal = ref(false)
+const showAddViewerModal = ref(false)
+const showDeleteUserModal = ref(false)
+const showDeleteViewerModal = ref(false)
+
+// Loading states
+const isAddingUser = ref(false)
+const isAddingViewer = ref(false)
+const isDeletingUser = ref(false)
+const isDeletingViewer = ref(false)
+const deletingUserId = ref(null)
+const deletingViewerId = ref(null)
+
 // Form data
 const licensesForm = ref({
   licenses: 0
 })
 
+const userForm = ref({
+  email: '',
+  firstName: '',
+  lastName: '',
+  role: 'EDITOR'
+})
+
+const viewerForm = ref({
+  email: '',
+  firstName: '',
+  lastName: '',
+  type: 'Viewer',
+  group: ''
+})
+
+// User to delete
+const userToDelete = ref(null)
+const viewerToDelete = ref(null)
+
+// Role options
+const userRoleOptions = [
+  { label: 'Editor', value: 'EDITOR' },
+  { label: 'Admin', value: 'ADMIN' }
+]
+
 // Computed
 const availableLicenses = computed(() => {
   if (!organization.value) return 0
   return (organization.value.licenses || 0) - (organization.value.viewer_count || 0)
+})
+
+// Filter users by role
+const internalUsers = computed(() => {
+  if (!organization.value?.profiles) return []
+  return organization.value.profiles.filter(profile => 
+    profile.role === 'ADMIN' || profile.role === 'EDITOR'
+  )
+})
+
+const allViewers = computed(() => {
+  if (!organization.value) return []
+  
+  const viewersFromProfiles = (organization.value.profiles || [])
+    .filter(profile => profile.role === 'VIEWER')
+    .map(profile => ({
+      user_id: profile.user_id,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      viewer_type: profile.viewer_type || 'Viewer',
+      group_name: profile.group_name || null,
+      created_at: profile.created_at
+    }))
+  
+  const viewersFromViewersTable = organization.value.viewers || []
+  
+  // Combine both sources and remove duplicates
+  const allViewers = [...viewersFromProfiles, ...viewersFromViewersTable]
+  const uniqueViewers = allViewers.filter((viewer, index, self) => 
+    index === self.findIndex(v => v.user_id === viewer.user_id)
+  )
+  
+  return uniqueViewers
 })
 
 // Get access token for API calls
@@ -419,6 +717,271 @@ const formatDate = (dateString, short = false) => {
 // Navigation
 const goBack = () => {
   navigateTo('/organizations')
+}
+
+// Modal functions
+const openAddUserModal = () => {
+  userForm.value = {
+    email: '',
+    firstName: '',
+    lastName: '',
+    role: 'EDITOR'
+  }
+  showAddUserModal.value = true
+}
+
+const closeAddUserModal = () => {
+  showAddUserModal.value = false
+  userForm.value = {
+    email: '',
+    firstName: '',
+    lastName: '',
+    role: 'EDITOR'
+  }
+}
+
+const openAddViewerModal = () => {
+  viewerForm.value = {
+    email: '',
+    firstName: '',
+    lastName: '',
+    type: 'Viewer',
+    group: ''
+  }
+  showAddViewerModal.value = true
+}
+
+const closeAddViewerModal = () => {
+  showAddViewerModal.value = false
+  viewerForm.value = {
+    email: '',
+    firstName: '',
+    lastName: '',
+    type: 'Viewer',
+    group: ''
+  }
+}
+
+// Add user function
+const addUser = async () => {
+  try {
+    isAddingUser.value = true
+    const toast = useToast()
+    
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    const response = await $fetch(`/api/organizations/${organizationId}/users`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: {
+        email: userForm.value.email,
+        firstName: userForm.value.firstName,
+        lastName: userForm.value.lastName,
+        role: userForm.value.role
+      }
+    })
+    
+    if (response.success) {
+      // Reload organization details to get updated user list
+      await loadOrganizationDetails()
+      
+      toast.add({
+        title: 'Success',
+        description: 'User added successfully',
+        color: 'green'
+      })
+      
+      closeAddUserModal()
+    } else {
+      throw new Error(response.error || 'Failed to add user')
+    }
+  } catch (error) {
+    console.error('Error adding user:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to add user. Please try again.',
+      color: 'red'
+    })
+  } finally {
+    isAddingUser.value = false
+  }
+}
+
+// Add viewer function
+const addViewer = async () => {
+  try {
+    isAddingViewer.value = true
+    const toast = useToast()
+    
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    const response = await $fetch(`/api/organizations/${organizationId}/viewers`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: {
+        email: viewerForm.value.email,
+        firstName: viewerForm.value.firstName,
+        lastName: viewerForm.value.lastName,
+        type: viewerForm.value.type,
+        group: viewerForm.value.group
+      }
+    })
+    
+    if (response.success) {
+      // Reload organization details to get updated viewer list
+      await loadOrganizationDetails()
+      
+      toast.add({
+        title: 'Success',
+        description: 'Viewer added successfully',
+        color: 'green'
+      })
+      
+      closeAddViewerModal()
+    } else {
+      throw new Error(response.error || 'Failed to add viewer')
+    }
+  } catch (error) {
+    console.error('Error adding viewer:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to add viewer. Please try again.',
+      color: 'red'
+    })
+  } finally {
+    isAddingViewer.value = false
+  }
+}
+
+// Delete user functions
+const deleteUser = (profile) => {
+  userToDelete.value = profile
+  showDeleteUserModal.value = true
+}
+
+const confirmDeleteUser = async () => {
+  if (!userToDelete.value) return
+  
+  try {
+    isDeletingUser.value = true
+    deletingUserId.value = userToDelete.value.user_id
+    const toast = useToast()
+    
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    const response = await $fetch(`/api/users/${userToDelete.value.user_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    
+    if (response.success) {
+      // Reload organization details to get updated user list
+      await loadOrganizationDetails()
+      
+      toast.add({
+        title: 'Success',
+        description: 'User deleted successfully',
+        color: 'green'
+      })
+      
+      cancelDeleteUser()
+    } else {
+      throw new Error(response.error || 'Failed to delete user')
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to delete user. Please try again.',
+      color: 'red'
+    })
+  } finally {
+    isDeletingUser.value = false
+    deletingUserId.value = null
+  }
+}
+
+const cancelDeleteUser = () => {
+  showDeleteUserModal.value = false
+  userToDelete.value = null
+}
+
+// Delete viewer functions
+const deleteViewer = (viewer) => {
+  viewerToDelete.value = viewer
+  showDeleteViewerModal.value = true
+}
+
+const confirmDeleteViewer = async () => {
+  if (!viewerToDelete.value) return
+  
+  try {
+    isDeletingViewer.value = true
+    deletingViewerId.value = viewerToDelete.value.user_id
+    const toast = useToast()
+    
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    // Use the existing viewers API endpoint which handles both types
+    const response = await $fetch(`/api/viewers/${viewerToDelete.value.user_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    
+    if (response.success) {
+      // Reload organization details to get updated viewer list
+      await loadOrganizationDetails()
+      
+      toast.add({
+        title: 'Success',
+        description: 'Viewer deleted successfully',
+        color: 'green'
+      })
+      
+      cancelDeleteViewer()
+    } else {
+      throw new Error(response.error || 'Failed to delete viewer')
+    }
+  } catch (error) {
+    console.error('Error deleting viewer:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to delete viewer. Please try again.',
+      color: 'red'
+    })
+  } finally {
+    isDeletingViewer.value = false
+    deletingViewerId.value = null
+  }
+}
+
+const cancelDeleteViewer = () => {
+  showDeleteViewerModal.value = false
+  viewerToDelete.value = null
 }
 
 // Load organization details on mount
