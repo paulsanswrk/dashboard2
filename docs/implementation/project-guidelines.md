@@ -1509,6 +1509,132 @@ const accountMenuItems = computed(() => {
 - **SSR Configuration**: Enable SSR for better performance but handle hydration properly
 - **Client-Side Initialization**: Use `onMounted()` for client-specific data loading
 
+### 11. Component Architecture and Reusability
+
+#### Route-Based Component Selection
+- **Context-Aware Components**: Create components that adapt based on route context (admin vs user)
+- **Scope-Aware Composables**: Use composables with scope parameters to handle different data contexts
+- **Shared Component Library**: Maximize code reusability through shared components
+- **Consistent UI/UX**: Ensure identical interface across different contexts
+
+#### Component Organization
+- **Root Components Directory**: Place all components in `components/` root for Nuxt auto-import
+- **Descriptive Naming**: Use clear, descriptive names to avoid conflicts (e.g., `UsersBulkDeleteModal` vs `ViewersBulkDeleteModal`)
+- **Single Responsibility**: Each component should have one clear purpose
+- **Props Validation**: Always define prop types and validation rules
+
+#### Vue 3 Component Patterns
+- **v-model on Props**: Use `:model-value` and `@update:model-value` instead of `v-model` on props
+- **Emit Definitions**: Always define typed emit events for component communication
+- **Two-way Binding**: Use `v-model:prop-name` syntax for custom two-way binding
+- **Event Handling**: Delegate complex logic to parent components or composables
+
+#### Composable Design Patterns
+```typescript
+// ✅ DO: Scope-aware composables
+export const useEntityManagement = (scope: 'organization' | 'admin') => {
+  const endpoint = scope === 'admin' ? '/api/admin/entities' : '/api/entities'
+  // Scope-aware logic
+}
+
+// ❌ DON'T: Context-specific composables
+export const useAdminEntityManagement = () => {
+  // Admin-specific logic only
+}
+```
+
+#### Component Reusability Guidelines
+- **Context-Agnostic Design**: Design components to work in multiple contexts
+- **Props Interface**: Use consistent prop interfaces across similar components
+- **Event Patterns**: Standardize event naming and handling patterns
+- **State Management**: Keep component state minimal, delegate to composables
+
+### 12. Route-Based Architecture
+
+#### Navigation Patterns
+- **Context-Aware Navigation**: Navigation should adapt based on current route context
+- **Route-Based Logic**: Use `route.path` to determine navigation items and component behavior
+- **Consistent Routing**: Maintain consistent route patterns across admin and user contexts
+- **Deep Linking**: Ensure all routes are bookmarkable and shareable
+
+#### Data Scoping Strategy
+- **Admin Context**: Organization-wide data access (`/admin/*` routes)
+- **User Context**: Organization-specific data access (other routes)
+- **API Endpoint Strategy**: Use different API endpoints based on context
+- **Permission Handling**: Implement proper permission checks at route level
+
+#### Page Structure Standards
+```vue
+<!-- ✅ DO: Consistent page structure -->
+<template>
+  <div class="flex flex-col lg:flex-row h-[calc(100vh-120px)]">
+    <!-- List Panel -->
+    <div class="w-full lg:w-1/2">
+      <EntityList :entities="filteredEntities" @select-entity="selectEntity" />
+    </div>
+    
+    <!-- Details Panel -->
+    <div class="flex-1">
+      <EntityDetails :selected-entity="selectedEntity" @save="saveEntity" />
+    </div>
+    
+    <!-- Modals -->
+    <AddEntityModal v-model:is-open="showAddModal" @add="addEntity" />
+  </div>
+</template>
+
+<script setup>
+// Use scope-aware composable
+const { /* state and methods */ } = useEntityManagement(scope)
+</script>
+```
+
+### 13. Code Organization and Maintenance
+
+#### File Structure Standards
+```
+components/
+├── EntityList.vue              # Reusable list component
+├── EntityDetails.vue           # Reusable details component
+├── AddEntityModal.vue          # Reusable add modal
+├── DeleteEntityModal.vue       # Reusable delete modal
+└── EntityBulkDeleteModal.vue   # Reusable bulk delete modal
+
+composables/
+└── useEntityManagement.ts      # Scope-aware entity management logic
+
+pages/
+├── entities.vue                # User context page
+└── admin/
+    └── entities.vue            # Admin context page
+```
+
+#### Naming Conventions
+- **Components**: PascalCase with descriptive names (`UsersBulkDeleteModal`)
+- **Composables**: camelCase with `use` prefix (`useUsersManagement`)
+- **Props**: camelCase with descriptive names (`selectedCount`, `isLoading`)
+- **Events**: kebab-case with action names (`@add-user`, `@confirm-delete`)
+
+#### Documentation Standards
+- **Component Documentation**: Document props, events, and usage examples
+- **Composable Documentation**: Document parameters, return values, and scope behavior
+- **Implementation Guides**: Create detailed implementation documentation for complex features
+- **Architecture Decisions**: Document architectural decisions and rationale
+
+### 14. Testing and Quality Assurance
+
+#### Component Testing
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test component interactions and data flow
+- **Context Testing**: Test components in different contexts (admin vs user)
+- **Accessibility Testing**: Ensure components meet accessibility standards
+
+#### User Experience Testing
+- **Cross-Context Testing**: Test functionality across admin and user contexts
+- **Mobile Testing**: Ensure responsive design works on all screen sizes
+- **Performance Testing**: Monitor component rendering performance
+- **Error Handling Testing**: Test error scenarios and user feedback
+
 ## Conclusion
 
 These guidelines ensure:
@@ -1520,5 +1646,8 @@ These guidelines ensure:
 - **Performance**: Optimized user experience
 - **Mobile-first**: Responsive design that works on all devices
 - **Build stability**: Reliable build process with proper configuration
+- **Code Reusability**: Maximum reuse through shared components and composables
+- **Context Awareness**: Proper handling of different user contexts and data scoping
+- **Developer Experience**: Intuitive patterns and clear documentation
 
-Following these guidelines will result in a robust, maintainable, and scalable Optiqo Dashboard application that serves users effectively while providing an excellent development experience across all devices and screen sizes.
+Following these guidelines will result in a robust, maintainable, and scalable Optiqo Dashboard application that serves users effectively while providing an excellent development experience across all devices and screen sizes. The route-based component architecture enables efficient code reuse while maintaining clear separation of concerns between different user contexts.

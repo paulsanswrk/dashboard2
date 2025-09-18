@@ -9,7 +9,7 @@
         class="w-full"
       >
         <Icon name="heroicons:users" class="w-4 h-4 mr-2" />
-        Users ({{ users.length }})
+        All Users ({{ users.length }})
       </UButton>
     </div>
 
@@ -22,11 +22,12 @@
       ]"
     >
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-        <h2 class="text-xl font-bold">Users ({{ filteredUsers.length }} / {{ totalUsers }})</h2>
-        <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto" color="green">
+        <h2 class="text-xl font-bold">All Users ({{ filteredUsers.length }} / {{ totalUsers }})</h2>
+        <!-- Add User button hidden for admin - no organization context -->
+        <!-- <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto" color="green">
           <Icon name="heroicons:user-plus" class="w-4 h-4 mr-2" />
           Add User
-        </UButton>
+        </UButton> -->
       </div>
 
       <!-- Search and Bulk Actions -->
@@ -96,9 +97,10 @@
       <div v-else class="text-center py-8">
         <Icon name="heroicons:users" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
         <p class="text-gray-500 mb-4">No users found</p>
-        <UButton @click="openAddUserModal" color="green">
+        <!-- Add First User button hidden for admin - no organization context -->
+        <!-- <UButton @click="openAddUserModal" color="green">
           Add First User
-        </UButton>
+        </UButton> -->
       </div>
     </div>
 
@@ -143,7 +145,7 @@
 </template>
 
 <script setup>
-// Use organization scope for users management (default)
+// Use admin scope for users management
 const {
   selectedUser,
   showAddUserModal,
@@ -175,7 +177,7 @@ const {
   bulkDeleteUsers,
   toggleSelectAll,
   toggleUserSelection
-} = useUsersManagement('organization')
+} = useUsersManagement('admin')
 
 // Page meta
 definePageMeta({

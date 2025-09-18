@@ -193,8 +193,8 @@ const navigationItems = computed(() => {
   if (route.path.startsWith('/admin') || route.path.startsWith('/organizations')) {
     return [
       { icon: 'heroicons:home', label: 'Dashboard', route: '/admin' },
-      { icon: 'heroicons:users', label: 'Users', route: '/users' },
-      { icon: 'heroicons:eye', label: 'Viewers', route: '/viewers' },
+      { icon: 'heroicons:users', label: 'Users', route: '/admin/users' },
+      { icon: 'heroicons:eye', label: 'Viewers', route: '/admin/viewers' },
       { icon: 'heroicons:building-office', label: 'Organizations', route: '/organizations' }
     ]
   } else {

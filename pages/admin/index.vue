@@ -82,9 +82,9 @@
         <div class="p-4">
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Users +</h3>
           <div class="space-y-2">
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/users')">
+            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/admin/users')">
               <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
-              Manage Users
+              Manage All Users
             </UButton>
             <div class="space-y-1">
               <div v-for="user in recentUsers" :key="user.id" class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600">
@@ -101,9 +101,9 @@
         <div class="p-4">
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Viewers +</h3>
           <div class="space-y-2">
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/viewers')">
+            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/admin/viewers')">
               <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
-              Manage Viewers
+              Manage All Viewers
             </UButton>
             <div class="space-y-1">
               <div v-for="viewer in recentViewers" :key="viewer.id" class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600">

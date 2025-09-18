@@ -1,34 +1,35 @@
 <template>
   <div class="flex flex-col lg:flex-row h-[calc(100vh-120px)]">
-    <!-- Mobile Users Toggle -->
+    <!-- Mobile Viewers Toggle -->
     <div class="lg:hidden p-4 border-b bg-gray-50">
       <UButton 
-        @click="toggleMobilePanel('users')"
+        @click="toggleMobilePanel('viewers')"
         variant="outline" 
         size="sm"
         class="w-full"
       >
-        <Icon name="heroicons:users" class="w-4 h-4 mr-2" />
-        Users ({{ users.length }})
+        <Icon name="heroicons:eye" class="w-4 h-4 mr-2" />
+        All Viewers ({{ viewers.length }})
       </UButton>
     </div>
 
-    <!-- Users List -->
+    <!-- Viewers List -->
     <div 
       :class="[
         'border-r p-4 lg:p-6 transition-all duration-300',
         'w-full lg:w-1/2',
-        mobilePanel === 'users' ? 'block' : 'hidden lg:block'
+        mobilePanel === 'viewers' ? 'block' : 'hidden lg:block'
       ]"
     >
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
-        <h2 class="text-xl font-bold">Users ({{ filteredUsers.length }} / {{ totalUsers }})</h2>
-        <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto" color="green">
-          <Icon name="heroicons:user-plus" class="w-4 h-4 mr-2" />
-          Add User
-        </UButton>
+        <h2 class="text-xl font-bold">All Viewers ({{ filteredViewers.length }} / {{ totalViewers }})</h2>
+        <!-- Add Viewer button hidden for admin - no organization context -->
+        <!-- <UButton size="sm" @click="openAddViewerModal" class="w-full sm:w-auto" color="green">
+          <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+          Add Viewer
+        </UButton> -->
       </div>
-
+      
       <!-- Search and Bulk Actions -->
       <div class="flex flex-col sm:flex-row gap-4 mb-6">
         <div class="flex-1 relative">
@@ -45,7 +46,7 @@
             <Icon name="heroicons:x-mark" class="w-4 h-4" />
           </button>
         </div>
-        <div class="flex gap-2" v-if="selectedUsers.size > 0">
+        <div class="flex gap-2" v-if="selectedViewers.size > 0">
           <UButton variant="outline" size="sm" @click="addToGroup" :disabled="loading">
             <Icon name="heroicons:user-group" class="w-4 h-4 mr-1" />
             add to group
@@ -80,102 +81,106 @@
         </UButton>
       </div>
 
-      <!-- Users Table -->
-      <div v-else-if="users.length > 0">
-        <UsersList
-          :users="filteredUsers"
+      <!-- Viewers Table -->
+      <div v-else-if="viewers.length > 0">
+        <ViewersList
+          :viewers="filteredViewers"
           :search-query="searchQuery"
-          :selected-users="selectedUsers"
-          @select-user="selectUser"
+          :selected-viewers="selectedViewers"
+          @select-viewer="selectViewer"
           @toggle-select-all="toggleSelectAll"
-          @toggle-user-selection="toggleUserSelection"
+          @toggle-viewer-selection="toggleViewerSelection"
         />
       </div>
 
       <!-- Empty state -->
       <div v-else class="text-center py-8">
-        <Icon name="heroicons:users" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
-        <p class="text-gray-500 mb-4">No users found</p>
-        <UButton @click="openAddUserModal" color="green">
-          Add First User
-        </UButton>
+        <Icon name="heroicons:eye" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
+        <p class="text-gray-500 mb-4">No viewers found</p>
+        <!-- Add First Viewer button hidden for admin - no organization context -->
+        <!-- <UButton @click="openAddViewerModal" size="sm" color="green">
+          Add First Viewer
+        </UButton> -->
       </div>
     </div>
 
-    <!-- User Details -->
+    <!-- Viewer Details -->
     <div class="flex-1 p-4 lg:p-6">
-      <UserDetails
-        :selected-user="selectedUser"
+      <ViewerDetails
+        :selected-viewer="selectedViewer"
         :loading="loading"
         @close-mobile-panel="closeMobilePanel"
-        @save-user="saveUser"
-        @confirm-delete-user="confirmDeleteUser"
+        @save-viewer="saveViewer"
+        @confirm-delete-viewer="confirmDeleteViewer"
       />
     </div>
 
-    <!-- Add User Modal -->
-    <AddUserModal
-      v-model:is-open="showAddUserModal"
+    <!-- Add Viewer Modal -->
+    <AddViewerModal
+      v-model:is-open="showAddViewerModal"
       :loading="loading"
       :error="error"
-      @close-modal="closeAddUserModal"
-      @add-user="addUser"
+      @close-modal="closeAddViewerModal"
+      @add-viewer="addViewer"
     />
 
     <!-- Delete Confirmation Modal -->
-    <DeleteUserModal
+    <DeleteViewerModal
       v-model:is-open="showDeleteConfirmModal"
-      :user-to-delete="userToDelete"
+      :viewer-to-delete="viewerToDelete"
       :loading="loading"
       @close-modal="showDeleteConfirmModal = false"
-      @confirm-delete="deleteUser"
+      @confirm-delete="deleteViewer"
     />
 
     <!-- Bulk Delete Confirmation Modal -->
-    <UsersBulkDeleteModal
+    <ViewersBulkDeleteModal
       v-model:is-open="showBulkDeleteConfirm"
-      :selected-count="selectedUsers.size"
+      :selected-count="selectedViewers.size"
       :loading="loading"
       @close-modal="showBulkDeleteConfirm = false"
-      @confirm-delete="bulkDeleteUsers"
+      @confirm-delete="bulkDeleteViewers"
     />
   </div>
 </template>
 
 <script setup>
-// Use organization scope for users management (default)
+// Use admin scope for viewers management
 const {
-  selectedUser,
-  showAddUserModal,
+  selectedViewer,
+  showAddViewerModal,
   showDeleteConfirmModal,
-  showBulkDeleteConfirm,
-  userToDelete,
+  viewerToDelete,
   mobilePanel,
   loading,
   error,
   searchQuery,
-  selectedUsers,
+  selectedViewers,
+  showBulkDeleteConfirm,
   pending,
-  users,
-  totalUsers,
-  filteredUsers,
-  newUser,
+  viewers,
+  totalViewers,
+  filteredViewers,
+  newViewer,
+  viewerTypeOptions,
+  groupOptions,
+  languageOptions,
   refresh,
   toggleMobilePanel,
   closeMobilePanel,
-  selectUser,
-  openAddUserModal,
-  closeAddUserModal,
-  addUser,
-  saveUser,
-  confirmDeleteUser,
-  deleteUser,
+  selectViewer,
+  openAddViewerModal,
+  closeAddViewerModal,
+  addViewer,
+  saveViewer,
+  confirmDeleteViewer,
+  deleteViewer,
   addToGroup,
   confirmBulkDelete,
-  bulkDeleteUsers,
+  bulkDeleteViewers,
   toggleSelectAll,
-  toggleUserSelection
-} = useUsersManagement('organization')
+  toggleViewerSelection
+} = useViewersManagement('admin')
 
 // Page meta
 definePageMeta({
