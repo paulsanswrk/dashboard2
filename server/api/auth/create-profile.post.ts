@@ -116,7 +116,8 @@ export default defineEventHandler(async (event) => {
           .from('organizations')
           .insert({
             name: profileData.organizationName,
-            viewer_count: 0
+            viewer_count: 0,
+            created_by: profileDataToCreate.user_id
           })
           .select()
           .single()

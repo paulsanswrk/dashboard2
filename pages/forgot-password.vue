@@ -69,7 +69,8 @@
 const { isAuthenticated } = useAuth()
 
 if (isAuthenticated.value) {
-  await navigateTo('/dashboard')
+  const { redirectToDashboard } = useAuth()
+  await redirectToDashboard()
 }
 
 // Form state

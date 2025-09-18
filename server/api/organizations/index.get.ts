@@ -1,23 +1,50 @@
-import { supabaseAdmin } from '../supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
-    // Get current user from session
-    const accessToken = getCookie(event, 'sb-access-token')
-    const refreshToken = getCookie(event, 'sb-refresh-token')
+    // Get environment variables
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    if (!accessToken || !refreshToken) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       throw createError({
-        statusCode: 401,
-        statusMessage: 'Authentication required'
+        statusCode: 500,
+        statusMessage: 'Missing Supabase configuration'
       })
     }
 
+    // Create Supabase client with service role (bypasses RLS)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Get the authorization header
+    const authorization = getHeader(event, 'authorization')
+    if (!authorization) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Authorization header required'
+      })
+    }
+
+    // Extract token from "Bearer <token>"
+    const token = authorization.replace('Bearer ', '')
+    
+    // Verify the token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Invalid or expired token'
+      })
+    }
+
+    const userId = user.id
+
     // Get user profile to check role
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('role, organization_id')
-      .eq('user_id', (await getUserFromSession(accessToken, refreshToken)).id)
+      .eq('user_id', userId)
       .single()
 
     if (profileError) {
@@ -27,7 +54,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    let query = supabaseAdmin
+    // Build the query to get organizations with user counts
+    let query = supabase
       .from('organizations')
       .select('*')
       .order('created_at', { ascending: false })
@@ -46,9 +74,35 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Get user counts for each organization
+    const organizationsWithCounts = await Promise.all(
+      organizations.map(async (org) => {
+        // Count profiles (internal users)
+        const { count: profileCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', org.id)
+
+        // Count viewers
+        const { count: viewerCount } = await supabase
+          .from('viewers')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', org.id)
+
+        return {
+          ...org,
+          user_count: (profileCount || 0) + (viewerCount || 0),
+          profile_count: profileCount || 0,
+          viewer_count: viewerCount || 0,
+          licenses: org.viewer_count || 0, // Add licenses field from database viewer_count
+          status: 'active' // Set all organizations as active as requested
+        }
+      })
+    )
+
     return {
       success: true,
-      organizations
+      organizations: organizationsWithCounts
     }
 
   } catch (error: any) {
@@ -58,26 +112,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-
-// Helper function to get user from session
-async function getUserFromSession(accessToken: string, refreshToken: string) {
-  const { createClient } = await import('@supabase/supabase-js')
-  const supabaseUrl = process.env.SUPABASE_URL!
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
-  
-  const { data: sessionData, error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken
-  })
-
-  if (error || !sessionData.session) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Invalid session'
-    })
-  }
-
-  return sessionData.user
-}

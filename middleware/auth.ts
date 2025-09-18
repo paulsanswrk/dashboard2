@@ -38,13 +38,17 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     
     console.log('✅ Auth middleware: User profile validated, allowing access')
     
-    // Check if user is not ADMIN and trying to access admin - redirect to dashboard
-    if (profile.role !== 'ADMIN' && to.path === '/admin') {
-      console.log('🛡️ Auth middleware: Non-ADMIN user accessing admin, redirecting to dashboard')
-      return navigateTo('/dashboard')
+    // Import redirect utilities
+    const { canAccessPath, getFallbackPath } = await import('~/server/utils/redirectUtils')
+    
+    // Check if user can access the requested path
+    if (!canAccessPath(profile.role, to.path)) {
+      console.log('🛡️ Auth middleware: User cannot access path, redirecting to fallback')
+      const fallbackPath = getFallbackPath(profile.role, to.path)
+      return navigateTo(fallbackPath)
     }
     
-    // User exists in database - allow access
+    // User exists in database and can access path - allow access
     return
   } catch (err) {
     console.error('❌ Auth middleware: Unexpected error during user validation in middleware:', err)

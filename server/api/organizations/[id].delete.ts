@@ -1,34 +1,50 @@
-import { supabaseAdmin } from '../supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
-    const organizationId = getRouterParam(event, 'id')
+    // Get environment variables
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    if (!organizationId) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       throw createError({
-        statusCode: 400,
-        statusMessage: 'Organization ID is required'
+        statusCode: 500,
+        statusMessage: 'Missing Supabase configuration'
       })
     }
 
-    // Get current user from session
-    const accessToken = getCookie(event, 'sb-access-token')
-    const refreshToken = getCookie(event, 'sb-refresh-token')
+    // Create Supabase client with service role (bypasses RLS)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    if (!accessToken || !refreshToken) {
+    // Get the authorization header
+    const authorization = getHeader(event, 'authorization')
+    if (!authorization) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'Authentication required'
+        statusMessage: 'Authorization header required'
       })
     }
 
-    const user = await getUserFromSession(accessToken, refreshToken)
+    // Extract token from "Bearer <token>"
+    const token = authorization.replace('Bearer ', '')
+    
+    // Verify the token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Invalid or expired token'
+      })
+    }
 
-    // Check if user is admin
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    const userId = user.id
+
+    // Get user profile to check role
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
+      .select('role, organization_id')
+      .eq('user_id', userId)
       .single()
 
     if (profileError) {
@@ -38,6 +54,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Check if user is admin
     if (profileData.role !== 'ADMIN') {
       throw createError({
         statusCode: 403,
@@ -45,43 +62,91 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Check if organization has users
-    const { data: users, error: usersError } = await supabaseAdmin
+    const organizationId = getRouterParam(event, 'id')
+    if (!organizationId) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Organization ID is required'
+      })
+    }
+
+    // Get organization details before deletion
+    const { data: organization, error: orgError } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', organizationId)
+      .single()
+
+    if (orgError) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Organization not found'
+      })
+    }
+
+    // Delete all users in the organization first (profiles)
+    const { error: profilesError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('organization_id', organizationId)
+
+    if (profilesError) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to delete organization users: ${profilesError.message}`
+      })
+    }
+
+    // Delete all viewers in the organization
+    const { error: viewersError } = await supabase
+      .from('viewers')
+      .delete()
+      .eq('organization_id', organizationId)
+
+    if (viewersError) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to delete organization viewers: ${viewersError.message}`
+      })
+    }
+
+    // Delete all dashboards created by users in this organization
+    const { data: orgUsers } = await supabase
       .from('profiles')
       .select('user_id')
       .eq('organization_id', organizationId)
-      .limit(1)
 
-    if (usersError) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Failed to check organization users: ${usersError.message}`
-      })
+    if (orgUsers && orgUsers.length > 0) {
+      const userIds = orgUsers.map(u => u.user_id)
+      const { error: dashboardsError } = await supabase
+        .from('dashboards')
+        .delete()
+        .in('owner_id', userIds)
+
+      if (dashboardsError) {
+        throw createError({
+          statusCode: 500,
+          statusMessage: `Failed to delete organization dashboards: ${dashboardsError.message}`
+        })
+      }
     }
 
-    if (users && users.length > 0) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Cannot delete organization with existing users'
-      })
-    }
-
-    // Delete organization
-    const { error } = await supabaseAdmin
+    // Finally, delete the organization
+    const { error: orgDeleteError } = await supabase
       .from('organizations')
       .delete()
       .eq('id', organizationId)
 
-    if (error) {
+    if (orgDeleteError) {
       throw createError({
         statusCode: 500,
-        statusMessage: `Failed to delete organization: ${error.message}`
+        statusMessage: `Failed to delete organization: ${orgDeleteError.message}`
       })
     }
 
     return {
       success: true,
-      message: 'Organization deleted successfully'
+      message: `Organization "${organization.name}" and all associated users have been deleted successfully`
     }
 
   } catch (error: any) {
@@ -91,26 +156,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-
-// Helper function to get user from session
-async function getUserFromSession(accessToken: string, refreshToken: string) {
-  const { createClient } = await import('@supabase/supabase-js')
-  const supabaseUrl = process.env.SUPABASE_URL!
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
-  
-  const { data: sessionData, error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken
-  })
-
-  if (error || !sessionData.session) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Invalid session'
-    })
-  }
-
-  return sessionData.user
-}

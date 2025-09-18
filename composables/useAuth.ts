@@ -1,4 +1,5 @@
 import { ref, computed, watch } from 'vue'
+import { getRedirectPathFromProfile, type UserRole } from '~/server/utils/redirectUtils'
 
 export interface Organization {
   id: string
@@ -14,7 +15,7 @@ export interface UserProfile {
   firstName: string
   lastName: string
   organizationId: string | null
-  role: 'ADMIN' | 'EDITOR'
+  role: 'ADMIN' | 'EDITOR' | 'VIEWER'
   organization?: Organization
   avatar_url?: string | null
   created_at: string
@@ -61,7 +62,7 @@ export const useAuth = () => {
   }
 
   // Sign up with organization
-  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' = 'EDITOR', organizationName?: string) => {
+  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string) => {
     try {
       loading.value = true
       clearMessages()
@@ -268,6 +269,35 @@ export const useAuth = () => {
     // Only admins can invite users
     return userProfile.value.role === 'ADMIN'
   })
+
+  // Centralized redirect function based on user role
+  const getRedirectPath = () => {
+    return getRedirectPathFromProfile(userProfile.value)
+  }
+
+  // Navigate to appropriate dashboard based on user role
+  const redirectToDashboard = async (retryCount = 0) => {
+    // Wait for profile to load if not already loaded
+    if (!userProfile.value && user.value) {
+      console.log('🔄 Waiting for user profile to load... (attempt', retryCount + 1, ')')
+      await loadUserProfile()
+    }
+    
+    const redirectPath = getRedirectPath()
+    if (redirectPath) {
+      console.log('🔄 Redirecting to:', redirectPath)
+      await navigateTo(redirectPath)
+    } else if (retryCount < 3) {
+      // Retry a few times if profile is not loaded yet
+      console.log('⚠️ Profile not loaded yet, retrying in 500ms...')
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return redirectToDashboard(retryCount + 1)
+    } else {
+      console.warn('⚠️ No redirect path available after retries, user profile:', userProfile.value)
+      // Fallback to login if no profile after retries
+      await navigateTo('/login')
+    }
+  }
 
   // Update user profile
   const updateProfile = async (updates: { firstName?: string; lastName?: string; avatar_url?: string | null }) => {
@@ -490,7 +520,7 @@ export const useAuth = () => {
   }
 
   // Sign up with magic link (for new users)
-  const signUpWithMagicLink = async (email: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' = 'EDITOR', organizationName?: string) => {
+  const signUpWithMagicLink = async (email: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string) => {
     try {
       loading.value = true
       clearMessages()
@@ -567,6 +597,8 @@ export const useAuth = () => {
     deleteAvatar,
     resendConfirmationEmail,
     resetPassword,
+    getRedirectPath,
+    redirectToDashboard,
     clearMessages
   }
 }

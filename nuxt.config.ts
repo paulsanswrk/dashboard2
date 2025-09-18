@@ -83,7 +83,7 @@ export default defineNuxtConfig({
     },
 
     // Build configuration for Vercel
-    ssr: false,
+    ssr: true,
 
     // App configuration
     app: {

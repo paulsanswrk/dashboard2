@@ -402,6 +402,22 @@ footer {
     @apply bg-neutral-800 border-neutral-700;
 }
 
+/* Ensure text selection is enabled globally */
+* {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
+/* Allow text selection on all elements */
+body, main, div, span, p, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
 /* Dark theme user info section */
 .dark .user-info {
     @apply bg-neutral-800;

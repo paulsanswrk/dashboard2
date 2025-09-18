@@ -182,14 +182,14 @@
 
 <script setup>
 // Redirect if already authenticated
-const { isAuthenticated, userProfile } = useAuth()
+const { isAuthenticated, redirectToDashboard } = useAuth()
+
+// Use nextTick to ensure the auth state is properly initialized
+await nextTick()
 
 if (isAuthenticated.value) {
-  if (userProfile.value?.role === 'ADMIN') {
-    await navigateTo('/admin')
-  } else {
-    await navigateTo('/dashboard')
-  }
+  console.log('🔄 User already authenticated, redirecting...')
+  await redirectToDashboard()
 }
 
 // Form state
@@ -230,19 +230,18 @@ const handleSignIn = async () => {
     const result = await signIn(form.value.email, form.value.password)
     console.log('✅ Login page: Login successful, result:', result)
     
-    // Wait for user profile to load to check role
-    const { userProfile } = useAuth()
-    await nextTick()
-    
-    // Redirect based on user role
-    if (userProfile.value?.role === 'ADMIN') {
-      console.log('🔄 Login page: ADMIN user, redirecting to admin dashboard...')
-      await navigateTo('/admin')
-    } else {
-      console.log('🔄 Login page: Regular user, redirecting to dashboard...')
-      await navigateTo('/my-dashboard')
+    if (result.success) {
+      // Wait for user profile to load to check role
+      const { redirectToDashboard } = useAuth()
+      
+      // Give a small delay to ensure profile loading completes
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Use centralized redirect logic
+      console.log('🔄 Login page: Redirecting based on user role...')
+      await redirectToDashboard()
+      console.log('✅ Login page: Redirect completed')
     }
-    console.log('✅ Login page: Redirect completed')
   } catch (err) {
     // Error is handled by the composable
     console.error('❌ Login page: Sign in error:', err)

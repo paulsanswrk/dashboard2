@@ -228,7 +228,39 @@ const handleSubmit = async () => {
 
 ## API Integration Guidelines
 
-### 1. Data Fetching Patterns
+### 1. Authentication Patterns
+
+#### ✅ DO: Use Authorization Header Pattern
+```typescript
+// server/api/endpoint.ts
+const authorization = getHeader(event, 'authorization')
+const token = authorization.replace('Bearer ', '')
+const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+// frontend
+const getAccessToken = async () => {
+  const supabase = useSupabaseClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token
+}
+
+const response = await $fetch('/api/endpoint', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+})
+```
+
+#### ❌ DON'T: Use Cookie-Based Session Handling
+```typescript
+// This pattern causes "Refresh Token Not Found" errors
+const { data: sessionData, error: sessionError } = await supabaseUser.auth.setSession({
+  access_token: accessToken,
+  refresh_token: refreshToken
+})
+```
+
+### 2. Data Fetching Patterns
 
 #### Current Implementation (Mock Data)
 ```vue
@@ -240,19 +272,57 @@ const users = ref([
 </script>
 ```
 
-#### Future Implementation (Real API)
+#### Real API Implementation Pattern
 ```vue
 <script setup>
-// Real API integration
-const { data: users, pending, error } = await useFetch('/api/users')
-
-// With error handling
-const { data: users } = await useFetch('/api/users', {
-  onResponseError({ response }) {
-    // Handle API errors
+// Real API integration with proper response handling
+const loadData = async () => {
+  try {
+    isLoading.value = true
+    
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    const response = await $fetch('/api/endpoint', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    
+    if (response.success) {
+      data.value = response.data
+    } else {
+      throw new Error('Failed to load data')
+    }
+  } catch (error) {
+    console.error('Error loading data:', error)
+    // Handle session expired errors
+    if (error.message?.includes('Session expired')) {
+      // Redirect to login
+    }
+  } finally {
+    isLoading.value = false
   }
-})
+}
 </script>
+```
+
+#### Service Role Usage for Admin Operations
+```typescript
+// server/api/admin-endpoint.ts
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+// Use service role for operations that need to bypass RLS
+const { data, error } = await supabase
+  .from('table')
+  .select('*')
 ```
 
 ### 2. Error Handling
@@ -1209,6 +1279,91 @@ CREATE POLICY "Users can update own profile" ON public.profiles
 -- Use service role in server-side API endpoints
 ```
 
+## SSR and Hydration Guidelines
+
+### 1. Hydration Mismatch Prevention
+
+#### ✅ DO: Use ClientOnly for Dynamic Content
+```vue
+<template>
+  <ClientOnly>
+    <!-- Dynamic content that depends on client-side data -->
+    <div v-if="isLoading">Loading...</div>
+    <div v-else-if="data.length === 0">No data found</div>
+    <div v-else>
+      <!-- Data table or list -->
+    </div>
+    
+    <template #fallback>
+      <!-- Server-side fallback content -->
+      <div>Loading...</div>
+    </template>
+  </ClientOnly>
+</template>
+```
+
+#### ❌ DON'T: Render Different Content on Server vs Client
+```vue
+<!-- This causes hydration mismatches -->
+<template>
+  <div v-if="isLoading && data.length === 0">Loading...</div>
+  <div v-else-if="!isLoading && data.length === 0">No data</div>
+  <div v-else>{{ data }}</div>
+</template>
+```
+
+### 2. SSR Configuration
+
+#### ✅ DO: Enable SSR for Better Performance
+```typescript
+// nuxt.config.ts
+export default defineNuxtConfig({
+  ssr: true, // Enable SSR for better SEO and performance
+  // Other configuration...
+})
+```
+
+#### ✅ DO: Handle SSR-Specific Logic
+```vue
+<script setup>
+// Check if running on client side
+const isClient = process.client
+
+// Only run client-specific code after hydration
+onMounted(() => {
+  // Client-side initialization
+  loadData()
+})
+</script>
+```
+
+### 3. Response Structure Consistency
+
+#### ✅ DO: Use Consistent API Response Structure
+```typescript
+// API Response Format
+return {
+  success: true,
+  data: actualData,
+  message: 'Optional message'
+}
+
+// Frontend Handling
+const response = await $fetch('/api/endpoint')
+if (response.success) {
+  data.value = response.data
+} else {
+  throw new Error(response.message)
+}
+```
+
+#### ❌ DON'T: Mix Response Structures
+```typescript
+// Inconsistent - causes frontend confusion
+// Some APIs return: { data: { success: true, items: [...] } }
+// Others return: { success: true, items: [...] }
+```
+
 ## Key Implementation Takeaways
 
 ### 1. Authentication Architecture
@@ -1339,6 +1494,20 @@ const accountMenuItems = computed(() => {
 - **Documentation**: Keep implementation guidelines updated
 - **Authentication testing**: Test all authentication flows thoroughly
 - **Role-based testing**: Test both admin and user experiences thoroughly
+
+### 9. API Integration Best Practices
+- **Authorization Header Pattern**: Always use `Bearer` token authentication for API calls
+- **Service Role for Admin Operations**: Use Supabase service role key to bypass RLS for admin operations
+- **Consistent Response Structure**: Use standardized `{ success: boolean, data: any, message?: string }` format
+- **Token Management**: Always check for valid access tokens before making API calls
+- **Error Handling**: Implement comprehensive error handling with user-friendly messages
+
+### 10. SSR and Hydration Management
+- **ClientOnly Wrapper**: Use `<ClientOnly>` for dynamic content to prevent hydration mismatches
+- **Fallback Templates**: Always provide server-side fallback content for loading states
+- **Response Structure Consistency**: Ensure API responses match frontend expectations exactly
+- **SSR Configuration**: Enable SSR for better performance but handle hydration properly
+- **Client-Side Initialization**: Use `onMounted()` for client-specific data loading
 
 ## Conclusion
 

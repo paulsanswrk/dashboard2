@@ -186,12 +186,8 @@ const handleAuthCallback = async () => {
       if (!hasAuthParams) {
         // No auth parameters, user is already authenticated, redirect immediately
         console.log('No auth parameters, redirecting based on role')
-        const { userProfile } = useAuth()
-        if (userProfile.value?.role === 'ADMIN') {
-          await navigateTo('/admin')
-        } else {
-          await navigateTo('/dashboard')
-        }
+        const { redirectToDashboard } = useAuth()
+        await redirectToDashboard()
         return
       }
       
@@ -356,12 +352,8 @@ const handleAuthCallback = async () => {
 
 // Redirect to dashboard based on user role
 const redirectToDashboard = async () => {
-  const { userProfile } = useAuth()
-  if (userProfile.value?.role === 'ADMIN') {
-    await navigateTo('/admin')
-  } else {
-    await navigateTo('/dashboard')
-  }
+  const { redirectToDashboard: authRedirectToDashboard } = useAuth()
+  await authRedirectToDashboard()
 }
 
 // Redirect to reset password page

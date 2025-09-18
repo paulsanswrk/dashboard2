@@ -151,7 +151,8 @@ const goToForgotPassword = async () => {
 }
 
 const goToDashboard = async () => {
-  await navigateTo('/dashboard')
+  const { redirectToDashboard } = useAuth()
+  await redirectToDashboard()
 }
 
 const retry = async () => {
@@ -165,7 +166,8 @@ const retry = async () => {
   await new Promise(resolve => setTimeout(resolve, 1000))
   
   if (isAuthenticated.value) {
-    await navigateTo('/dashboard')
+    const { redirectToDashboard } = useAuth()
+    await redirectToDashboard()
   } else {
     await navigateTo('/login')
   }
@@ -180,7 +182,8 @@ const handleRedirect = async () => {
 
   // Normal redirect logic
   if (isAuthenticated.value) {
-    await navigateTo('/dashboard')
+    const { redirectToDashboard } = useAuth()
+    await redirectToDashboard()
   } else {
     await navigateTo('/login')
   }

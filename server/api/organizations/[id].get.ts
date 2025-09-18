@@ -54,18 +54,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Check if user is admin
-    if (profileData.role !== 'ADMIN') {
-      throw createError({
-        statusCode: 403,
-        statusMessage: 'Only admins can update organizations'
-      })
-    }
-
+    // Get organization ID from route
     const organizationId = getRouterParam(event, 'id')
-    const body = await readBody(event)
-    const { name, licenses } = body
-
     if (!organizationId) {
       throw createError({
         statusCode: 400,
@@ -73,55 +63,33 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Build update object
-    const updateData: any = {}
-    
-    if (name !== undefined) {
-      updateData.name = name
-    }
-    
-    if (licenses !== undefined) {
-      // Validate licenses is a non-negative integer
-      const licensesNum = parseInt(licenses)
-      if (isNaN(licensesNum) || licensesNum < 0) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: 'Licenses must be a non-negative integer'
-        })
-      }
-      updateData.viewer_count = licensesNum
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'No valid fields to update'
-      })
-    }
-
-    // Update organization
-    const { data: organization, error } = await supabase
+    // Build the query to get organization
+    let query = supabase
       .from('organizations')
-      .update(updateData)
+      .select('*')
       .eq('id', organizationId)
-      .select()
-      .single()
+
+    // If user is not admin, only allow access to their organization
+    if (profileData.role !== 'ADMIN') {
+      query = query.eq('id', profileData.organization_id)
+    }
+
+    const { data: organization, error } = await query.single()
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        throw createError({
+          statusCode: 404,
+          statusMessage: 'Organization not found'
+        })
+      }
       throw createError({
         statusCode: 500,
-        statusMessage: `Failed to update organization: ${error.message}`
+        statusMessage: `Failed to fetch organization: ${error.message}`
       })
     }
 
-    if (!organization) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: 'Organization not found'
-      })
-    }
-
-    // Get updated user counts
+    // Get user counts for the organization
     const { count: profileCount } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
@@ -132,13 +100,41 @@ export default defineEventHandler(async (event) => {
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organization.id)
 
+    // Get dashboards count for the organization (dashboards created by users in this organization)
+    const { count: dashboardsCount } = await supabase
+      .from('dashboards')
+      .select('*', { count: 'exact', head: true })
+      .in('owner_id', 
+        await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('organization_id', organization.id)
+          .then(({ data }) => data?.map(p => p.user_id) || [])
+      )
+
+    // Get actual users and viewers data
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name, role, created_at')
+      .eq('organization_id', organization.id)
+      .order('created_at', { ascending: false })
+
+    const { data: viewers } = await supabase
+      .from('viewers')
+      .select('user_id, first_name, last_name, viewer_type, group_name, created_at')
+      .eq('organization_id', organization.id)
+      .order('created_at', { ascending: false })
+
     const organizationWithCounts = {
       ...organization,
       user_count: (profileCount || 0) + (viewerCount || 0),
       profile_count: profileCount || 0,
       viewer_count: viewerCount || 0,
-      licenses: organization.viewer_count || 0,
-      status: 'active'
+      dashboards_count: dashboardsCount || 0,
+      licenses: organization.viewer_count || 0, // Add licenses field from database viewer_count
+      status: 'active', // Set all organizations as active as requested
+      profiles: profiles || [],
+      viewers: viewers || []
     }
 
     return {
@@ -149,7 +145,7 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     throw createError({
       statusCode: error.statusCode || 500,
-      statusMessage: error.message || 'Failed to update organization'
+      statusMessage: error.message || 'Failed to fetch organization'
     })
   }
 })

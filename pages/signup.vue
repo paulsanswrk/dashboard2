@@ -220,10 +220,10 @@
 
 <script setup>
 // Redirect if already authenticated
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, redirectToDashboard } = useAuth()
 
 if (isAuthenticated.value) {
-  await navigateTo('/dashboard')
+  await redirectToDashboard()
 }
 
 // Form state
@@ -381,7 +381,8 @@ const handleSignUp = async () => {
           showEmailConfirmationMessage.value = true
         } else {
           // User is immediately authenticated, redirect to dashboard
-          await navigateTo('/my-dashboard?welcome=true')
+          const { redirectToDashboard } = useAuth()
+          await redirectToDashboard()
         }
       }
     }
