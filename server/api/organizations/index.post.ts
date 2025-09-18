@@ -1,53 +1,82 @@
-import { supabaseAdmin } from '../supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
+    // Get environment variables
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      setResponseStatus(event, 500)
+      return {
+        success: false,
+        error: 'Missing Supabase configuration'
+      }
+    }
+
+    // Create Supabase client with service role (bypasses RLS)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Get the authorization header
+    const authorization = getHeader(event, 'authorization')
+    if (!authorization) {
+      setResponseStatus(event, 401)
+      return {
+        success: false,
+        error: 'Authorization header required'
+      }
+    }
+
+    // Extract token from "Bearer <token>"
+    const token = authorization.replace('Bearer ', '')
+    
+    // Verify the token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      setResponseStatus(event, 401)
+      return {
+        success: false,
+        error: 'Invalid or expired token'
+      }
+    }
+
     const body = await readBody(event)
     const { name } = body
 
     if (!name) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Organization name is required'
-      })
+      setResponseStatus(event, 400)
+      return {
+        success: false,
+        error: 'Organization name is required'
+      }
     }
-
-    // Get current user from session
-    const accessToken = getCookie(event, 'sb-access-token')
-    const refreshToken = getCookie(event, 'sb-refresh-token')
-
-    if (!accessToken || !refreshToken) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Authentication required'
-      })
-    }
-
-    const user = await getUserFromSession(accessToken, refreshToken)
 
     // Check if user is admin
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .single()
 
     if (profileError) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: 'User profile not found'
-      })
+      setResponseStatus(event, 404)
+      return {
+        success: false,
+        error: 'User profile not found'
+      }
     }
 
     if (profileData.role !== 'ADMIN') {
-      throw createError({
-        statusCode: 403,
-        statusMessage: 'Only admins can create organizations'
-      })
+      setResponseStatus(event, 403)
+      return {
+        success: false,
+        error: 'Only admins can create organizations'
+      }
     }
 
     // Create organization
-    const { data: organization, error } = await supabaseAdmin
+    const { data: organization, error } = await supabase
       .from('organizations')
       .insert({
         name,
@@ -57,10 +86,12 @@ export default defineEventHandler(async (event) => {
       .single()
 
     if (error) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Failed to create organization: ${error.message}`
-      })
+      console.error('Error creating organization:', error)
+      setResponseStatus(event, 500)
+      return {
+        success: false,
+        error: `Failed to create organization: ${error.message}`
+      }
     }
 
     return {
@@ -69,32 +100,12 @@ export default defineEventHandler(async (event) => {
     }
 
   } catch (error: any) {
-    throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.message || 'Failed to create organization'
-    })
+    console.error('Create organization error:', error)
+    
+    setResponseStatus(event, 500)
+    return {
+      success: false,
+      error: error.message || 'Internal server error'
+    }
   }
 })
-
-// Helper function to get user from session
-async function getUserFromSession(accessToken: string, refreshToken: string) {
-  const { createClient } = await import('@supabase/supabase-js')
-  const supabaseUrl = process.env.SUPABASE_URL!
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
-  
-  const { data: sessionData, error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken
-  })
-
-  if (error || !sessionData.session) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Invalid session'
-    })
-  }
-
-  return sessionData.user
-}
