@@ -77,6 +77,10 @@ export default defineNuxtConfig({
         },
     },
 
+    build: {
+        transpile: ['@headlessui/vue'],
+    },
+
     // Nitro configuration
     nitro: {
         preset: 'vercel',
