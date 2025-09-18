@@ -71,7 +71,10 @@ export default defineNuxtConfig({
     vite: {
         optimizeDeps: {
             include: []
-        }
+        },
+        ssr: {
+            noExternal: ['@headlessui/vue'],
+        },
     },
 
     // Nitro configuration
