@@ -4,10 +4,15 @@
   "description": "Standalone Node.js scripts for Optiqo dashboard",
   "type": "module",
   "scripts": {
-    "test-email": "node sendgrid-test-email.js"
+    "test-email": "node sendgrid-test-email.js",
+    "test-ssh-mysql": "node test-ssh-mysql-connection.js",
+    "test-invitations": "node test-invitation-emails.js",
+    "test-deps": "node test-dependencies.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.3",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.6.5",
+    "ssh2": "^1.15.0"
   }
 }
