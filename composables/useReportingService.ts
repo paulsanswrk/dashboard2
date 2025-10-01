@@ -20,25 +20,26 @@ const selectedDatasetId = ref<string | null>(null)
 
 export function useReportingService() {
   async function listDatasets(): Promise<Dataset[]> {
-    const { data, error } = await useFetch<Dataset[]>("/api/reporting/datasets")
-    if (error.value) throw error.value
-    return data.value || []
+    return await $fetch<Dataset[]>("/api/reporting/datasets")
   }
 
   function setSelectedDatasetId(id: string) {
     selectedDatasetId.value = id
   }
 
-  async function runPreview(payload: PreviewRequest): Promise<PreviewResponse> {
-    const { data, error } = await useFetch<PreviewResponse>("/api/reporting/preview", {
-      method: "POST",
-      body: payload
-    })
-    if (error.value) throw error.value
-    return data.value || { columns: [], rows: [] }
+  async function getSchema(datasetId: string): Promise<any[]> {
+    return await $fetch<any[]>(`/api/reporting/schema`, { params: { datasetId } })
   }
 
-  return { listDatasets, runPreview, setSelectedDatasetId, selectedDatasetId }
+  async function getRelationships(datasetId: string): Promise<any[]> {
+    return await $fetch<any[]>(`/api/reporting/relationships`, { params: { datasetId } })
+  }
+
+  async function runPreview(payload: PreviewRequest): Promise<PreviewResponse> {
+    return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body: payload })
+  }
+
+  return { listDatasets, getSchema, getRelationships, runPreview, setSelectedDatasetId, selectedDatasetId }
 }
 
 

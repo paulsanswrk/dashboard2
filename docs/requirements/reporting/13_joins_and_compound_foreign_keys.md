@@ -4,8 +4,8 @@
 Implement a robust joins engine that supports one-to-one, one-to-many, and many-to-many relationships, including compound (composite) foreign keys with multiple column pairs.
 
 #### Implementation Prompt (LLM-ready)
-- Extend dataset model to include `relationships` with `columnPairs` from Sprint 02.
-- In the query builder on the server:
+- Extend dataset model to include `relationships` with `columnPairs` from Sprint 02 (MySQL source).
+- In the query builder on the server (MySQL):
   - Accept a `joins[]` array in `PreviewRequest` with: `sourceDatasetId`, `targetDatasetId`, `relationshipId` (or explicit join spec), `joinType` (inner/left), and optional `additionalPredicates`.
   - For compound FKs, build ON clauses that AND all column pairs in ordinal order, e.g., `ON a.k1 = b.k1 AND a.k2 = b.k2`.
   - Validate that all required columns are present and types are compatible; return structured errors if not.

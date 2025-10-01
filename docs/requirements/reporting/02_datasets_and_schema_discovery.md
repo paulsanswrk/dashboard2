@@ -1,28 +1,26 @@
 ### Sprint 02 — Datasets list and schema discovery
 
 #### Goal
-Implement dataset discovery and schema introspection via Nuxt server routes, exposing a clean API to the client for listing datasets and their fields with types.
+Implement dataset discovery and schema introspection against MySQL via Nuxt server routes (no Supabase RPC), exposing a clean API to the client for listing datasets and their fields with types.
 
 #### Implementation Prompt (LLM-ready)
-- Add server endpoints under `server/api/reporting/`:
-  - `datasets.get.ts` — return an array of `{ id, name, label }` datasets; initially derive from Supabase schemas/tables allowed for reporting. Include pagination guard if needed.
-  - `schema.get.ts` — accept `datasetId` and return `[{ fieldId, name, label, type, isNumeric, isDate, isString, isBoolean, suggestedAggregations }]`.
-- Add relationships metadata with explicit support for compound foreign keys. Either:
-  - Extend `schema.get.ts` to include a `relationships` array, or
-  - Add `relationships.get.ts` that accepts `datasetId` and returns:
-    - `[{ constraintName, sourceTable, targetTable, columnPairs: [{ sourceColumn, targetColumn, position }], updateRule, deleteRule, isDeferrable, initiallyDeferred }]`.
-- Implement Postgres introspection (via Supabase) using `pg_constraint`, `pg_class`, and `pg_attribute` to construct `columnPairs` in ordinal order for composite keys.
-- Implement a Supabase service utility on the server to introspect tables and column types. Ensure RLS-safe access using service role where needed; never expose service keys to the client.
+- Add server endpoints under `server/api/reporting/` backed by MySQL:
+  - `datasets.get.ts` — return `{ id, name, label }` from `information_schema.tables` for `table_schema = database()`.
+  - `schema.get.ts` — accept `datasetId`; return columns from `information_schema.columns` with derived flags for types.
+- Add relationships metadata with explicit support for compound foreign keys:
+  - `relationships.get.ts` — accept `datasetId` and return:
+    - `[{ constraintName, sourceTable, targetTable, columnPairs: [{ sourceColumn, targetColumn, position }], updateRule, deleteRule, isDeferrable=false, initiallyDeferred=false }]` using `information_schema.referential_constraints` + `key_column_usage` grouped by `constraint_name` and ordered by `ordinal_position`.
+- Use existing MySQL + SSH tunnel utilities in Nuxt server (no calls through Supabase). Handle pooling or short-lived connections suitable for Vercel.
 - In the client `useReportingService.ts`, implement `listDatasets()` and `getSchema(datasetId)` that call the above routes.
 - Add defensive caching on the server (in-memory per instance) with short TTL (e.g., 60s) to reduce schema requests.
 - Respect constraints:
-  - Route all Supabase communication via Nuxt server routes.
-  - Do not modify `.env`. Use existing `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` via existing project patterns.
+  - Use Nuxt server routes to access MySQL; do not proxy through Supabase.
+  - Do not modify `.env`. Use existing debug config or runtime secrets per deployment.
 
 #### Deliverables
-- `GET /api/reporting/datasets` and `GET /api/reporting/schema?datasetId=...` implemented.
+- `GET /api/reporting/datasets`, `GET /api/reporting/schema?datasetId=...`, and `GET /api/reporting/relationships?datasetId=...` implemented against MySQL.
 - `useReportingService` methods and types added.
-- Relationships endpoint or embedded relationships in schema response including composite `columnPairs`.
+- Relationships endpoint returns composite `columnPairs` in ordinal order.
 
 #### Acceptance Criteria
 - Navigating to `/reporting/builder` loads datasets into the left panel list.

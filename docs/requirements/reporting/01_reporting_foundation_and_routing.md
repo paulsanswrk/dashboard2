@@ -4,7 +4,7 @@
 Establish the foundation for the reporting feature: page routes, core components, server routes for data access, and a minimal end-to-end preview pipeline (stubbed) that future sprints can extend.
 
 #### Context
-From `docs/requirements/Reporting.md`: users need a visual, non-technical reporting wizard with drag-and-drop and instant previews. This sprint lays the groundwork in Nuxt and server routes to support later UI and data features.
+From `docs/requirements/Reporting.md`: users need a visual, non-technical reporting wizard with drag-and-drop and instant previews. This sprint lays the groundwork in Nuxt and server routes to support later UI and data features. Backends will connect to MySQL directly from Nuxt server routes (Vercel-compatible), not via Supabase.
 
 #### Implementation Prompt (LLM-ready)
 - Create a top-level route `pages/reporting.vue` with a minimal shell and link access from `pages/analyze.vue` and `pages/dashboard.vue` if appropriate.
@@ -18,10 +18,10 @@ From `docs/requirements/Reporting.md`: users need a visual, non-technical report
   - get available datasets/tables
   - get table schema (fields with types)
   - run preview query (stubbed response for now)
-- Implement Nuxt server routes in `server/api/reporting/` to proxy Supabase and encapsulate logic. Create:
-  - `datasets.get.ts` — list datasets/tables
-  - `schema.get.ts` — return fields for a dataset
-  - `preview.post.ts` — accept a query payload and return mock data
+- Implement Nuxt server routes in `server/api/reporting/` to encapsulate logic (MySQL source):
+  - `datasets.get.ts` — list datasets/tables via `information_schema`
+  - `schema.get.ts` — return fields for a dataset via `information_schema`
+  - `preview.post.ts` — accept a query payload and return mock data (later MySQL-backed)
 - Respect project constraints:
   - Use Nuxt server routes for Supabase communication.
   - Do not edit `.env`; rely on existing `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
