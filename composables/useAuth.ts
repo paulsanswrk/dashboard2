@@ -31,7 +31,7 @@ export const useAuth = () => {
   const error = ref<string | null>(null)
   const success = ref<string | null>(null)
   
-  console.log('🏗️ Auth composable: Initializing with user:', user.value)
+  // console.log('🏗️ Auth composable: Initializing with user:', user.value)
 
   // Computed properties
   const isAuthenticated = computed(() => !!user.value)
