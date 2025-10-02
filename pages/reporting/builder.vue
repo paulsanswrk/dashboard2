@@ -46,10 +46,12 @@ import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPane
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { onMounted, ref, watch } from 'vue'
+import { useReportState } from '../../composables/useReportState'
 
 const { listDatasets, getSchema, setSelectedDatasetId, selectedDatasetId } = useReportingService()
 const datasets = ref<Array<{ id: string; name: string; label?: string }>>([])
 const schema = ref<any[]>([])
+const { selectedDatasetId: selectedIdState } = useReportState()
 
 function selectDataset(id: string) {
   setSelectedDatasetId(id)
@@ -57,6 +59,11 @@ function selectDataset(id: string) {
 
 onMounted(async () => {
   datasets.value = await listDatasets()
+  // Auto-select first dataset if none is chosen yet
+  if (!selectedDatasetId.value && datasets.value.length > 0) {
+    setSelectedDatasetId(datasets.value[0].id)
+    selectedIdState.value = datasets.value[0].id
+  }
 })
 
 watch(selectedDatasetId, async (id) => {
