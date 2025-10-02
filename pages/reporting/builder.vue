@@ -16,20 +16,18 @@
             </button>
           </div>
         </div>
-        <div v-if="schema.length">
-          <h2 class="font-medium mb-2">Fields</h2>
-          <ul class="space-y-1 text-sm">
-            <li v-for="f in schema" :key="f.fieldId" class="px-2 py-1 rounded border">
-              {{ f.label }}
-              <span class="text-gray-500">({{ f.type }})</span>
-            </li>
-          </ul>
-        </div>
+        <ReportingSchemaPanel v-if="schema.length" :fields="schema" />
       </div>
     </template>
 
     <template #center>
-      <ReportingBuilder />
+      <div class="p-6">
+        <h3 class="font-medium mb-2">Zones</h3>
+        <ReportingZones />
+        <div class="mt-6">
+          <ReportingBuilder />
+        </div>
+      </div>
     </template>
 
     <template #right>
@@ -44,6 +42,8 @@
 <script setup lang="ts">
 import ReportingLayout from '../../components/reporting/ReportingLayout.vue'
 import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
+import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
+import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { onMounted, ref, watch } from 'vue'
 
