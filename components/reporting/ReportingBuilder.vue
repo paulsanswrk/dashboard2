@@ -20,7 +20,21 @@
 
       <div>
         <h3 class="font-medium mb-2">Preview</h3>
-        <ReportingPreview :loading="loading" :rows="rows" :columns="columns" />
+        <div class="flex items-center gap-3 mb-3">
+          <label class="text-sm">Chart Type</label>
+          <select v-model="chartType" class="border rounded px-2 py-1">
+            <option value="table">Table</option>
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+            <option value="pie">Pie</option>
+            <option value="donut">Donut</option>
+            <option value="kpi">KPI</option>
+          </select>
+        </div>
+        <component :is="chartComponent" :key="chartType"
+                   :columns="columns" :rows="rows"
+                   :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
+                   :chart-type="chartType" :loading="loading" />
       </div>
     </div>
   </div>
@@ -28,6 +42,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import ReportingChart from './ReportingChart.vue'
 import ReportingPreview from './ReportingPreview.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { useReportState } from '../../composables/useReportState'
@@ -37,6 +52,8 @@ const { xDimensions, yMetrics, filters, breakdowns } = useReportState()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
+const chartType = ref<'table' | 'bar' | 'line' | 'pie' | 'donut' | 'kpi'>('table')
+const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 
 async function onTestPreview() {
   if (!selectedDatasetId.value) return
