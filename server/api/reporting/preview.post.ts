@@ -81,6 +81,34 @@ export default defineEventHandler(async (event) => {
       } else if (op === 'contains') {
         whereParts.push(`${field} LIKE ?`)
         params.push(`%${f.value}%`)
+      } else if (op === 'in') {
+        const arr = String(f.value || '')
+          .split(',')
+          .map(v => v.trim())
+          .filter(Boolean)
+        if (arr.length) {
+          whereParts.push(`${field} IN (${arr.map(() => '?').join(',')})`)
+          params.push(...arr)
+        }
+      } else if (op === 'between') {
+        const start = (f.value || {}).start
+        const end = (f.value || {}).end
+        if (start != null && end != null) {
+          whereParts.push(`${field} BETWEEN ? AND ?`)
+          params.push(start, end)
+        }
+      } else if (op === 'is_null') {
+        whereParts.push(`${field} IS NULL`)
+      } else if (op === 'not_null') {
+        whereParts.push(`${field} IS NOT NULL`)
+      }
+    }
+
+    // Exclude nulls in dimensions option
+    if (body.excludeNullsInDimensions && dims.length) {
+      for (const d of dims) {
+        if (!isSafeIdentifier(d.fieldId)) continue
+        whereParts.push(`${wrapId(d.fieldId)} IS NOT NULL`)
       }
     }
 

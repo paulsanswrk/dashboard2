@@ -18,6 +18,7 @@ type ReportState = {
   yMetrics: MetricRef[]
   filters: FilterRef[]
   breakdowns: DimensionRef[]
+  excludeNullsInDimensions?: boolean
 }
 
 function encodeState(state: ReportState): string {
@@ -53,6 +54,7 @@ const xDimensionsRef = ref<DimensionRef[]>([])
 const yMetricsRef = ref<MetricRef[]>([])
 const filtersRef = ref<FilterRef[]>([])
 const breakdownsRef = ref<DimensionRef[]>([])
+const excludeNullsInDimensionsRef = ref<boolean>(false)
 
 export function useReportState() {
   const route = useRoute()
@@ -66,6 +68,7 @@ export function useReportState() {
     yMetricsRef.value = initial.yMetrics || []
     filtersRef.value = initial.filters || []
     breakdownsRef.value = initial.breakdowns || []
+    excludeNullsInDimensionsRef.value = !!initial.excludeNullsInDimensions
   }
 
   const state = computed<ReportState>(() => ({
@@ -73,7 +76,8 @@ export function useReportState() {
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
     filters: filtersRef.value,
-    breakdowns: breakdownsRef.value
+    breakdowns: breakdownsRef.value,
+    excludeNullsInDimensions: excludeNullsInDimensionsRef.value
   }))
 
   // Sync to URL on client only (avoid SSR hydration mismatches)
@@ -140,6 +144,7 @@ export function useReportState() {
     yMetrics: yMetricsRef,
     filters: filtersRef,
     breakdowns: breakdownsRef,
+    excludeNullsInDimensions: excludeNullsInDimensionsRef,
     // actions
     setSelectedDatasetId,
     addToZone,

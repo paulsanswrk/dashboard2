@@ -17,6 +17,7 @@
           </div>
         </div>
         <ReportingSchemaPanel v-if="schema.length" :fields="schema" />
+        <ReportingFilters v-if="schema.length" :schema="schema" />
       </div>
     </template>
 
@@ -44,6 +45,7 @@ import ReportingLayout from '../../components/reporting/ReportingLayout.vue'
 import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
+import ReportingFilters from '../../components/reporting/ReportingFilters.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { onMounted, ref, watch } from 'vue'
 import { useReportState } from '../../composables/useReportState'
