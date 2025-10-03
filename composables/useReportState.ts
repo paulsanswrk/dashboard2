@@ -56,6 +56,70 @@ const filtersRef = ref<FilterRef[]>([])
 const breakdownsRef = ref<DimensionRef[]>([])
 const excludeNullsInDimensionsRef = ref<boolean>(false)
 
+// History stack
+type Snapshot = ReportState
+const historyStack: Snapshot[] = []
+let historyIndex = -1
+const HISTORY_LIMIT = 50
+let lastPushTs = 0
+const COALESCE_MS = 300
+let isNavigatingHistory = false
+
+function snapshot(): Snapshot {
+  return JSON.parse(JSON.stringify({
+    selectedDatasetId: selectedDatasetIdRef.value,
+    xDimensions: xDimensionsRef.value,
+    yMetrics: yMetricsRef.value,
+    filters: filtersRef.value,
+    breakdowns: breakdownsRef.value,
+    excludeNullsInDimensions: excludeNullsInDimensionsRef.value
+  }))
+}
+
+function pushHistory(coalesce = true) {
+  const now = Date.now()
+  if (coalesce && historyIndex >= 0 && now - lastPushTs < COALESCE_MS) {
+    historyStack[historyIndex] = snapshot()
+    lastPushTs = now
+    return
+  }
+  // Trim redo branch
+  historyStack.splice(historyIndex + 1)
+  // Push
+  historyStack.push(snapshot())
+  if (historyStack.length > HISTORY_LIMIT) historyStack.shift()
+  historyIndex = historyStack.length - 1
+  lastPushTs = now
+}
+
+function canUndo() { return historyIndex > 0 }
+function canRedo() { return historyIndex >= 0 && historyIndex < historyStack.length - 1 }
+
+function applySnapshot(s: Snapshot) {
+  selectedDatasetIdRef.value = s.selectedDatasetId
+  xDimensionsRef.value = s.xDimensions || []
+  yMetricsRef.value = s.yMetrics || []
+  filtersRef.value = s.filters || []
+  breakdownsRef.value = s.breakdowns || []
+  excludeNullsInDimensionsRef.value = !!s.excludeNullsInDimensions
+}
+
+function undo() {
+  if (!canUndo()) return
+  historyIndex -= 1
+  isNavigatingHistory = true
+  applySnapshot(historyStack[historyIndex])
+  isNavigatingHistory = false
+}
+
+function redo() {
+  if (!canRedo()) return
+  historyIndex += 1
+  isNavigatingHistory = true
+  applySnapshot(historyStack[historyIndex])
+  isNavigatingHistory = false
+}
+
 export function useReportState() {
   const route = useRoute()
   const router = useRouter()
@@ -69,6 +133,7 @@ export function useReportState() {
     filtersRef.value = initial.filters || []
     breakdownsRef.value = initial.breakdowns || []
     excludeNullsInDimensionsRef.value = !!initial.excludeNullsInDimensions
+    pushHistory(false)
   }
 
   const state = computed<ReportState>(() => ({
@@ -83,6 +148,9 @@ export function useReportState() {
   // Sync to URL on client only (avoid SSR hydration mismatches)
   if (process.client) {
     watch(state, (s) => {
+      if (!isNavigatingHistory) {
+        pushHistory()
+      }
       const encoded = encodeState(s)
       try {
         const url = new URL(window.location.href)
@@ -150,7 +218,12 @@ export function useReportState() {
     addToZone,
     removeFromZone,
     moveInZone,
-    syncUrlNow
+    syncUrlNow,
+    // history
+    undo,
+    redo,
+    canUndo: computed(() => canUndo()),
+    canRedo: computed(() => canRedo())
   }
 }
 

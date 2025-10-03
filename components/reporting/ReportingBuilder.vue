@@ -4,6 +4,8 @@
       <h2 class="text-xl font-semibold">Reporting Builder</h2>
       <div class="space-x-2">
         <button class="px-3 py-2 border rounded" @click="onTestPreview" :disabled="!selectedDatasetId">Test Preview</button>
+        <button class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
+        <button class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
       </div>
     </div>
 
@@ -48,7 +50,7 @@ import { useReportingService } from '../../composables/useReportingService'
 import { useReportState } from '../../composables/useReportState'
 
 const { runPreview, selectedDatasetId } = useReportingService()
-const { xDimensions, yMetrics, filters, breakdowns } = useReportState()
+const { xDimensions, yMetrics, filters, breakdowns, undo, redo, canUndo, canRedo } = useReportState()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
@@ -80,6 +82,9 @@ watch([selectedDatasetId, xDimensions, yMetrics, filters, breakdowns], async () 
   if (!canAutoPreview.value) return
   await onTestPreview()
 })
+
+function onUndo() { undo() }
+function onRedo() { redo() }
 </script>
 
 <style scoped>
