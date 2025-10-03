@@ -26,6 +26,20 @@
         <button class="text-sm underline" @click="addColor">+ add color</button>
       </div>
     </div>
+    <div>
+      <h3 class="font-medium mb-2">Series & Legend</h3>
+      <div class="flex items-center gap-3">
+        <label class="text-sm">Stacked</label>
+        <input type="checkbox" v-model="appearance.stacked" />
+        <label class="text-sm">Legend</label>
+        <select v-model="appearance.legendPosition" class="border rounded px-2 py-1">
+          <option value="top">top</option>
+          <option value="bottom">bottom</option>
+          <option value="left">left</option>
+          <option value="right">right</option>
+        </select>
+      </div>
+    </div>
   </div>
 </template>
 

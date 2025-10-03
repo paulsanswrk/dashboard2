@@ -67,6 +67,8 @@ const props = defineProps<{
     numberFormat?: { decimalPlaces?: number; thousandsSeparator?: boolean }
     dateFormat?: string
     palette?: string[]
+    stacked?: boolean
+    legendPosition?: 'top' | 'bottom' | 'left' | 'right'
   }
 }>()
 
@@ -198,12 +200,12 @@ function renderChart() {
     options: {
       responsive: true,
       plugins: {
-        legend: { display: true },
+        legend: { display: true, position: props.appearance?.legendPosition || 'top' },
         title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle }
       },
       scales: {
-        x: { title: { display: !!props.appearance?.xAxisLabel, text: props.appearance?.xAxisLabel } },
-        y: { beginAtZero: true, title: { display: !!props.appearance?.yAxisLabel, text: props.appearance?.yAxisLabel } }
+        x: { title: { display: !!props.appearance?.xAxisLabel, text: props.appearance?.xAxisLabel }, stacked: !!props.appearance?.stacked },
+        y: { beginAtZero: true, title: { display: !!props.appearance?.yAxisLabel, text: props.appearance?.yAxisLabel }, stacked: !!props.appearance?.stacked }
       }
     }
   })

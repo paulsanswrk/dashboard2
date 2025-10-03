@@ -30,6 +30,8 @@ type ReportState = {
     }
     dateFormat?: string
     palette?: string[]
+    stacked?: boolean
+    legendPosition?: 'top' | 'bottom' | 'left' | 'right'
   }
 }
 
@@ -74,7 +76,9 @@ const appearanceRef = ref<ReportState['appearance']>({
   legendTitle: '',
   numberFormat: { decimalPlaces: 0, thousandsSeparator: true },
   dateFormat: '',
-  palette: []
+  palette: [],
+  stacked: false,
+  legendPosition: 'top'
 })
 
 // History stack
