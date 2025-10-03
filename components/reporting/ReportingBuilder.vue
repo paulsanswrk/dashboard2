@@ -36,7 +36,7 @@
         <component :is="chartComponent" :key="chartType"
                    :columns="columns" :rows="rows"
                    :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
-                   :chart-type="chartType" :loading="loading" />
+                   :chart-type="chartType" :appearance="appearance" :loading="loading" />
       </div>
     </div>
   </div>
@@ -50,7 +50,7 @@ import { useReportingService } from '../../composables/useReportingService'
 import { useReportState } from '../../composables/useReportState'
 
 const { runPreview, selectedDatasetId } = useReportingService()
-const { xDimensions, yMetrics, filters, breakdowns, undo, redo, canUndo, canRedo } = useReportState()
+const { xDimensions, yMetrics, filters, breakdowns, appearance, undo, redo, canUndo, canRedo } = useReportState()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])

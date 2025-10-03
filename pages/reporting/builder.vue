@@ -32,9 +32,9 @@
     </template>
 
     <template #right>
-      <div class="p-4">
-        <h2 class="font-medium mb-2">Settings</h2>
-        <p class="text-gray-600">More settings coming soon.</p>
+      <div class="p-4 space-y-4">
+        <h2 class="font-medium mb-2">Appearance</h2>
+        <ReportingAppearancePanel />
       </div>
     </template>
   </ReportingLayout>
@@ -46,6 +46,7 @@ import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import ReportingFilters from '../../components/reporting/ReportingFilters.vue'
+import ReportingAppearancePanel from '../../components/reporting/ReportingAppearancePanel.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { onMounted, ref, watch } from 'vue'
 import { useReportState } from '../../composables/useReportState'

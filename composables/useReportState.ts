@@ -19,6 +19,18 @@ type ReportState = {
   filters: FilterRef[]
   breakdowns: DimensionRef[]
   excludeNullsInDimensions?: boolean
+  appearance?: {
+    chartTitle?: string
+    xAxisLabel?: string
+    yAxisLabel?: string
+    legendTitle?: string
+    numberFormat?: {
+      decimalPlaces?: number
+      thousandsSeparator?: boolean
+    }
+    dateFormat?: string
+    palette?: string[]
+  }
 }
 
 function encodeState(state: ReportState): string {
@@ -55,6 +67,15 @@ const yMetricsRef = ref<MetricRef[]>([])
 const filtersRef = ref<FilterRef[]>([])
 const breakdownsRef = ref<DimensionRef[]>([])
 const excludeNullsInDimensionsRef = ref<boolean>(false)
+const appearanceRef = ref<ReportState['appearance']>({
+  chartTitle: '',
+  xAxisLabel: '',
+  yAxisLabel: '',
+  legendTitle: '',
+  numberFormat: { decimalPlaces: 0, thousandsSeparator: true },
+  dateFormat: '',
+  palette: []
+})
 
 // History stack
 type Snapshot = ReportState
@@ -72,7 +93,8 @@ function snapshot(): Snapshot {
     yMetrics: yMetricsRef.value,
     filters: filtersRef.value,
     breakdowns: breakdownsRef.value,
-    excludeNullsInDimensions: excludeNullsInDimensionsRef.value
+    excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
+    appearance: appearanceRef.value
   }))
 }
 
@@ -102,6 +124,7 @@ function applySnapshot(s: Snapshot) {
   filtersRef.value = s.filters || []
   breakdownsRef.value = s.breakdowns || []
   excludeNullsInDimensionsRef.value = !!s.excludeNullsInDimensions
+  appearanceRef.value = s.appearance || {}
 }
 
 function undo() {
@@ -142,7 +165,8 @@ export function useReportState() {
     yMetrics: yMetricsRef.value,
     filters: filtersRef.value,
     breakdowns: breakdownsRef.value,
-    excludeNullsInDimensions: excludeNullsInDimensionsRef.value
+    excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
+    appearance: appearanceRef.value
   }))
 
   // Sync to URL on client only (avoid SSR hydration mismatches)
@@ -213,6 +237,7 @@ export function useReportState() {
     filters: filtersRef,
     breakdowns: breakdownsRef,
     excludeNullsInDimensions: excludeNullsInDimensionsRef,
+    appearance: appearanceRef,
     // actions
     setSelectedDatasetId,
     addToZone,

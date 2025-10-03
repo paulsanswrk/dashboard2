@@ -59,10 +59,26 @@ const props = defineProps<{
   xDimensions: ReportField[]
   breakdowns: ReportField[]
   yMetrics: ReportField[]
+  appearance?: {
+    chartTitle?: string
+    xAxisLabel?: string
+    yAxisLabel?: string
+    legendTitle?: string
+    numberFormat?: { decimalPlaces?: number; thousandsSeparator?: boolean }
+    dateFormat?: string
+    palette?: string[]
+  }
 }>()
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null)
 let chart: any = null
+
+const defaultColors = [
+  '#3366CC', '#DC3912', '#FF9900', '#109618', '#990099',
+  '#3B3EAC', '#0099C6', '#DD4477', '#66AA00', '#B82E2E',
+  '#316395', '#994499', '#22AA99', '#AAAA11', '#6633CC',
+  '#E67300', '#8B0707', '#329262', '#5574A6', '#3B3EAC'
+]
 
 const metricAliases = computed(() => {
   // Server aliases: agg_fieldId (e.g., sum_value)
@@ -141,25 +157,55 @@ function renderChart() {
 
   if (type === 'pie' || type === 'doughnut') {
     const s = series[0] || { name: 'Value', data: [] }
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors).slice(0, cats.length)
     chart = new ChartLib(ctx, {
       type,
-      data: { labels: cats, datasets: [{ label: s.name, data: s.data }] },
-      options: { responsive: true, plugins: { legend: { display: true } } }
+      data: {
+        labels: cats,
+        datasets: [{ label: props.appearance?.legendTitle || s.name, data: s.data, backgroundColor: palette }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true },
+          title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle }
+        }
+      }
     })
     return
   }
 
-  const datasets = series.map((s, idx) => ({
+  const datasets = series.map((s, idx) => {
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors)
+    const color = palette[idx % palette.length]
+    return {
     label: s.name,
     data: s.data,
     borderWidth: 2,
-    fill: false
-  }))
+      fill: false,
+      backgroundColor: color,
+      borderColor: color
+    }
+  })
 
   chart = new ChartLib(ctx, {
     type: type === 'line' ? 'line' : 'bar',
     data: { labels: cats, datasets },
-    options: { responsive: true, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true } } }
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle }
+      },
+      scales: {
+        x: { title: { display: !!props.appearance?.xAxisLabel, text: props.appearance?.xAxisLabel } },
+        y: { beginAtZero: true, title: { display: !!props.appearance?.yAxisLabel, text: props.appearance?.yAxisLabel } }
+      }
+    }
   })
 }
 
@@ -169,7 +215,7 @@ onMounted(async () => {
   renderChart()
 })
 
-watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics], async () => {
+watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance], async () => {
   if (props.chartType === 'kpi') { destroyChart(); return }
   await ensureChartLib()
   renderChart()
