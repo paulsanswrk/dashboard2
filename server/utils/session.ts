@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '../api/supabase'
 
 export async function getUserFromSession(accessToken: string, refreshToken: string) {
   const supabaseUrl = process.env.SUPABASE_URL!
@@ -33,4 +34,20 @@ export async function getSessionFromEvent(event: any) {
   }
 
   return getUserFromSession(accessToken, refreshToken)
+}
+
+/**
+ * Attempts to read the authenticated user from either Authorization header (Bearer token)
+ * or Supabase auth cookies. Returns a Supabase user with id/email.
+ */
+export async function getAuthUserFromEvent(event: any) {
+  const auth = getHeader(event, 'authorization')
+  if (auth && auth.startsWith('Bearer ')) {
+    const token = auth.replace('Bearer ', '')
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    if (!error && user) {
+      return user
+    }
+  }
+  return getSessionFromEvent(event)
 }

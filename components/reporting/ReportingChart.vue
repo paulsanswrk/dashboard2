@@ -15,7 +15,7 @@ import type { Ref } from 'vue'
 // Load Chart.js from CDN on client to avoid bundler resolution issues if dependency isn't installed
 let ChartLib: any = null
 async function ensureChartLib() {
-  if (!process.client) return
+  if (typeof window === 'undefined') return
   if (ChartLib) return
   if ((window as any).Chart) {
     ChartLib = (window as any).Chart
@@ -70,6 +70,10 @@ const props = defineProps<{
     stacked?: boolean
     legendPosition?: 'top' | 'bottom' | 'left' | 'right'
   }
+}>()
+
+const emit = defineEmits<{
+  (e: 'drill', payload: { xValue: string | number; seriesName?: string; datasetIndex: number; index: number }): void
 }>()
 
 const canvasRef: Ref<HTMLCanvasElement | null> = ref(null)
@@ -147,7 +151,7 @@ function destroyChart() {
 }
 
 function renderChart() {
-  if (!process.client) return
+  if (typeof window === 'undefined') return
   if (!canvasRef.value) return
   destroyChart()
   const ctx = canvasRef.value.getContext('2d')
@@ -173,6 +177,13 @@ function renderChart() {
         plugins: {
           legend: { display: true },
           title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle }
+        },
+        onClick: (_evt: any, elements: any[]) => {
+          if (!elements?.length) return
+          const el = elements[0]
+          const idx = el.index
+          const xValue = cats[idx]
+          emit('drill', { xValue, datasetIndex: 0, index: idx })
         }
       }
     })
@@ -201,11 +212,32 @@ function renderChart() {
       responsive: true,
       plugins: {
         legend: { display: true, position: props.appearance?.legendPosition || 'top' },
-        title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle }
+        title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle },
+        tooltip: {
+          callbacks: {
+            label: (ctx: any) => {
+              const label = ctx.dataset?.label || ''
+              const value = ctx.parsed?.y ?? ctx.parsed
+              const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+              const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+              const v = typeof value === 'number' ? formatNumber(value, dp, ts) : value
+              return `${label}: ${v}`
+            }
+          }
+        }
       },
       scales: {
         x: { title: { display: !!props.appearance?.xAxisLabel, text: props.appearance?.xAxisLabel }, stacked: !!props.appearance?.stacked },
         y: { beginAtZero: true, title: { display: !!props.appearance?.yAxisLabel, text: props.appearance?.yAxisLabel }, stacked: !!props.appearance?.stacked }
+      },
+      onClick: (_evt: any, elements: any[], chartInst: any) => {
+        if (!elements?.length) return
+        const el = elements[0]
+        const datasetIndex = el.datasetIndex
+        const index = el.index
+        const xValue = chartInst.data.labels?.[index]
+        const seriesName = chartInst.data.datasets?.[datasetIndex]?.label
+        emit('drill', { xValue, seriesName, datasetIndex, index })
       }
     }
   })
@@ -226,6 +258,14 @@ watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, prop
 onBeforeUnmount(() => {
   destroyChart()
 })
+
+function formatNumber(value: number, decimalPlaces: number, thousandsSeparator: boolean) {
+  const parts = value.toFixed(Math.max(0, decimalPlaces)).split('.')
+  if (thousandsSeparator) {
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  }
+  return parts.join('.')
+}
 </script>
 
 <style scoped>

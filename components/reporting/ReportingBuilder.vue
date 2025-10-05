@@ -6,6 +6,7 @@
         <button class="px-3 py-2 border rounded" @click="onTestPreview" :disabled="!selectedDatasetId">Test Preview</button>
         <button class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
         <button class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
+        <button class="px-3 py-2 border rounded" @click="openReports = true">Save / Load</button>
       </div>
     </div>
 
@@ -39,12 +40,14 @@
                    :chart-type="chartType" :appearance="appearance" :loading="loading" />
       </div>
     </div>
+    <ReportsModal :open="openReports" @close="openReports=false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import ReportingChart from './ReportingChart.vue'
+import ReportsModal from './ReportsModal.vue'
 import ReportingPreview from './ReportingPreview.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { useReportState } from '../../composables/useReportState'
@@ -56,6 +59,7 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
 const chartType = ref<'table' | 'bar' | 'line' | 'pie' | 'donut' | 'kpi'>('table')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
+const openReports = ref(false)
 
 async function onTestPreview() {
   if (!selectedDatasetId.value) return
@@ -85,6 +89,7 @@ watch([selectedDatasetId, xDimensions, yMetrics, filters, breakdowns], async () 
 
 function onUndo() { undo() }
 function onRedo() { redo() }
+
 </script>
 
 <style scoped>
