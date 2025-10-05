@@ -39,7 +39,11 @@ export function useReportingService() {
     return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body: payload })
   }
 
-  return { listDatasets, getSchema, getRelationships, runPreview, setSelectedDatasetId, selectedDatasetId }
+  async function runSql(sql: string, limit?: number): Promise<PreviewResponse> {
+    return await $fetch<PreviewResponse>("/api/reporting/sql", { method: "POST", body: { sql, limit } })
+  }
+
+  return { listDatasets, getSchema, getRelationships, runPreview, runSql, setSelectedDatasetId, selectedDatasetId }
 }
 
 

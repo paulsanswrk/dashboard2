@@ -33,6 +33,15 @@
             <option value="donut">Donut</option>
             <option value="kpi">KPI</option>
           </select>
+          <label class="text-sm ml-4">Custom SQL</label>
+          <input type="checkbox" v-model="useSql" />
+        </div>
+        <div v-if="useSql" class="mb-3">
+          <textarea v-model="sqlText" class="w-full h-32 border rounded p-2 font-mono text-xs" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
+          <div class="mt-2 space-x-2">
+            <button class="px-3 py-1 border rounded" @click="onRunSql">Run SQL</button>
+            <span class="text-xs text-gray-500">Only SELECT queries allowed; LIMIT enforced.</span>
+          </div>
         </div>
         <component :is="chartComponent" :key="chartType"
                    :columns="columns" :rows="rows"
@@ -52,7 +61,7 @@ import ReportingPreview from './ReportingPreview.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { useReportState } from '../../composables/useReportState'
 
-const { runPreview, selectedDatasetId } = useReportingService()
+const { runPreview, runSql, selectedDatasetId } = useReportingService()
 const { xDimensions, yMetrics, filters, breakdowns, appearance, undo, redo, canUndo, canRedo } = useReportState()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
@@ -60,6 +69,8 @@ const columns = ref<Array<{ key: string; label: string }>>([])
 const chartType = ref<'table' | 'bar' | 'line' | 'pie' | 'donut' | 'kpi'>('table')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 const openReports = ref(false)
+const useSql = ref(false)
+const sqlText = ref('')
 
 async function onTestPreview() {
   if (!selectedDatasetId.value) return
@@ -84,11 +95,24 @@ async function onTestPreview() {
 const canAutoPreview = computed(() => !!selectedDatasetId.value)
 watch([selectedDatasetId, xDimensions, yMetrics, filters, breakdowns], async () => {
   if (!canAutoPreview.value) return
+  if (useSql.value) return
   await onTestPreview()
 })
 
 function onUndo() { undo() }
 function onRedo() { redo() }
+
+async function onRunSql() {
+  loading.value = true
+  try {
+    const res = await runSql(sqlText.value)
+    rows.value = res.rows
+    columns.value = res.columns
+    chartType.value = 'table'
+  } finally {
+    loading.value = false
+  }
+}
 
 </script>
 
