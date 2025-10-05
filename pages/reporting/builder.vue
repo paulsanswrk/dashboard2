@@ -17,6 +17,9 @@
           </div>
         </div>
         <ReportingSchemaPanel v-if="schema.length" :fields="schema" />
+        <div v-if="relationships.length" class="mt-6">
+          <ReportingJoinsPanel :relationships="relationships" />
+        </div>
         <ReportingFilters v-if="schema.length" :schema="schema" />
       </div>
     </template>
@@ -47,13 +50,15 @@ import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPane
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import ReportingFilters from '../../components/reporting/ReportingFilters.vue'
 import ReportingAppearancePanel from '../../components/reporting/ReportingAppearancePanel.vue'
+import ReportingJoinsPanel from '../../components/reporting/ReportingJoinsPanel.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { onMounted, ref, watch } from 'vue'
 import { useReportState } from '../../composables/useReportState'
 
-const { listDatasets, getSchema, setSelectedDatasetId, selectedDatasetId } = useReportingService()
+const { listDatasets, getSchema, getRelationships, setSelectedDatasetId, selectedDatasetId } = useReportingService()
 const datasets = ref<Array<{ id: string; name: string; label?: string }>>([])
 const schema = ref<any[]>([])
+const relationships = ref<any[]>([])
 const { selectedDatasetId: selectedIdState } = useReportState()
 
 function selectDataset(id: string) {
@@ -72,8 +77,10 @@ onMounted(async () => {
 watch(selectedDatasetId, async (id) => {
   if (id) {
     schema.value = await getSchema(id)
+    relationships.value = await getRelationships(id)
   } else {
     schema.value = []
+    relationships.value = []
   }
 })
 </script>

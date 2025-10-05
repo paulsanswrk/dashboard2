@@ -12,6 +12,7 @@ type PreviewRequest = {
   yMetrics: MetricRef[]
   filters: FilterRef[]
   breakdowns: DimensionRef[]
+  joins?: Array<{ joinType: 'inner' | 'left'; sourceTable: string; targetTable: string; columnPairs: Array<{ sourceColumn: string; targetColumn: string }> }>
   limit?: number
 }
 
@@ -115,11 +116,26 @@ export default defineEventHandler(async (event) => {
     // LIMIT
     const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
 
+    // Build JOIN clauses (MySQL)
+    const joinClauses: string[] = []
+    for (const j of body.joins || []) {
+      const jt = j.joinType === 'left' ? 'LEFT JOIN' : 'INNER JOIN'
+      if (!isSafeIdentifier(j.targetTable)) continue
+      const target = wrapId(j.targetTable)
+      const onParts: string[] = []
+      for (const p of j.columnPairs || []) {
+        if (!isSafeIdentifier(p.sourceColumn) || !isSafeIdentifier(p.targetColumn)) continue
+        onParts.push(`${wrapId(p.sourceColumn)} = ${target}.${wrapId(p.targetColumn)}`)
+      }
+      if (onParts.length) joinClauses.push(`${jt} ${target} ON ${onParts.join(' AND ')}`)
+    }
+
     const sql = [
       'SELECT',
       selectParts.join(', '),
       'FROM',
       table,
+      ...joinClauses,
       whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '',
       groupByParts.length ? 'GROUP BY ' + groupByParts.join(', ') : '',
       'LIMIT ' + limit

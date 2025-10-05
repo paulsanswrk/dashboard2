@@ -11,6 +11,13 @@ export type ReportField = {
 export type MetricRef = ReportField & { aggregation?: string }
 export type DimensionRef = ReportField & { sort?: 'asc' | 'desc' }
 export type FilterRef = { field: ReportField; operator: string; value: any }
+export type JoinRef = {
+  constraintName: string
+  sourceTable: string
+  targetTable: string
+  joinType: 'inner' | 'left'
+  columnPairs: Array<{ position: number; sourceColumn: string; targetColumn: string }>
+}
 
 type ReportState = {
   selectedDatasetId: string | null
@@ -33,6 +40,7 @@ type ReportState = {
     stacked?: boolean
     legendPosition?: 'top' | 'bottom' | 'left' | 'right'
   }
+  joins?: JoinRef[]
 }
 
 function encodeState(state: ReportState): string {
@@ -80,6 +88,7 @@ const appearanceRef = ref<ReportState['appearance']>({
   stacked: false,
   legendPosition: 'top'
 })
+const joinsRef = ref<JoinRef[]>([])
 
 // History stack
 type Snapshot = ReportState
@@ -98,7 +107,8 @@ function snapshot(): Snapshot {
     filters: filtersRef.value,
     breakdowns: breakdownsRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
-    appearance: appearanceRef.value
+    appearance: appearanceRef.value,
+    joins: joinsRef.value
   }))
 }
 
@@ -129,6 +139,7 @@ function applySnapshot(s: Snapshot) {
   breakdownsRef.value = s.breakdowns || []
   excludeNullsInDimensionsRef.value = !!s.excludeNullsInDimensions
   appearanceRef.value = s.appearance || {}
+  joinsRef.value = s.joins || []
 }
 
 function undo() {
@@ -170,7 +181,8 @@ export function useReportState() {
     filters: filtersRef.value,
     breakdowns: breakdownsRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
-    appearance: appearanceRef.value
+    appearance: appearanceRef.value,
+    joins: joinsRef.value
   }))
 
   // Sync to URL on client only (avoid SSR hydration mismatches)
@@ -242,6 +254,7 @@ export function useReportState() {
     breakdowns: breakdownsRef,
     excludeNullsInDimensions: excludeNullsInDimensionsRef,
     appearance: appearanceRef,
+    joins: joinsRef,
     // actions
     setSelectedDatasetId,
     addToZone,
@@ -252,7 +265,10 @@ export function useReportState() {
     undo,
     redo,
     canUndo: computed(() => canUndo()),
-    canRedo: computed(() => canRedo())
+    canRedo: computed(() => canRedo()),
+    // joins
+    addJoin(j: JoinRef) { joinsRef.value.push(j) },
+    removeJoin(index: number) { joinsRef.value.splice(index, 1) }
   }
 }
 
