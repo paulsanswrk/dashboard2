@@ -90,19 +90,21 @@
             >
               <Icon :name="isMobileMenuOpen ? 'heroicons:x-mark' : 'heroicons:bars-3'" class="w-5 h-5" />
             </button>
-            <span class="text-xl lg:text-sm font-heading font-semibold tracking-wide">OPTIQO</span>
+            <button @click="navigateTo('/my-dashboard')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide">
+              OPTIQO
+            </button>
             <!-- Desktop Navigation -->
             <nav class="hidden lg:flex gap-6">
-              <button class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">CONNECT</button>
-              <button class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ANALYZE</button>
+              <button @click="navigateTo('/data-sources')" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">CONNECT</button>
+              <button @click="navigateTo('/reporting/builder')" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ANALYZE</button>
               <button class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">DASHBOARDS</button>
               <button class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">REPORTS</button>
               <button class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ALARMS</button>
             </nav>
             <!-- Mobile Navigation -->
             <nav class="lg:hidden flex gap-2 text-xs">
-              <button class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">CONNECT</button>
-              <button class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">ANALYZE</button>
+              <button @click="navigateTo('/data-sources')" class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">CONNECT</button>
+              <button @click="navigateTo('/reporting/builder')" class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">ANALYZE</button>
               <button class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">DASH</button>
             </nav>
           </div>

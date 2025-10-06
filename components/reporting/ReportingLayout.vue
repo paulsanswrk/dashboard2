@@ -1,6 +1,6 @@
 <template>
   <div class="h-full grid grid-cols-12">
-    <aside class="col-span-3 border-r bg-white overflow-auto">
+    <aside class="col-span-3 border-r bg-dark overflow-auto">
       <slot name="left" />
     </aside>
     <main class="col-span-6 overflow-auto">

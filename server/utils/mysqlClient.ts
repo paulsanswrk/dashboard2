@@ -43,6 +43,10 @@ async function loadConfig(): Promise<MySqlConnectionConfig> {
 
 export async function withMySqlConnection<T>(fn: (conn: mysql.Connection) => Promise<T>): Promise<T> {
   const cfg = await loadConfig()
+  return withMySqlConnectionConfig(cfg, fn)
+}
+
+export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, fn: (conn: mysql.Connection) => Promise<T>): Promise<T> {
   if (!cfg.useSshTunneling) {
     const conn = await mysql.createConnection({
       host: cfg.host,

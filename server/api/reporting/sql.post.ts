@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     safeSql = `${safeSql} LIMIT ${Math.min(Math.max(Number(limit), 1), 5000)}`
   }
   const rows = await withMySqlConnection(async (conn) => {
-    const [res] = await conn.query(safeSql)
+    const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
     return res as any[]
   })
   const columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []

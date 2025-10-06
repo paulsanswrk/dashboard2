@@ -16,7 +16,7 @@
         <input type="checkbox" v-model="appearance.numberFormat.thousandsSeparator" />
       </div>
     </div>
-    <div>
+    <div v-if="false">
       <h3 class="font-medium mb-2">Palette</h3>
       <div class="space-y-2">
         <div class="flex items-center gap-2" v-for="(c, i) in (appearance.palette || [])" :key="i">

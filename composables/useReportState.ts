@@ -6,6 +6,7 @@ export type ReportField = {
   name?: string
   label?: string
   type?: string
+  table?: string
 }
 
 export type MetricRef = ReportField & { aggregation?: string }

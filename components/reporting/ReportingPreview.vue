@@ -2,7 +2,7 @@
   <div>
     <div v-if="loading" class="text-gray-500">Loading preview...</div>
     <div v-else>
-      <div v-if="!rows.length" class="text-gray-500">No data. Click "Test Preview" to fetch mock data.</div>
+      <div v-if="!rows.length" class="text-gray-500">No data</div>
       <div v-else class="overflow-auto border rounded text-black">
         <table class="min-w-full">
           <thead class="bg-gray-50">

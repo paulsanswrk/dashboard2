@@ -4,9 +4,14 @@
     <ColorScheme />
     
     <!-- Authenticated layout -->
-    <AppLayout v-if="isAuthenticated && !isPublicPage">
-      <NuxtPage />
-    </AppLayout>
+    <template v-if="isAuthenticated && !isPublicPage">
+      <BuilderLayout v-if="useBuilderLayout">
+        <NuxtPage />
+      </BuilderLayout>
+      <AppLayout v-else>
+        <NuxtPage />
+      </AppLayout>
+    </template>
     
     <!-- Public pages (login, signup) -->
     <NuxtPage v-else />
@@ -18,6 +23,9 @@
 const user = useSupabaseUser()
 const { isAuthenticated } = useAuth()
 const route = useRoute()
+
+// Layout selection: use compact builder layout on reporting builder page
+const useBuilderLayout = computed(() => route.path === '/reporting/builder')
 
 // Check if current page is a public page that shouldn't show AppLayout
 const isPublicPage = computed(() => {

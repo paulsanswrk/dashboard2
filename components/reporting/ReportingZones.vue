@@ -1,74 +1,119 @@
 <template>
   <div class="space-y-2">
-    <div class="p-3 border rounded bg-gray-50" @dragover.prevent @drop="onDrop('x')">
+    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
       <div class="flex items-center justify-between mb-1">
-        <span class="font-medium">X (Dimensions)</span>
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="heroicons:rectangle-group" class="w-4 h-4 text-neutral-300" />
+          X (Dimensions)
+        </span>
       </div>
       <template v-if="xDimensions.length">
-        <ul class="space-y-1">
-          <li v-for="(d, i) in xDimensions" :key="d.fieldId" class="px-2 py-1 bg-white border rounded flex items-center justify-between">
-            <span>{{ d.label || d.name }}</span>
-            <div class="space-x-1">
-              <button class="text-xs underline" @click="move('x', i, i-1)" :disabled="i===0">up</button>
-              <button class="text-xs underline" @click="move('x', i, i+1)" :disabled="i===xDimensions.length-1">down</button>
-              <button class="text-xs text-red-600 underline" @click="remove('x', i)">remove</button>
+        <ul class="space-y-1" @dragover.prevent @drop="onListDrop('x')">
+          <li
+            v-for="(d, i) in xDimensions"
+            :key="d.fieldId"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative"
+            draggable="true"
+            @dragstart="onDragItemStart('x', i)"
+            @dragover.prevent
+            @drop="onDragItemDrop('x', i)"
+            data-zone-item="x"
+          >
+            <div class="pr-6">
+              <div class="text-sm">{{ d.label || d.name }}</div>
+              <div v-if="d.table" class="text-xs text-neutral-300">{{ d.table }}</div>
             </div>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('x', i)" aria-label="Remove" data-remove>
+              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+            </button>
           </li>
         </ul>
       </template>
       <template v-else>
-        <div class="text-gray-500 text-sm">Drag a field here</div>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
       </template>
     </div>
 
-    <div class="p-3 border rounded bg-gray-50" @dragover.prevent @drop="onDrop('y')">
+    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
       <div class="flex items-center justify-between mb-1">
-        <span class="font-medium">Y (Metrics)</span>
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="heroicons:squares-2x2" class="w-4 h-4 text-neutral-300" />
+          Y (Metrics)
+        </span>
       </div>
       <template v-if="yMetrics.length">
-        <ul class="space-y-1">
-          <li v-for="(m, i) in yMetrics" :key="m.fieldId" class="px-2 py-1 bg-white border rounded flex items-center justify-between">
-            <span>{{ m.label || m.name }}</span>
-            <div class="space-x-1">
-              <button class="text-xs underline" @click="move('y', i, i-1)" :disabled="i===0">up</button>
-              <button class="text-xs underline" @click="move('y', i, i+1)" :disabled="i===yMetrics.length-1">down</button>
-              <button class="text-xs text-red-600 underline" @click="remove('y', i)">remove</button>
+        <ul class="space-y-1" @dragover.prevent @drop="onListDrop('y')">
+          <li
+            v-for="(m, i) in yMetrics"
+            :key="m.fieldId"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative"
+            draggable="true"
+            @dragstart="onDragItemStart('y', i)"
+            @dragover.prevent
+            @drop="onDragItemDrop('y', i)"
+            data-zone-item="y"
+          >
+            <div class="pr-6">
+              <div class="text-sm">{{ m.label || m.name }}</div>
+              <div class="text-xs text-neutral-300">
+                <template v-if="m.table">{{ m.table }}</template>
+                <template v-if="m.aggregation"> <span v-if="m.table"> • </span>{{ (m.aggregation || '').toLowerCase() }}</template>
+              </div>
             </div>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('y', i)" aria-label="Remove" data-remove>
+              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+            </button>
           </li>
         </ul>
       </template>
       <template v-else>
-        <div class="text-gray-500 text-sm">Drag a field here</div>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
       </template>
     </div>
 
-    <div class="p-3 border rounded bg-gray-50" @dragover.prevent @drop="onDrop('breakdowns')">
+    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('breakdowns')">
       <div class="flex items-center justify-between mb-1">
-        <span class="font-medium">Breakdown</span>
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="heroicons:chart-bar" class="w-4 h-4 text-neutral-300" />
+          Breakdown
+        </span>
       </div>
       <template v-if="breakdowns.length">
-        <ul class="space-y-1">
-          <li v-for="(b, i) in breakdowns" :key="b.fieldId" class="px-2 py-1 bg-white border rounded flex items-center justify-between">
-            <span>{{ b.label || b.name }}</span>
-            <div class="space-x-1">
-              <button class="text-xs underline" @click="move('breakdowns', i, i-1)" :disabled="i===0">up</button>
-              <button class="text-xs underline" @click="move('breakdowns', i, i+1)" :disabled="i===breakdowns.length-1">down</button>
-              <button class="text-xs text-red-600 underline" @click="remove('breakdowns', i)">remove</button>
+        <ul class="space-y-1" @dragover.prevent @drop="onListDrop('breakdowns')">
+          <li
+            v-for="(b, i) in breakdowns"
+            :key="b.fieldId"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative"
+            draggable="true"
+            @dragstart="onDragItemStart('breakdowns', i)"
+            @dragover.prevent
+            @drop="onDragItemDrop('breakdowns', i)"
+            data-zone-item="breakdowns"
+          >
+            <div class="pr-6">
+              <div class="text-sm">{{ b.label || b.name }}</div>
+              <div v-if="b.table" class="text-xs text-neutral-300">{{ b.table }}</div>
             </div>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('breakdowns', i)" aria-label="Remove" data-remove>
+              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+            </button>
           </li>
         </ul>
       </template>
       <template v-else>
-        <div class="text-gray-500 text-sm">Drag a field here</div>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
       </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useReportState, type ReportField } from '@/composables/useReportState'
+import { ref } from 'vue'
+import { useReportState, type ReportField } from '../../composables/useReportState'
 
 const { xDimensions, yMetrics, breakdowns, addToZone, removeFromZone, moveInZone, syncUrlNow } = useReportState()
+
+const dragging = ref<{ zone: 'x' | 'y' | 'breakdowns'; from: number } | null>(null)
 
 function onDrop(zone: 'x' | 'y' | 'breakdowns') {
   const dt = (event as DragEvent).dataTransfer
@@ -91,8 +136,28 @@ function remove(zone: 'x' | 'y' | 'breakdowns', index: number) {
   syncUrlNow()
 }
 
-function move(zone: 'x' | 'y' | 'breakdowns', from: number, to: number) {
-  moveInZone(zone, from, to)
+function onDragItemStart(zone: 'x' | 'y' | 'breakdowns', index: number) {
+  dragging.value = { zone, from: index }
+}
+
+function onDragItemDrop(zone: 'x' | 'y' | 'breakdowns', to: number) {
+  const d = dragging.value
+  if (!d) return
+  if (d.zone !== zone) return
+  if (d.from === to) { dragging.value = null; return }
+  moveInZone(zone, d.from, to)
+  dragging.value = null
+  syncUrlNow()
+}
+
+function onListDrop(zone: 'x' | 'y' | 'breakdowns') {
+  const d = dragging.value
+  if (!d) return
+  if (d.zone !== zone) return
+  const len = zone === 'x' ? xDimensions.value.length : zone === 'y' ? yMetrics.value.length : breakdowns.value.length
+  const to = Math.max(0, len - 1)
+  moveInZone(zone, d.from, to)
+  dragging.value = null
   syncUrlNow()
 }
 </script>

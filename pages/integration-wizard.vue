@@ -137,7 +137,11 @@
               <div class="space-y-4">
                 <div class="flex items-center justify-between">
                   <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Use SSH Tunneling</h3>
-                  <UToggle v-model="form.useSshTunneling" />
+                  <UCheckbox 
+                    v-model="form.useSshTunneling" 
+                    color="orange"
+                    aria-label="Use SSH Tunneling"
+                  />
                 </div>
                 
                 <UFormGroup label="Authentication Method" v-if="form.useSshTunneling" class="text-gray-900 dark:text-white">
@@ -194,7 +198,7 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
               </div>
 
               <!-- Storage Location -->
-              <div class="space-y-3">
+              <div v-if="false" class="space-y-3">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Storage Location</h3>
                 <URadioGroup v-model="form.storageLocation" :options="storageOptions" />
               </div>
@@ -274,7 +278,8 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
               </UButton>
               <UButton 
                 @click="nextStep" 
-                :disabled="!connectionTestResult?.success"
+                :disabled="!connectionTestResult?.success || saving"
+                :loading="saving"
                 class="w-full sm:w-auto" 
                 color="green"
               >
@@ -325,6 +330,7 @@ const showErrors = ref(false)
 const validationErrors = ref([])
 const isTestingConnection = ref(false)
 const connectionTestResult = ref(null)
+const saving = ref(false)
 
 const databaseTypes = [
   { label: 'MySQL', value: 'mysql' }
@@ -559,15 +565,51 @@ const goBack = () => {
   navigateTo('/data-sources')
 }
 
-const nextStep = () => {
+const nextStep = async () => {
   if (!connectionTestResult.value?.success) {
     showErrors.value = true
     validationErrors.value = ['Please test the connection successfully before proceeding']
     return
   }
-  
-  // Handle next step logic
-  console.log('Next step clicked with valid connection')
-  // Navigate to next step or show next form
+
+  saving.value = true
+  try {
+    const payload = {
+      internalName: form.value.internalName,
+      databaseName: form.value.databaseName,
+      databaseType: form.value.databaseType,
+      host: form.value.host,
+      username: form.value.username,
+      password: form.value.password,
+      port: form.value.port,
+      jdbcParams: form.value.jdbcParams,
+      serverTime: form.value.serverTime,
+      useSshTunneling: form.value.useSshTunneling,
+      storageLocation: form.value.storageLocation
+    }
+    if (form.value.useSshTunneling) {
+      payload.sshAuthMethod = form.value.sshAuthMethod
+      payload.sshPort = form.value.sshPort
+      payload.sshUser = form.value.sshUser
+      payload.sshHost = form.value.sshHost
+      payload.sshPassword = form.value.sshPassword
+      payload.sshPrivateKey = form.value.sshPrivateKey
+    }
+
+    const { id } = await $fetch('/api/reporting/connections', {
+      method: 'POST',
+      body: payload
+    })
+
+    if (id) {
+      navigateTo(`/reporting/builder?data_connection_id=${id}`)
+    }
+  } catch (e) {
+    console.error('Failed to save connection', e)
+    showErrors.value = true
+    validationErrors.value = ['Failed to save connection. Please try again.']
+  } finally {
+    saving.value = false
+  }
 }
 </script>

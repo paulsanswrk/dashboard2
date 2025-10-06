@@ -1,0 +1,23 @@
+{
+  "description": "employees",
+  "version": "1.0.0",
+  "connection": {
+    "internalName": "employees",
+    "databaseName": "employees",
+    "databaseType": "mysql",
+    "host": "13.234.119.243",
+    "username": "readonly",
+    "password": "Zr0OzD85003u",
+    "port": "3306",
+    "jdbcParams": "",
+    "serverTime": "GMT+02:00",
+    "useSshTunneling": false,
+    "sshAuthMethod": null,
+    "sshPort": null,
+    "sshUser": null,
+    "sshHost": null,
+    "sshPassword": null,
+    "sshPrivateKey": null,
+    "storageLocation": "remote"
+  }
+}

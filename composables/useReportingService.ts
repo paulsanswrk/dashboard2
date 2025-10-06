@@ -7,7 +7,9 @@ type PreviewRequest = {
   yMetrics: Array<any>
   filters: Array<any>
   breakdowns: Array<any>
+  joins?: Array<any>
   limit?: number
+  connectionId?: number | null
 }
 
 type PreviewResponse = {
@@ -17,6 +19,7 @@ type PreviewResponse = {
 }
 
 const selectedDatasetId = ref<string | null>(null)
+const selectedConnectionId = ref<number | null>(null)
 
 export function useReportingService() {
   async function listDatasets(): Promise<Dataset[]> {
@@ -28,14 +31,18 @@ export function useReportingService() {
   }
 
   async function getSchema(datasetId: string): Promise<any[]> {
-    return await $fetch<any[]>(`/api/reporting/schema`, { params: { datasetId } })
+    const params: any = { datasetId }
+    if (selectedConnectionId.value) params.connectionId = selectedConnectionId.value
+    return await $fetch<any[]>(`/api/reporting/schema`, { params })
   }
 
   async function getRelationships(datasetId: string): Promise<any[]> {
-    return await $fetch<any[]>(`/api/reporting/relationships`, { params: { datasetId } })
+    const params: any = { datasetId }
+    if (selectedConnectionId.value) params.connectionId = selectedConnectionId.value
+    return await $fetch<any[]>(`/api/reporting/relationships`, { params })
   }
 
-  async function runPreview(payload: PreviewRequest): Promise<PreviewResponse> {
+  async function runPreview(payload: any): Promise<PreviewResponse> {
     return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body: payload })
   }
 
@@ -43,7 +50,15 @@ export function useReportingService() {
     return await $fetch<PreviewResponse>("/api/reporting/sql", { method: "POST", body: { sql, limit } })
   }
 
-  return { listDatasets, getSchema, getRelationships, runPreview, runSql, setSelectedDatasetId, selectedDatasetId }
+  async function listConnections(): Promise<Array<{ id: number; internal_name: string }>> {
+    return await $fetch("/api/reporting/connections")
+  }
+
+  function setSelectedConnectionId(id: number | null) {
+    selectedConnectionId.value = id
+  }
+
+  return { listConnections, listDatasets, getSchema, getRelationships, runPreview, runSql, setSelectedDatasetId, selectedDatasetId, selectedConnectionId, setSelectedConnectionId }
 }
 
 

@@ -6,7 +6,7 @@
           <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
           add data source
         </UButton>
-        <div class="text-sm text-gray-600 text-center sm:text-right">2 / 20 DATA SOURCES USED</div>
+        <div class="text-sm text-gray-600 text-center sm:text-right">{{ connections.length }} / 20 DATA SOURCES USED</div>
       </div>
     </div>
 
@@ -24,71 +24,120 @@
       </div>
 
       <div class="space-y-6">
-        <!-- Databases Section -->
+        <!-- Databases Section (from DB) -->
         <div>
           <h3 class="text-lg font-medium mb-4 text-primary">DATABASES</h3>
-          <UCard 
-            v-for="db in databases" 
-            :key="db.id"
-            class="hover:shadow-md transition-shadow cursor-pointer mb-4"
-            @click="selectDataSource(db)"
-          >
-            <div class="flex items-center gap-4 p-4">
-              <Icon name="heroicons:circle-stack" class="w-8 h-8 text-gray-400" />
-              <div>
-                <h4 class="font-medium">{{ db.name }}</h4>
-                <p class="text-sm text-gray-600">{{ db.description }}</p>
+          <div v-if="loadingConnections" class="text-sm text-gray-500">Loading connections...</div>
+          <template v-else>
+            <UCard 
+              v-for="c in filteredConnections" 
+              :key="c.id"
+              class="hover:shadow-md transition-shadow cursor-pointer mb-4"
+              @click="goToBuilder(c.id)"
+            >
+              <div class="flex items-center gap-4 p-4">
+                <Icon name="heroicons:circle-stack" class="w-8 h-8 text-gray-400" />
+                <div>
+                  <h4 class="font-medium">{{ c.internal_name }}</h4>
+                  <p class="text-sm text-gray-600">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
+                </div>
               </div>
-            </div>
-          </UCard>
+            </UCard>
+            <div v-if="!filteredConnections.length" class="text-sm text-gray-500">No data sources found.</div>
+          </template>
         </div>
 
-        <!-- Flat Files Section -->
-        <div>
-          <h3 class="text-lg font-medium mb-4" style="color: rgb(194, 65, 12);">FLAT FILES</h3>
-          <UCard 
-            v-for="file in flatFiles" 
-            :key="file.id"
-            class="hover:shadow-md transition-shadow cursor-pointer mb-4"
-            @click="selectDataSource(file)"
-          >
-            <div class="flex items-center gap-4 p-4">
-              <Icon name="heroicons:document-text" class="w-8 h-8 text-gray-400" />
-              <div>
-                <h4 class="font-medium">{{ file.name }}</h4>
-                <p class="text-sm text-gray-600">{{ file.description }}</p>
+        <!-- Demo Data Sources Section -->
+        <div v-if="false">
+          <h3 class="text-lg font-medium mb-4 text-primary">DEMO DATA SOURCES</h3>
+          <div v-if="loadingDemos" class="text-sm text-gray-500">Loading demos...</div>
+          <template v-else>
+            <UCard 
+              v-for="d in filteredDemos" 
+              :key="d.id"
+              class="hover:shadow-md transition-shadow cursor-pointer mb-4"
+              @click="importDemo(d)"
+            >
+              <div class="flex items-center gap-4 p-4">
+                <Icon name="heroicons:bookmark" class="w-8 h-8 text-gray-400" />
+                <div>
+                  <h4 class="font-medium">{{ d.label }}</h4>
+                  <p class="text-sm text-gray-600">{{ d.description }}</p>
+                </div>
               </div>
-            </div>
-          </UCard>
+            </UCard>
+            <div v-if="!filteredDemos.length" class="text-sm text-gray-500">No demos available.</div>
+          </template>
         </div>
+
+        <!-- Flat Files Section (hidden temporarily) -->
+        <div v-if="false"></div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const searchQuery = ref('')
 
-const databases = ref([
-  {
-    id: 1,
-    name: 'insta800.net',
-    description: 'Database connection',
-    type: 'database'
-  }
-])
+const connections = ref<Array<{ id: number; internal_name: string; database_type?: string; host?: string; port?: number }>>([])
+const demos = ref<Array<{ id: string; label: string; description?: string }>>([])
 
-const flatFiles = ref([
-  {
-    id: 2,
-    name: 'BoK1',
-    description: 'Last updated: 28.02.2024 12:40',
-    type: 'flat-file'
-  }
-])
+const loadingConnections = ref(true)
+const loadingDemos = ref(true)
 
-const selectDataSource = (dataSource) => {
-  // Handle data source selection
-  console.log('Selected data source:', dataSource)
+const filteredConnections = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return connections.value
+  return connections.value.filter(c =>
+    c.internal_name.toLowerCase().includes(q) ||
+    (c.host || '').toLowerCase().includes(q)
+  )
+})
+
+const filteredDemos = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return demos.value
+  return demos.value.filter(d =>
+    (d.label || '').toLowerCase().includes(q) ||
+    (d.description || '').toLowerCase().includes(q)
+  )
+})
+
+async function loadConnections() {
+  try {
+    connections.value = await $fetch('/api/reporting/connections')
+  } finally {
+    loadingConnections.value = false
+  }
 }
+
+async function loadDemos() {
+  try {
+    demos.value = await $fetch('/api/data-sources/demos')
+  } finally {
+    loadingDemos.value = false
+  }
+}
+
+function goToBuilder(connectionId) {
+  navigateTo(`/reporting/builder?data_connection_id=${connectionId}`)
+}
+
+async function importDemo(demo) {
+  try {
+    const res = await $fetch('/api/data-sources/import', { method: 'POST', body: { id: demo.id } })
+    if (res?.connectionId) {
+      await loadConnections()
+      goToBuilder(res.connectionId)
+    }
+  } catch (e) {
+    console.error('Failed to import demo:', e)
+  }
+}
+
+onMounted(() => {
+  loadConnections()
+  loadDemos()
+})
 </script>
