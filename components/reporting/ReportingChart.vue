@@ -4,50 +4,17 @@
       <div class="text-sm text-gray-500 mb-1">{{ kpiLabel }}</div>
       <div class="text-4xl font-semibold">{{ kpiValue }}</div>
     </div>
-    <canvas v-else ref="canvasRef" class="w-full h-80"></canvas>
+    <div v-else ref="chartRef" class="w-full h-80"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 import type { Ref } from 'vue'
+import * as echarts from 'echarts'
 
-// Load Chart.js from CDN on client to avoid bundler resolution issues if dependency isn't installed
-let ChartLib: any = null
-async function ensureChartLib() {
-  if (typeof window === 'undefined') return
-  if (ChartLib) return
-  if ((window as any).Chart) {
-    ChartLib = (window as any).Chart
-    return
-  }
-  await new Promise<void>((resolve, reject) => {
-    const id = 'chartjs-cdn-script'
-    if (document.getElementById(id)) {
-      // script present but maybe not loaded yet
-      const check = () => {
-        if ((window as any).Chart) {
-          ChartLib = (window as any).Chart
-          resolve()
-        } else {
-          setTimeout(check, 50)
-        }
-      }
-      check()
-      return
-    }
-    const s = document.createElement('script')
-    s.id = id
-    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js'
-    s.async = true
-    s.onload = () => {
-      ChartLib = (window as any).Chart
-      resolve()
-    }
-    s.onerror = () => reject(new Error('Failed to load Chart.js'))
-    document.head.appendChild(s)
-  })
-}
+// Load ECharts - it's now a proper dependency instead of CDN loading
+let chartInstance: echarts.ECharts | null = null
 
 type Column = { key: string; label: string }
 type ReportField = { fieldId: string; name?: string; label?: string }
@@ -76,8 +43,7 @@ const emit = defineEmits<{
   (e: 'drill', payload: { xValue: string | number; seriesName?: string; datasetIndex: number; index: number }): void
 }>()
 
-const canvasRef: Ref<HTMLCanvasElement | null> = ref(null)
-let chart: any = null
+const chartRef: Ref<HTMLDivElement | null> = ref(null)
 
 const defaultColors = [
   '#3366CC', '#DC3912', '#FF9900', '#109618', '#990099',
@@ -144,114 +110,196 @@ const kpiLabel = computed(() => {
 })
 
 function destroyChart() {
-  if (chart) {
-    try { chart.destroy() } catch {}
-    chart = null
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
   }
 }
 
 function renderChart() {
   if (typeof window === 'undefined') return
-  if (!canvasRef.value) return
+  if (!chartRef.value) return
   destroyChart()
-  const ctx = canvasRef.value.getContext('2d')
-  if (!ctx) return
 
   const type = props.chartType === 'donut' ? 'doughnut' : props.chartType
   const cats = categories.value
   const series = seriesData.value
+
+  // Initialize ECharts instance
+  chartInstance = echarts.init(chartRef.value)
 
   if (type === 'pie' || type === 'doughnut') {
     const s = series[0] || { name: 'Value', data: [] }
     const palette = (props.appearance?.palette && props.appearance.palette.length
       ? props.appearance.palette
       : defaultColors).slice(0, cats.length)
-    chart = new ChartLib(ctx, {
-      type,
-      data: {
-        labels: cats,
-        datasets: [{ label: props.appearance?.legendTitle || s.name, data: s.data, backgroundColor: palette }]
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle
       },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: true },
-          title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle }
-        },
-        onClick: (_evt: any, elements: any[]) => {
-          if (!elements?.length) return
-          const el = elements[0]
-          const idx = el.index
-          const xValue = cats[idx]
-          emit('drill', { xValue, datasetIndex: 0, index: idx })
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const value = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+          return `${params.name}: ${value}`
         }
+      },
+      legend: {
+        show: true,
+        orient: 'horizontal',
+        bottom: 0
+      },
+      series: [{
+        name: props.appearance?.legendTitle || s.name,
+        type: 'pie',
+        radius: type === 'doughnut' ? ['40%', '70%'] : '60%',
+        data: cats.map((cat, idx) => ({
+          name: cat,
+          value: s.data[idx] || 0,
+          itemStyle: { color: palette[idx % palette.length] }
+        })),
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+
+    // Add click event handler
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series' && params.seriesType === 'pie') {
+        const dataIndex = params.dataIndex
+        const xValue = cats[dataIndex]
+        emit('drill', { xValue, datasetIndex: 0, index: dataIndex })
       }
     })
+
     return
   }
 
-  const datasets = series.map((s, idx) => {
-    const palette = (props.appearance?.palette && props.appearance.palette.length
-      ? props.appearance.palette
-      : defaultColors)
+  const palette = (props.appearance?.palette && props.appearance.palette.length
+    ? props.appearance.palette
+    : defaultColors)
+
+  // Create series data for ECharts
+  const seriesConfig = series.map((s, idx) => {
     const color = palette[idx % palette.length]
-    return {
-    label: s.name,
-    data: s.data,
-    borderWidth: 2,
-      fill: false,
-      backgroundColor: color,
-      borderColor: color
+    const baseConfig = {
+      name: s.name,
+      data: s.data,
+      type: type === 'line' ? 'line' : 'bar',
+      itemStyle: { color },
+      emphasis: {
+        focus: 'series'
+      }
+    }
+
+    if (type === 'line') {
+      return {
+        ...baseConfig,
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { width: 2 }
+      }
+    } else {
+      return {
+        ...baseConfig,
+        barWidth: '60%'
+      }
     }
   })
 
-  chart = new ChartLib(ctx, {
-    type: type === 'line' ? 'line' : 'bar',
-    data: { labels: cats, datasets },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: true, position: props.appearance?.legendPosition || 'top' },
-        title: { display: !!props.appearance?.chartTitle, text: props.appearance?.chartTitle },
-        tooltip: {
-          callbacks: {
-            label: (ctx: any) => {
-              const label = ctx.dataset?.label || ''
-              const value = ctx.parsed?.y ?? ctx.parsed
-              const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
-              const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
-              const v = typeof value === 'number' ? formatNumber(value, dp, ts) : value
-              return `${label}: ${v}`
-            }
-          }
-        }
+  const option = {
+    title: {
+      text: props.appearance?.chartTitle || '',
+      show: !!props.appearance?.chartTitle
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
       },
-      scales: {
-        x: { title: { display: !!props.appearance?.xAxisLabel, text: props.appearance?.xAxisLabel }, stacked: !!props.appearance?.stacked },
-        y: { beginAtZero: true, title: { display: !!props.appearance?.yAxisLabel, text: props.appearance?.yAxisLabel }, stacked: !!props.appearance?.stacked }
-      },
-      onClick: (_evt: any, elements: any[], chartInst: any) => {
-        if (!elements?.length) return
-        const el = elements[0]
-        const datasetIndex = el.datasetIndex
-        const index = el.index
-        const xValue = chartInst.data.labels?.[index]
-        const seriesName = chartInst.data.datasets?.[datasetIndex]?.label
-        emit('drill', { xValue, seriesName, datasetIndex, index })
+      formatter: (params: any) => {
+        let result = ''
+        params.forEach((param: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const value = typeof param.value === 'number' ? formatNumber(param.value, dp, ts) : param.value
+          result += `${param.seriesName}: ${value}<br/>`
+        })
+        return result
       }
+    },
+    legend: {
+      show: true,
+      data: series.map(s => s.name),
+      top: props.appearance?.legendPosition === 'bottom' ? 'bottom' : 'top'
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: props.appearance?.legendPosition === 'bottom' ? '15%' : '10%',
+      top: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: type === 'bar',
+      data: cats,
+      name: props.appearance?.xAxisLabel || '',
+      nameLocation: 'middle',
+      nameGap: 30
+    },
+    yAxis: {
+      type: 'value',
+      name: props.appearance?.yAxisLabel || '',
+      nameLocation: 'middle',
+      nameGap: 40,
+      min: 0
+    },
+    series: seriesConfig
+  }
+
+  // Handle stacking if needed
+  if (props.appearance?.stacked) {
+    option.xAxis.boundaryGap = false
+    seriesConfig.forEach((series: any, idx: number) => {
+      if (idx > 0) {
+        series.stack = 'total'
+      }
+    })
+  }
+
+  chartInstance.setOption(option)
+
+  // Add click event handler
+  chartInstance.on('click', (params: any) => {
+    if (params.componentType === 'series') {
+      const xValue = cats[params.dataIndex]
+      const seriesName = params.seriesName
+      const datasetIndex = series.findIndex(s => s.name === seriesName)
+      emit('drill', { xValue, seriesName, datasetIndex, index: params.dataIndex })
     }
   })
 }
 
-onMounted(async () => {
+onMounted(() => {
   if (props.chartType === 'kpi') return
-  await ensureChartLib()
   renderChart()
 })
 
-watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance], async () => {
+watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance], () => {
   if (props.chartType === 'kpi') { destroyChart(); return }
-  await ensureChartLib()
   renderChart()
 }, { deep: true })
 
