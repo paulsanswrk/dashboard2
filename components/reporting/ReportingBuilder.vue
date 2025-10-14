@@ -70,7 +70,7 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
 const serverError = ref<string | null>(null)
 const serverWarnings = ref<string[]>([])
-const chartType = ref<'table' | 'bar' | 'line' | 'pie' | 'donut' | 'kpi'>('table')
+const chartType = ref<'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'>('table')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 const openReports = ref(false)
 const useSql = ref(false)
@@ -81,10 +81,116 @@ const chartTypes = [
   { value: 'table', label: 'Table', icon: 'heroicons:table-cells' },
   { value: 'bar', label: 'Bar', icon: 'heroicons:chart-bar' },
   { value: 'line', label: 'Line', icon: 'heroicons:chart-bar' },
+  { value: 'area', label: 'Area', icon: 'heroicons:chart-bar' },
   { value: 'pie', label: 'Pie', icon: 'heroicons:chart-pie' },
   { value: 'donut', label: 'Donut', icon: 'heroicons:circle-stack' },
-  // { value: 'kpi', label: 'KPI', icon: 'heroicons:bolt' }
+  { value: 'funnel', label: 'Funnel', icon: 'heroicons:rectangle-stack' },
+  { value: 'gauge', label: 'Gauge', icon: 'heroicons:clock' },
+  { value: 'map', label: 'Map', icon: 'heroicons:globe-americas' },
+  { value: 'scatter', label: 'Scatter', icon: 'heroicons:squares-2x2' },
+  { value: 'treemap', label: 'Treemap', icon: 'heroicons:squares-plus' },
+  { value: 'sankey', label: 'Sankey', icon: 'heroicons:arrows-right-left' }
 ]
+
+// Zone configuration for different chart types
+type ZoneConfig = {
+  showXDimensions: boolean
+  showYMetrics: boolean
+  showBreakdowns: boolean
+  xLabel?: string
+  yLabel?: string
+  breakdownLabel?: string
+}
+
+const zoneConfig = computed((): ZoneConfig => {
+  switch (chartType.value) {
+    case 'table':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'Columns',
+        yLabel: 'Values',
+        breakdownLabel: 'Rows'
+      }
+    case 'bar':
+    case 'line':
+    case 'area':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'X (Categories)',
+        yLabel: 'Y (Values)',
+        breakdownLabel: 'Series'
+      }
+    case 'pie':
+    case 'donut':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Categories',
+        yLabel: 'Values'
+      }
+    case 'funnel':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Stages',
+        yLabel: 'Values'
+      }
+    case 'gauge':
+      return {
+        showXDimensions: false,
+        showYMetrics: true,
+        showBreakdowns: false,
+        yLabel: 'Value'
+      }
+    case 'scatter':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'X Values',
+        yLabel: 'Y Values'
+      }
+    case 'map':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Regions',
+        yLabel: 'Values'
+      }
+    case 'treemap':
+      return {
+        showXDimensions: true,
+        showYMetrics: false,
+        showBreakdowns: true,
+        xLabel: 'Hierarchy',
+        breakdownLabel: 'Size Values'
+      }
+    case 'sankey':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Sources',
+        yLabel: 'Targets'
+      }
+    default:
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'X (Dimensions)',
+        yLabel: 'Y (Metrics)',
+        breakdownLabel: 'Breakdown'
+      }
+  }
+})
 
 const sqlGenerated = computed(() => {
   if (!selectedDatasetId.value) return ''

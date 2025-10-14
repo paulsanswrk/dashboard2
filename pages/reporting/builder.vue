@@ -68,7 +68,7 @@
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
               <h3 class="font-medium text-white">Zones</h3>
               <ClientOnly>
-                <ReportingZones />
+                <ReportingZones :zone-config="zoneConfig" />
               </ClientOnly>
               <div>
                 <ReportingFilters v-if="schema.length" :schema="schema" />
@@ -116,6 +116,19 @@ const relationships = ref<any[]>([])
 const connections = ref<Array<{ id: number; internal_name: string }>>([])
 const connectionId = ref<number | null>(null)
 const { selectedDatasetId: selectedIdState, joins } = useReportState()
+
+// Zone configuration based on chart type (we'll get this from the builder or use a default)
+const zoneConfig = computed(() => {
+  // For now, use a default configuration. In the future, this should come from the chart type selection
+  return {
+    showXDimensions: true,
+    showYMetrics: true,
+    showBreakdowns: true,
+    xLabel: 'X (Dimensions)',
+    yLabel: 'Y (Metrics)',
+    breakdownLabel: 'Breakdown'
+  }
+})
 
 // Loading states
 const connectionsLoading = ref(true)

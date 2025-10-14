@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-2">
-    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
+    <div v-if="zoneConfig.showXDimensions" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
           <Icon name="heroicons:rectangle-group" class="w-4 h-4 text-neutral-300" />
-          X (Dimensions)
+          {{ zoneConfig.xLabel || 'X (Dimensions)' }}
         </span>
       </div>
       <template v-if="xDimensions.length">
@@ -34,11 +34,11 @@
       </template>
     </div>
 
-    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
+    <div v-if="zoneConfig.showYMetrics" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
           <Icon name="heroicons:squares-2x2" class="w-4 h-4 text-neutral-300" />
-          Y (Metrics)
+          {{ zoneConfig.yLabel || 'Y (Metrics)' }}
         </span>
       </div>
       <template v-if="yMetrics.length">
@@ -71,11 +71,11 @@
       </template>
     </div>
 
-    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('breakdowns')">
+    <div v-if="zoneConfig.showBreakdowns" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('breakdowns')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
           <Icon name="heroicons:chart-bar" class="w-4 h-4 text-neutral-300" />
-          Breakdown
+          {{ zoneConfig.breakdownLabel || 'Breakdown' }}
         </span>
       </div>
       <template v-if="breakdowns.length">
@@ -108,10 +108,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useReportState, type ReportField } from '../../composables/useReportState'
 
+type ZoneConfig = {
+  showXDimensions: boolean
+  showYMetrics: boolean
+  showBreakdowns: boolean
+  xLabel?: string
+  yLabel?: string
+  breakdownLabel?: string
+}
+
+const props = defineProps<{
+  zoneConfig?: ZoneConfig
+}>()
+
 const { xDimensions, yMetrics, breakdowns, addToZone, removeFromZone, moveInZone, syncUrlNow } = useReportState()
+
+// Default zone config if none provided
+const zoneConfig = computed(() => props.zoneConfig || {
+  showXDimensions: true,
+  showYMetrics: true,
+  showBreakdowns: true,
+  xLabel: 'X (Dimensions)',
+  yLabel: 'Y (Metrics)',
+  breakdownLabel: 'Breakdown'
+})
 
 const dragging = ref<{ zone: 'x' | 'y' | 'breakdowns'; from: number } | null>(null)
 

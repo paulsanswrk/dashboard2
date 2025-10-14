@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div v-if="chartType === 'kpi'" class="p-6 border rounded bg-white text-center">
+    <div v-if="chartType === 'gauge'" class="p-6 border rounded bg-white text-center">
       <div class="text-sm text-gray-500 mb-1">{{ kpiLabel }}</div>
       <div class="text-4xl font-semibold">{{ kpiValue }}</div>
     </div>
@@ -20,7 +20,7 @@ type Column = { key: string; label: string }
 type ReportField = { fieldId: string; name?: string; label?: string }
 
 const props = defineProps<{
-  chartType: 'table' | 'bar' | 'line' | 'pie' | 'donut' | 'kpi'
+  chartType: 'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'
   columns: Column[]
   rows: Array<Record<string, unknown>>
   xDimensions: ReportField[]
@@ -186,9 +186,566 @@ function renderChart() {
     return
   }
 
+  if (type === 'gauge') {
+    const value = Number(kpiValue.value) || 0
+    const max = Math.max(value, 100) // Default max of 100, or value if larger
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle
+      },
+      tooltip: {
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const formattedValue = typeof value === 'number' ? formatNumber(value, dp, ts) : value
+          return `${kpiLabel.value}: ${formattedValue}`
+        }
+      },
+      series: [{
+        name: kpiLabel.value,
+        type: 'gauge',
+        startAngle: 180,
+        endAngle: 0,
+        min: 0,
+        max: max,
+        splitNumber: 5,
+        axisLine: {
+          lineStyle: {
+            width: 10,
+            color: [
+              [0.3, '#67e0e3'],
+              [0.7, '#37a2da'],
+              [1, '#fd666d']
+            ]
+          }
+        },
+        pointer: {
+          icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
+          length: '12%',
+          width: 20,
+          offsetCenter: [0, '-60%'],
+          itemStyle: {
+            color: 'auto'
+          }
+        },
+        axisTick: {
+          length: 12,
+          lineStyle: {
+            color: 'auto',
+            width: 2
+          }
+        },
+        splitLine: {
+          length: 20,
+          lineStyle: {
+            color: 'auto',
+            width: 5
+          }
+        },
+        axisLabel: {
+          color: '#464646',
+          fontSize: 20,
+          distance: -60,
+          formatter: function (value: number) {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            return typeof value === 'number' ? formatNumber(value, dp, ts) : value
+          }
+        },
+        title: {
+          offsetCenter: [0, '-20%'],
+          fontSize: 20
+        },
+        detail: {
+          fontSize: 30,
+          offsetCenter: [0, '0%'],
+          valueAnimation: true,
+          formatter: function (value: number) {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            return typeof value === 'number' ? formatNumber(value, dp, ts) : value
+          },
+          color: 'auto'
+        },
+        data: [{
+          value: value,
+          name: kpiLabel.value
+        }]
+      }]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  if (type === 'scatter') {
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = props.yMetrics?.[0]?.fieldId
+
+    if (!xKey || !yKey) {
+      // Not enough data for scatter plot
+      return
+    }
+
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors)
+
+    // Create scatter data points
+    const scatterData = props.rows.map((row, index) => {
+      const x = Number(row[xKey]) || 0
+      const y = Number(row[yKey]) || 0
+      return [x, y]
+    })
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const xFormatted = typeof params.data[0] === 'number' ? formatNumber(params.data[0], dp, ts) : params.data[0]
+          const yFormatted = typeof params.data[1] === 'number' ? formatNumber(params.data[1], dp, ts) : params.data[1]
+          return `X: ${xFormatted}<br/>Y: ${yFormatted}`
+        }
+      },
+      legend: {
+        show: true,
+        data: ['Data Points']
+      },
+      xAxis: {
+        type: 'value',
+        name: props.appearance?.xAxisLabel || props.xDimensions?.[0]?.label || 'X Values',
+        nameLocation: 'middle',
+        nameGap: 30
+      },
+      yAxis: {
+        type: 'value',
+        name: props.appearance?.yAxisLabel || props.yMetrics?.[0]?.label || 'Y Values',
+        nameLocation: 'middle',
+        nameGap: 40
+      },
+      series: [{
+        name: 'Data Points',
+        type: 'scatter',
+        data: scatterData,
+        symbolSize: 10,
+        itemStyle: {
+          color: palette[0]
+        },
+        emphasis: {
+          focus: 'series',
+          itemStyle: {
+            borderWidth: 2,
+            borderColor: '#333'
+          }
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+
+    // Add click event handler for scatter points
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series' && params.seriesType === 'scatter') {
+        const dataIndex = params.dataIndex
+        const point = scatterData[dataIndex]
+        const xValue = point[0]
+        const yValue = point[1]
+        emit('drill', { xValue, seriesName: 'scatter', datasetIndex: 0, index: dataIndex })
+      }
+    })
+
+    return
+  }
+
+  if (type === 'funnel') {
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = props.yMetrics?.[0]?.fieldId
+
+    if (!xKey || !yKey) {
+      // Not enough data for funnel chart
+      return
+    }
+
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors)
+
+    // Create funnel data - sort by value descending for proper funnel shape
+    const funnelData = props.rows
+      .map((row, index) => ({
+        name: String(row[xKey] || `Stage ${index + 1}`),
+        value: Number(row[yKey]) || 0
+      }))
+      .sort((a, b) => b.value - a.value) // Sort descending for funnel shape
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+          return `${params.name}: ${formattedValue}`
+        }
+      },
+      legend: {
+        show: true,
+        data: funnelData.map(item => item.name),
+        top: '5%'
+      },
+      series: [{
+        name: 'Funnel',
+        type: 'funnel',
+        left: '10%',
+        top: '20%',
+        bottom: '10%',
+        width: '80%',
+        min: 0,
+        max: funnelData.length > 0 ? funnelData[0].value : 100,
+        minSize: '0%',
+        maxSize: '100%',
+        sort: 'descending',
+        gap: 2,
+        data: funnelData,
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: true,
+          position: 'inside',
+          formatter: (params: any) => {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+            return `${params.name}: ${formattedValue}`
+          }
+        },
+        emphasis: {
+          label: {
+            fontSize: 20
+          }
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+
+    // Add click event handler for funnel segments
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series' && params.seriesType === 'funnel') {
+        const dataIndex = params.dataIndex
+        const data = funnelData[dataIndex]
+        emit('drill', { xValue: data.name, seriesName: 'funnel', datasetIndex: 0, index: dataIndex })
+      }
+    })
+
+    return
+  }
+
+  if (type === 'map') {
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = props.yMetrics?.[0]?.fieldId
+
+    if (!xKey || !yKey) {
+      // Not enough data for map chart
+      return
+    }
+
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors)
+
+    // Create map data - map country/region names to values
+    const mapData = props.rows.map((row) => {
+      const region = String(row[xKey] || '').toLowerCase()
+      const value = Number(row[yKey]) || 0
+      return { name: region, value: value }
+    })
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+          return `${params.name}: ${formattedValue}`
+        }
+      },
+      visualMap: {
+        min: 0,
+        max: Math.max(...mapData.map(item => item.value)),
+        left: 'left',
+        top: 'bottom',
+        text: ['High', 'Low'],
+        calculable: true,
+        inRange: {
+          color: palette.slice(0, 5) // Use first 5 colors from palette
+        }
+      },
+      series: [{
+        name: 'Data',
+        type: 'map',
+        map: 'world', // Use world map - requires echarts/map/js/world.js to be loaded
+        roam: true,
+        emphasis: {
+          label: {
+            show: true
+          }
+        },
+        data: mapData
+      }]
+    }
+
+    chartInstance.setOption(option)
+
+    // Add click event handler for map regions
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series' && params.seriesType === 'map') {
+        const regionName = params.name
+        const dataIndex = mapData.findIndex(item => item.name === regionName.toLowerCase())
+        if (dataIndex >= 0) {
+          const data = mapData[dataIndex]
+          emit('drill', { xValue: data.name, seriesName: 'map', datasetIndex: 0, index: dataIndex })
+        }
+      }
+    })
+
+    return
+  }
+
+  if (type === 'treemap') {
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const breakdownKey = props.breakdowns?.[0]?.fieldId
+
+    if (!xKey) {
+      // Need at least X dimensions for treemap
+      return
+    }
+
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors)
+
+    // Create hierarchical treemap data
+    const treemapData: any[] = []
+    const processedItems = new Set<string>()
+
+    props.rows.forEach((row) => {
+      const category = String(row[xKey] || 'Unknown')
+      const size = breakdownKey ? Number(row[breakdownKey]) || 0 : 1
+
+      if (!processedItems.has(category)) {
+        treemapData.push({
+          name: category,
+          value: size,
+          itemStyle: {
+            color: palette[treemapData.length % palette.length]
+          }
+        })
+        processedItems.add(category)
+      } else {
+        // Update existing item value
+        const existing = treemapData.find(item => item.name === category)
+        if (existing) {
+          existing.value += size
+        }
+      }
+    })
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+          return `${params.name}: ${formattedValue}`
+        }
+      },
+      series: [{
+        name: 'Treemap',
+        type: 'treemap',
+        data: treemapData,
+        roam: true,
+        nodeClick: false,
+        breadcrumb: {
+          show: false
+        },
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2,
+          gapWidth: 2
+        },
+        label: {
+          show: true,
+          formatter: (params: any) => {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+            return `${params.name}\n${formattedValue}`
+          }
+        },
+        emphasis: {
+          itemStyle: {
+            borderColor: '#333',
+            borderWidth: 3
+          }
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+
+    // Add click event handler for treemap nodes
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series' && params.seriesType === 'treemap') {
+        const nodeName = params.name
+        const dataIndex = treemapData.findIndex(item => item.name === nodeName)
+        if (dataIndex >= 0) {
+          const data = treemapData[dataIndex]
+          emit('drill', { xValue: data.name, seriesName: 'treemap', datasetIndex: 0, index: dataIndex })
+        }
+      }
+    })
+
+    return
+  }
+
+  if (type === 'sankey') {
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = props.yMetrics?.[0]?.fieldId
+    const breakdownKey = props.breakdowns?.[0]?.fieldId
+
+    if (!xKey || !yKey) {
+      // Need both source and target data for Sankey diagram
+      return
+    }
+
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+      ? props.appearance.palette
+      : defaultColors)
+
+    // Create nodes and links for Sankey diagram
+    const nodes = new Map<string, { name: string }>()
+    const links: any[] = []
+
+    props.rows.forEach((row) => {
+      const source = String(row[xKey] || 'Unknown Source')
+      const target = String(row[yKey] || 'Unknown Target')
+      const value = breakdownKey ? Number(row[breakdownKey]) || 1 : 1
+
+      // Add nodes
+      if (!nodes.has(source)) {
+        nodes.set(source, { name: source })
+      }
+      if (!nodes.has(target)) {
+        nodes.set(target, { name: target })
+      }
+
+      // Add link
+      links.push({
+        source: source,
+        target: target,
+        value: value
+      })
+    })
+
+    const nodeArray = Array.from(nodes.values())
+
+    const option = {
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+          if (params.dataType === 'node') {
+            return `${params.name}`
+          } else {
+            return `${params.data.source} → ${params.data.target}: ${formattedValue}`
+          }
+        }
+      },
+      series: [{
+        name: 'Sankey',
+        type: 'sankey',
+        layout: 'none',
+        emphasis: {
+          focus: 'adjacency'
+        },
+        data: nodeArray,
+        links: links,
+        itemStyle: {
+          borderWidth: 0,
+          borderColor: '#aaa'
+        },
+        lineStyle: {
+          color: 'source',
+          curveness: 0.5
+        },
+        label: {
+          show: true,
+          position: 'inside',
+          formatter: (params: any) => params.name,
+          fontSize: 12
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+
+    // Add click event handler for Sankey nodes/links
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series' && params.seriesType === 'sankey') {
+        if (params.dataType === 'node') {
+          // Clicked on a node
+          emit('drill', { xValue: params.name, seriesName: 'sankey', datasetIndex: 0, index: 0 })
+        } else if (params.dataType === 'edge') {
+          // Clicked on a link
+          const link = params.data
+          emit('drill', { xValue: `${link.source} → ${link.target}`, seriesName: 'sankey', datasetIndex: 0, index: 0 })
+        }
+      }
+    })
+
+    return
+  }
+
   const palette = (props.appearance?.palette && props.appearance.palette.length
     ? props.appearance.palette
     : defaultColors)
+
+  // Determine chart type for stacking logic
+  const currentChartType = type === 'line' || type === 'area' ? 'line' : 'bar'
 
   // Create series data for ECharts
   const seriesConfig = series.map((s, idx) => {
@@ -196,24 +753,34 @@ function renderChart() {
     const baseConfig = {
       name: s.name,
       data: s.data,
-      type: type === 'line' ? 'line' : 'bar',
       itemStyle: { color },
       emphasis: {
         focus: 'series'
       }
     }
 
-    if (type === 'line') {
-      return {
+    if (currentChartType === 'line') {
+      const config = {
         ...baseConfig,
+        type: currentChartType,
         smooth: false,
         symbol: 'circle',
         symbolSize: 6,
         lineStyle: { width: 2 }
       }
+
+      // Add area style for area charts
+      if (type === 'area') {
+        (config as any).areaStyle = {
+          opacity: 0.6
+        }
+      }
+
+      return config
     } else {
       return {
         ...baseConfig,
+        type: currentChartType,
         barWidth: '60%'
       }
     }
@@ -224,7 +791,7 @@ function renderChart() {
       text: props.appearance?.chartTitle || '',
       show: !!props.appearance?.chartTitle
     },
-    tooltip: {
+        tooltip: {
       trigger: 'axis',
       axisPointer: {
         type: 'cross'
@@ -232,8 +799,8 @@ function renderChart() {
       formatter: (params: any) => {
         let result = ''
         params.forEach((param: any) => {
-          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
-          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+              const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+              const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const value = typeof param.value === 'number' ? formatNumber(param.value, dp, ts) : param.value
           result += `${param.seriesName}: ${value}<br/>`
         })
@@ -254,7 +821,7 @@ function renderChart() {
     },
     xAxis: {
       type: 'category',
-      boundaryGap: type === 'bar',
+      boundaryGap: currentChartType === 'bar',
       data: cats,
       name: props.appearance?.xAxisLabel || '',
       nameLocation: 'middle',
@@ -272,7 +839,7 @@ function renderChart() {
 
   // Handle stacking if needed
   if (props.appearance?.stacked) {
-    option.xAxis.boundaryGap = false
+    option.xAxis.boundaryGap = currentChartType !== 'bar'
     seriesConfig.forEach((series: any, idx: number) => {
       if (idx > 0) {
         series.stack = 'total'
@@ -294,12 +861,12 @@ function renderChart() {
 }
 
 onMounted(() => {
-  if (props.chartType === 'kpi') return
+  if (props.chartType === 'gauge') return
   renderChart()
 })
 
 watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance], () => {
-  if (props.chartType === 'kpi') { destroyChart(); return }
+  if (props.chartType === 'gauge') { destroyChart(); return }
   renderChart()
 }, { deep: true })
 
