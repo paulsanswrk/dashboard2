@@ -32,14 +32,29 @@
             <UCard 
               v-for="c in filteredConnections" 
               :key="c.id"
-              class="hover:shadow-md transition-shadow cursor-pointer mb-4"
-              @click="goToBuilder(c.id)"
+              class="hover:shadow-md transition-shadow mb-4"
             >
-              <div class="flex items-center gap-4 p-4">
-                <Icon name="heroicons:circle-stack" class="w-8 h-8 text-gray-400" />
-                <div>
-                  <h4 class="font-medium">{{ c.internal_name }}</h4>
-                  <p class="text-sm text-gray-600">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
+              <div class="flex items-start justify-between p-4">
+                <div class="flex items-center gap-4">
+                  <Icon name="heroicons:circle-stack" class="w-8 h-8 text-gray-400" />
+                  <div class="min-w-0">
+                    <h4 class="font-medium truncate">{{ c.internal_name }}</h4>
+                    <p class="text-sm text-gray-600 truncate">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <UButton size="xs" variant="outline" @click.stop="editConnection(c.id)">
+                    <Icon name="heroicons:pencil-square" class="w-4 h-4 mr-1" /> Edit
+                  </UButton>
+                  <UButton size="xs" variant="outline" color="gray" @click.stop="renameConnection(c)">
+                    <Icon name="heroicons:squares-2x2" class="w-4 h-4 mr-1" /> Rename
+                  </UButton>
+                  <UButton size="xs" color="red" variant="outline" @click.stop="deleteConnection(c.id)">
+                    <Icon name="heroicons:trash" class="w-4 h-4 mr-1" /> Delete
+                  </UButton>
+                  <UButton size="xs" color="primary" @click.stop="goToBuilder(c.id)">
+                    Open
+                  </UButton>
                 </div>
               </div>
             </UCard>
@@ -122,6 +137,31 @@ async function loadDemos() {
 
 function goToBuilder(connectionId) {
   navigateTo(`/reporting/builder?data_connection_id=${connectionId}`)
+}
+
+function editConnection(connectionId: number) {
+  navigateTo(`/integration-wizard?id=${connectionId}`)
+}
+
+async function deleteConnection(connectionId: number) {
+  if (!confirm('Delete this data source? This cannot be undone.')) return
+  try {
+    await $fetch('/api/reporting/connections', { method: 'DELETE', params: { id: connectionId } })
+    await loadConnections()
+  } catch (e) {
+    console.error('Failed to delete connection', e)
+  }
+}
+
+async function renameConnection(c: { id: number; internal_name: string }) {
+  const next = prompt('New name', c.internal_name)
+  if (!next || next.trim() === c.internal_name) return
+  try {
+    await $fetch('/api/reporting/connections', { method: 'PUT', params: { id: c.id }, body: { internal_name: next.trim() } })
+    await loadConnections()
+  } catch (e) {
+    console.error('Failed to rename connection', e)
+  }
 }
 
 async function importDemo(demo) {

@@ -192,6 +192,14 @@ export default defineEventHandler(async (event) => {
       'LIMIT ' + limit
     ].filter(Boolean).join(' ')
 
+    const executionMsBefore = Date.now() - start
+    const metaPre: Record<string, any> = { executionMs: executionMsBefore, sql }
+    if (missingTables.length) {
+      metaPre.warnings = [`Tables without explicit joins added via CROSS JOIN: ${missingTables.join(', ')}`]
+      metaPre.error = 'cross_join_blocked'
+      return { columns, rows: [], meta: metaPre }
+    }
+
     if (!body.connectionId) {
       return { columns: [], rows: [], meta: { executionMs: Date.now() - start, error: 'missing_connection' } }
     }
@@ -203,9 +211,6 @@ export default defineEventHandler(async (event) => {
 
     const executionMs = Date.now() - start
     const meta: Record<string, any> = { executionMs, sql }
-    if (missingTables.length) {
-      meta.warnings = [`Tables without explicit joins added via CROSS JOIN: ${missingTables.join(', ')}`]
-    }
     return {
       columns,
       rows,

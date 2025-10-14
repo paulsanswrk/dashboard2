@@ -17,8 +17,11 @@
         <div class="text-gray-200 mb-1">Applied:</div>
         <ul class="space-y-1">
           <li v-for="(j, i) in appliedJoins" :key="i" class="border rounded p-2">
-            <div class="font-medium">{{ j.joinType.toUpperCase() }}: {{ j.sourceTable }} → {{ j.targetTable }}</div>
-            <div class="text-gray-200">{{ formatPairs(j.columnPairs) }}</div>
+            <div class="font-medium flex items-center gap-2">
+              <Icon name="heroicons:link" class="w-4 h-4 text-blue-400" />
+              <span>{{ j.joinType.toUpperCase() }}: {{ j.sourceTable }} → {{ j.targetTable }}</span>
+            </div>
+            <div class="text-gray-200 mt-0.5">{{ formatPairs(j.columnPairs) }}</div>
           </li>
         </ul>
       </div>
@@ -29,8 +32,14 @@
           <label v-for="(rel, idx) in relevantRels" :key="idx" class="flex items-start gap-2">
             <input type="radio" name="joinChoice" :value="idx" v-model.number="choiceIdx" />
             <div>
-              <div class="font-medium">{{ rel.sourceTable }} → {{ rel.targetTable }}</div>
-              <div class="text-gray-200">{{ rel.constraintName }} · {{ formatPairs(rel.columnPairs) }}</div>
+              <div class="font-medium flex items-center gap-2">
+                <Icon name="heroicons:link" class="w-4 h-4 text-blue-400" />
+                <span>{{ rel.sourceTable }} → {{ rel.targetTable }}</span>
+              </div>
+              <div class="text-gray-200 flex items-center gap-2">
+                <span class="px-1 py-0.5 text-[10px] border border-blue-200 bg-blue-50 text-blue-700 rounded">FK</span>
+                <span>{{ rel.constraintName }} · {{ formatPairs(rel.columnPairs) }}</span>
+              </div>
             </div>
           </label>
         </div>

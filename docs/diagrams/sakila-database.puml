@@ -1,0 +1,220 @@
+@startuml Sakila Database Schema
+
+!define TABLE(name) entity name as "name" <<table>>
+
+' Main business entities
+TABLE(actor) {
+  + actor_id: INTEGER (PK)
+  --
+  first_name: VARCHAR(45)
+  last_name: VARCHAR(45)
+  last_update: TIMESTAMP
+}
+
+TABLE(film) {
+  + film_id: INTEGER (PK)
+  --
+  title: VARCHAR(255)
+  description: TEXT
+  release_year: YEAR
+  language_id: INTEGER (FK)
+  original_language_id: INTEGER (FK)
+  rental_duration: TINYINT
+  rental_rate: DECIMAL(4,2)
+  length: SMALLINT
+  replacement_cost: DECIMAL(5,2)
+  rating: ENUM
+  special_features: SET
+  last_update: TIMESTAMP
+}
+
+TABLE(customer) {
+  + customer_id: INTEGER (PK)
+  --
+  store_id: INTEGER (FK)
+  first_name: VARCHAR(45)
+  last_name: VARCHAR(45)
+  email: VARCHAR(50)
+  address_id: INTEGER (FK)
+  active: BOOLEAN
+  create_date: DATETIME
+  last_update: TIMESTAMP
+}
+
+TABLE(store) {
+  + store_id: INTEGER (PK)
+  --
+  manager_staff_id: INTEGER (FK)
+  address_id: INTEGER (FK)
+  last_update: TIMESTAMP
+}
+
+TABLE(staff) {
+  + staff_id: INTEGER (PK)
+  --
+  first_name: VARCHAR(45)
+  last_name: VARCHAR(45)
+  address_id: INTEGER (FK)
+  picture: BLOB
+  email: VARCHAR(50)
+  store_id: INTEGER (FK)
+  active: BOOLEAN
+  username: VARCHAR(16)
+  password: VARCHAR(40)
+  last_update: TIMESTAMP
+}
+
+' Supporting entities
+TABLE(address) {
+  + address_id: INTEGER (PK)
+  --
+  address: VARCHAR(50)
+  address2: VARCHAR(50)
+  district: VARCHAR(20)
+  city_id: INTEGER (FK)
+  postal_code: VARCHAR(10)
+  phone: VARCHAR(20)
+  last_update: TIMESTAMP
+}
+
+TABLE(city) {
+  + city_id: INTEGER (PK)
+  --
+  city: VARCHAR(50)
+  country_id: INTEGER (FK)
+  last_update: TIMESTAMP
+}
+
+TABLE(country) {
+  + country_id: INTEGER (PK)
+  --
+  country: VARCHAR(50)
+  last_update: TIMESTAMP
+}
+
+TABLE(language) {
+  + language_id: INTEGER (PK)
+  --
+  name: VARCHAR(20)
+  last_update: TIMESTAMP
+}
+
+TABLE(category) {
+  + category_id: INTEGER (PK)
+  --
+  name: VARCHAR(25)
+  last_update: TIMESTAMP
+}
+
+' Junction tables
+TABLE(film_actor) {
+  + actor_id: INTEGER (FK)
+  + film_id: INTEGER (FK)
+  --
+  last_update: TIMESTAMP
+}
+
+TABLE(film_category) {
+  + film_id: INTEGER (FK)
+  + category_id: INTEGER (FK)
+  --
+  last_update: TIMESTAMP
+}
+
+' Inventory and rental tables
+TABLE(inventory) {
+  + inventory_id: INTEGER (PK)
+  --
+  film_id: INTEGER (FK)
+  store_id: INTEGER (FK)
+  last_update: TIMESTAMP
+}
+
+TABLE(rental) {
+  + rental_id: INTEGER (PK)
+  --
+  rental_date: DATETIME
+  inventory_id: INTEGER (FK)
+  customer_id: INTEGER (FK)
+  return_date: DATETIME
+  staff_id: INTEGER (FK)
+  last_update: TIMESTAMP
+}
+
+TABLE(payment) {
+  + payment_id: INTEGER (PK)
+  --
+  customer_id: INTEGER (FK)
+  staff_id: INTEGER (FK)
+  rental_id: INTEGER (FK)
+  amount: DECIMAL(5,2)
+  payment_date: DATETIME
+  last_update: TIMESTAMP
+}
+
+' Full text search table
+TABLE(film_text) {
+  + film_id: INTEGER (PK)
+  --
+  title: VARCHAR(255)
+  description: TEXT
+}
+
+' Relationships
+actor ||--o{ film_actor : "acts in"
+film ||--o{ film_actor : "features"
+film }o--|| film_category : "belongs to"
+category }o--|| film_category : "categorizes"
+
+film ||--o{ inventory : "available at"
+store ||--o{ inventory : "stocks"
+
+customer ||--o{ rental : "rents"
+inventory ||--o{ rental : "rented as"
+staff ||--o{ rental : "processed by"
+
+customer ||--o{ payment : "makes"
+staff ||--o{ payment : "accepts"
+rental ||--o{ payment : "for"
+
+store ||--o{ customer : "serves"
+store ||--o{ staff : "employs"
+staff ||--|| store : "manages"
+
+address ||--|| city : "located in"
+city ||--|| country : "in"
+
+address ||--o{ customer : "lives at"
+address ||--o{ staff : "lives at"
+address ||--|| store : "located at"
+
+film ||--o{ film_text : "described by"
+film ||--|| language : "spoken in"
+film }o--|| language : "originally in"
+
+' Styling
+skinparam {
+  BackgroundColor #FEFEFE
+  Entity {
+    BackgroundColor #E1F5FE
+    BorderColor #01579B
+    FontColor #000000
+  }
+  Entity<<table>> {
+    BackgroundColor #FFF3E0
+    BorderColor #E65100
+  }
+}
+
+title Sakila Database Schema\n(DVD Rental Store)
+
+legend right
+  | Entity Type | Description |
+  |-------------|-------------|
+  | Core Business | Main business entities |
+  | Supporting | Reference data |
+  | Junction | Many-to-many relationships |
+  | Transaction | Business transactions |
+endlegend
+
+@enduml

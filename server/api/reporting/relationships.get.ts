@@ -1,11 +1,43 @@
 import { defineEventHandler, getQuery } from 'h3'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../supabase'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 
 export default defineEventHandler(async (event) => {
+  const user = await serverSupabaseUser(event)
+  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+
   const { datasetId, connectionId } = getQuery(event) as any
   if (!datasetId || typeof datasetId !== 'string') return []
   if (!connectionId) return []
+
+  // Verify user owns the data connection
+  const connId = Number(connectionId)
+  const { data: connectionData, error: connError } = await supabaseAdmin
+    .from('data_connections')
+    .select('owner_id')
+    .eq('id', connId)
+    .single()
+
+  if (connError || !connectionData || connectionData.owner_id !== user.id) {
+    throw createError({ statusCode: 403, statusMessage: 'Access denied to connection' })
+  }
+  // Prefer saved schema foreign key info (across all tables)
+  try {
+    const { data: schemaData } = await supabaseAdmin
+      .from('data_connections')
+      .select('schema_json')
+      .eq('id', connId)
+      .single()
+    const tables = (schemaData?.schema_json?.tables || []) as Array<any>
+    const rels: any[] = []
+    for (const t of tables) {
+      if (!Array.isArray(t.foreignKeys)) continue
+      for (const fk of t.foreignKeys) rels.push(fk)
+    }
+    if (rels.length) return rels
+  } catch {}
   const cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
 
   const rows = await withMySqlConnectionConfig(cfg, async (conn) => {

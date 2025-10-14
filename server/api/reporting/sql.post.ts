@@ -17,6 +17,11 @@ export default defineEventHandler(async (event) => {
   if (!/\blimit\b/i.test(safeSql)) {
     safeSql = `${safeSql} LIMIT ${Math.min(Math.max(Number(limit), 1), 5000)}`
   }
+  // Basic CROSS JOIN guard
+  if (/\bcross\s+join\b/i.test(safeSql)) {
+    return { columns: [], rows: [], meta: { error: 'cross_join_blocked' } } as any
+  }
+
   const rows = await withMySqlConnection(async (conn) => {
     const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
     return res as any[]

@@ -107,13 +107,6 @@
                 />
               </UFormGroup>
 
-              <UFormGroup label="Additional JDBC URL Parameters (optional)" class="text-gray-900 dark:text-white">
-                <UInput 
-                  placeholder="?autoReconnect=true&sessionVariables=lc_time_names='sv_SE'" 
-                  v-model="form.jdbcParams"
-                />
-              </UFormGroup>
-
               <UFormGroup label="Server Time" required class="text-gray-900 dark:text-white">
                 <USelect 
                   v-model="form.serverTime"
@@ -260,6 +253,23 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
             </div>
           </div>
 
+          <!-- Step 2: Data Schema Selection -->
+          <div v-if="createdConnectionId" class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Select tables and fields for reporting</h3>
+            <div v-if="!datasetsLoaded" class="text-sm text-gray-600">Load your tables by clicking "Load Schema"</div>
+            <div class="flex gap-2 mb-3">
+              <UButton variant="outline" @click="loadDatasets" :loading="loadingDatasets">Load Schema</UButton>
+              <UButton color="green" :disabled="!schemaSelectionCount" @click="saveSchemaSelection" :loading="savingSchema">Save Selection</UButton>
+            </div>
+            <SchemaSelector 
+              v-if="datasetsLoaded"
+              :tables="datasets"
+              :columns-by-table="columnsByTable"
+              @save="onSchemaSave"
+            />
+            <p v-if="schemaSelectionCount" class="text-xs text-gray-600 dark:text-gray-300 mt-2">{{ schemaSelectionCount }} fields selected.</p>
+          </div>
+
           <!-- Navigation Buttons -->
           <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
             <UButton variant="outline" @click="goBack" class="w-full sm:w-auto">
@@ -277,13 +287,24 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
                 Test Connection
               </UButton>
               <UButton 
+                v-if="!createdConnectionId"
                 @click="nextStep" 
                 :disabled="!connectionTestResult?.success || saving"
                 :loading="saving"
                 class="w-full sm:w-auto" 
                 color="green"
               >
-                Next Step
+                Save and continue setup
+              </UButton>
+              <UButton 
+                v-else
+                @click="finishWizard" 
+                :disabled="!schemaSelectionCount || savingSchema"
+                :loading="savingSchema"
+                class="w-full sm:w-auto" 
+                color="green"
+              >
+                Continue to Builder
               </UButton>
             </div>
           </div>
@@ -294,6 +315,7 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
 </template>
 
 <script setup>
+import SchemaSelector from '../components/reporting/SchemaSelector.vue'
 const steps = ref([
   { step: 1, label: 'Integration', active: true, completed: false },
   { step: 2, label: 'Data Schema', active: false, completed: false },
@@ -331,6 +353,7 @@ const validationErrors = ref([])
 const isTestingConnection = ref(false)
 const connectionTestResult = ref(null)
 const saving = ref(false)
+const savingSchema = ref(false)
 
 const databaseTypes = [
   { label: 'MySQL', value: 'mysql' }
@@ -382,6 +405,12 @@ const loadDebugConfiguration = async () => {
 // Load debug configuration on component mount
 onMounted(() => {
   loadDebugConfiguration()
+  // Prefill when editing
+  try {
+    const url = new URL(window.location.href)
+    const editId = url.searchParams.get('id')
+    if (editId) prefillFromConnection(Number(editId))
+  } catch {}
 })
 
 const getStepClasses = (step) => {
@@ -560,6 +589,32 @@ const testConnection = async () => {
     isTestingConnection.value = false
   }
 }
+async function prefillFromConnection(id) {
+  try {
+    const conn = await $fetch('/api/reporting/connection', { params: { id } })
+    if (conn) {
+      form.value.internalName = conn.internal_name || ''
+      form.value.databaseName = conn.database_name || ''
+      form.value.databaseType = conn.database_type || 'mysql'
+      form.value.host = conn.host || ''
+      form.value.username = conn.username || ''
+      form.value.password = conn.password || ''
+      form.value.port = String(conn.port || '3306')
+      form.value.jdbcParams = conn.jdbc_params || ''
+      form.value.serverTime = conn.server_time || form.value.serverTime
+      form.value.useSshTunneling = !!conn.use_ssh_tunneling
+      form.value.sshAuthMethod = conn.ssh_auth_method || form.value.sshAuthMethod
+      form.value.sshPort = String(conn.ssh_port || '22')
+      form.value.sshUser = conn.ssh_user || ''
+      form.value.sshHost = conn.ssh_host || ''
+      form.value.sshPassword = conn.ssh_password || ''
+      form.value.sshPrivateKey = conn.ssh_private_key || ''
+      createdConnectionId.value = id
+    }
+  } catch (e) {
+    console.error('Failed to prefill connection', e)
+  }
+}
 
 const goBack = () => {
   navigateTo('/data-sources')
@@ -601,8 +656,14 @@ const nextStep = async () => {
       body: payload
     })
 
+    // Keep user in wizard and move to Schema step
     if (id) {
-      navigateTo(`/reporting/builder?data_connection_id=${id}`)
+      createdConnectionId.value = id
+      steps.value[1].active = true
+      steps.value[0].completed = true
+      // Move to dedicated schema editor page
+      navigateTo(`/schema-editor?id=${id}`)
+      return
     }
   } catch (e) {
     console.error('Failed to save connection', e)
@@ -612,4 +673,60 @@ const nextStep = async () => {
     saving.value = false
   }
 }
+
+// Step 2 state
+const datasets = ref([])
+const datasetsLoaded = ref(false)
+const loadingDatasets = ref(false)
+const schemaSelection = ref(null)
+const schemaSelectionCount = computed(() => {
+  const sel = schemaSelection.value
+  if (!sel || !sel.tables) return 0
+  return sel.tables.reduce((acc, t) => acc + ((t.columns && t.columns.length) || 0), 0)
+})
+
+async function loadDatasets() {
+  loadingDatasets.value = true
+  try {
+    if (!createdConnectionId.value) return
+    datasets.value = await $fetch('/api/reporting/datasets', { params: { connectionId: createdConnectionId.value } })
+    // Preload columns for all datasets in parallel
+    const results = await Promise.all(
+      (datasets.value || []).map((t) => $fetch('/api/reporting/schema', { params: { datasetId: t.id, connectionId: createdConnectionId.value } }))
+    )
+    const map = {}
+    ;(datasets.value || []).forEach((t, idx) => { map[t.id] = results[idx] || [] })
+    columnsByTable.value = map
+    datasetsLoaded.value = true
+  } finally {
+    loadingDatasets.value = false
+  }
+}
+
+function onSchemaSave(payload) {
+  schemaSelection.value = payload
+}
+
+const createdConnectionId = ref(null)
+
+async function saveSchemaSelection() {
+  if (!createdConnectionId.value || !schemaSelection.value) return
+  savingSchema.value = true
+  try {
+    await $fetch('/api/reporting/connections', { method: 'PUT', params: { id: createdConnectionId.value }, body: { schema: schemaSelection.value } })
+  } finally {
+    savingSchema.value = false
+  }
+}
+
+async function finishWizard() {
+  if (!createdConnectionId.value) return
+  if (schemaSelection.value) {
+    await saveSchemaSelection()
+  }
+  navigateTo(`/reporting/builder?data_connection_id=${createdConnectionId.value}`)
+}
+
+// Holds preloaded columns for all tables
+const columnsByTable = ref({})
 </script>

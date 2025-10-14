@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const useSsh = !!body.useSshTunneling
 
-  const record = {
+  const record: any = {
     owner_id: user.id,
     organization_id: null,
     internal_name: String(body.internalName),
@@ -38,6 +38,11 @@ export default defineEventHandler(async (event) => {
     ssh_password: useSsh ? (body.sshPassword ? String(body.sshPassword) : null) : null,
     ssh_private_key: useSsh ? (body.sshPrivateKey ? String(body.sshPrivateKey) : null) : null,
     storage_location: body.storageLocation ? String(body.storageLocation) : null
+  }
+
+  // Allow optional schema payload to be persisted at creation time
+  if (body.schema && typeof body.schema === 'object') {
+    record.schema_json = body.schema
   }
 
   const { data, error } = await supabaseAdmin

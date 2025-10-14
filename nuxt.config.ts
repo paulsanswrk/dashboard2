@@ -15,6 +15,11 @@ export default defineNuxtConfig({
         '@nuxtjs/supabase'
     ],
 
+
+    // Global CSS
+    css: ['~/assets/css/main.css'],
+
+
     // Supabase Configuration
     supabase: {
         redirectOptions: {

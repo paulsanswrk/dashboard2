@@ -20,16 +20,23 @@
         <li
           v-for="f in filteredFields"
           :key="f.fieldId"
-          class="cursor-move"
-          draggable="true"
-          @dragstart="onDragStart(f)"
+          class="select-text"
         >
           <div class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white text-neutral-900 border border-neutral-200 shadow-sm">
+            <div class="w-4 h-4 text-neutral-400 cursor-move" draggable="true" @dragstart="onDragStart(f)">
+              <Icon name="heroicons:bars-3" class="w-4 h-4" />
+            </div>
             <div class="w-5 h-5 rounded bg-neutral-100 flex items-center justify-center text-[11px] font-semibold">
               {{ isNumeric(f.type) ? '#' : 'A' }}
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm truncate">{{ f.label || f.name }}</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <Icon v-if="(f as any).isPrimaryKey" name="heroicons:key" class="w-4 h-4 text-amber-600" />
+              <span v-if="(f as any).foreignKeyRefs?.length" class="text-[10px] px-1 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded">
+                FK
+              </span>
             </div>
           </div>
         </li>

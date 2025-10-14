@@ -12,6 +12,50 @@ body {
     letter-spacing: -0.01em;
 }
 
+/* Allow text selection globally unless explicitly disabled */
+* {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
+/* Resizable columns styles */
+.resizable-columns {
+  display: flex;
+  height: 100%;
+  position: relative;
+}
+
+.resizable-column {
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  transition: flex-basis 0.2s ease;
+}
+
+.resize-handle {
+  background: rgba(255, 255, 255, 0.1);
+  width: 4px;
+  cursor: col-resize;
+  transition: background 0.2s;
+  border-radius: 2px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.resize-handle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.resize-handle:active {
+  background: rgba(255, 255, 255, 0.5);
+}
+
 /* Header typography using Barlow font */
 h1, h2, h3, h4, h5, h6 {
     font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
