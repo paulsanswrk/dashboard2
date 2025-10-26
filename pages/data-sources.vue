@@ -29,10 +29,11 @@
           <h3 class="text-lg font-medium mb-4 text-primary">DATABASES</h3>
           <div v-if="loadingConnections" class="text-sm text-gray-500">Loading connections...</div>
           <template v-else>
-            <UCard 
-              v-for="c in filteredConnections" 
+            <UCard
+              v-for="c in filteredConnections"
               :key="c.id"
-              class="hover:shadow-md transition-shadow mb-4"
+              class="hover:shadow-md transition-shadow mb-4 cursor-pointer"
+              @click="goToBuilder(c.id)"
             >
               <div class="flex items-start justify-between p-4">
                 <div class="flex items-center gap-4">
@@ -42,17 +43,17 @@
                     <p class="text-sm text-gray-600 truncate">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <UButton size="xs" variant="outline" @click.stop="editConnection(c.id)">
+                <div class="flex items-center gap-2" @click.stop>
+                  <UButton size="xs" variant="outline" @click="editConnection(c.id)">
                     <Icon name="heroicons:pencil-square" class="w-4 h-4 mr-1" /> Edit
                   </UButton>
-                  <UButton size="xs" variant="outline" color="gray" @click.stop="renameConnection(c)">
+                  <UButton size="xs" variant="outline" color="gray" @click="renameConnection(c)">
                     <Icon name="heroicons:squares-2x2" class="w-4 h-4 mr-1" /> Rename
                   </UButton>
-                  <UButton size="xs" color="red" variant="outline" @click.stop="deleteConnection(c.id)">
+                  <UButton size="xs" color="red" variant="outline" @click="deleteConnection(c.id)">
                     <Icon name="heroicons:trash" class="w-4 h-4 mr-1" /> Delete
                   </UButton>
-                  <UButton size="xs" color="primary" @click.stop="goToBuilder(c.id)">
+                  <UButton size="xs" color="primary" @click="goToBuilder(c.id)">
                     Open
                   </UButton>
                 </div>
