@@ -29,7 +29,7 @@
       </UCard>
 
       <!-- Error state -->
-      <UCard v-else-if="error && !codeVerified" class="mt-8 bg-white shadow-lg">
+      <UCard v-else-if="error && !hasValidSession" class="mt-8 bg-white shadow-lg">
         <div class="text-center p-6">
           <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
             <Icon name="heroicons:x-mark" class="h-6 w-6 text-red-600" />
@@ -55,8 +55,8 @@
         </div>
       </UCard>
 
-      <!-- Password reset form (only show when code is verified) -->
-      <UCard v-else-if="codeVerified" class="mt-8 bg-white shadow-lg">
+      <!-- Password reset form (only show when we have a valid recovery session) -->
+      <UCard v-else-if="hasValidSession" class="mt-8 bg-white shadow-lg">
         <UForm :state="form" @submit="handleResetPassword" class="space-y-6 p-6">
           <UFormGroup label="New Password" required class="text-black">
             <UInput
@@ -136,6 +136,7 @@ const error = ref(null)
 const success = ref(false)
 const codeVerified = ref(false)
 const verifyingCode = ref(true)
+const hasValidSession = ref(false)
 
 // Auth composable
 const { updatePassword } = useAuth()
@@ -148,76 +149,66 @@ const resetCode = route.query.code;
 if (isAuthenticated.value) {
   codeVerified.value = true
   verifyingCode.value = false
+  hasValidSession.value = true
 }
 
-// Verify the reset code
-const verifyResetCode = async () => {
-  if (!resetCode) {
-    error.value = 'Invalid reset link. Please request a new password reset.'
-    verifyingCode.value = false
-    return
-  }
-
+// Verify the recovery session
+const verifyRecoverySession = async () => {
   try {
     verifyingCode.value = true
     error.value = null
 
-    // For Supabase password reset, we need to verify the OTP code
-    // Try different approaches for the code parameter
-    let verifyResult = null
-    
-    // First try with token_hash
-    try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: resetCode,
-        type: 'recovery'
-      })
-      
-      if (verifyError) {
-        throw verifyError
-      }
-      
-      verifyResult = data
-    } catch (hashError) {
-      console.log('Token hash approach failed, trying direct token...')
-      
-      // Try with direct token
-      const { data, error: tokenError } = await supabase.auth.verifyOtp({
-        token: resetCode,
-        type: 'recovery'
-      })
-      
-      if (tokenError) {
-        throw tokenError
-      }
-      
-      verifyResult = data
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session || !session.user) {
+      throw new Error('No active session found. Please use the link from your email to reset your password.')
     }
 
-    if (verifyResult && verifyResult.user) {
+    console.log('🔍 [RESET] Checking recovery session for user:', session.user.id)
+    console.log('🔍 [RESET] Session details:', {
+      recovery_sent_at: session.user.recovery_sent_at,
+      provider: session.user.app_metadata?.provider,
+      email: session.user.email
+    })
+
+    // Verify it's a recovery session (check recovery indicators)
+    const isRecoverySession = session.user.recovery_sent_at ||
+                             session.user.app_metadata?.provider === 'email'
+
+    if (isRecoverySession) {
+      hasValidSession.value = true
       codeVerified.value = true
-      console.log('✅ Reset code verified successfully for user:', verifyResult.user.id)
+      console.log('✅ [RESET] Valid recovery session detected!')
     } else {
-      throw new Error('Invalid reset code')
+      throw new Error('This doesn\'t appear to be a valid password reset session. Please use the link from your email.')
     }
   } catch (err) {
-    console.error('❌ Reset code verification error:', err)
-    
+    console.error('❌ [RESET] Recovery session verification error:', err)
+
     // Handle specific error types
     if (err.message?.includes('expired') || err.message?.includes('invalid')) {
       error.value = 'This password reset link has expired or is invalid. Please request a new one.'
     } else {
-      error.value = err.message || 'Failed to verify reset code. Please request a new password reset.'
+      error.value = err.message || 'Failed to verify reset session. Please request a new password reset.'
     }
   } finally {
     verifyingCode.value = false
   }
 }
 
-// Verify code on page load (only if not already authenticated)
+// Verify recovery session on page load
 onMounted(async () => {
-  if (!isAuthenticated.value) {
-    await verifyResetCode()
+  console.log('🔄 [RESET] Page mounted, starting session verification...')
+  console.log('🔄 [RESET] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR')
+
+  if (isAuthenticated.value) {
+    // User is already authenticated, check if it's a recovery session
+    await verifyRecoverySession()
+  } else {
+    // No authentication, this shouldn't happen for password reset
+    error.value = 'Please use the link from your email to reset your password.'
+    verifyingCode.value = false
   }
 })
 
@@ -251,12 +242,14 @@ const isFormValid = computed(() => {
 // Handle form submission
 const handleResetPassword = async () => {
   if (!validateForm()) return
-  
+
   try {
     loading.value = true
     error.value = null
     success.value = false
-    
+
+    console.log('🔐 [STEP 3] Starting password update process...')
+
     // Update password using Supabase
     const { error: updateError } = await supabase.auth.updateUser({
       password: form.value.password
@@ -265,15 +258,18 @@ const handleResetPassword = async () => {
     if (updateError) {
       throw updateError
     }
-    
+
+    console.log('✅ [STEP 3] Password updated successfully!')
     success.value = true
-    
+
     // Redirect to login after successful password update
     setTimeout(async () => {
+      console.log('🔄 [STEP 3] Redirecting to login page...')
       await navigateTo('/login?message=password-updated')
     }, 2000)
-    
+
   } catch (err) {
+    console.error('❌ [STEP 3] Password update error:', err)
     error.value = err.message || 'Failed to update password'
   } finally {
     loading.value = false

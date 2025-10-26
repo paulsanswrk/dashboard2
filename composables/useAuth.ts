@@ -345,9 +345,11 @@ export const useAuth = () => {
   const updatePassword = async (newPassword: string) => {
     try {
       if (!user.value) throw new Error('User not authenticated')
-      
+
       loading.value = true
       clearMessages()
+
+      console.log('🔐 [STEP 3] Calling updateUser() to set new password...')
 
       const { error } = await supabase.auth.updateUser({
         password: newPassword
@@ -355,9 +357,11 @@ export const useAuth = () => {
 
       if (error) throw error
 
+      console.log('✅ [STEP 3] Password updated successfully!')
       setMessage('Password updated successfully!', 'success')
       return { success: true }
     } catch (err: any) {
+      console.error('❌ [STEP 3] Password update error:', err)
       setMessage(err.message || 'Failed to update password', 'error')
       return { success: false, error: err.message }
     } finally {
@@ -462,23 +466,24 @@ export const useAuth = () => {
       loading.value = true
       clearMessages()
 
-      console.log('🔑 Client: Starting password reset for email:', email)
+      console.log('🔑 [STEP 1] Starting password reset for email:', email)
+      console.log('📧 [STEP 1] Calling resetPasswordForEmail()...')
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+        redirectTo: `${window.location.origin}/auth/callback`
       })
 
       if (error) throw error
 
-      console.log('✅ Client: Password reset email sent successfully')
+      console.log('✅ [STEP 1] Password reset email sent successfully')
       setMessage('Password reset email sent! Check your email for instructions.', 'success')
-      
-      return { 
+
+      return {
         success: true,
         message: 'Password reset email sent! Check your email for instructions.'
       }
     } catch (err: any) {
-      console.log('❌ Client: Password reset error:', err)
+      console.error('❌ [STEP 1] Password reset error:', err)
       setMessage(err.message || 'Failed to send password reset email', 'error')
       return { success: false, error: err.message }
     } finally {
@@ -492,7 +497,8 @@ export const useAuth = () => {
       loading.value = true
       clearMessages()
 
-      console.log('🔗 Client: Starting magic link sign in for email:', email)
+      console.log('🔗 [STEP 1] Starting magic link sign in for email:', email)
+      console.log('📧 [STEP 1] Calling signInWithOtp()...')
 
       const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
         email,
@@ -503,15 +509,15 @@ export const useAuth = () => {
 
       if (magicLinkError) throw magicLinkError
 
-      console.log('✅ Client: Magic link sent successfully')
+      console.log('✅ [STEP 1] Magic link sent successfully')
       setMessage('Magic link sent! Please check your email and click the link to sign in.', 'success')
-      
-      return { 
+
+      return {
         success: true,
         message: 'Magic link sent! Please check your email and click the link to sign in.'
       }
     } catch (err: any) {
-      console.log('❌ Client: Magic link error:', err)
+      console.error('❌ [STEP 1] Magic link error:', err)
       setMessage(err.message || 'Failed to send magic link', 'error')
       return { success: false, error: err.message }
     } finally {
@@ -525,7 +531,8 @@ export const useAuth = () => {
       loading.value = true
       clearMessages()
 
-      console.log('🔗 Client: Starting magic link sign up for email:', email)
+      console.log('🔗 [STEP 1] Starting magic link sign up for email:', email)
+      console.log('📧 [STEP 1] Calling signInWithOtp() with signup data...')
 
       const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
         email,
@@ -543,15 +550,15 @@ export const useAuth = () => {
 
       if (magicLinkError) throw magicLinkError
 
-      console.log('✅ Client: Magic link sent successfully for sign up')
+      console.log('✅ [STEP 1] Magic link sent successfully for sign up')
       setMessage('Magic link sent! Please check your email and click the link to complete your registration.', 'success')
-      
-      return { 
+
+      return {
         success: true,
         message: 'Magic link sent! Please check your email and click the link to complete your registration.'
       }
     } catch (err: any) {
-      console.log('❌ Client: Magic link sign up error:', err)
+      console.error('❌ [STEP 1] Magic link sign up error:', err)
       setMessage(err.message || 'Failed to send magic link', 'error')
       return { success: false, error: err.message }
     } finally {

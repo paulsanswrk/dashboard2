@@ -98,12 +98,59 @@ const route = useRoute()
 const isMagicLinkError = computed(() => {
   if (!error.value) return false
   const errorText = error.value.toLowerCase()
-  return errorText.includes('magic link') || 
+  return errorText.includes('magic link') ||
          errorText.includes('password reset') ||
-         errorText.includes('expired') || 
+         errorText.includes('expired') ||
          errorText.includes('invalid') ||
          errorText.includes('access denied')
 })
+
+// Helper function to parse URL fragment parameters (for magic links)
+const parseUrlFragment = () => {
+  if (typeof window === 'undefined') return null
+
+  const hash = window.location.hash.substring(1) // Remove the '#'
+  if (!hash) return null
+
+  const params = new URLSearchParams(hash)
+  const fragmentParams = {
+    accessToken: params.get('access_token'),
+    refreshToken: params.get('refresh_token'),
+    expiresAt: params.get('expires_at'),
+    expiresIn: params.get('expires_in'),
+    tokenType: params.get('token_type'),
+    type: params.get('type')
+  }
+
+  // Log what we found (without exposing sensitive tokens)
+  console.log('🔐 [HOMEPAGE] URL fragment parsed:', {
+    type: fragmentParams.type,
+    hasAccessToken: !!fragmentParams.accessToken,
+    hasRefreshToken: !!fragmentParams.refreshToken,
+    tokenType: fragmentParams.tokenType,
+    expiresIn: fragmentParams.expiresIn
+  })
+
+  return fragmentParams
+}
+
+// Helper function to handle magic link authentication from homepage
+const handleMagicLinkAuth = () => {
+  if (typeof window === 'undefined') return false
+
+  const fragmentParams = parseUrlFragment()
+
+  if (fragmentParams && fragmentParams.type === 'magiclink') {
+    console.log('🔐 [HOMEPAGE] Magic link detected on homepage, redirecting to callback...')
+
+    // Redirect to auth callback with the same fragment
+    // Use navigateTo for better SPA behavior and hash preservation
+    navigateTo(`/auth/callback${window.location.hash}`)
+    return true
+  }
+
+  return false
+}
 
 // Handle authentication errors from Supabase
 const handleAuthErrors = () => {
@@ -175,7 +222,12 @@ const retry = async () => {
 
 // Main redirect logic
 const handleRedirect = async () => {
-  // First check for auth errors
+  // First check for magic link authentication
+  if (handleMagicLinkAuth()) {
+    return // Magic link handling will redirect to callback
+  }
+
+  // Then check for auth errors
   if (handleAuthErrors()) {
     return // Error handling will show the error UI
   }
@@ -191,6 +243,8 @@ const handleRedirect = async () => {
 
 // Initialize on mount
 onMounted(async () => {
+  console.log('🏠 [HOMEPAGE] Page mounted, checking for authentication...')
+  console.log('🏠 [HOMEPAGE] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR')
   await handleRedirect()
 })
 </script>

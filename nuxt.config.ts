@@ -38,6 +38,7 @@ export default defineNuxtConfig({
             supabaseUrl: process.env.SUPABASE_URL,
             supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
             siteUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000',
+            debugEnv: process.env.DEBUG_ENV || 'false',
         },
         supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     },
@@ -80,6 +81,12 @@ export default defineNuxtConfig({
         ssr: {
             noExternal: ['@headlessui/vue'],
         },
+        server: {
+            watch: {
+                ignored: ['**/node_modules/**', '**/node-scripts/**', '**/.git/**', '**/.nuxt/**', '**/dist/**', '**/docs/**']
+            }
+        }
+
     },
 
     build: {
