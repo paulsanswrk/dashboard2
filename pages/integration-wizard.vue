@@ -33,14 +33,42 @@
         <template #header>
           <div class="flex items-center justify-between">
             <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Please enter your data source credentials below</h2>
-            <div v-if="debugMode" class="flex items-center gap-2">
-              <UBadge color="orange" variant="soft" size="sm">
-                <Icon name="heroicons:bug-ant" class="w-3 h-3 mr-1" />
-                Debug Mode
-              </UBadge>
-              <UBadge v-if="debugConfigLoaded" color="green" variant="soft" size="sm">
-                Auto-filled
-              </UBadge>
+            <div v-if="debugMode" class="flex flex-col gap-2">
+              <div class="flex items-center gap-2">
+                <UBadge color="orange" variant="soft" size="sm">
+                  <Icon name="heroicons:bug-ant" class="w-3 h-3 mr-1" />
+                  Debug Mode
+                </UBadge>
+                <UBadge v-if="debugConfigLoaded" color="green" variant="soft" size="sm">
+                  Auto-filled
+                </UBadge>
+              </div>
+
+              <!-- Connection Examples Dropdown -->
+              <div v-if="connectionExamples.length > 0" class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Quick Fill from Examples:
+                </label>
+                <div class="flex gap-2">
+                  <USelect
+                    v-model="selectedExample"
+                    :options="connectionExamples.map(ex => ({ label: ex.description, value: ex.filename }))"
+                    placeholder="Select a connection example..."
+                    :loading="loadingExamples"
+                    @update:model-value="loadConnectionExample"
+                    class="flex-1"
+                  />
+                  <UButton
+                    v-if="selectedExample"
+                    variant="outline"
+                    size="sm"
+                    @click="clearFormToDefaults"
+                    color="gray"
+                  >
+                    Clear
+                  </UButton>
+                </div>
+              </div>
             </div>
           </div>
         </template>
@@ -346,6 +374,9 @@ const form = ref({
 // Debug mode auto-fill
 const debugMode = ref(false)
 const debugConfigLoaded = ref(false)
+const connectionExamples = ref([])
+const loadingExamples = ref(false)
+const selectedExample = ref('')
 
 const errors = ref({})
 const showErrors = ref(false)
@@ -380,18 +411,25 @@ const timeZones = [
 // Load debug configuration and auto-fill form
 const loadDebugConfiguration = async () => {
   try {
+    const config = useRuntimeConfig()
+    const isDebugEnabled = config.public.debugEnv && config.public.debugEnv.toLowerCase() === 'true'
+
+    if (!isDebugEnabled) {
+      return
+    }
+
     const response = await $fetch('/api/debug/config')
-    
+
     if (response.enabled && response.config) {
       debugMode.value = true
       debugConfigLoaded.value = true
-      
+
       // Auto-fill form with debug configuration
       form.value = {
         ...form.value,
         ...response.config
       }
-      
+
       console.log('✅ Debug configuration loaded and form auto-filled')
     } else if (response.enabled) {
       debugMode.value = true
@@ -402,9 +440,111 @@ const loadDebugConfiguration = async () => {
   }
 }
 
+// Load connection examples for debug dropdown
+const loadConnectionExamples = async () => {
+  try {
+    const config = useRuntimeConfig()
+    const isDebugEnabled = config.public.debugEnv && config.public.debugEnv.toLowerCase() === 'true'
+
+    if (!isDebugEnabled) {
+      return
+    }
+
+    loadingExamples.value = true
+    const response = await $fetch('/api/debug/connection-examples')
+
+    if (response.success) {
+      connectionExamples.value = response.examples
+      console.log(`✅ Loaded ${response.examples.length} connection examples`)
+    } else {
+      console.warn('⚠️ Failed to load connection examples:', response.message)
+    }
+  } catch (error) {
+    console.log('Connection examples not available:', error?.data?.message || error?.message)
+  } finally {
+    loadingExamples.value = false
+  }
+}
+
+// Load specific connection example and populate form
+const loadConnectionExample = async (filename) => {
+  if (!filename) {
+    // Clear form and reset to defaults
+    clearFormToDefaults()
+    return
+  }
+
+  try {
+    const response = await $fetch('/api/debug/connection-example', {
+      params: { filename }
+    })
+
+    if (response.success) {
+      // Clean up the config (remove null values and convert types)
+      const cleanConfig = { ...response.config }
+
+      // Handle null values for optional fields
+      if (cleanConfig.sshAuthMethod === null) cleanConfig.sshAuthMethod = 'password'
+      if (cleanConfig.sshPort === null) cleanConfig.sshPort = '22'
+      if (cleanConfig.sshUser === null) cleanConfig.sshUser = ''
+      if (cleanConfig.sshHost === null) cleanConfig.sshHost = ''
+      if (cleanConfig.sshPassword === null) cleanConfig.sshPassword = ''
+      if (cleanConfig.sshPrivateKey === null) cleanConfig.sshPrivateKey = ''
+
+      // Ensure port is a string
+      if (typeof cleanConfig.port === 'number') cleanConfig.port = String(cleanConfig.port)
+      if (typeof cleanConfig.sshPort === 'number') cleanConfig.sshPort = String(cleanConfig.sshPort)
+
+      // Populate form with connection config
+      form.value = {
+        ...form.value,
+        ...cleanConfig
+      }
+
+      selectedExample.value = filename
+      debugConfigLoaded.value = true
+
+      console.log(`✅ Form populated with ${filename} configuration`)
+    } else {
+      console.error('❌ Failed to load connection example:', response.message)
+    }
+  } catch (error) {
+    console.error('❌ Error loading connection example:', error?.data?.message || error?.message)
+  }
+}
+
+// Clear form back to default values
+const clearFormToDefaults = () => {
+  form.value = {
+    internalName: '',
+    databaseName: '',
+    databaseType: 'mysql',
+    host: '',
+    username: '',
+    password: '',
+    port: '3306',
+    jdbcParams: '',
+    serverTime: 'GMT+02:00',
+    useSshTunneling: false,
+    sshAuthMethod: 'password',
+    sshPort: '22',
+    sshUser: '',
+    sshHost: '',
+    sshPassword: '',
+    sshPrivateKey: '',
+    storageLocation: 'remote'
+  }
+
+  selectedExample.value = ''
+  debugConfigLoaded.value = false
+
+  console.log('✅ Form cleared to default values')
+}
+
 // Load debug configuration on component mount
 onMounted(() => {
   loadDebugConfiguration()
+  loadConnectionExamples()
   // Prefill when editing
   try {
     const url = new URL(window.location.href)
