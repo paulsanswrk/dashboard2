@@ -46,7 +46,7 @@
       </div>
       <textarea :readonly="!overrideSql || loading" v-model="sqlTextComputed" class="w-full h-32 border rounded p-2 font-mono text-xs disabled:opacity-50" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
       <div class="mt-2 space-x-2">
-        <button class="px-3 py-1 border rounded" @click="onRunSql" :disabled="!overrideSql || loading">Run SQL</button>
+        <button class="px-3 py-1 border rounded" @click="onRunSqlClick" :disabled="!overrideSql || loading">Run SQL</button>
         <span class="text-xs text-gray-500">Only SELECT queries allowed; LIMIT enforced.</span>
       </div>
     </div>
@@ -126,7 +126,6 @@ const chartTypes = [
   { value: 'donut', label: 'Donut', icon: 'heroicons:circle-stack' },
   { value: 'funnel', label: 'Funnel', icon: 'heroicons:rectangle-stack' },
   { value: 'gauge', label: 'Gauge', icon: 'heroicons:clock' },
-  { value: 'map', label: 'Map', icon: 'heroicons:globe-americas' },
   { value: 'scatter', label: 'Scatter', icon: 'heroicons:squares-2x2' },
   { value: 'treemap', label: 'Treemap', icon: 'heroicons:squares-plus' },
   { value: 'sankey', label: 'Sankey', icon: 'heroicons:arrows-right-left' }
@@ -454,18 +453,61 @@ onMounted(() => {
 function onUndo() { undo() }
 function onRedo() { redo() }
 
-async function onRunSql() {
+async function onRunSql(preserveChartType = false) {
   loading.value = true
   try {
-    const res = await runSql(sqlText.value)
+    const res = await runSql(
+      sqlText.value,
+      undefined,
+      selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId()
+    )
     rows.value = res.rows
     columns.value = res.columns
-    chartType.value = 'table'
+    if (!preserveChartType) {
+      chartType.value = 'table'
+    }
     serverError.value = (res.meta as any)?.error || null
   } finally {
     loading.value = false
   }
 }
+
+// Wrapper for template usage
+function onRunSqlClick() {
+  onRunSql(false)
+}
+
+// Expose methods for parent component (AI integration)
+function applySqlAndChartType(sql: string, type: string) {
+  // Enable SQL mode and override
+  useSql.value = true
+  overrideSql.value = true
+  sqlText.value = sql
+
+  // Set chart type if valid
+  const validTypes = ['table', 'bar', 'line', 'area', 'pie', 'donut', 'funnel', 'gauge', 'map', 'scatter', 'treemap', 'sankey']
+  if (validTypes.includes(type)) {
+    chartType.value = type as any
+  }
+
+  // Execute the SQL, preserving the chart type set by AI
+  nextTick(() => {
+    onRunSql(true)
+  })
+}
+
+function getCurrentState() {
+  return {
+    sql: sqlTextComputed.value,
+    chartType: chartType.value,
+    appearance: appearance.value
+  }
+}
+
+defineExpose({
+  applySqlAndChartType,
+  getCurrentState
+})
 
 </script>
 

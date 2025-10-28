@@ -51,8 +51,15 @@ export function useReportingService() {
     return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body })
   }
 
-  async function runSql(sql: string, limit?: number): Promise<PreviewResponse> {
-    return await $fetch<PreviewResponse>("/api/reporting/sql", { method: "POST", body: { sql, limit } })
+  async function runSql(sql: string, limit?: number, connectionId?: number | null): Promise<PreviewResponse> {
+    return await $fetch<PreviewResponse>("/api/reporting/sql", { 
+      method: "POST", 
+      body: { 
+        sql, 
+        limit,
+        connectionId: connectionId ?? selectedConnectionId.value ?? null
+      } 
+    })
   }
 
   async function listConnections(): Promise<Array<{ id: number; internal_name: string }>> {

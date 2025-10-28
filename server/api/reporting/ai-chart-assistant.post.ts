@@ -1,0 +1,218 @@
+import { defineEventHandler, readBody } from 'h3'
+import Anthropic from '@anthropic-ai/sdk'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../supabase'
+import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+
+type RequestBody = {
+  connectionId: number
+  userPrompt: string
+  currentSql?: string
+  currentChartType?: string
+  currentAppearance?: any
+  datasetId?: string
+  schemaJson?: unknown
+}
+
+export default defineEventHandler(async (event) => {
+  const user = await serverSupabaseUser(event)
+  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+
+  const body = await readBody<RequestBody>(event)
+  if (!body?.connectionId || !body?.userPrompt) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing connectionId or userPrompt' })
+  }
+
+  // Verify user owns the data connection
+  const { data: connectionData, error: connError } = await supabaseAdmin
+    .from('data_connections')
+    .select('owner_id, schema_json')
+    .eq('id', body.connectionId)
+    .single()
+
+  if (connError || !connectionData || connectionData.owner_id !== user.id) {
+    throw createError({ statusCode: 403, statusMessage: 'Access denied to connection' })
+  }
+
+  // Load schema: prefer provided schemaJson, then saved schema_json, otherwise live introspection
+  let schemaJson: unknown = body.schemaJson || connectionData.schema_json
+
+  if (!schemaJson) {
+    const cfg = await loadConnectionConfigFromSupabase(event, body.connectionId)
+    const live = await withMySqlConnectionConfig(cfg, async (conn) => {
+      const [tables] = await conn.query(
+        `SELECT TABLE_NAME as tableName
+         FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE()`
+      )
+      const tableNames = (tables as any[]).map((r) => String(r.tableName))
+      const result: any = { tables: [] as any[] }
+      for (const tn of tableNames) {
+        const [cols] = await conn.query(
+          `SELECT COLUMN_NAME as name, DATA_TYPE as type
+           FROM information_schema.COLUMNS
+           WHERE TABLE_SCHEMA = DATABASE()
+             AND TABLE_NAME = ?`,
+          [tn]
+        )
+        result.tables.push({
+          tableId: tn,
+          columns: (cols as any[]).map((c) => ({
+            name: c.name,
+            type: c.type,
+            label: c.name,
+            isDate: ['date', 'datetime', 'timestamp', 'year'].includes(String(c.type).toLowerCase()),
+            fieldId: c.name,
+            isString: ['char', 'varchar', 'text'].includes(String(c.type).toLowerCase()),
+            isBoolean: ['tinyint', 'bool', 'boolean'].includes(String(c.type).toLowerCase()),
+            isNumeric: !['char', 'varchar', 'text', 'blob'].includes(String(c.type).toLowerCase()),
+          })),
+          primaryKey: [],
+          foreignKeys: []
+        })
+      }
+      return result
+    })
+    schemaJson = live
+  }
+
+  const apiKey = process.env.CLAUDE_AI_KEY
+  if (!apiKey) {
+    throw createError({ statusCode: 500, statusMessage: 'CLAUDE_AI_KEY is not configured' })
+  }
+
+  const client = new Anthropic({ apiKey })
+
+  // Build context-aware system prompt
+  const systemPrompt = `You are an expert BI assistant that helps users create and modify data visualizations using Apache ECharts.
+
+You will receive:
+1. A user request describing what they want
+2. The current SQL query (if any)
+3. The current chart configuration (if any)
+4. The database schema
+
+Your task is to help the user iteratively build their report by modifying the SQL and chart configuration based on their request.
+
+Return ONLY a compact JSON object with THREE fields:
+- "sql": A valid MySQL query string for the data
+- "chartConfig": A complete ECharts configuration object
+- "explanation": A friendly, conversational response explaining what you did (2-3 sentences max)
+
+IMPORTANT SQL CONSTRAINTS:
+- Use ANSI SQL compatible with MySQL 8
+- Only reference tables/columns that exist in the provided schema
+- Prefer explicit JOINs with clear join conditions
+- Ensure columns in GROUP BY are valid; aggregate non-grouped metrics
+- Limit result size appropriately (e.g., LIMIT 100)
+- Avoid destructive operations; SELECT-only
+- Use meaningful column aliases that can be used in charts
+- If current SQL exists, build upon it based on user's request
+
+ECHARTS CONFIGURATION REQUIREMENTS:
+- Create a valid ECharts option object
+- Choose appropriate chart types (pie, bar, line, scatter, etc.) based on the data
+- Include proper titles, legends, tooltips, and formatting
+- Ensure the configuration matches the SQL query output structure
+- Use a professional color palette
+- If current config exists, modify it based on user's request rather than starting from scratch
+
+CHART TYPE SELECTION:
+- pie/donut: For categorical distributions (2 columns: name, value)
+- bar/line/area: For trends and comparisons (category columns first, then numeric values)
+- scatter: For correlations between numeric values
+- gauge: For single KPI values
+
+CONVERSATIONAL STYLE:
+- Be friendly and helpful in your explanation
+- Acknowledge what the user asked for
+- Mention key changes you made
+- Keep it concise (2-3 sentences)`
+
+  try {
+    // Build user message with context
+    let userMessage = `User Request: "${body.userPrompt}"\n\n`
+    
+    if (body.currentSql) {
+      userMessage += `Current SQL:\n${body.currentSql}\n\n`
+    }
+    
+    if (body.currentChartType) {
+      userMessage += `Current Chart Type: ${body.currentChartType}\n\n`
+    }
+    
+    if (body.currentAppearance) {
+      userMessage += `Current Chart Appearance:\n${JSON.stringify(body.currentAppearance, null, 2)}\n\n`
+    }
+    
+    userMessage += `Database Schema:\n${JSON.stringify(schemaJson, null, 2)}\n\n`
+    userMessage += `Generate the SQL query and ECharts configuration.`
+
+    const response = await client.messages.create({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 2048,
+      temperature: 0.3,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userMessage
+        }
+      ]
+    })
+
+    const content = response.content[0].text
+
+    // Parse the JSON response
+    let parsed: any
+    try {
+      parsed = JSON.parse(content)
+    } catch (e) {
+      console.log('Direct JSON parse failed, trying alternative methods...')
+      
+      const match = content.match(/```json\s*([\s\S]*?)\s*```/) ||
+        content.match(/```\s*([\s\S]*?)\s*```/) ||
+        content.match(/\{[\s\S]*\}/)
+
+      if (match) {
+        let jsonContent = match[1] || match[0]
+        try {
+          parsed = JSON.parse(jsonContent)
+        } catch (e2) {
+          throw new Error('Failed to parse Claude response as JSON')
+        }
+      } else {
+        throw new Error('Failed to parse Claude response as JSON')
+      }
+    }
+
+    if (!parsed || typeof parsed.sql !== 'string' || !parsed.chartConfig || typeof parsed.explanation !== 'string') {
+      throw new Error('Claude response missing required fields: sql, chartConfig, explanation')
+    }
+
+    // Infer chart type from chartConfig
+    let chartType = 'table'
+    if (parsed.chartConfig.series && Array.isArray(parsed.chartConfig.series) && parsed.chartConfig.series.length > 0) {
+      const seriesType = parsed.chartConfig.series[0].type
+      if (seriesType) {
+        chartType = seriesType === 'doughnut' ? 'donut' : seriesType
+      }
+    }
+
+    return {
+      sql: parsed.sql.trim(),
+      chartConfig: parsed.chartConfig,
+      chartType: chartType,
+      explanation: parsed.explanation.trim(),
+      usage: response.usage
+    }
+  } catch (error) {
+    console.error('Error in AI chart assistant:', error)
+    throw createError({
+      statusCode: 500,
+      statusMessage: `Failed to process request: ${error.message}`
+    })
+  }
+})
+

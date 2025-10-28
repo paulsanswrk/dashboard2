@@ -2,7 +2,88 @@
   <ReportingLayout :show-right-sidebar="sidebarVisible">
     <template #left>
       <div class="p-0 h-full overflow-hidden">
-        <div class="resizable-columns h-full">
+        <!-- AI Mode Toggle and Connection Selector -->
+        <div class="px-4 py-3 border-b border-dark-lighter bg-dark-light">
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                v-model="aiModeEnabled"
+                type="checkbox"
+                class="sr-only"
+              >
+              <div class="relative">
+                <div class="w-10 h-5 bg-gray-600 rounded-full shadow-inner transition-colors" :class="{ 'bg-green-500': aiModeEnabled }"></div>
+                <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="{ 'translate-x-5': aiModeEnabled }"></div>
+              </div>
+              <span class="text-sm font-medium" :class="aiModeEnabled ? 'text-green-400' : 'text-white'">AI Mode</span>
+            </label>
+          </div>
+          <!-- Connection Selector for AI Mode -->
+          <div v-if="aiModeEnabled">
+            <label class="block text-xs text-neutral-400 mb-1">Data Connection</label>
+            <select
+              v-model="connectionId"
+              class="w-full px-3 py-2 text-sm bg-dark-lighter border border-dark-lighter rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-400"
+            >
+              <option :value="null">Select a connection...</option>
+              <option v-for="conn in connections" :key="conn.id" :value="conn.id">
+                {{ conn.internal_name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- AI Chat Box (when AI mode is enabled) -->
+        <div v-if="aiModeEnabled" class="flex flex-col bg-dark-light text-white" style="height: calc(100% - 120px);">
+          <div class="flex-1 p-4 overflow-auto" ref="chatContainer">
+            <h3 class="font-medium text-white mb-4">AI Assistant</h3>
+            <div class="space-y-3">
+              <div
+                v-for="(msg, idx) in aiMessages"
+                :key="idx"
+                :class="[
+                  'rounded-lg p-3',
+                  msg.role === 'assistant'
+                    ? 'bg-dark-lighter'
+                    : 'bg-primary-600 ml-auto max-w-xs'
+                ]"
+              >
+                <p class="text-sm" :class="msg.role === 'assistant' ? 'text-neutral-300' : 'text-white'">
+                  {{ msg.content }}
+                </p>
+              </div>
+              <div v-if="aiLoading" class="bg-dark-lighter rounded-lg p-3">
+                <div class="flex items-center gap-2">
+                  <Icon name="heroicons:arrow-path" class="w-4 h-4 animate-spin text-neutral-400" />
+                  <p class="text-sm text-neutral-400">Thinking...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="border-t border-dark-lighter p-4">
+            <div class="flex gap-2">
+              <textarea
+                v-model="aiInput"
+                rows="3"
+                placeholder="Ask me to help build your chart..."
+                class="flex-1 px-3 py-2 text-sm bg-dark-lighter border border-dark-lighter rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-primary-400 resize-none"
+                @keydown.enter.exact.prevent="sendAiMessage"
+                :disabled="aiLoading"
+              ></textarea>
+              <button
+                @click="sendAiMessage"
+                :disabled="aiLoading || !aiInput.trim()"
+                class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+              >
+                <Icon v-if="aiLoading" name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+                <span v-else>Send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Traditional Data Sources & Zones (when AI mode is disabled) -->
+        <div v-else class="resizable-columns h-full">
           <!-- Column 1: Connection + Datasets -->
           <div class="resizable-column flex-1">
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
@@ -73,7 +154,15 @@
 
     <template #center>
       <div class="p-6">
-        <ReportingBuilder :sidebar-visible="sidebarVisible" :connection-id="connectionId" @toggle-sidebar="sidebarVisible = !sidebarVisible" @preview-meta="onPreviewMeta" />
+        <ClientOnly>
+          <ReportingBuilder
+            ref="reportingBuilderRef"
+            :sidebar-visible="sidebarVisible"
+            :connection-id="connectionId"
+            @toggle-sidebar="sidebarVisible = !sidebarVisible"
+            @preview-meta="onPreviewMeta"
+          />
+        </ClientOnly>
       </div>
     </template>
 
@@ -113,6 +202,7 @@ const relationships = ref<any[]>([])
 const connections = ref<Array<{ id: number; internal_name: string }>>([])
 const connectionId = ref<number | null>(null)
 const { selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns } = useReportState()
+const reportingBuilderRef = ref<any>(null)
 
 // Zone configuration based on chart type (we'll get this from the builder or use a default)
 const zoneConfig = computed(() => {
@@ -147,6 +237,32 @@ const expandedDatasetId = ref<string | null>(null)
 
 // Sidebar visibility (collapsed by default)
 const sidebarVisible = ref(false)
+
+// AI mode toggle
+const aiModeEnabled = ref(true)
+
+// AI chat state
+const aiMessages = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])
+const aiInput = ref('Show me a pie chart of film categories by number of films')
+const aiLoading = ref(false)
+const chatContainer = ref<HTMLElement | null>(null)
+
+// Initialize AI messages based on connection status
+watch(() => connectionId.value, (newVal) => {
+  if (aiMessages.value.length === 0) {
+    if (newVal) {
+      aiMessages.value.push({
+        role: 'assistant',
+        content: 'Hello! I\'m here to help you build charts. What kind of visualization would you like to create?'
+      })
+    } else {
+      aiMessages.value.push({
+        role: 'assistant',
+        content: 'Welcome! I\'m ready to help you create amazing charts. What kind of data visualization would you like to build?'
+      })
+    }
+  }
+}, { immediate: true })
 
 // Search
 const datasetQuery = ref('')
@@ -289,6 +405,123 @@ watch(connectionId, (id) => {
   expandedDatasetId.value = null
   schema.value = []
   listDatasetsQuery().then((rows) => { datasets.value = rows as any }).finally(() => { datasetsLoading.value = false })
+})
+
+// AI assistant function
+async function sendAiMessage() {
+  if (!aiInput.value.trim() || aiLoading.value) return
+  if (!connectionId.value) {
+    aiMessages.value.push({
+      role: 'assistant',
+      content: 'Please select a data connection first to continue.'
+    })
+    return
+  }
+
+  const userMessage = aiInput.value.trim()
+  aiMessages.value.push({ role: 'user', content: userMessage })
+  aiInput.value = ''
+  aiLoading.value = true
+
+  try {
+    // Get current state from ReportingBuilder
+    let currentState = { sql: '', chartType: '', appearance: {} }
+    if (reportingBuilderRef.value && typeof reportingBuilderRef.value.getCurrentState === 'function') {
+      currentState = reportingBuilderRef.value.getCurrentState()
+    } else {
+      // Fallback: use computed SQL from zones
+      currentState.sql = sqlGenerated.value || ''
+    }
+
+    const response = await $fetch<{
+      sql: string
+      chartConfig: any
+      chartType: string
+      explanation: string
+      usage?: any
+    }>('/api/reporting/ai-chart-assistant', {
+      method: 'POST',
+      body: {
+        connectionId: connectionId.value,
+        userPrompt: userMessage,
+        currentSql: currentState.sql,
+        currentChartType: currentState.chartType,
+        currentAppearance: currentState.appearance,
+        datasetId: selectedDatasetId.value,
+        schemaJson: null  // Will use saved schema
+      }
+    })
+
+    // Add AI response to chat
+    aiMessages.value.push({
+      role: 'assistant',
+      content: response.explanation
+    })
+
+    // Auto-apply the changes
+    if (reportingBuilderRef.value && typeof reportingBuilderRef.value.applySqlAndChartType === 'function') {
+      reportingBuilderRef.value.applySqlAndChartType(response.sql, response.chartType)
+    }
+    
+    // Scroll chat to bottom
+    nextTick(() => {
+      if (chatContainer.value) {
+        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      }
+    })
+    
+  } catch (error) {
+    console.error('AI request failed:', error)
+    aiMessages.value.push({
+      role: 'assistant',
+      content: `Sorry, I encountered an error: ${error.data?.statusMessage || error.message}`
+    })
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+// Computed for SQL generation (moved from inline to be accessible)
+const sqlGenerated = computed(() => {
+  if (!selectedDatasetId.value) return ''
+  const safeId = (s?: string) => !!s && /^[a-zA-Z0-9_]+$/.test(s)
+  const wrap = (s: string) => `\`${s}\``
+  const table = wrap(selectedDatasetId.value)
+  const qualify = (f: { fieldId?: string; table?: string } | null | undefined): string | null => {
+    if (!f || !safeId(f.fieldId)) return null
+    const col = wrap(f.fieldId as string)
+    if (f.table && safeId(f.table)) {
+      return `${wrap(f.table)}.${col}`
+    }
+    return col
+  }
+  const selectParts: string[] = []
+  const groupByParts: string[] = []
+  ;[...xDimensions.value, ...breakdowns.value].forEach((d: any) => {
+    const expr = qualify(d)
+    if (expr) {
+      selectParts.push(`${expr} AS ${wrap(d.fieldId)}`)
+      groupByParts.push(expr)
+    }
+  })
+  yMetrics.value.forEach((m: any) => {
+    const expr = qualify(m)
+    if (!expr) return
+    let agg = (m.aggregation || (m.isNumeric ? 'SUM' : 'COUNT')).toUpperCase()
+    if (!['SUM', 'COUNT', 'AVG', 'MIN', 'MAX'].includes(agg)) agg = m.isNumeric ? 'SUM' : 'COUNT'
+    const alias = `${agg.toLowerCase()}_${m.fieldId}`
+    selectParts.push(`${agg}(${expr}) AS ${wrap(alias)}`)
+  })
+  if (!selectParts.length) return ''
+  const limit = 100
+  return [
+    'SELECT',
+    selectParts.join(', '),
+    'FROM',
+    table,
+    groupByParts.length ? 'GROUP BY ' + groupByParts.join(', ') : '',
+    'LIMIT ' + limit
+  ].filter(Boolean).join(' ')
 })
 
 onMounted(async () => {

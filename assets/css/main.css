@@ -20,6 +20,41 @@ body {
     user-select: text;
 }
 
+/* Text selection colors for better visibility */
+::selection {
+    background-color: rgba(249, 115, 22, 0.8); /* Orange-500 with good opacity */
+    color: #ffffff;
+}
+
+::-moz-selection {
+    background-color: rgba(249, 115, 22, 0.8); /* Orange-500 with good opacity */
+    color: #ffffff;
+}
+
+/* Ensure selection is visible in dark theme areas */
+.dark ::selection {
+    background-color: rgba(249, 115, 22, 0.9); /* More opaque for dark backgrounds */
+    color: #ffffff;
+}
+
+.dark ::-moz-selection {
+    background-color: rgba(249, 115, 22, 0.9); /* More opaque for dark backgrounds */
+    color: #ffffff;
+}
+
+/* Light theme selection (less opaque to not interfere with light backgrounds) */
+.light ::selection,
+:not(.dark) ::selection {
+    background-color: rgba(249, 115, 22, 0.6);
+    color: #ffffff;
+}
+
+.light ::-moz-selection,
+:not(.dark) ::-moz-selection {
+    background-color: rgba(249, 115, 22, 0.6);
+    color: #ffffff;
+}
+
 /* Resizable columns styles */
 .resizable-columns {
   display: flex;

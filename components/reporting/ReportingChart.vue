@@ -61,38 +61,79 @@ const metricAliases = computed(() => {
 
 const categories = computed(() => {
   const xKey = props.xDimensions?.[0]?.fieldId
-  if (!xKey) return []
-  return props.rows.map(r => String(r[xKey] ?? ''))
+
+  // If we have traditional dimensions, use them
+  if (xKey) {
+    return props.rows.map(r => String(r[xKey] ?? ''))
+  }
+
+  // Fallback for SQL-based charts: use first column as categories
+  if (props.rows.length > 0 && props.columns.length > 0) {
+    const xCol = props.columns[0]?.key
+    return props.rows.map(r => String(r[xCol] ?? ''))
+  }
+
+  return []
 })
 
 const seriesData = computed(() => {
   const xKey = props.xDimensions?.[0]?.fieldId
   const bKey = props.breakdowns?.[0]?.fieldId
   const aliases = metricAliases.value
-  if (!aliases.length) return []
 
-  // If breakdown exists, use first metric and split series by breakdown values
-  if (bKey) {
-    const firstMetric = aliases[0]
-    const grouped = new Map<string, number[]>()
-    const cats = categories.value
-    for (let i = 0; i < props.rows.length; i++) {
-      const row = props.rows[i]
-      const cat = xKey ? String(row[xKey] ?? '') : String(i)
-      const bVal = String(row[bKey] ?? '')
-      const val = Number(row[firstMetric] ?? 0)
-      if (!grouped.has(bVal)) grouped.set(bVal, Array(cats.length).fill(0))
-      const idx = cats.indexOf(cat)
-      if (idx >= 0) grouped.get(bVal)![idx] = val
+  // If we have traditional metric aliases and dimensions, use the original logic
+  if (aliases.length && (xKey || props.xDimensions?.length)) {
+    // If breakdown exists, use first metric and split series by breakdown values
+    if (bKey) {
+      const firstMetric = aliases[0]
+      const grouped = new Map<string, number[]>()
+      const cats = categories.value
+      for (let i = 0; i < props.rows.length; i++) {
+        const row = props.rows[i]
+        const cat = xKey ? String(row[xKey] ?? '') : String(i)
+        const bVal = String(row[bKey] ?? '')
+        const val = Number(row[firstMetric] ?? 0)
+        if (!grouped.has(bVal)) grouped.set(bVal, Array(cats.length).fill(0))
+        const idx = cats.indexOf(cat)
+        if (idx >= 0) grouped.get(bVal)![idx] = val
+      }
+      return Array.from(grouped.entries()).map(([name, data]) => ({ name, data }))
     }
-    return Array.from(grouped.entries()).map(([name, data]) => ({ name, data }))
+
+    // No breakdown: build one series per metric
+    const cats = categories.value
+    return aliases.map(alias => ({
+      name: props.columns.find(c => c.key === alias)?.label || alias,
+      data: cats.map((_, i) => Number(props.rows[i]?.[alias] ?? 0))
+    }))
   }
 
-  // No breakdown: build one series per metric
-  const cats = categories.value
-  return aliases.map(alias => ({
-    name: props.columns.find(c => c.key === alias)?.label || alias,
-    data: cats.map((_, i) => Number(props.rows[i]?.[alias] ?? 0))
+  // Fallback for SQL-based charts without traditional dimensions/metrics setup
+  if (props.rows.length === 0) return []
+
+  // For pie/donut charts, assume first column is names, second is values
+  if (props.chartType === 'pie' || props.chartType === 'donut') {
+    const nameCol = props.columns[0]?.key
+    const valueCol = props.columns[1]?.key || props.columns[0]?.key
+    if (!nameCol || !valueCol) return []
+
+    return [{
+      name: props.columns.find(c => c.key === valueCol)?.label || valueCol,
+      data: props.rows.map(row => ({
+        name: String(row[nameCol] ?? ''),
+        value: Number(row[valueCol] ?? 0)
+      }))
+    }]
+  }
+
+  // For other chart types, assume first column is X, remaining columns are Y series
+  const xCol = props.columns[0]?.key
+  const yCols = props.columns.slice(1).map(c => c.key)
+  if (!xCol || yCols.length === 0) return []
+
+  return yCols.map(yCol => ({
+    name: props.columns.find(c => c.key === yCol)?.label || yCol,
+    data: props.rows.map((row, i) => Number(row[yCol] ?? 0))
   }))
 })
 
@@ -157,11 +198,17 @@ function renderChart() {
         name: props.appearance?.legendTitle || s.name,
         type: 'pie',
         radius: type === 'doughnut' ? ['40%', '70%'] : '60%',
-        data: cats.map((cat, idx) => ({
-          name: cat,
-          value: s.data[idx] || 0,
-          itemStyle: { color: palette[idx % palette.length] }
-        })),
+        data: Array.isArray(s.data) && s.data.length > 0 && typeof s.data[0] === 'object' && s.data[0].name
+          ? s.data.map((item: any, idx: number) => ({
+              name: item.name,
+              value: item.value,
+              itemStyle: { color: palette[idx % palette.length] }
+            }))
+          : cats.map((cat, idx) => ({
+              name: cat,
+              value: s.data[idx] || 0,
+              itemStyle: { color: palette[idx % palette.length] }
+            })),
         emphasis: {
           itemStyle: {
             shadowBlur: 10,
@@ -369,7 +416,11 @@ function renderChart() {
     const xKey = props.xDimensions?.[0]?.fieldId
     const yKey = props.yMetrics?.[0]?.fieldId
 
-    if (!xKey || !yKey) {
+    // Fallback for SQL-based charts
+    const nameCol = xKey || (props.columns.length > 0 ? props.columns[0].key : null)
+    const valueCol = yKey || (props.columns.length > 1 ? props.columns[1].key : props.columns[0]?.key)
+
+    if (!nameCol || !valueCol || !props.rows.length) {
       // Not enough data for funnel chart
       return
     }
@@ -380,10 +431,17 @@ function renderChart() {
 
     // Create funnel data - sort by value descending for proper funnel shape
     const funnelData = props.rows
-      .map((row, index) => ({
-        name: String(row[xKey] || `Stage ${index + 1}`),
-        value: Number(row[yKey]) || 0
-      }))
+      .map((row, index) => {
+        // Ensure row is a plain object and has the expected properties
+        const rowData = typeof row === 'object' && row !== null ? row : {}
+        const nameValue = rowData[nameCol]
+        const valueValue = rowData[valueCol]
+
+        return {
+          name: nameValue != null ? String(nameValue) : `Stage ${index + 1}`,
+          value: valueValue != null ? Number(valueValue) : 0
+        }
+      })
       .sort((a, b) => b.value - a.value) // Sort descending for funnel shape
 
     const option = {
@@ -536,8 +594,12 @@ function renderChart() {
     const xKey = props.xDimensions?.[0]?.fieldId
     const breakdownKey = props.breakdowns?.[0]?.fieldId
 
-    if (!xKey) {
-      // Need at least X dimensions for treemap
+    // Fallback for SQL-based charts
+    const categoryCol = xKey || (props.columns.length > 0 ? props.columns[0].key : null)
+    const sizeCol = breakdownKey || (props.columns.length > 1 ? props.columns[1].key : null)
+
+    if (!categoryCol) {
+      // Need at least category data for treemap
       return
     }
 
@@ -550,8 +612,9 @@ function renderChart() {
     const processedItems = new Set<string>()
 
     props.rows.forEach((row) => {
-      const category = String(row[xKey] || 'Unknown')
-      const size = breakdownKey ? Number(row[breakdownKey]) || 0 : 1
+      const rowData = typeof row === 'object' && row !== null ? row : {}
+      const category = String(rowData[categoryCol] || 'Unknown')
+      const size = sizeCol ? Number(rowData[sizeCol]) || 0 : 1
 
       if (!processedItems.has(category)) {
         treemapData.push({
@@ -640,7 +703,12 @@ function renderChart() {
     const yKey = props.yMetrics?.[0]?.fieldId
     const breakdownKey = props.breakdowns?.[0]?.fieldId
 
-    if (!xKey || !yKey) {
+    // Fallback for SQL-based charts
+    const sourceCol = xKey || (props.columns.length > 0 ? props.columns[0].key : null)
+    const targetCol = yKey || (props.columns.length > 1 ? props.columns[1].key : null)
+    const valueCol = breakdownKey || (props.columns.length > 2 ? props.columns[2].key : null)
+
+    if (!sourceCol || !targetCol) {
       // Need both source and target data for Sankey diagram
       return
     }
@@ -654,9 +722,10 @@ function renderChart() {
     const links: any[] = []
 
     props.rows.forEach((row) => {
-      const source = String(row[xKey] || 'Unknown Source')
-      const target = String(row[yKey] || 'Unknown Target')
-      const value = breakdownKey ? Number(row[breakdownKey]) || 1 : 1
+      const rowData = typeof row === 'object' && row !== null ? row : {}
+      const source = String(rowData[sourceCol] || 'Unknown Source')
+      const target = String(rowData[targetCol] || 'Unknown Target')
+      const value = valueCol ? Number(rowData[valueCol]) || 1 : 1
 
       // Add nodes
       if (!nodes.has(source)) {
