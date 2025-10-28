@@ -4,9 +4,13 @@
     <div v-if="!relationships.length" class="text-sm text-gray-500">No relationships detected for this table.</div>
 
     <div v-else>
-      <div v-if="usedTables.size >= 2 && !relevantRels.length" class="mb-2 p-2 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
-        No suitable join was found between the selected tables. The preview will include all tables using CROSS JOIN, which may multiply rows. Consider adding a join.
+      <div v-if="props.serverError" class="mb-2 p-2 border border-red-300 bg-red-50 text-red-700 text-sm rounded">
+        {{ props.serverError }}
       </div>
+      <div v-if="props.serverWarnings?.length" class="mb-2 p-2 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
+        <div v-for="(w, i) in props.serverWarnings" :key="i">{{ w }}</div>
+      </div>
+      
       <div v-if="debugEnv && usedTables.size" class="text-xs p-2 border border-neutral-300 bg-neutral-50 rounded">
         <div class="font-medium mb-1">Debug (tables in use)</div>
         <div>Used: {{ Array.from(usedTables).join(', ') }}</div>
@@ -59,7 +63,7 @@
 import { ref, watchEffect } from 'vue'
 import { useReportState, type JoinRef } from '@/composables/useReportState'
 
-const props = defineProps<{ relationships: Array<{ constraintName: string; sourceTable: string; targetTable: string; columnPairs: Array<{ position?: number; sourceColumn: string; targetColumn: string }> }> }>()
+const props = defineProps<{ relationships: Array<{ constraintName: string; sourceTable: string; targetTable: string; columnPairs: Array<{ position?: number; sourceColumn: string; targetColumn: string }> }> ; serverError?: string | null; serverWarnings?: string[] }>()
 
 const { joins, addJoin, xDimensions, yMetrics, breakdowns } = useReportState()
 const appliedJoins = joins

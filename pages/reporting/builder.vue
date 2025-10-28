@@ -63,7 +63,7 @@
                 <ReportingFilters v-if="showFilters" :schema="schema" :disabled="false" />
               </div>
               <div v-if="relationships.length" class="mt-4">
-                <ReportingJoinsImplicit :relationships="relationships" />
+                <ReportingJoinsImplicit :relationships="relationships" :server-error="previewError" :server-warnings="previewWarnings" />
               </div>
             </div>
           </div>
@@ -73,7 +73,7 @@
 
     <template #center>
       <div class="p-6">
-        <ReportingBuilder :sidebar-visible="sidebarVisible" :connection-id="connectionId" @toggle-sidebar="sidebarVisible = !sidebarVisible" />
+        <ReportingBuilder :sidebar-visible="sidebarVisible" :connection-id="connectionId" @toggle-sidebar="sidebarVisible = !sidebarVisible" @preview-meta="onPreviewMeta" />
       </div>
     </template>
 
@@ -130,6 +130,14 @@ const zoneConfig = computed(() => {
 // Show Filters only when there are fields in Zones and a connection is selected
 const hasZoneFields = computed(() => (xDimensions.value.length + yMetrics.value.length + breakdowns.value.length) > 0)
 const showFilters = computed(() => Boolean(connectionId.value) && hasZoneFields.value)
+
+// Preview meta propagated from ReportingBuilder to display in Joins panel
+const previewError = ref<string | null>(null)
+const previewWarnings = ref<string[]>([])
+function onPreviewMeta(p: { error: string | null; warnings: string[] }) {
+  previewError.value = p?.error || null
+  previewWarnings.value = Array.isArray(p?.warnings) ? p.warnings : []
+}
 
 // Loading states
 const connectionsLoading = ref(true)

@@ -94,6 +94,7 @@ const props = defineProps<{
 // Emits
 const emit = defineEmits<{
   'toggle-sidebar': []
+  'preview-meta': [{ error: string | null; warnings: string[] }]
 }>()
 import ReportingChart from './ReportingChart.vue'
 import ReportsModal from './ReportsModal.vue'
@@ -340,6 +341,18 @@ const sqlTextComputed = computed({
   set: (v: string) => { sqlText.value = v }
 })
 
+function getUrlConnectionId(): number | null {
+  try {
+    const url = new URL(window.location.href)
+    const cid = url.searchParams.get('data_connection_id')
+    if (!cid) return null
+    const n = Number(cid)
+    return Number.isFinite(n) ? n : null
+  } catch {
+    return null
+  }
+}
+
 async function onTestPreview() {
   // Determine datasetId: use selectedDatasetId if set, otherwise use first table from X dimensions
   let datasetId = selectedDatasetId.value
@@ -361,13 +374,14 @@ async function onTestPreview() {
       breakdowns: breakdowns.value,
       joins: joins.value as any,
       limit: 100,
-      connectionId: selectedConnectionId.value ?? props.connectionId ?? null
+      connectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId()
     })
     rows.value = res.rows
     columns.value = res.columns
     serverError.value = (res.meta as any)?.error || null
     serverWarnings.value = ((res.meta as any)?.warnings as string[]) || []
     actualExecutedSql.value = (res.meta as any)?.sql || ''
+    emit('preview-meta', { error: serverError.value, warnings: serverWarnings.value })
   } finally {
     loading.value = false
   }
@@ -408,7 +422,7 @@ onMounted(() => {
           (yMetrics.value.length > 0 && yMetrics.value[0].table)
 
         // Only run preview if we have data, can determine datasetId, and have a connectionId available
-        const hasConnection = (selectedConnectionId.value != null) || (props.connectionId != null)
+        const hasConnection = (selectedConnectionId.value != null) || (props.connectionId != null) || (getUrlConnectionId() != null)
         if (hasData && canDetermineDatasetId && hasConnection && !useSql.value) {
           await onTestPreview()
           return true // Preview was run
@@ -427,7 +441,7 @@ onMounted(() => {
     // If preview wasn't run (connectionId not ready), set up a watcher to run it when connectionId becomes available
     if (!previewRun) {
       const unwatch = watch([() => props.connectionId, selectedConnectionId], async () => {
-        const hasConnection = (selectedConnectionId.value != null) || (props.connectionId != null)
+        const hasConnection = (selectedConnectionId.value != null) || (props.connectionId != null) || (getUrlConnectionId() != null)
         if (hasConnection && canAutoPreview.value && !useSql.value) {
           unwatch()
           await onTestPreview()
