@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full resizable-layout" :style="{ gridTemplateColumns: `${leftWidth}fr 6fr 3fr` }">
+  <div class="h-full resizable-layout" :style="{ gridTemplateColumns: gridColumns }">
     <aside class="resizable-left-panel border-r bg-dark overflow-hidden relative">
       <slot name="left" />
       <!-- Resize handle for the entire left panel -->
@@ -8,17 +8,31 @@
     <main class="overflow-auto">
       <slot name="center" />
     </main>
-    <aside class="border-l bg-white overflow-auto">
+    <aside v-if="showRightSidebar" class="border-l bg-white overflow-auto">
       <slot name="right" />
     </aside>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
+
+// Props
+const props = defineProps<{
+  showRightSidebar?: boolean
+}>()
 
 // Basic 3-panel layout for the reporting builder
 const leftWidth = ref(3) // Start with 3fr (25% of 12fr total)
+
+// Computed grid columns based on sidebar visibility
+const gridColumns = computed(() => {
+  if (props.showRightSidebar) {
+    return `${leftWidth.value}fr 6fr 3fr`
+  } else {
+    return `${leftWidth.value}fr 9fr`
+  }
+})
 const leftPanelRef = ref<HTMLElement>()
 let isResizing = false
 let startX = 0

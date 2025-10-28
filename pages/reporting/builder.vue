@@ -1,5 +1,5 @@
  <template>
-  <ReportingLayout>
+  <ReportingLayout :show-right-sidebar="sidebarVisible">
     <template #left>
       <div class="p-0 h-full overflow-hidden">
         <div class="resizable-columns h-full">
@@ -84,13 +84,21 @@
 
     <template #center>
       <div class="p-6">
-        <ReportingBuilder />
+        <ReportingBuilder :sidebar-visible="sidebarVisible" @toggle-sidebar="sidebarVisible = !sidebarVisible" />
       </div>
     </template>
 
     <template #right>
-      <div class="p-4 space-y-4">
-        <h2 class="font-medium mb-2">Appearance</h2>
+      <div class="p-4 space-y-4 relative">
+        <!-- Close button in top right corner -->
+        <button
+          @click="sidebarVisible = !sidebarVisible"
+          class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <Icon name="heroicons:x-mark" class="w-5 h-5 text-gray-500 hover:text-gray-700" />
+        </button>
+
+        <h2 class="font-medium mb-2 pr-8">Appearance</h2>
         <ReportingAppearancePanel />
       </div>
     </template>
@@ -135,6 +143,9 @@ const connectionsLoading = ref(true)
 const datasetsLoading = ref(false)
 const schemaLoading = ref(false)
 const expandedDatasetId = ref<string | null>(null)
+
+// Sidebar visibility (collapsed by default)
+const sidebarVisible = ref(false)
 
 // Search
 const datasetQuery = ref('')

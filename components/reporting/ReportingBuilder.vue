@@ -2,11 +2,52 @@
   <div class="p-6">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold">Reporting Builder</h2>
-      <div class="space-x-2">
-        <button class="px-3 py-2 border rounded" @click="onTestPreview" :disabled="!selectedDatasetId">Refresh</button>
+      <div class="flex items-center space-x-2">
+        <button
+          class="px-3 py-2 border rounded flex items-center gap-2"
+          @click="onTestPreview"
+          :disabled="!selectedDatasetId || loading"
+        >
+          <Icon v-if="loading" name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+          <Icon v-else name="heroicons:arrow-path" class="w-4 h-4" />
+          Refresh
+        </button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
-        <button class="px-3 py-2 border rounded" @click="openReports = true">Save / Load</button>
+        <button class="px-3 py-2 border rounded" @click="openReports = true" :disabled="loading">Save / Load</button>
+        <div class="flex items-center space-x-2 ml-4">
+          <label class="text-sm font-medium text-gray-700">Show SQL</label>
+          <button
+            @click="useSql = !useSql"
+            :disabled="loading"
+            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="useSql ? 'bg-indigo-600' : 'bg-gray-200'"
+          >
+            <span
+              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+              :class="useSql ? 'translate-x-6' : 'translate-x-1'"
+            />
+          </button>
+        </div>
+        <button
+          v-if="!sidebarVisible"
+          @click="$emit('toggle-sidebar')"
+          class="px-3 py-2 border rounded hover:bg-gray-50 transition-colors flex items-center gap-2"
+        >
+          <Icon name="heroicons:cog-6-tooth" class="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+    </div>
+
+    <div v-if="useSql" class="mb-4 p-4 bg-gray-50 rounded-lg border">
+      <div class="flex items-center gap-3 mb-3">
+        <label class="text-sm font-medium">Override SQL</label>
+        <input type="checkbox" v-model="overrideSql" :disabled="loading" />
+      </div>
+      <textarea :readonly="!overrideSql || loading" v-model="sqlTextComputed" class="w-full h-32 border rounded p-2 font-mono text-xs disabled:opacity-50" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
+      <div class="mt-2 space-x-2">
+        <button class="px-3 py-1 border rounded" @click="onRunSql" :disabled="!overrideSql || loading">Run SQL</button>
+        <span class="text-xs text-gray-500">Only SELECT queries allowed; LIMIT enforced.</span>
       </div>
     </div>
 
@@ -17,26 +58,12 @@
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
-                    class="flex flex-col items-center justify-center w-16 h-16 rounded border"
+                    :disabled="loading"
+                    class="flex flex-col items-center justify-center w-16 h-16 rounded border disabled:opacity-50 disabled:cursor-not-allowed"
                     :class="chartType === t.value ? 'border-primary bg-primary-50' : 'border-neutral-300 bg-white'">
               <Icon :name="t.icon" class="w-6 h-6" />
               <span class="text-xs mt-1">{{ t.label }}</span>
             </button>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="text-sm">Show SQL</label>
-            <input type="checkbox" v-model="useSql" />
-          </div>
-        </div>
-        <div v-if="useSql" class="mb-3">
-          <div class="flex items-center gap-3 mb-1">
-            <label class="text-sm">Override SQL</label>
-            <input type="checkbox" v-model="overrideSql" />
-          </div>
-          <textarea :readonly="!overrideSql" v-model="sqlTextComputed" class="w-full h-32 border rounded p-2 font-mono text-xs" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
-          <div class="mt-2 space-x-2">
-            <button class="px-3 py-1 border rounded" @click="onRunSql" :disabled="!overrideSql">Run SQL</button>
-            <span class="text-xs text-gray-500">Only SELECT queries allowed; LIMIT enforced.</span>
           </div>
         </div>
         <div v-if="serverError" class="mb-3 p-2 border border-red-300 bg-red-50 text-red-700 text-sm rounded">
@@ -57,6 +84,16 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+
+// Props
+const props = defineProps<{
+  sidebarVisible?: boolean
+}>()
+
+// Emits
+const emit = defineEmits<{
+  'toggle-sidebar': []
+}>()
 import ReportingChart from './ReportingChart.vue'
 import ReportsModal from './ReportsModal.vue'
 import ReportingPreview from './ReportingPreview.vue'
@@ -76,6 +113,7 @@ const openReports = ref(false)
 const useSql = ref(false)
 const overrideSql = ref(false)
 const sqlText = ref('')
+const actualExecutedSql = ref('')
 
 const chartTypes = [
   { value: 'table', label: 'Table', icon: 'heroicons:table-cells' },
@@ -297,7 +335,7 @@ const sqlGenerated = computed(() => {
 })
 
 const sqlTextComputed = computed({
-  get: () => (overrideSql.value ? sqlText.value : sqlGenerated.value),
+  get: () => (overrideSql.value ? sqlText.value : actualExecutedSql.value || sqlGenerated.value),
   set: (v: string) => { sqlText.value = v }
 })
 
@@ -319,6 +357,7 @@ async function onTestPreview() {
     columns.value = res.columns
     serverError.value = (res.meta as any)?.error || null
     serverWarnings.value = ((res.meta as any)?.warnings as string[]) || []
+    actualExecutedSql.value = (res.meta as any)?.sql || ''
   } finally {
     loading.value = false
   }
