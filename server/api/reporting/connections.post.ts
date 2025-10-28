@@ -42,18 +42,75 @@ export default defineEventHandler(async (event) => {
 
   // Allow optional schema payload to be persisted at creation time
   if (body.schema && typeof body.schema === 'object') {
+    console.log(`[AUTO_JOIN] Schema provided during connection creation for ${body.internalName}, storing schema_json`)
     record.schema_json = body.schema
+    console.log(`[AUTO_JOIN] Schema contains ${body.schema.tables?.length || 0} tables`)
+  } else {
+    console.log(`[AUTO_JOIN] No schema provided during connection creation for ${body.internalName}`)
   }
+
+  console.log(`[AUTO_JOIN] Creating new connection: ${body.internalName} (${body.databaseName} on ${body.host}:${body.port})`)
+
+  // Check if connection with same name already exists
+  const { data: existingConnection, error: checkError } = await supabaseAdmin
+    .from('data_connections')
+    .select('id, internal_name, host, port, database_name')
+    .eq('owner_id', user.id)
+    .eq('internal_name', record.internal_name)
+    .single()
+
+  if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+    throw createError({ statusCode: 500, statusMessage: `Error checking existing connections: ${checkError.message}` })
+  }
+
+  const isExistingConnection = !!existingConnection
+  console.log(`[AUTO_JOIN] Connection check:`, {
+    name: record.internal_name,
+    isExisting: isExistingConnection,
+    existingId: existingConnection?.id,
+    existingHost: existingConnection?.host,
+    existingPort: existingConnection?.port,
+    existingDatabase: existingConnection?.database_name
+  })
 
   const { data, error } = await supabaseAdmin
     .from('data_connections')
     .upsert(record, { onConflict: 'owner_id,internal_name' })
-    .select('id')
+    .select('id, internal_name, created_at')
     .single()
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
-  return { success: true, id: data.id }
+  if (data?.id) {
+    if (isExistingConnection) {
+      console.log(`[AUTO_JOIN] Returned existing connection ${data.id} for ${body.internalName}`)
+      // Check if the existing connection has the same configuration
+      const configMatches = existingConnection &&
+        existingConnection.host === record.host &&
+        existingConnection.port === record.port &&
+        existingConnection.database_name === record.database_name
+
+      return {
+        success: true,
+        id: data.id,
+        isExisting: true,
+        configMatches,
+        message: configMatches
+          ? 'Connection already exists with same configuration'
+          : 'Connection name already exists but with different configuration - updated with new settings'
+      }
+    } else {
+      console.log(`[AUTO_JOIN] Successfully created new connection ${data.id} for ${body.internalName}`)
+      return {
+        success: true,
+        id: data.id,
+        isExisting: false,
+        message: 'New connection created successfully'
+      }
+    }
+  }
+
+  throw createError({ statusCode: 500, statusMessage: 'Failed to create or retrieve connection' })
 })
 
 

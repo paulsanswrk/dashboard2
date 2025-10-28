@@ -1,6 +1,9 @@
 import { defineEventHandler, readBody } from 'h3'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../supabase'
+import { computePathsIndex, selectJoinTree, type Edge, type TableGraph } from '../../utils/schemaGraph'
 
 type ReportField = { fieldId: string; name?: string; label?: string; type?: string; isNumeric?: boolean; table?: string }
 type MetricRef = ReportField & { aggregation?: string }
@@ -129,10 +132,121 @@ export default defineEventHandler(async (event) => {
     // LIMIT
     const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
 
+    // Extract all unique table names from selected fields
+    const allTables = new Set<string>([body.datasetId]) // Start with datasetId as base table
+
+    for (const d of dims) {
+      if (d.table && isSafeIdentifier(d.table)) {
+        allTables.add(d.table)
+      }
+    }
+    for (const m of metrics) {
+      if (m.table && isSafeIdentifier(m.table)) {
+        allTables.add(m.table)
+      }
+    }
+    for (const f of body.filters || []) {
+      if (f.field?.table && isSafeIdentifier(f.field.table)) {
+        allTables.add(f.field.table)
+      }
+    }
+
+    const tableNames = Array.from(allTables)
+    console.log(`[PREVIEW_AUTO_JOIN] Tables involved in query:`, tableNames)
+
     // Build JOIN clauses (MySQL)
     const joinClauses: string[] = []
     const includedTables = new Set<string>([body.datasetId])
     const includedLower = new Set<string>([String(body.datasetId).toLowerCase()])
+
+    // Use auto-join if we have multiple tables and no manual joins specified
+    if (tableNames.length > 1 && (!body.joins || body.joins.length === 0) && body.connectionId) {
+      console.log(`[PREVIEW_AUTO_JOIN] Attempting auto-join for ${tableNames.length} tables:`, tableNames)
+
+      try {
+        // Load precomputed auto_join_info (preferred) and fallback schema_json
+        const user = await serverSupabaseUser(event)
+        if (user) {
+          const { data: connectionData } = await supabaseAdmin
+            .from('data_connections')
+            .select('auto_join_info')
+            .eq('id', body.connectionId)
+            .eq('owner_id', user.id)
+            .single()
+
+          const aji = (connectionData as any)?.auto_join_info
+          if (aji?.graph?.nodes && aji?.graph?.adj) {
+            console.log(`[PREVIEW_AUTO_JOIN] Using stored auto_join_info graph for connection ${body.connectionId}`)
+
+            // Reconstruct TableGraph from stored entries
+            const graph: TableGraph = {
+              nodes: new Map<string, any>(aji.graph.nodes as [string, any][]),
+              adj: new Map<string, Edge[]>(aji.graph.adj as [string, Edge[]][])
+            }
+
+            // Build paths index (stored Map was not JSON-serializable)
+            const pathsIndex = computePathsIndex(graph)
+
+            // Select join tree for requested tables
+            const joinTree = selectJoinTree(tableNames, graph, pathsIndex)
+            console.log(`[PREVIEW_AUTO_JOIN] Join tree: nodes=${joinTree.nodes.length}, edges=${joinTree.edgeIds.length}`)
+
+            if (joinTree.edgeIds.length > 0) {
+              // Build quick edge lookup
+              const edgeById = new Map<string, Edge>()
+              for (const [, edges] of graph.adj) {
+                for (const e of edges) edgeById.set(e.id, e)
+              }
+
+              // Resolve edge objects
+              const sortedEdges = joinTree.edgeIds
+                .map(id => edgeById.get(id))
+                .filter(Boolean) as Edge[]
+
+              // Add JOINs in dependency order starting from base datasetId
+              const pending = new Set(sortedEdges.map(e => e.id))
+              let madeProgress = true
+              while (pending.size && madeProgress) {
+                madeProgress = false
+                for (const edgeId of Array.from(pending)) {
+                  const edge = edgeById.get(edgeId)!
+                  const sourceTable = edge.from
+                  const targetTable = edge.to
+                  if (includedTables.has(targetTable) || includedLower.has(String(targetTable).toLowerCase())) {
+                    pending.delete(edgeId)
+                    continue
+                  }
+                  if (includedTables.has(sourceTable) || includedLower.has(String(sourceTable).toLowerCase())) {
+                    const onParts: string[] = []
+                    for (const pair of edge.payload.columnPairs || []) {
+                      if (isSafeIdentifier(pair.sourceColumn) && isSafeIdentifier(pair.targetColumn)) {
+                        onParts.push(`${wrapId(sourceTable)}.${wrapId(pair.sourceColumn)} = ${wrapId(targetTable)}.${wrapId(pair.targetColumn)}`)
+                      }
+                    }
+                    if (onParts.length) {
+                      joinClauses.push(`INNER JOIN ${wrapId(targetTable)} ON ${onParts.join(' AND ')}`)
+                      includedTables.add(targetTable)
+                      includedLower.add(String(targetTable).toLowerCase())
+                      pending.delete(edgeId)
+                      madeProgress = true
+                      console.log(`[PREVIEW_AUTO_JOIN] Added join: ${sourceTable} -> ${targetTable}`)
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            console.error(`[PREVIEW_AUTO_JOIN] Missing auto_join_info for connection ${body.connectionId}`)
+            const executionMsBefore = Date.now() - start
+            return { columns, rows: [], meta: { executionMs: executionMsBefore, error: 'missing_auto_join_info' } }
+          }
+        }
+      } catch (error) {
+        console.error(`[PREVIEW_AUTO_JOIN] Failed to compute auto-join:`, error)
+      }
+    }
+
+    // Fallback to manual joins if provided
     for (const j of body.joins || []) {
       const jt = j.joinType === 'left' ? 'LEFT JOIN' : 'INNER JOIN'
       if (!isSafeIdentifier(j.targetTable) || !isSafeIdentifier(j.sourceTable)) continue

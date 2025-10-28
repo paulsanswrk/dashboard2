@@ -563,7 +563,7 @@ const getStepClasses = (step) => {
   }
 }
 
-const validateForm = () => {
+const validateForm = async () => {
   errors.value = {}
   validationErrors.value = []
 
@@ -571,6 +571,22 @@ const validateForm = () => {
   if (!form.value.internalName.trim()) {
     errors.value.internalName = 'Internal name is required'
     validationErrors.value.push('Internal name is required')
+  } else {
+    // Check for duplicate connection names
+    try {
+      const existingConnections = await $fetch('/api/reporting/connections')
+      const duplicateConnection = existingConnections.find(c =>
+        c.internal_name?.toLowerCase() === form.value.internalName.trim().toLowerCase()
+      )
+
+      if (duplicateConnection) {
+        errors.value.internalName = 'A connection with this name already exists'
+        validationErrors.value.push(`Connection "${form.value.internalName.trim()}" already exists. Please choose a different name.`)
+      }
+    } catch (error) {
+      console.warn('[FRONTEND_AUTO_JOIN] Could not check for duplicate connections:', error)
+      // Continue validation even if we can't check duplicates
+    }
   }
 
   if (!form.value.databaseName.trim()) {
@@ -652,7 +668,7 @@ const testConnection = async () => {
   connectionTestResult.value = null
   
   // Validate form first
-  if (!validateForm()) {
+  if (!(await validateForm())) {
     showErrors.value = true
     return
   }
@@ -767,6 +783,12 @@ const nextStep = async () => {
     return
   }
 
+  // Validate form before creating connection
+  if (!(await validateForm())) {
+    showErrors.value = true
+    return
+  }
+
   saving.value = true
   try {
     const payload = {
@@ -791,18 +813,44 @@ const nextStep = async () => {
       payload.sshPrivateKey = form.value.sshPrivateKey
     }
 
-    const { id } = await $fetch('/api/reporting/connections', {
+    console.log('[FRONTEND_AUTO_JOIN] Creating new connection:', {
+      internalName: payload.internalName,
+      databaseName: payload.databaseName,
+      host: payload.host,
+      port: payload.port,
+      hasSchema: !!payload.schema,
+      schemaTableCount: payload.schema?.tables?.length || 0
+    })
+
+    const response = await $fetch('/api/reporting/connections', {
       method: 'POST',
       body: payload
     })
 
+    console.log('[FRONTEND_AUTO_JOIN] Connection creation response:', response)
+
+    if (response.isExisting) {
+      if (response.configMatches) {
+        console.log('[FRONTEND_AUTO_JOIN] Using existing connection with same configuration')
+        // Show info message but continue with the existing connection
+        validationErrors.value.push(`Connection "${payload.internalName}" already exists with the same configuration. Using existing connection.`)
+        showErrors.value = true
+      } else {
+        console.log('[FRONTEND_AUTO_JOIN] Updated existing connection with new configuration')
+        // Show warning message about updating existing connection
+        validationErrors.value.push(`Connection name "${payload.internalName}" already exists. Updated with new database configuration.`)
+        showErrors.value = true
+      }
+    }
+
     // Keep user in wizard and move to Schema step
-    if (id) {
-      createdConnectionId.value = id
+    if (response.id) {
+      console.log('[FRONTEND_AUTO_JOIN] Connection created/updated successfully, navigating to schema editor:', response.id)
+      createdConnectionId.value = response.id
       steps.value[1].active = true
       steps.value[0].completed = true
       // Move to dedicated schema editor page
-      navigateTo(`/schema-editor?id=${id}`)
+      navigateTo(`/schema-editor?id=${response.id}`)
       return
     }
   } catch (e) {
@@ -850,10 +898,29 @@ function onSchemaSave(payload) {
 const createdConnectionId = ref(null)
 
 async function saveSchemaSelection() {
-  if (!createdConnectionId.value || !schemaSelection.value) return
+  if (!createdConnectionId.value || !schemaSelection.value) {
+    console.log('[FRONTEND_AUTO_JOIN] Cannot save schema - missing connection ID or schema selection')
+    return
+  }
+
+  console.log('[FRONTEND_AUTO_JOIN] Saving schema selection:', {
+    connectionId: createdConnectionId.value,
+    tableCount: schemaSelection.value.tables?.length || 0,
+    totalColumns: schemaSelection.value.tables?.reduce((acc, t) => acc + ((t.columns && t.columns.length) || 0), 0) || 0,
+    tables: schemaSelection.value.tables?.map(t => t.tableName) || []
+  })
+
   savingSchema.value = true
   try {
-    await $fetch('/api/reporting/connections', { method: 'PUT', params: { id: createdConnectionId.value }, body: { schema: schemaSelection.value } })
+    const response = await $fetch('/api/reporting/connections', {
+      method: 'PUT',
+      params: { id: createdConnectionId.value },
+      body: { schema: schemaSelection.value }
+    })
+    console.log('[FRONTEND_AUTO_JOIN] Schema save response:', response)
+    console.log('[FRONTEND_AUTO_JOIN] Schema saved successfully - auto_join_info should now be computed on backend')
+  } catch (error) {
+    console.error('[FRONTEND_AUTO_JOIN] Failed to save schema:', error)
   } finally {
     savingSchema.value = false
   }

@@ -126,6 +126,14 @@ async function saveAndContinue() {
     const schemaSelector = schemaSelectorRef.value
     const currentSelection = schemaSelector?.selected || {}
 
+    console.log('[SCHEMA_EDITOR_AUTO_JOIN] Saving schema from schema editor:', {
+      connectionId: connectionId.value,
+      selectedTables: Object.keys(currentSelection),
+      totalColumns: Object.values(currentSelection).reduce((acc: number, tableData: any) => {
+        return acc + Object.keys(tableData.columns || {}).length
+      }, 0)
+    })
+
     // Always save the current schema selection state
     const currentSchema = {
       tables: Object.entries(currentSelection).map(([tableId, tableData]: [string, any]) => ({
@@ -134,13 +142,23 @@ async function saveAndContinue() {
       }))
     }
 
-    await $fetch('/api/reporting/connections', {
+    console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema to save:', {
+      tableCount: currentSchema.tables.length,
+      tables: currentSchema.tables.map(t => ({ tableId: t.tableId, columnCount: t.columns.length }))
+    })
+
+    const response = await $fetch('/api/reporting/connections', {
       method: 'PUT',
       params: { id: connectionId.value },
       body: { schema: currentSchema }
     })
 
+    console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema save response:', response)
+    console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema saved successfully - auto_join_info should now be computed on backend')
+
     navigateTo(`/reporting/builder?data_connection_id=${connectionId.value}`)
+  } catch (error) {
+    console.error('[SCHEMA_EDITOR_AUTO_JOIN] Failed to save schema:', error)
   } finally {
     saving.value = false
   }

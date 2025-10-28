@@ -86,3 +86,126 @@ Here is a brief description of the types of charts shown, from left to right:
      
 
 This description can be used as a prompt for an LLM to define the purpose and characteristics of these chart types in the application context.
+
+
+The specialized chart types require different data structures and have unique configuration parameters compared to standard Bar or Line charts. Since you've chosen Apache ECharts as your library, here are the details for the most complex types in your list: Sankey, Treemap, Funnel, and Gauge.
+
+### 1\. Sankey/Flow Diagram
+
+Sankey diagrams visualize the flow and distribution of a quantity between stages or categories. This requires a data structure that explicitly defines the source, target, and weight of each connection, along with a separate list of the nodes themselves.
+
+| Data Structure Key | Description | Example Value |
+| --- | --- | --- |
+| series.type | Must be set to 'sankey'. | 'sankey' |
+| series.data (Nodes) | An optional list of all unique entities (nodes) in the flow. Nodes are often generated automatically from the links but can be defined here for custom styling. | \[{name: 'A'}, {name: 'B'}, {name: 'X'}\] |
+| series.links | The most critical part. It defines the flow between nodes. Each link object must specify the start node, end node, and the flow value. | \[{source: 'A', target: 'X', value: 5}\] |
+| Specific Parameters | nodeWidth, nodeGap, layoutIterations | These control the visual appearance, like the width of the node rectangles and the number of times the layout algorithm runs to optimize node positioning. |
+
+Example of links structure:
+
+JSON
+
+links: \[  
+  { source: 'Sales', target: 'Accepted', value: 100 },  
+  { source: 'Accepted', target: 'Converted', value: 75 },  
+  { source: 'Accepted', target: 'Rejected', value: 25 }  
+\]  
+  
+
+The flow volume is represented by the value in the links array.
+
+* * *
+
+### 2\. Treemap
+
+Treemaps visualize hierarchical (tree-structured) data as a set of nested rectangles, where the size of each rectangle is proportional to its value and its color often represents a secondary dimension.
+
+| Data Structure Key | Description | Example Value |
+| --- | --- | --- |
+| series.type | Must be set to 'treemap'. | 'treemap' |
+| series.data | A single array of objects representing the root level. To create nested/hierarchical data, an item must contain a children array. | \[{name: 'Region A', value: 100, children: \[...\]}\] |
+| Key Properties | name, value, children | value determines the size of the rectangle. name is the label. children contains the nested data. |
+| Specific Parameters | leafDepth, levels, squareRatio | levels controls the visual style, colors, and border for each hierarchical level. leafDepth can limit the displayed depth of the tree. |
+
+Example of data structure:
+
+JSON
+
+data: \[  
+  {  
+    name: 'Asia',  
+    value: 300,  
+    children: \[  
+      { name: 'China', value: 150 },  
+      { name: 'India', value: 100 }  
+    \]  
+  },  
+  {  
+    name: 'Europe',  
+    value: 200  
+  }  
+\]  
+  
+
+* * *
+
+### 3\. Funnel/Pyramid Chart
+
+Funnel charts show the successive reduction of data as it passes through sequential phases.
+
+| Data Structure Key | Description | Example Value |
+| --- | --- | --- |
+| series.type | Must be set to 'funnel'. | 'funnel' |
+| series.data | A flat array of objects, where each object represents a stage in the funnel. | \[{value: 100, name: 'Stage A'}\] |
+| Key Properties | value, name | value determines the width of the funnel section. name is the stage label. ECharts often sorts this data by value by default (largest at the top) unless specified otherwise. |
+| Specific Parameters | sort, gap, funnelAlign | sort controls the order (e.g., 'descending' or 'none'). gap sets the spacing between funnel segments. funnelAlign controls whether the segments are aligned to the 'left', 'right', or 'center'. |
+
+Example of data structure:
+
+JSON
+
+data: \[  
+  { value: 1000, name: 'Impressions' },  
+  { value: 500, name: 'Clicks' },  
+  { value: 100, name: 'Conversions' }  
+\]  
+  
+
+* * *
+
+### 4\. Gauge/Dial Chart
+
+Gauge charts display a single value within a minimum and maximum range, often divided into color-coded sections.
+
+| Data Structure Key | Description | Example Value |
+| --- | --- | --- |
+| series.type | Must be set to 'gauge'. | 'gauge' |
+| series.data | An array containing a single object with the current value to be displayed by the pointer. | \[{value: 85, name: 'Completion'}\] |
+| Key Properties | value, name | value is the pointer reading. name is the label for the pointer. |
+| Specific Parameters | min, max, startAngle, endAngle, axisLine.lineStyle.color | min and max set the scale boundaries. The axisLine.lineStyle.color is a critical parameter where you define color stops to create the colored sections (e.g., green, yellow, red) on the gauge track. |
+
+Example of series configuration:
+
+JSON
+
+  
+  
+
+series: \[  
+  {  
+    type: 'gauge',  
+    min: 0,  
+    max: 100,  
+    data: \[{ value: 75.5, name: 'KPI Score' }\],  
+    axisLine: {  
+      lineStyle: {  
+        width: 30,  
+        color: \[  
+          \[0.6, '#63869e'\], // 0% to 60% is blue/grey  
+          \[0.8, '#c23531'\], // 60% to 80% is red  
+          \[1, '#2f4554'\]    // 80% to 100% is dark blue  
+        \]  
+      }  
+    }  
+  }  
+\]

@@ -13,7 +13,10 @@ export default defineEventHandler(async (event) => {
     tableNames: string[]
   }
 
+  console.log(`[AUTO_JOIN_API] Auto-join request for connection ${connectionId} with tables:`, tableNames)
+
   if (!connectionId || !Array.isArray(tableNames) || tableNames.length === 0) {
+    console.error(`[AUTO_JOIN_API] Invalid request - missing connectionId or tableNames:`, { connectionId, tableNames })
     throw createError({ statusCode: 400, statusMessage: 'Invalid request: connectionId and tableNames are required' })
   }
 
@@ -38,7 +41,22 @@ export default defineEventHandler(async (event) => {
   }
 
   // Find join paths using our algorithm
+  console.log(`[AUTO_JOIN_API] Running auto-join algorithm with ${schemaResult.tables.length} available tables`)
   const joinResult = findJoinPaths(schemaResult.tables, tableNames)
+
+  console.log(`[AUTO_JOIN_API] Auto-join result for connection ${connectionId}:`, {
+    status: joinResult.status,
+    message: joinResult.message,
+    joinGraphLength: joinResult.joinGraph.length,
+    sqlLength: joinResult.sql.length,
+    hasDetails: !!joinResult.details
+  })
+
+  if (joinResult.status === 'disconnected') {
+    console.error(`[AUTO_JOIN_API] Auto-join failed - tables are disconnected:`, joinResult.message)
+  } else if (joinResult.status === 'ok') {
+    console.log(`[AUTO_JOIN_API] Auto-join successful - generated SQL:`, joinResult.sql)
+  }
 
   return {
     status: joinResult.status,
@@ -50,12 +68,16 @@ export default defineEventHandler(async (event) => {
 })
 
 async function getSchemaForJoinAnalysis(cfg: any, tableNames: string[]) {
+  console.log(`[AUTO_JOIN_API] Loading schema for join analysis with tables:`, tableNames)
+
   // We'll need to import the withMySqlConnectionConfig function
   const { withMySqlConnectionConfig } = await import('../../utils/mysqlClient')
 
   return await withMySqlConnectionConfig(cfg, async (conn) => {
     // Get tables and their relationships
     const tableNamesList = tableNames.map(name => `'${name}'`).join(',')
+
+    console.log(`[AUTO_JOIN_API] Querying database for tables: ${tableNamesList}`)
 
     // Get all tables that might be involved in joins
     const [tablesResult] = await conn.query(`
@@ -68,7 +90,10 @@ async function getSchemaForJoinAnalysis(cfg: any, tableNames: string[]) {
 
     const tables = tablesResult as Array<{ id: string; name: string; label: string }>
 
+    console.log(`[AUTO_JOIN_API] Found ${tables.length} tables in database:`, tables.map(t => t.name))
+
     if (!tables.length) {
+      console.error(`[AUTO_JOIN_API] No tables found in database for: ${tableNamesList}`)
       return { tables: [], relationships: [] }
     }
 
@@ -108,6 +133,7 @@ async function getSchemaForJoinAnalysis(cfg: any, tableNames: string[]) {
       JOIN information_schema.key_column_usage kcu
         ON tc.constraint_name = kcu.constraint_name
        AND tc.table_schema = kcu.table_schema
+       AND tc.table_name = kcu.table_name
       WHERE tc.table_schema = DATABASE()
         AND tc.table_name IN (${tableNamesList})
         AND tc.constraint_type = 'PRIMARY KEY'
@@ -175,9 +201,22 @@ async function getSchemaForJoinAnalysis(cfg: any, tableNames: string[]) {
       foreignKeys: foreignKeysByTable[table.id] || []
     }))
 
-    return {
+    const result = {
       tables: enrichedTables,
       relationships: Object.values(foreignKeysByTable).flat()
     }
+
+    console.log(`[AUTO_JOIN_API] Schema analysis complete:`, {
+      tableCount: result.tables.length,
+      tables: result.tables.map(t => ({
+        name: t.tableName,
+        columnCount: t.columns.length,
+        primaryKeyCount: t.primaryKey.length,
+        foreignKeyCount: t.foreignKeys.length
+      })),
+      totalRelationships: result.relationships.length
+    })
+
+    return result
   })
 }
