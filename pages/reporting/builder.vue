@@ -6,17 +6,6 @@
           <!-- Column 1: Connection + Datasets -->
           <div class="resizable-column flex-1">
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
-              <div class="mb-2">
-                <label class="text-xs block mb-1 text-neutral-300">Data Connection</label>
-                <div v-if="connectionsLoading" class="flex items-center gap-2 text-sm text-neutral-300">
-                  <Icon name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
-                  <span>Loading connections...</span>
-                </div>
-                <select v-else v-model.number="connectionId" class="border border-dark-lighter bg-dark-light text-white rounded px-2 py-1 w-full text-sm">
-                  <option :value="null" disabled>Select</option>
-                  <option v-for="c in connections" :key="c.id" :value="c.id">{{ c.internal_name }}</option>
-                </select>
-              </div>
 
               <!-- Dataset search (hidden for now) -->
               <div v-if="false" class="relative">
@@ -84,7 +73,7 @@
 
     <template #center>
       <div class="p-6">
-        <ReportingBuilder :sidebar-visible="sidebarVisible" @toggle-sidebar="sidebarVisible = !sidebarVisible" />
+        <ReportingBuilder :sidebar-visible="sidebarVisible" :connection-id="connectionId" @toggle-sidebar="sidebarVisible = !sidebarVisible" />
       </div>
     </template>
 

@@ -43,7 +43,12 @@ export function useReportingService() {
   }
 
   async function runPreview(payload: any): Promise<PreviewResponse> {
-    return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body: payload })
+    const body = {
+      ...payload,
+      // Prefer explicit payload.connectionId; otherwise fall back to selectedConnectionId
+      connectionId: payload?.connectionId ?? selectedConnectionId.value ?? null
+    }
+    return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body })
   }
 
   async function runSql(sql: string, limit?: number): Promise<PreviewResponse> {

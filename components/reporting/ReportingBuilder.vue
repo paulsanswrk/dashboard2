@@ -6,7 +6,7 @@
         <button
           class="px-3 py-2 border rounded flex items-center gap-2"
           @click="onTestPreview"
-          :disabled="!selectedDatasetId || loading"
+          :disabled="!canAutoPreview || loading"
         >
           <Icon v-if="loading" name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
           <Icon v-else name="heroicons:arrow-path" class="w-4 h-4" />
@@ -83,11 +83,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, nextTick } from 'vue'
 
 // Props
 const props = defineProps<{
   sidebarVisible?: boolean
+  connectionId?: number | null
 }>()
 
 // Emits
@@ -340,18 +341,27 @@ const sqlTextComputed = computed({
 })
 
 async function onTestPreview() {
-  if (!selectedDatasetId.value) return
+  // Determine datasetId: use selectedDatasetId if set, otherwise use first table from X dimensions
+  let datasetId = selectedDatasetId.value
+  if (!datasetId && xDimensions.value.length > 0) {
+    datasetId = xDimensions.value[0].table || null
+  }
+  if (!datasetId && yMetrics.value.length > 0) {
+    datasetId = yMetrics.value[0].table || null
+  }
+  if (!datasetId) return
+
   loading.value = true
   try {
     const res = await runPreview({
-      datasetId: selectedDatasetId.value,
+      datasetId,
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
       filters: filters.value,
       breakdowns: breakdowns.value,
       joins: joins.value as any,
       limit: 100,
-      connectionId: selectedConnectionId.value as any
+      connectionId: selectedConnectionId.value ?? props.connectionId ?? null
     })
     rows.value = res.rows
     columns.value = res.columns
@@ -364,12 +374,68 @@ async function onTestPreview() {
 }
 
 // Auto preview on state change (debounced by Vue batching)
-const canAutoPreview = computed(() => !!selectedDatasetId.value)
+const canAutoPreview = computed(() => {
+  // Can preview if we have dimensions/metrics configured
+  const hasData = xDimensions.value.length > 0 || yMetrics.value.length > 0
+  if (!hasData) return false
+
+  // Can preview if we have a selectedDatasetId, or can determine one from the data
+  if (selectedDatasetId.value) return true
+
+  // Check if we can determine datasetId from X dimensions or Y metrics
+  if (xDimensions.value.length > 0 && xDimensions.value[0].table) return true
+  if (yMetrics.value.length > 0 && yMetrics.value[0].table) return true
+
+  return false
+})
 watch([selectedDatasetId, xDimensions, yMetrics, filters, breakdowns, joins], async () => {
   if (!canAutoPreview.value) return
   if (useSql.value) return
   await onTestPreview()
 }, { deep: true })
+
+// Initial preview on mount if we have sufficient parameters
+onMounted(() => {
+  // Use nextTick to ensure component is fully mounted and reactive system is ready
+  nextTick(async () => {
+    // Wait for connectionId to be available if we need it
+    const checkAndRunPreview = async () => {
+      try {
+        // Check if we can determine a datasetId and have data to preview
+        const hasData = xDimensions.value.length > 0 || yMetrics.value.length > 0
+        const canDetermineDatasetId = selectedDatasetId.value ||
+          (xDimensions.value.length > 0 && xDimensions.value[0].table) ||
+          (yMetrics.value.length > 0 && yMetrics.value[0].table)
+
+        // Only run preview if we have data, can determine datasetId, and have a connectionId available
+        const hasConnection = (selectedConnectionId.value != null) || (props.connectionId != null)
+        if (hasData && canDetermineDatasetId && hasConnection && !useSql.value) {
+          await onTestPreview()
+          return true // Preview was run
+        }
+        return false // Preview not ready yet
+      } catch (error) {
+        // Silently handle errors during initial preview to prevent component mounting issues
+        console.warn('Failed to load initial preview:', error)
+        return true // Don't retry on error
+      }
+    }
+
+    // Try to run preview immediately
+    const previewRun = await checkAndRunPreview()
+
+    // If preview wasn't run (connectionId not ready), set up a watcher to run it when connectionId becomes available
+    if (!previewRun) {
+      const unwatch = watch([() => props.connectionId, selectedConnectionId], async () => {
+        const hasConnection = (selectedConnectionId.value != null) || (props.connectionId != null)
+        if (hasConnection && canAutoPreview.value && !useSql.value) {
+          unwatch()
+          await onTestPreview()
+        }
+      })
+    }
+  })
+})
 
 function onUndo() { undo() }
 function onRedo() { redo() }
