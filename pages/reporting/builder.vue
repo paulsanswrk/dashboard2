@@ -60,7 +60,7 @@
                 <ReportingZones :zone-config="zoneConfig" />
               </ClientOnly>
               <div>
-                <ReportingFilters v-if="schema.length" :schema="schema" />
+                <ReportingFilters v-if="showFilters" :schema="schema" :disabled="false" />
               </div>
               <div v-if="relationships.length" class="mt-4">
                 <ReportingJoinsImplicit :relationships="relationships" />
@@ -112,7 +112,7 @@ const schema = ref<any[]>([])
 const relationships = ref<any[]>([])
 const connections = ref<Array<{ id: number; internal_name: string }>>([])
 const connectionId = ref<number | null>(null)
-const { selectedDatasetId: selectedIdState, joins } = useReportState()
+const { selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns } = useReportState()
 
 // Zone configuration based on chart type (we'll get this from the builder or use a default)
 const zoneConfig = computed(() => {
@@ -126,6 +126,10 @@ const zoneConfig = computed(() => {
     breakdownLabel: 'Breakdown'
   }
 })
+
+// Show Filters only when there are fields in Zones and a connection is selected
+const hasZoneFields = computed(() => (xDimensions.value.length + yMetrics.value.length + breakdowns.value.length) > 0)
+const showFilters = computed(() => Boolean(connectionId.value) && hasZoneFields.value)
 
 // Loading states
 const connectionsLoading = ref(true)
@@ -217,6 +221,8 @@ function selectDataset(id: string) {
   // Toggle collapse if the same dataset is clicked
   if (expandedDatasetId.value === id) {
     expandedDatasetId.value = null
+    setSelectedDatasetId(null)
+    setReportSelectedDatasetId(null)
     return
   }
   // If selecting a different dataset, collapse current columns first
@@ -226,6 +232,7 @@ function selectDataset(id: string) {
   }
   expandedDatasetId.value = id
   setSelectedDatasetId(id)
+  setReportSelectedDatasetId(id)
 }
 
 
@@ -238,14 +245,27 @@ async function listDatasetsQuery() {
 watch(selectedDatasetId, async (id) => {
   if (id) {
     schemaLoading.value = true
-    schema.value = await getSchema(id)
-    relationships.value = await getRelationships(id)
+    try {
+      schema.value = await getSchema(id)
+      relationships.value = await getRelationships(id)
+    } catch (error) {
+      console.error('Failed to load schema or relationships:', error)
+      schema.value = []
+      relationships.value = []
+    }
     schemaLoading.value = false
     // reset any previously applied joins when dataset changes
     joins.value = []
   } else {
     schema.value = []
     relationships.value = []
+  }
+})
+
+// Ensure dataset and schema load when state is restored from URL (zones may be pre-populated)
+watch(selectedIdState, (id) => {
+  if (id && selectedDatasetId.value !== id) {
+    setSelectedDatasetId(id)
   }
 })
 

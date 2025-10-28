@@ -26,7 +26,7 @@ export function useReportingService() {
     return await $fetch<Dataset[]>("/api/reporting/datasets")
   }
 
-  function setSelectedDatasetId(id: string) {
+  function setSelectedDatasetId(id: string | null) {
     selectedDatasetId.value = id
   }
 
