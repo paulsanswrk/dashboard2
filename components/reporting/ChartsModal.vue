@@ -2,11 +2,11 @@
   <div v-if="open" class="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
     <div class="bg-white rounded shadow w-full max-w-xl p-4">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-medium">Saved Reports</h3>
+        <h3 class="text-lg font-medium">Saved Charts</h3>
         <button class="text-sm underline" @click="$emit('close')">Close</button>
       </div>
       <div class="mb-3 flex items-center gap-2">
-        <input v-model="newName" class="border rounded px-2 py-1 flex-1" placeholder="Report name" />
+        <input v-model="newName" class="border rounded px-2 py-1 flex-1" placeholder="Chart name" />
         <button class="px-3 py-1 border rounded" @click="saveCurrent" :disabled="!newName">Save</button>
       </div>
       <div class="max-h-80 overflow-auto">
@@ -19,7 +19,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in reports" :key="r.id" class="border-b">
+            <tr v-for="r in charts" :key="r.id" class="border-b">
               <td class="py-2">{{ r.name }}</td>
               <td class="py-2">{{ r.updatedAt }}</td>
               <td class="py-2 text-right space-x-2">
@@ -27,20 +27,20 @@
                 <button class="text-red-600 underline" @click="remove(r.id)">Delete</button>
               </td>
             </tr>
-            <tr v-if="!reports.length">
-              <td colspan="3" class="py-4 text-center text-gray-500">No saved reports yet</td>
+            <tr v-if="!charts.length">
+              <td colspan="3" class="py-4 text-center text-gray-500">No saved charts yet</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
-  
+
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { useReportsService } from '@/composables/useReportsService'
+import { useChartsService } from '@/composables/useChartsService'
 import { useReportState } from '@/composables/useReportState'
 
 const props = defineProps<{
@@ -54,7 +54,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'load-report', state: {
+  (e: 'load-chart', state: {
     dataConnectionId: number | null
     useSql: boolean
     overrideSql: boolean
@@ -64,18 +64,18 @@ const emit = defineEmits<{
   }): void
 }>()
 
-const { listReports, getReport, createReport, deleteReport } = useReportsService()
+const { listCharts, getChart, createChart, deleteChart } = useChartsService()
 const { selectedDatasetId, xDimensions, yMetrics, filters, breakdowns, excludeNullsInDimensions, appearance, syncUrlNow } = useReportState()
 
-const reports = ref<Array<{ id: number; name: string; updatedAt?: string }>>([])
+const charts = ref<Array<{ id: number; name: string; updatedAt?: string }>>([])
 const newName = ref('')
-
-async function refresh() {
-  reports.value = await listReports()
-}
 
 onMounted(() => { if (props.open) refresh() })
 watch(() => props.open, (val) => { if (val) refresh() })
+
+async function refresh() {
+  charts.value = await listCharts()
+}
 
 async function saveCurrent() {
   const state = {
@@ -95,13 +95,13 @@ async function saveCurrent() {
     // Chart configuration
     chartType: props.chartType
   }
-  await createReport({ name: newName.value, state })
+  await createChart({ name: newName.value, state })
   newName.value = ''
   await refresh()
 }
 
 async function load(id: number) {
-  const r = await getReport(id)
+  const r = await getChart(id)
   if (!r?.state) return
   // Apply snapshot into state
   const s = r.state
@@ -114,7 +114,7 @@ async function load(id: number) {
   appearance.value = s.appearance || {}
 
   // Emit SQL and chart state for ReportingBuilder to handle
-  emit('load-report', {
+  emit('load-chart', {
     dataConnectionId: s.dataConnectionId || null,
     useSql: s.useSql || false,
     overrideSql: s.overrideSql || false,
@@ -128,12 +128,10 @@ async function load(id: number) {
 }
 
 async function remove(id: number) {
-  await deleteReport(id)
+  await deleteChart(id)
   await refresh()
 }
 </script>
 
 <style scoped>
 </style>
-
-

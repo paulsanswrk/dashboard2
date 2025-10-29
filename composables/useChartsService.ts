@@ -1,0 +1,28 @@
+export type SavedChart = {
+  id: number
+  name: string
+  description?: string
+  ownerEmail?: string
+  createdAt?: string
+  updatedAt?: string
+  state?: any
+}
+
+export function useChartsService() {
+  async function listCharts(): Promise<SavedChart[]> {
+    return await $fetch<SavedChart[]>('/api/reporting/charts')
+  }
+  async function getChart(id: number): Promise<SavedChart | null> {
+    return await $fetch<SavedChart | null>('/api/reporting/charts', { params: { id } })
+  }
+  async function createChart(payload: { name: string; description?: string; state: any }): Promise<{ success: boolean; chartId: number }> {
+    return await $fetch<{ success: boolean; chartId: number }>('/api/reporting/charts', { method: 'POST', body: payload })
+  }
+  async function updateChart(payload: { id: number; name?: string; description?: string; state?: any }): Promise<{ success: boolean }> {
+    return await $fetch<{ success: boolean }>('/api/reporting/charts', { method: 'PUT', body: payload })
+  }
+  async function deleteChart(id: number): Promise<{ success: boolean }> {
+    return await $fetch<{ success: boolean }>('/api/reporting/charts', { method: 'DELETE', params: { id } })
+  }
+  return { listCharts, getChart, createChart, updateChart, deleteChart }
+}

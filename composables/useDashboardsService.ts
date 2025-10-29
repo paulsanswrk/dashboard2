@@ -1,0 +1,71 @@
+export type Dashboard = {
+  id: string
+  name: string
+  owner_id: string
+  is_public: boolean
+  password?: string
+  created_at: string
+}
+
+export type DashboardReport = {
+  dashboard_id: string
+  chart_id: number
+  position: any
+  created_at: string
+}
+
+export function useDashboardsService() {
+  async function listDashboards(): Promise<Dashboard[]> {
+    return await $fetch<Dashboard[]>('/api/dashboards')
+  }
+
+  async function getDashboard(id: string): Promise<{ id: string; name: string; created_at: string; charts: Array<{ chartId: number; name: string; position: any; state?: any }> }> {
+    return await $fetch(`/api/dashboards/${id}`)
+  }
+
+  async function getDashboardFull(id: string): Promise<{ id: string; name: string; isPublic: boolean; createdAt: string; charts: Array<{ id: number; name: string; position: any; state: any; data: { columns: any[]; rows: any[]; meta?: any } }> }> {
+    return await $fetch(`/api/dashboards/${id}/full`)
+  }
+
+  async function createDashboard(payload: {
+    name: string
+    isPublic?: boolean
+    password?: string
+  }): Promise<{ success: boolean; dashboardId: string }> {
+    return await $fetch<{ success: boolean; dashboardId: string }>('/api/dashboards', {
+      method: 'POST',
+      body: payload
+    })
+  }
+
+  async function updateDashboard(payload: { id: string; name?: string; layout?: Array<{ chartId: number; position: any }> }): Promise<{ success: boolean }> {
+    return await $fetch<{ success: boolean }>('/api/dashboards', {
+      method: 'PUT',
+      body: payload
+    })
+  }
+
+  async function deleteDashboard(id: string): Promise<{ success: boolean }> {
+    return await $fetch<{ success: boolean }>('/api/dashboards', {
+      method: 'DELETE',
+      params: { id }
+    })
+  }
+
+  async function createDashboardReport(payload: {
+    dashboardId: string
+    chartId: number
+    position: any
+  }): Promise<{ success: boolean }> {
+    return await $fetch<{ success: boolean }>('/api/dashboard-reports', {
+      method: 'POST',
+      body: {
+        dashboardId: payload.dashboardId,
+        chartId: payload.chartId,
+        position: payload.position
+      }
+    })
+  }
+
+  return { listDashboards, getDashboard, getDashboardFull, createDashboard, updateDashboard, deleteDashboard, createDashboardReport }
+}

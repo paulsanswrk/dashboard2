@@ -14,7 +14,15 @@
         </button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
-        <button class="px-3 py-2 border rounded" @click="openReports = true" :disabled="loading">Save / Load</button>
+        <button class="px-3 py-2 border rounded" @click="openReports = true" :disabled="loading">Save / Load Chart</button>
+        <button
+          class="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+          @click="openSelectBoard = true"
+          :disabled="loading"
+        >
+          <Icon name="heroicons:square-3-stack-3d" class="w-4 h-4" />
+          Save Chart to Dashboard
+        </button>
         <div class="flex items-center space-x-2 ml-4">
           <label class="text-sm font-medium text-gray-700">Show SQL</label>
           <button
@@ -78,7 +86,22 @@
                    :chart-type="chartType" :appearance="appearance" :loading="loading" />
       </div>
     </div>
-    <ReportsModal :open="openReports" @close="openReports=false" />
+    <ChartsModal
+      :open="openReports"
+      :data-connection-id="selectedConnectionId ?? connectionId ?? getUrlConnectionId()"
+      :use-sql="useSql"
+      :override-sql="overrideSql"
+      :sql-text="sqlText"
+      :actual-executed-sql="actualExecutedSql"
+      :chart-type="chartType"
+      @close="openReports=false"
+      @load-chart="handleLoadChart"
+    />
+    <SelectBoardModal
+      :is-open="openSelectBoard"
+      @close="openSelectBoard=false"
+      @save="handleSaveToDashboard"
+    />
   </div>
 </template>
 
@@ -97,13 +120,18 @@ const emit = defineEmits<{
   'preview-meta': [{ error: string | null; warnings: string[] }]
 }>()
 import ReportingChart from './ReportingChart.vue'
-import ReportsModal from './ReportsModal.vue'
+import ChartsModal from './ChartsModal.vue'
 import ReportingPreview from './ReportingPreview.vue'
+import SelectBoardModal from '../SelectBoardModal.vue'
 import { useReportingService } from '../../composables/useReportingService'
 import { useReportState } from '../../composables/useReportState'
+import { useChartsService } from '../../composables/useChartsService'
+import { useDashboardsService } from '../../composables/useDashboardsService'
 
-const { runPreview, runSql, selectedDatasetId, selectedConnectionId } = useReportingService()
-const { xDimensions, yMetrics, filters, breakdowns, appearance, joins, undo, redo, canUndo, canRedo } = useReportState()
+const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
+const { xDimensions, yMetrics, filters, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions } = useReportState()
+const { createChart } = useChartsService()
+const { createDashboard, createDashboardReport } = useDashboardsService()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
@@ -112,6 +140,7 @@ const serverWarnings = ref<string[]>([])
 const chartType = ref<'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'>('table')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 const openReports = ref(false)
+const openSelectBoard = ref(false)
 const useSql = ref(false)
 const overrideSql = ref(false)
 const sqlText = ref('')
@@ -452,6 +481,100 @@ onMounted(() => {
 
 function onUndo() { undo() }
 function onRedo() { redo() }
+
+function handleLoadChart(state: {
+  dataConnectionId: number | null
+  useSql: boolean
+  overrideSql: boolean
+  sqlText: string
+  actualExecutedSql: string
+  chartType: string
+}) {
+  // Set connection ID if provided
+  if (state.dataConnectionId !== null) {
+    setSelectedConnectionId(state.dataConnectionId)
+  }
+
+  useSql.value = state.useSql
+  overrideSql.value = state.overrideSql
+  sqlText.value = state.sqlText
+  actualExecutedSql.value = state.actualExecutedSql
+  chartType.value = state.chartType as typeof chartType.value
+}
+
+async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string }) {
+  if (data.selectedDestination !== 'new') {
+    // For now, only handle 'new' dashboard creation
+    return
+  }
+
+  try {
+    loading.value = true
+
+    // Get current report state
+    const reportState = {
+      selectedDatasetId: selectedDatasetId.value,
+      dataConnectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId(),
+      xDimensions: xDimensions.value,
+      yMetrics: yMetrics.value,
+      filters: filters.value,
+      breakdowns: breakdowns.value,
+      excludeNullsInDimensions: excludeNullsInDimensions.value,
+      appearance: appearance.value,
+      // SQL configuration
+      useSql: useSql.value,
+      overrideSql: overrideSql.value,
+      sqlText: sqlText.value,
+      actualExecutedSql: actualExecutedSql.value,
+      // Chart configuration
+      chartType: chartType.value
+    }
+
+    // Save the chart
+    const chartResult = await createChart({
+      name: data.saveAsName,
+      state: reportState
+    })
+
+    if (!chartResult.success) {
+      throw new Error('Failed to save chart')
+    }
+
+    // Create the dashboard
+    const dashboardResult = await createDashboard({
+      name: data.saveAsName,
+      isPublic: false
+    })
+
+    if (!dashboardResult.success) {
+      throw new Error('Failed to create dashboard')
+    }
+
+    // Create the dashboard-report relationship with default position
+    const position = {
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 4,
+      i: chartResult.chartId.toString()
+    }
+
+    await createDashboardReport({
+      dashboardId: dashboardResult.dashboardId,
+      chartId: chartResult.chartId,
+      position: position
+    })
+
+    // Show success message (you might want to add a toast notification system)
+    alert(`Chart "${data.saveAsName}" has been saved to a new dashboard!`)
+
+  } catch (error) {
+    console.error('Failed to save chart to dashboard:', error)
+    alert('Failed to save chart to dashboard. Please try again.')
+  } finally {
+    loading.value = false
+  }
+}
 
 async function onRunSql(preserveChartType = false) {
   loading.value = true
