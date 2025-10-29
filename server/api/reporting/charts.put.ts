@@ -14,7 +14,16 @@ export default defineEventHandler(async (event) => {
   const updates: any = { updated_at: new Date().toISOString() }
   if (name != null) updates.name = name
   if (description != null) updates.description = description
-  if (state != null) updates.state_json = state
+  if (state != null) {
+    const publicKeys = new Set(['appearance', 'chartType'])
+    const publicPart: any = {}
+    const internalPart: any = {}
+    for (const [k, v] of Object.entries(state)) {
+      if (publicKeys.has(k)) publicPart[k] = v
+      else internalPart[k] = v
+    }
+    updates.state_json = { ...publicPart, internal: internalPart }
+  }
   const { error } = await supabaseAdmin
     .from('charts')
     .update(updates)

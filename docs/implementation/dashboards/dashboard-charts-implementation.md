@@ -102,16 +102,19 @@ Deletes a dashboard (owner-only).
 
 ### Dashboard Full Load API (`/api/dashboards/[id]/full`)
 
-Single endpoint that returns everything needed to render a dashboard:
-- If `is_public` is true: no auth required; otherwise only the owner can load.
-- Loads Supabase entities first (dashboard, links, charts), then executes external SQL for each chart in parallel using the saved `dataConnectionId`.
-- Response:
-```
-{
-  id, name, isPublic, createdAt,
-  charts: [{ id, name, position, state, data: { columns, rows, meta } }]
-}
-```
+Single endpoint that returns everything needed to render a dashboard. Sensitive fields are stored under `state_json.internal` and are removed from the response if the user is not the owner.
+
+- Auth behavior:
+  - Public dashboards: response is public-safe (no internal fields), but includes chart data required for rendering.
+  - Private dashboards: only the owner may load; owner receives flattened state (public + internal fields for backward compatibility).
+- Server process:
+  1) Load dashboard, links, and charts from Supabase.
+  2) Use `state_json.internal` to execute external SQL for all charts in parallel.
+  3) Return data; omit SQL and internal fields for non-owners.
+- Response for non-owners: `{ id, name, isPublic, createdAt, charts: [{ id, name, position, state (public only), data: { columns, rows } }] }`
+- Response for owners: `{ id, name, isPublic, createdAt, charts: [{ id, name, position, state (flattened), data: { columns, rows, meta } }] }`
+
+Note: Charts saved prior to this refactor (without `state_json.internal`) are not supported by this endpoint or the builder APIs.
 
 ## 🎨 Frontend Components
 
@@ -178,42 +181,28 @@ Renders saved chart state without builder controls. Props:
 
 ## 📊 Chart State Structure
 
-Complete chart state saved in `state_json`:
+Complete chart state saved in `state_json` with sensitive fields wrapped under `internal`:
 
 ```typescript
 {
-  // Connection & Dataset
-  selectedDatasetId: string | null,
-  dataConnectionId: number | null,
+  // Public part
+  appearance: { /* palette, labels, legend, formatting */ },
+  chartType: 'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey',
 
-  // Dimensions & Metrics
-  xDimensions: Field[],
-  yMetrics: Field[],
-  filters: Filter[],
-  breakdowns: Field[],
-  excludeNullsInDimensions: boolean,
-
-  // Appearance
-  appearance: {
-    palette: any[],
-    stacked: boolean,
-    chartTitle: string,
-    dateFormat: string,
-    xAxisLabel: string,
-    yAxisLabel: string,
-    legendTitle: string,
-    numberFormat: { decimalPlaces: number, thousandsSeparator: boolean },
-    legendPosition: string
-  },
-
-  // SQL Configuration
-  useSql: boolean,
-  overrideSql: boolean,
-  sqlText: string,
-  actualExecutedSql: string,
-
-  // Chart Configuration
-  chartType: 'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'
+  // Internal (non-public) builder/query configuration
+  internal: {
+    selectedDatasetId: string | null,
+    dataConnectionId: number | null,
+    xDimensions: Field[],
+    yMetrics: Field[],
+    filters: Filter[],
+    breakdowns: Field[],
+    excludeNullsInDimensions: boolean,
+    useSql: boolean,
+    overrideSql: boolean,
+    sqlText: string,
+    actualExecutedSql: string
+  }
 }
 ```
 

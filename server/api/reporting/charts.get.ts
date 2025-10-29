@@ -20,12 +20,18 @@ export default defineEventHandler(async (event) => {
     if (!data) return null
     // Basic owner check: email match or owner_id empty in debug
     if (data.owner_email !== ownerEmail) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    const sj = (data as any).state_json || {}
+    if (!sj.internal) {
+      throw createError({ statusCode: 422, statusMessage: 'Legacy chart state unsupported (missing internal)' })
+    }
+    const flattened = { ...sj, ...sj.internal }
+    delete (flattened as any).internal
     return {
       id: data.id,
       name: data.name,
       description: data.description,
       ownerEmail: data.owner_email,
-      state: data.state_json,
+      state: flattened,
       createdAt: data.created_at,
       updatedAt: data.updated_at
     }

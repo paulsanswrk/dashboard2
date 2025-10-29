@@ -17,11 +17,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing name or state' })
   }
   const ownerId = undefined // optional; set below if we have a user
+  function toStoredState(input: any) {
+    if (!input || typeof input !== 'object') return input
+    const publicKeys = new Set(['appearance', 'chartType'])
+    const publicPart: any = {}
+    const internalPart: any = {}
+    for (const [k, v] of Object.entries(input)) {
+      if (publicKeys.has(k)) publicPart[k] = v
+      else internalPart[k] = v
+    }
+    return { ...publicPart, internal: internalPart }
+  }
+
   const payload: any = {
     name,
     description: description || '',
     owner_email: ownerEmail,
-    state_json: state
+    state_json: toStoredState(state)
   }
   // Set owner_id from session when available
   if (user?.id) payload.owner_id = user.id
