@@ -1,10 +1,6 @@
 <template>
   <div>
-    <div v-if="chartType === 'gauge'" class="p-6 border rounded bg-white text-center">
-      <div class="text-sm text-gray-500 mb-1">{{ kpiLabel }}</div>
-      <div class="text-4xl font-semibold">{{ kpiValue }}</div>
-    </div>
-    <div v-else ref="chartRef" class="w-full h-64 min-h-64"></div>
+    <div ref="chartRef" class="w-full h-96 min-h-96"></div>
   </div>
 </template>
 
@@ -217,12 +213,18 @@ function renderChart() {
       legend: {
         show: true,
         orient: 'horizontal',
-        bottom: 0
+        bottom: -10,
+        left: 'center',
+        padding: [10, 0, 0, 0]
+      },
+      grid: {
+        bottom: '15%'
       },
       series: [{
         name: props.appearance?.legendTitle || s.name,
         type: 'pie',
-        radius: type === 'doughnut' ? ['40%', '70%'] : '60%',
+        radius: type === 'doughnut' ? ['45%', '75%'] : '70%',
+        center: ['50%', '40%'],
         data: Array.isArray(s.data) && s.data.length > 0 && typeof s.data[0] === 'object' && s.data[0].name
           ? s.data.map((item: any, idx: number) => ({
               name: item.name,
@@ -327,8 +329,8 @@ function renderChart() {
           }
         },
         title: {
-          offsetCenter: [0, '-20%'],
-          fontSize: 20
+          offsetCenter: [0, '50%'],
+          fontSize: 16
         },
         detail: {
           fontSize: 30,
@@ -486,15 +488,18 @@ function renderChart() {
       legend: {
         show: true,
         data: funnelData.map(item => item.name),
-        top: '5%'
+        bottom: -10,
+        left: 'center',
+        orient: 'horizontal',
+        padding: [10, 0, 0, 0]
       },
       series: [{
         name: 'Funnel',
         type: 'funnel',
-        left: '10%',
-        top: '20%',
-        bottom: '10%',
-        width: '80%',
+        left: '5%',
+        top: '5%',
+        bottom: '15%',
+        width: '90%',
         min: 0,
         max: funnelData.length > 0 ? funnelData[0].value : 100,
         minSize: '0%',
@@ -955,12 +960,10 @@ function renderChart() {
 }
 
 onMounted(() => {
-  if (props.chartType === 'gauge') return
   renderChart()
 })
 
 watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance], () => {
-  if (props.chartType === 'gauge') { destroyChart(); return }
   renderChart()
 }, { deep: true })
 
