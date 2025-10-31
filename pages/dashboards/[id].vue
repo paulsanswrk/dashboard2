@@ -3,13 +3,16 @@
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <UInput v-model="dashboardName" class="w-72" />
-        <UButton color="orange" variant="solid" :loading="saving" @click="save">Save</UButton>
-        <UButton color="green" variant="solid" @click="openAddChartModal">Add Chart</UButton>
+        <UButton color="orange" variant="solid" :loading="saving" @click="save">Save Dashboard</UButton>
       </div>
       <div class="flex items-center gap-2">
         <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')">Desktop</UButton>
         <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')">Tablet</UButton>
         <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')">Mobile</UButton>
+        <UButton variant="outline" color="blue" size="xs" @click="autoLayout">
+          <Icon name="heroicons:arrows-pointing-out" class="w-4 h-4 mr-1" />
+          Auto Layout
+        </UButton>
       </div>
     </div>
 
@@ -260,12 +263,31 @@
       </UCard>
     </UModal>
 
-    <div class="border rounded bg-white dark:bg-gray-900 p-3 overflow-auto">
+    <div class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden">
+      <!-- Device width indicator overlay - only show for tablet/mobile -->
+      <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
+        <!-- Left overlay -->
+        <div
+          class="bg-black/10"
+          :style="{ width: leftOverlayWidth }"
+        ></div>
+        <!-- Center transparent area (for preview content) -->
+        <div
+          class="flex-shrink-0"
+          :style="{ width: previewWidth + 'px' }"
+        ></div>
+        <!-- Right overlay (mirrors left) -->
+        <div
+          class="bg-black/10"
+          :style="{ width: leftOverlayWidth }"
+        ></div>
+      </div>
+
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
         <span class="ml-3 text-gray-500">Loading dashboard...</span>
       </div>
-      <div v-else :style="{ width: previewWidth + 'px', margin: '0 auto' }">
+      <div v-else :style="{ width: previewWidth + 'px', margin: '0 auto', position: 'relative', zIndex: 20 }">
         <ClientOnly>
         <GridLayout
           v-model:layout="gridLayout"
@@ -290,13 +312,13 @@
           @layout-updated="onLayoutUpdated"
         >
             <GridItem v-for="item in gridLayout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
-              <UCard class="h-full w-full" :ui="{ 
+              <UCard class="h-full w-full" :ui="{
                 header: { base: 'bg-white dark:bg-gray-800', padding: 'sm:p-1 p-1' },
                 body: { padding: 'sm:p-1 p-1' }
               }">
                 <template #header>
                   <div class="flex items-center justify-between">
-                    <div class="font-medium">{{ findChartName(item.i) }}</div>
+                    <div class="font-medium text-center flex-1">{{ findChartName(item.i) }}</div>
                     <UDropdown :items="getChartMenuItems(item.i)" :popper="{ placement: 'bottom-end' }">
                       <UButton
                         variant="ghost"
@@ -325,6 +347,11 @@
 
 const route = useRoute()
 const id = computed(() => String(route.params.id))
+
+// Set page title
+useHead({
+  title: 'Edit Dashboard'
+})
 
 // Debug environment flag for development
 const { public: { debugEnv: runtimeDebugEnv } } = useRuntimeConfig()
@@ -375,7 +402,7 @@ const gridConfig = reactive({
   colNum: 12,
   rowHeight: 30,
   maxRows: Infinity,
-  margin: [10, 10],
+  margin: [20, 20], // Increased margins for more spacing between blocks
 
   // Behavior properties
   isDraggable: true,
@@ -395,20 +422,70 @@ const gridConfig = reactive({
   transformScale: 1,
 
   // Responsive properties
-  responsive: false,
+  responsive: true, // Enable responsive layout
   breakpoints: { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 },
   cols: { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }
 })
 
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
+
 const previewWidth = computed(() => {
   if (device.value === 'mobile') return 390
   if (device.value === 'tablet') return 768
-  return 1200
+  return 1600 // Increased from 1200px for better chart readability with 12 columns
+})
+
+// Calculate the left overlay width for the device preview indicator
+const leftOverlayWidth = computed(() => {
+  // The container has p-3 (12px) padding on each side, so inner width is containerWidth - 24px
+  // The preview is centered, so left overlay = (innerWidth - previewWidth) / 2
+  // But since we're using flexbox within the padded area, we can use percentages
+  return `calc((100% - ${previewWidth.value}px) / 2)`
 })
 
 function setDevice(d: 'desktop' | 'tablet' | 'mobile') {
   device.value = d
+}
+
+function autoLayout() {
+  // Reset all block widths to a standard width and arrange sequentially left-to-right, top-to-bottom
+  const colNum = gridConfig.colNum
+
+  // Sort items by their current y position to maintain some order, then reset positions
+  const sortedItems = [...gridLayout.value].sort((a, b) => a.y - b.y || a.x - b.x)
+
+  let currentX = 0
+  let currentY = 0
+  let maxHeightInRow = 0
+
+  sortedItems.forEach((item) => {
+    // Set width to a reasonable default (6 columns for a balanced layout, but not exceeding grid width)
+    const defaultWidth = Math.min(6, colNum)
+    item.w = Math.max(1, Math.min(defaultWidth, colNum)) // Ensure width is at least 1 and at most colNum
+
+    // Set height to a reasonable default if not set
+    if (!item.h || item.h < 1) {
+      item.h = 8 // Default height
+    }
+
+    // Check if this item fits in current row
+    if (currentX + item.w > colNum) {
+      // Move to next row
+      currentX = 0
+      currentY += maxHeightInRow
+      maxHeightInRow = 0
+    }
+
+    // Set position
+    item.x = currentX
+    item.y = currentY
+
+    // Track the maximum height in the current row
+    maxHeightInRow = Math.max(maxHeightInRow, item.h)
+
+    // Move to next position
+    currentX += item.w
+  })
 }
 
 function fromPositions() {

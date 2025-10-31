@@ -727,6 +727,10 @@ async function onRunSql(preserveChartType = false) {
       chartType.value = 'table'
     }
     serverError.value = (res.meta as any)?.error || null
+    // When SQL override is used, actualExecutedSql should contain the overridden SQL that was executed
+    if (overrideSql.value) {
+      actualExecutedSql.value = sqlText.value
+    }
   } finally {
     loading.value = false
   }
