@@ -49,7 +49,7 @@
 const { listDashboards, createDashboard, deleteDashboard } = useDashboardsService()
 
 const dashboards = ref<any[]>([])
-const loading = ref(false)
+const loading = ref(true)
 
 const columns = [
   { key: 'name', label: 'Name' },
