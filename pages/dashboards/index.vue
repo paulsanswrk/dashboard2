@@ -5,7 +5,7 @@
       <UButton color="orange" @click="openCreate">Create dashboard</UButton>
     </div>
 
-    <UTable :rows="dashboards" :columns="columns" class="mb-4">
+    <UTable :rows="dashboards" :columns="columns" :loading="loading" class="mb-4">
       <template #actions-data="{ row }">
         <div class="flex gap-2">
           <UButton size="xs" color="orange" variant="outline" @click="edit(row)">

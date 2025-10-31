@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody } from 'h3'
+import { defineEventHandler, readBody, createError } from 'h3'
 import { withMySqlConnection, withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 
@@ -24,18 +24,44 @@ export default defineEventHandler(async (event) => {
   }
 
   // Use specific connection if provided, otherwise fall back to default
-  const rows = connectionId
-    ? await (async () => {
-        const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
-        return withMySqlConnectionConfig(cfg, async (conn) => {
-          const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
+  let rows: any[]
+  try {
+    rows = connectionId
+      ? await (async () => {
+          const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
+          return withMySqlConnectionConfig(cfg, async (conn) => {
+            const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
+            return res as any[]
+          })
+        })()
+      : await withMySqlConnection(async (conn) => {
+          const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
           return res as any[]
         })
-      })()
-    : await withMySqlConnection(async (conn) => {
-        const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
-        return res as any[]
-      })
+  } catch (error: any) {
+    // Handle MySQL timeout errors specifically
+    if (error.code === 'PROTOCOL_SEQUENCE_TIMEOUT' || error.message?.includes('Query inactivity timeout')) {
+      return {
+        columns: [],
+        rows: [],
+        meta: {
+          error: 'Query timed out. The database query took too long to execute. Try simplifying your query or adding more specific filters.'
+        }
+      }
+    }
+    // Handle other MySQL errors
+    if (error.code || error.sqlState) {
+      return {
+        columns: [],
+        rows: [],
+        meta: {
+          error: `Database error: ${error.message || 'Unknown database error'}`
+        }
+      }
+    }
+    // Re-throw unexpected errors
+    throw error
+  }
 
   const columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
   return { columns, rows }

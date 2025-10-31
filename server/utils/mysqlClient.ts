@@ -54,7 +54,7 @@ export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, f
       user: cfg.user,
       password: cfg.password,
       database: cfg.database,
-      connectTimeout: 10000
+      connectTimeout: 30000
     })
     try {
       return await fn(conn)
@@ -92,7 +92,7 @@ export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, f
               password: cfg.password,
               database: cfg.database,
               stream,
-              connectTimeout: 10000
+              connectTimeout: 30000
             })
             const result = await fn(conn)
             resolve(result)

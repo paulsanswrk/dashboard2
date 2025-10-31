@@ -305,25 +305,26 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
               Back
             </UButton>
             <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <UButton 
-                @click="testConnection" 
+              <UButton
+                @click="testConnection"
                 :loading="isTestingConnection"
                 :disabled="isTestingConnection"
-                variant="outline" 
+                variant="outline"
+                color="gray"
                 class="w-full sm:w-auto"
               >
                 <Icon name="heroicons:play" class="w-4 h-4 mr-2" />
                 Test Connection
               </UButton>
-              <UButton 
+              <UButton
                 v-if="!createdConnectionId"
-                @click="nextStep" 
+                @click="nextStep"
                 :disabled="!connectionTestResult?.success || saving"
                 :loading="saving"
-                class="w-full sm:w-auto" 
+                class="w-full sm:w-auto"
                 color="green"
               >
-                Save and continue setup
+                {{ saving ? 'Analyzing...' : 'Save and continue setup' }}
               </UButton>
               <UButton 
                 v-else
