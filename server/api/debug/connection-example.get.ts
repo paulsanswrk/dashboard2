@@ -29,16 +29,8 @@ interface ConnectionExample {
 
 export default defineEventHandler(async (event) => {
   try {
-    // Only allow in debug mode
-    if (!isDebugMode()) {
-      throw createError({
-        statusCode: 403,
-        statusMessage: 'Connection example details are only available in debug mode'
-      })
-    }
-
     const query = getQuery(event)
-    const filename = query.filename as string
+    let filename = query.filename as string
 
     if (!filename) {
       throw createError({
@@ -49,6 +41,48 @@ export default defineEventHandler(async (event) => {
 
     if (!filename.endsWith('.json')) {
       filename += '.json'
+    }
+
+    // Handle hardcoded Sakila connection (always available)
+    if (filename === 'sakila.json') {
+      const sakilaConfig: ConnectionExample = {
+        description: 'sakila demo DB',
+        version: '1.0.0',
+        connection: {
+          internalName: 'sakila',
+          databaseName: 'sakila',
+          databaseType: 'mysql',
+          host: '13.234.119.243',
+          username: 'readonly',
+          password: 'Zr0OzD85003u',
+          port: '3306',
+          jdbcParams: '',
+          serverTime: 'GMT+02:00',
+          useSshTunneling: false,
+          sshAuthMethod: null,
+          sshPort: null,
+          sshUser: null,
+          sshHost: null,
+          sshPassword: null,
+          sshPrivateKey: null,
+          storageLocation: 'remote'
+        }
+      }
+
+      return {
+        success: true,
+        filename: 'sakila.json',
+        config: sakilaConfig.connection,
+        notes: sakilaConfig.notes
+      }
+    }
+
+    // For other examples, require debug mode
+    if (!isDebugMode()) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Additional connection examples are only available in debug mode'
+      })
     }
 
     // Read specific connection example file

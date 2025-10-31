@@ -29,44 +29,70 @@ interface ConnectionExample {
 
 export default defineEventHandler(async (event) => {
   try {
-    // Only allow in debug mode
-    if (!isDebugMode()) {
-      throw createError({
-        statusCode: 403,
-        statusMessage: 'Connection examples are only available in debug mode'
-      })
-    }
-
-    // Read connection examples directory
-    const connectionsDir = path.join(process.cwd(), 'docs', 'examples', 'connections')
-
-    if (!fs.existsSync(connectionsDir)) {
-      return {
-        success: false,
-        message: 'Connection examples directory not found',
-        examples: []
+    // Always available Sakila demo connection for testing
+    const sakilaExample = {
+      filename: 'sakila.json',
+      description: 'sakila demo DB',
+      config: {
+        description: 'sakila demo DB',
+        version: '1.0.0',
+        connection: {
+          internalName: 'sakila',
+          databaseName: 'sakila',
+          databaseType: 'mysql',
+          host: '13.234.119.243',
+          username: 'readonly',
+          password: 'Zr0OzD85003u',
+          port: '3306',
+          jdbcParams: '',
+          serverTime: 'GMT+02:00',
+          useSshTunneling: false,
+          sshAuthMethod: null,
+          sshPort: null,
+          sshUser: null,
+          sshHost: null,
+          sshPassword: null,
+          sshPrivateKey: null,
+          storageLocation: 'remote'
+        }
       }
     }
 
-    const files = fs.readdirSync(connectionsDir)
-    const jsonFiles = files.filter(file => file.endsWith('.json'))
+    const examples: Array<{ filename: string, description: string, config: ConnectionExample }> = [sakilaExample]
 
-    const examples: Array<{ filename: string, description: string, config: ConnectionExample }> = []
-
-    for (const file of jsonFiles) {
+    // If in debug mode, also load additional examples from filesystem
+    if (isDebugMode()) {
       try {
-        const filePath = path.join(connectionsDir, file)
-        const content = fs.readFileSync(filePath, 'utf-8')
-        const config: ConnectionExample = JSON.parse(content)
+        // Read connection examples directory
+        const connectionsDir = path.join(process.cwd(), 'docs', 'examples', 'connections')
 
-        examples.push({
-          filename: file,
-          description: config.description || file.replace('.json', ''),
-          config
-        })
+        if (fs.existsSync(connectionsDir)) {
+          const files = fs.readdirSync(connectionsDir)
+          const jsonFiles = files.filter(file => file.endsWith('.json'))
+
+          for (const file of jsonFiles) {
+            try {
+              const filePath = path.join(connectionsDir, file)
+              const content = fs.readFileSync(filePath, 'utf-8')
+              const config: ConnectionExample = JSON.parse(content)
+
+              // Avoid duplicate sakila entry
+              if (file !== 'sakila.json') {
+                examples.push({
+                  filename: file,
+                  description: config.description || file.replace('.json', ''),
+                  config
+                })
+              }
+            } catch (error) {
+              console.error(`Error parsing connection example ${file}:`, error)
+              // Continue with other files
+            }
+          }
+        }
       } catch (error) {
-        console.error(`Error parsing connection example ${file}:`, error)
-        // Continue with other files
+        console.error('Error loading additional connection examples:', error)
+        // Continue without filesystem examples
       }
     }
 

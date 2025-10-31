@@ -33,8 +33,9 @@
         <template #header>
           <div class="flex items-center justify-between">
             <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Please enter your data source credentials below</h2>
-            <div v-if="true || debugMode" class="flex flex-col gap-2">
-              <div class="flex items-center gap-2">
+            <div class="flex flex-col gap-2">
+              <!-- Show debug badges only when in debug mode -->
+              <div v-if="debugMode" class="flex items-center gap-2">
                 <UBadge color="orange" variant="soft" size="sm">
                   <Icon name="heroicons:bug-ant" class="w-3 h-3 mr-1" />
                   Debug Mode
@@ -44,10 +45,10 @@
                 </UBadge>
               </div>
 
-              <!-- Connection Examples Dropdown -->
+              <!-- Connection Examples Dropdown - Always available for testing -->
               <div v-if="connectionExamples.length > 0" class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Quick Fill from Examples:
+                  Quick Fill a demo connection:
                 </label>
                 <div class="flex gap-2">
                   <USelect
@@ -440,16 +441,9 @@ const loadDebugConfiguration = async () => {
   }
 }
 
-// Load connection examples for debug dropdown
+// Load connection examples for testing (always available)
 const loadConnectionExamples = async () => {
   try {
-    const config = useRuntimeConfig()
-    const isDebugEnabled = config.public.debugEnv && config.public.debugEnv.toLowerCase() === 'true'
-
-    if (!isDebugEnabled) {
-      return
-    }
-
     loadingExamples.value = true
     const response = await $fetch('/api/debug/connection-examples')
 
