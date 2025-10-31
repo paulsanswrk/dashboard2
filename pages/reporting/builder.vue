@@ -159,6 +159,8 @@
             ref="reportingBuilderRef"
             :sidebar-visible="sidebarVisible"
             :connection-id="connectionId"
+            :editing-chart-id="editingChartId"
+            :dashboard-id="dashboardId"
             @toggle-sidebar="sidebarVisible = !sidebarVisible"
             @preview-meta="onPreviewMeta"
           />
@@ -192,16 +194,20 @@ import ReportingFilters from '../../components/reporting/ReportingFilters.vue'
 import ReportingAppearancePanel from '../../components/reporting/ReportingAppearancePanel.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
 import { useReportingService } from '../../composables/useReportingService'
+import { useChartsService } from '../../composables/useChartsService'
 import { onMounted, ref, watch, computed, nextTick } from 'vue'
 import { useReportState } from '../../composables/useReportState'
 
 const { listConnections, listDatasets, getSchema, getRelationships, setSelectedDatasetId, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
+const { getChart } = useChartsService()
 const datasets = ref<Array<{ id: string; name: string; label?: string }>>([])
 const schema = ref<any[]>([])
 const relationships = ref<any[]>([])
 const connections = ref<Array<{ id: number; internal_name: string }>>([])
 const connectionId = ref<number | null>(null)
-const { selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns } = useReportState()
+const editingChartId = ref<number | null>(null)
+const dashboardId = ref<string | null>(null)
+const { selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, filters, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql } = useReportState()
 const reportingBuilderRef = ref<any>(null)
 
 // Zone configuration based on chart type (we'll get this from the builder or use a default)
@@ -407,6 +413,50 @@ watch(connectionId, (id) => {
   listDatasetsQuery().then((rows) => { datasets.value = rows as any }).finally(() => { datasetsLoading.value = false })
 })
 
+// Load chart from saved state
+async function loadChartFromState(state: any) {
+  // Set connection and dataset at the page level first
+  if (state.dataConnectionId) {
+    connectionId.value = state.dataConnectionId
+    setSelectedConnectionId(connectionId.value)
+
+    // Load datasets for this connection
+    try {
+      datasetsLoading.value = true
+      datasets.value = await listDatasetsQuery()
+      datasetsLoading.value = false
+    } catch (error) {
+      console.error('Failed to load datasets for connection:', state.dataConnectionId, error)
+      datasetsLoading.value = false
+      datasets.value = []
+    }
+  }
+
+  if (state.selectedDatasetId) {
+    setSelectedDatasetId(state.selectedDatasetId)
+    setReportSelectedDatasetId(state.selectedDatasetId)
+  }
+
+  // Set the state on the ReportingBuilder component after connection and dataset are ready
+  if (reportingBuilderRef.value && typeof reportingBuilderRef.value.handleLoadChartState === 'function') {
+    reportingBuilderRef.value.handleLoadChartState({
+      dataConnectionId: state.dataConnectionId || null,
+      useSql: state.useSql || false,
+      overrideSql: state.overrideSql || false,
+      sqlText: state.sqlText || '',
+      actualExecutedSql: state.actualExecutedSql || '',
+      selectedDatasetId: state.selectedDatasetId || null,
+      xDimensions: state.xDimensions || [],
+      yMetrics: state.yMetrics || [],
+      filters: state.filters || [],
+      breakdowns: state.breakdowns || [],
+      excludeNullsInDimensions: !!state.excludeNullsInDimensions,
+      appearance: state.appearance || {},
+      chartType: state.chartType || 'bar'
+    })
+  }
+}
+
 // AI assistant function
 async function sendAiMessage() {
   if (!aiInput.value.trim() || aiLoading.value) return
@@ -535,9 +585,30 @@ onMounted(async () => {
   // Seed from URL if present
   const url = new URL(window.location.href)
   const cid = url.searchParams.get('data_connection_id')
+  const chartIdParam = url.searchParams.get('chartId')
+  const dashboardIdParam = url.searchParams.get('dashboard_id')
+
   if (cid) {
     connectionId.value = Number(cid)
     setSelectedConnectionId(connectionId.value)
+  }
+
+  if (dashboardIdParam) {
+    dashboardId.value = dashboardIdParam
+  }
+
+  // Load chart if chartId is provided
+  if (chartIdParam) {
+    try {
+      editingChartId.value = Number(chartIdParam)
+      const chart = await getChart(editingChartId.value)
+      if (chart?.state) {
+        await loadChartFromState(chart.state)
+      }
+    } catch (error) {
+      console.error('Failed to load chart:', error)
+      editingChartId.value = null
+    }
   }
   if (connectionId.value) {
     datasetsLoading.value = true

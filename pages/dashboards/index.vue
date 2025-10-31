@@ -16,6 +16,11 @@
           </UButton>
         </div>
       </template>
+
+      <template #created_at-data="{ row }">
+        {{ formatDate(row.created_at) }}
+      </template>
+
     </UTable>
 
     <UModal v-model="isCreateOpen">
@@ -62,6 +67,16 @@ async function load() {
 }
 
 onMounted(load)
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
 function edit(row: any) {
   navigateTo(`/dashboards/${row.id}`)

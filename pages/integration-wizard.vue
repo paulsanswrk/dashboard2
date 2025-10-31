@@ -33,7 +33,7 @@
         <template #header>
           <div class="flex items-center justify-between">
             <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Please enter your data source credentials below</h2>
-            <div v-if="debugMode" class="flex flex-col gap-2">
+            <div v-if="true || debugMode" class="flex flex-col gap-2">
               <div class="flex items-center gap-2">
                 <UBadge color="orange" variant="soft" size="sm">
                   <Icon name="heroicons:bug-ant" class="w-3 h-3 mr-1" />

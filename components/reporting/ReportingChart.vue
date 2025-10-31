@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div ref="chartRef" class="w-full h-96 min-h-96"></div>
+    <div ref="chartRef" class="w-full h-full min-h-96"></div>
   </div>
 </template>
 
@@ -213,18 +213,18 @@ function renderChart() {
       legend: {
         show: true,
         orient: 'horizontal',
-        bottom: -10,
+        bottom: '0%',
         left: 'center',
-        padding: [10, 0, 0, 0]
+        padding: [5, 0, 5, 0]
       },
       grid: {
-        bottom: '15%'
+        bottom: '5%'
       },
       series: [{
         name: props.appearance?.legendTitle || s.name,
         type: 'pie',
         radius: type === 'doughnut' ? ['45%', '75%'] : '70%',
-        center: ['50%', '40%'],
+        center: ['50%', '45%'],
         data: Array.isArray(s.data) && s.data.length > 0 && typeof s.data[0] === 'object' && s.data[0].name
           ? s.data.map((item: any, idx: number) => ({
               name: item.name,
@@ -488,17 +488,17 @@ function renderChart() {
       legend: {
         show: true,
         data: funnelData.map(item => item.name),
-        bottom: -10,
+        bottom: '15%',
         left: 'center',
         orient: 'horizontal',
-        padding: [10, 0, 0, 0]
+        padding: [5, 0, 5, 0]
       },
       series: [{
         name: 'Funnel',
         type: 'funnel',
         left: '5%',
         top: '5%',
-        bottom: '15%',
+        bottom: '30%',
         width: '90%',
         min: 0,
         max: funnelData.length > 0 ? funnelData[0].value : 100,
@@ -914,7 +914,7 @@ function renderChart() {
     grid: {
       left: '3%',
       right: '4%',
-      bottom: props.appearance?.legendPosition === 'bottom' ? '15%' : '10%',
+      bottom: props.appearance?.legendPosition === 'bottom' ? '5%' : '10%',
       top: '10%',
       containLabel: true
     },

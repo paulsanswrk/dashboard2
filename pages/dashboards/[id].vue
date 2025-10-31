@@ -4,6 +4,7 @@
       <div class="flex items-center gap-2">
         <UInput v-model="dashboardName" class="w-72" />
         <UButton color="orange" variant="solid" :loading="saving" @click="save">Save</UButton>
+        <UButton color="green" variant="solid" @click="openAddChartModal">Add Chart</UButton>
       </div>
       <div class="flex items-center gap-2">
         <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')">Desktop</UButton>
@@ -191,6 +192,74 @@
     </div>
     </ClientOnly>
 
+    <!-- Rename Chart Modal -->
+    <UModal v-model="showRenameModal">
+      <UCard>
+        <template #header>
+          <h3 class="text-lg font-semibold">Rename Chart</h3>
+        </template>
+        <UForm :state="renameForm" @submit="renameChart">
+          <UFormGroup label="New Chart Name" name="newName">
+            <UInput v-model="renameForm.newName" />
+          </UFormGroup>
+          <div class="flex justify-end gap-2 mt-4">
+            <UButton variant="outline" @click="showRenameModal = false">Cancel</UButton>
+            <UButton type="submit" color="orange" :loading="renaming">Rename</UButton>
+          </div>
+        </UForm>
+      </UCard>
+    </UModal>
+
+    <!-- Delete Chart Confirmation Modal -->
+    <UModal v-model="showDeleteModal">
+      <UCard>
+        <template #header>
+          <h3 class="text-lg font-semibold text-red-600">Delete Chart</h3>
+        </template>
+        <div class="space-y-4">
+          <p>Are you sure you want to delete the chart "<strong>{{ chartToDeleteName }}</strong>"?</p>
+          <p class="text-sm text-gray-600">This action cannot be undone. The chart will be removed from this dashboard but will still be available in your saved charts.</p>
+          <div class="flex justify-end gap-2">
+            <UButton variant="outline" @click="showDeleteModal = false">Cancel</UButton>
+            <UButton color="red" :loading="deleting" @click="deleteChart">Delete</UButton>
+          </div>
+        </div>
+      </UCard>
+    </UModal>
+
+    <!-- Add Chart Modal -->
+    <UModal v-model="showAddChartModal" size="2xl">
+      <UCard>
+        <template #header>
+          <h3 class="text-lg font-semibold">Add Chart to Dashboard</h3>
+        </template>
+        <div class="space-y-4">
+          <div v-if="availableCharts.length === 0" class="text-center py-8 text-gray-500">
+            <Icon name="heroicons:chart-bar" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>No saved charts available</p>
+            <p class="text-sm">Create charts in the Report Builder first</p>
+          </div>
+          <div v-else class="max-h-96 overflow-y-auto">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <UCard
+                v-for="chart in availableCharts"
+                :key="chart.id"
+                class="cursor-pointer hover:border-orange-300 transition-colors"
+                @click="addChartToDashboard(chart.id)"
+              >
+                <div class="font-medium">{{ chart.name }}</div>
+                <div class="text-sm text-gray-500">{{ chart.description || 'No description' }}</div>
+                <div class="text-xs text-gray-400 mt-2">Type: {{ chart.state_json?.chartType || 'Unknown' }}</div>
+              </UCard>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2">
+            <UButton variant="outline" @click="showAddChartModal = false">Cancel</UButton>
+          </div>
+        </div>
+      </UCard>
+    </UModal>
+
     <div class="border rounded bg-white dark:bg-gray-900 p-3 overflow-auto">
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
@@ -228,6 +297,16 @@
                 <template #header>
                   <div class="flex items-center justify-between">
                     <div class="font-medium">{{ findChartName(item.i) }}</div>
+                    <UDropdown :items="getChartMenuItems(item.i)" :popper="{ placement: 'bottom-end' }">
+                      <UButton
+                        variant="ghost"
+                        size="xs"
+                        color="gray"
+                        square
+                      >
+                        <Icon name="heroicons:ellipsis-vertical" class="w-4 h-4" />
+                      </UButton>
+                    </UDropdown>
                   </div>
                 </template>
               <div class="h-full">
@@ -251,22 +330,43 @@ const id = computed(() => String(route.params.id))
 const { public: { debugEnv: runtimeDebugEnv } } = useRuntimeConfig()
 const debugEnv = ref<boolean>(false)
 
-watchEffect(() => {
-  if (typeof window !== 'undefined') {
-    // Set global debug flag if not already set
-    if (!(window as any).__DEBUG_ENV__) {
-      ;(window as any).__DEBUG_ENV__ = runtimeDebugEnv === 'true'
-    }
-    debugEnv.value = (window as any).__DEBUG_ENV__ === true
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  // Initialize once; preserve existing global if already set
+  if (!('__DEBUG_ENV__' in (window as any))) {
+    ;(window as any).__DEBUG_ENV__ = runtimeDebugEnv === 'true'
   }
+  debugEnv.value = (window as any).__DEBUG_ENV__ === true
 })
 
-const { getDashboardFull, updateDashboard } = useDashboardsService()
+const { getDashboardFull, updateDashboard, createDashboardReport } = useDashboardsService()
+const { listCharts, updateChart, deleteChart: deleteChartApi } = useChartsService()
 
 const dashboardName = ref('')
 const charts = ref<Array<{ chartId: number; name: string; position: any; state?: any; preloadedColumns?: any[]; preloadedRows?: any[] }>>([])
 const gridLayout = ref<any[]>([])
 const loading = ref(true)
+
+// Modal states
+const showRenameModal = ref(false)
+const showDeleteModal = ref(false)
+const showAddChartModal = ref(false)
+
+// Rename functionality
+const renamingChart = ref<string | null>(null)
+const renameForm = reactive({
+  newName: ''
+})
+const renaming = ref(false)
+
+// Delete functionality
+const chartToDelete = ref<string | null>(null)
+const chartToDeleteName = ref('')
+const deleting = ref(false)
+
+// Available charts for adding
+const availableCharts = ref<Array<{ id: number; name: string; description?: string; state_json: any }>>([])
+const loadingCharts = ref(false)
 
 // Debug panel state
 const debugPanelOpen = ref(false)
@@ -304,7 +404,7 @@ const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 const previewWidth = computed(() => {
   if (device.value === 'mobile') return 390
   if (device.value === 'tablet') return 768
-  return 'auto'
+  return 1200
 })
 
 function setDevice(d: 'desktop' | 'tablet' | 'mobile') {
@@ -345,6 +445,31 @@ function findChartRows(i: string) {
   return c?.preloadedRows || undefined
 }
 
+function editChart(chartId: string) {
+  navigateTo(`/reporting/builder?chartId=${chartId}&dashboard_id=${id.value}`)
+}
+
+function getChartMenuItems(chartId: string) {
+  return [
+    [{
+      label: 'Edit Chart',
+      icon: 'heroicons:document-text',
+      click: () => editChart(chartId)
+    }],
+    [{
+      label: 'Rename Chart',
+      icon: 'heroicons:pencil',
+      disabled: renamingChart.value === chartId,
+      click: () => startRenameChart(chartId)
+    }],
+    [{
+      label: 'Delete Chart',
+      icon: 'heroicons:trash',
+      click: () => confirmDeleteChart(chartId)
+    }]
+  ]
+}
+
 async function load() {
   loading.value = true
   try {
@@ -382,6 +507,109 @@ async function save() {
 
 function onLayoutUpdated() {
   // no-op, local state is already updated via v-model
+}
+
+// Chart operations
+async function startRenameChart(chartId: string) {
+  const chart = charts.value.find(c => String(c.chartId) === chartId)
+  if (!chart) return
+
+  renamingChart.value = chartId
+  renameForm.newName = chart.name
+  showRenameModal.value = true
+}
+
+async function renameChart() {
+  if (!renamingChart.value) return
+
+  renaming.value = true
+  try {
+    await updateChart({
+      id: Number(renamingChart.value),
+      name: renameForm.newName
+    })
+
+    // Update local state
+    const chart = charts.value.find(c => String(c.chartId) === renamingChart.value)
+    if (chart) {
+      chart.name = renameForm.newName
+    }
+
+    showRenameModal.value = false
+    renamingChart.value = null
+    renameForm.newName = ''
+  } finally {
+    renaming.value = false
+  }
+}
+
+async function confirmDeleteChart(chartId: string) {
+  const chart = charts.value.find(c => String(c.chartId) === chartId)
+  if (!chart) return
+
+  chartToDelete.value = chartId
+  chartToDeleteName.value = chart.name
+  showDeleteModal.value = true
+}
+
+async function deleteChart() {
+  if (!chartToDelete.value) return
+
+  deleting.value = true
+  try {
+    await deleteChartApi(Number(chartToDelete.value))
+
+    // Remove from local state
+    const chartIndex = charts.value.findIndex(c => String(c.chartId) === chartToDelete.value)
+    if (chartIndex >= 0) {
+      charts.value.splice(chartIndex, 1)
+      fromPositions() // Update grid layout
+    }
+
+    showDeleteModal.value = false
+    chartToDelete.value = null
+    chartToDeleteName.value = ''
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function openAddChartModal() {
+  loadingCharts.value = true
+  showAddChartModal.value = true
+
+  try {
+    const allCharts = await listCharts()
+    // Filter out charts that are already on this dashboard
+    const dashboardChartIds = new Set(charts.value.map(c => c.chartId))
+    availableCharts.value = allCharts.filter(chart => !dashboardChartIds.has(chart.id))
+  } finally {
+    loadingCharts.value = false
+  }
+}
+
+async function addChartToDashboard(chartId: number) {
+  try {
+    // Find the chart details
+    const chart = availableCharts.value.find(c => c.id === chartId)
+    if (!chart) return
+
+    // Add to dashboard with default position
+    const newPosition = { x: 0, y: Math.max(...gridLayout.value.map(item => item.y + item.h), 0), w: 6, h: 8 }
+
+    await createDashboardReport({
+      dashboardId: id.value,
+      chartId: chartId,
+      position: newPosition
+    })
+
+    // Add to local state and reload to get full data
+    await load()
+
+    showAddChartModal.value = false
+  } catch (error) {
+    console.error('Failed to add chart to dashboard:', error)
+  }
 }
 
 // Debug functions
@@ -443,6 +671,14 @@ function updateGridLayoutFromJson() {
 
 <style scoped>
 :deep(.vue-grid-layout) { min-height: 300px; }
+
+:deep(.vue-grid-item) {
+  min-height: 200px !important; /* Force min-height for grid items */
+}
+
+:deep(.vue-resizable-handle) {
+  z-index: 10; /* Ensure resizer is visible */
+}
 
 /* Make all textareas in debug panel resizable */
 :deep(.debug-panel textarea) {

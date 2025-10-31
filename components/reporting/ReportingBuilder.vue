@@ -1,13 +1,21 @@
 <template>
   <div class="p-6">
-    <div class="flex justify-end mb-4">
+    <div class="flex justify-end mb-4 gap-2">
+      <button
+        v-if="props.dashboardId"
+        class="px-3 py-2 bg-gray-600 text-white border border-gray-600 rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
+        @click="backToDashboard"
+      >
+        <Icon name="heroicons:arrow-left" class="w-4 h-4" />
+        Back to Dashboard
+      </button>
       <button
         class="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
-        @click="openSelectBoard = true"
+        @click="props.editingChartId ? saveExistingChart() : openSelectBoard = true"
         :disabled="loading"
       >
         <Icon name="heroicons:square-3-stack-3d" class="w-4 h-4" />
-        Save Chart to Dashboard
+        {{ props.editingChartId ? 'Save Chart' : 'Save Chart to Dashboard' }}
       </button>
     </div>
 
@@ -109,11 +117,14 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, nextTick } from 'vue'
+import { navigateTo } from '#imports'
 
 // Props
 const props = defineProps<{
   sidebarVisible?: boolean
   connectionId?: number | null
+  editingChartId?: number | null
+  dashboardId?: string | null
 }>()
 
 // Emits
@@ -504,6 +515,105 @@ function handleLoadChart(state: {
   chartType.value = state.chartType as typeof chartType.value
 }
 
+function handleLoadChartState(state: {
+  dataConnectionId: number | null
+  useSql: boolean
+  overrideSql: boolean
+  sqlText: string
+  actualExecutedSql: string
+  selectedDatasetId: string | null
+  xDimensions: any[]
+  yMetrics: any[]
+  filters: any[]
+  breakdowns: any[]
+  excludeNullsInDimensions: boolean
+  appearance: any
+  chartType: string
+}) {
+  // Set connection ID if provided
+  if (state.dataConnectionId !== null) {
+    setSelectedConnectionId(state.dataConnectionId)
+  }
+
+  // Set all the state values
+  useSql.value = state.useSql
+  overrideSql.value = state.overrideSql
+  sqlText.value = state.sqlText
+  actualExecutedSql.value = state.actualExecutedSql
+  chartType.value = state.chartType as typeof chartType.value
+
+  // Set the report state values directly
+  xDimensions.value = state.xDimensions || []
+  yMetrics.value = state.yMetrics || []
+  filters.value = state.filters || []
+  breakdowns.value = state.breakdowns || []
+  excludeNullsInDimensions.value = state.excludeNullsInDimensions || false
+  appearance.value = state.appearance || {}
+}
+
+function backToDashboard() {
+  if (!props.dashboardId) return
+  navigateTo(`/dashboards/${props.dashboardId}`)
+}
+
+async function saveExistingChart() {
+  if (!props.editingChartId) return
+
+  try {
+    loading.value = true
+
+    // Get current report state
+    const reportState = {
+      selectedDatasetId: selectedDatasetId.value,
+      dataConnectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId(),
+      xDimensions: xDimensions.value,
+      yMetrics: yMetrics.value,
+      filters: filters.value,
+      breakdowns: breakdowns.value,
+      excludeNullsInDimensions: excludeNullsInDimensions.value,
+      appearance: appearance.value,
+      // SQL configuration
+      useSql: useSql.value,
+      overrideSql: overrideSql.value,
+      sqlText: sqlText.value,
+      actualExecutedSql: actualExecutedSql.value,
+      // Chart configuration
+      chartType: chartType.value
+    }
+
+    // Update the existing chart
+    const result = await $fetch<{ success: boolean }>('/api/reporting/charts', {
+      method: 'PUT',
+      body: {
+        id: props.editingChartId,
+        state: reportState
+      }
+    })
+
+    if (result.success) {
+      // Show success toast
+      const toast = useToast()
+      toast.add({
+        title: 'Chart Saved Successfully',
+        description: 'Your chart has been updated.',
+        color: 'green'
+      })
+    } else {
+      throw new Error('Failed to save chart')
+    }
+  } catch (error) {
+    console.error('Failed to save chart:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Save Failed',
+      description: 'Failed to save chart. Please try again.',
+      color: 'red'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
 async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string }) {
   try {
     loading.value = true
@@ -656,7 +766,8 @@ function getCurrentState() {
 
 defineExpose({
   applySqlAndChartType,
-  getCurrentState
+  getCurrentState,
+  handleLoadChartState
 })
 
 </script>
