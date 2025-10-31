@@ -4,17 +4,18 @@
       <div class="text-sm text-gray-500 mb-1">{{ kpiLabel }}</div>
       <div class="text-4xl font-semibold">{{ kpiValue }}</div>
     </div>
-    <div v-else ref="chartRef" class="w-full h-80"></div>
+    <div v-else ref="chartRef" class="w-full h-64 min-h-64"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, computed, nextTick } from 'vue'
 import type { Ref } from 'vue'
 import * as echarts from 'echarts'
 
 // Load ECharts - it's now a proper dependency instead of CDN loading
 let chartInstance: echarts.ECharts | null = null
+let resizeObserver: ResizeObserver | null = null
 
 type Column = { key: string; label: string }
 type ReportField = { fieldId: string; name?: string; label?: string }
@@ -38,6 +39,7 @@ const props = defineProps<{
     legendPosition?: 'top' | 'bottom' | 'left' | 'right'
   }
 }>()
+
 
 const emit = defineEmits<{
   (e: 'drill', payload: { xValue: string | number; seriesName?: string; datasetIndex: number; index: number }): void
@@ -155,6 +157,10 @@ function destroyChart() {
     chartInstance.dispose()
     chartInstance = null
   }
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 }
 
 function renderChart() {
@@ -162,12 +168,31 @@ function renderChart() {
   if (!chartRef.value) return
   destroyChart()
 
+  // Ensure the element has dimensions before initializing
+  const rect = chartRef.value.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) {
+    nextTick(() => {
+      renderChart()
+    })
+    return
+  }
+
   const type = props.chartType === 'donut' ? 'doughnut' : props.chartType
   const cats = categories.value
   const series = seriesData.value
 
   // Initialize ECharts instance
   chartInstance = echarts.init(chartRef.value)
+
+  // Set up resize observer for responsive behavior
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => {
+      if (chartInstance) {
+        chartInstance.resize()
+      }
+    })
+    resizeObserver.observe(chartRef.value)
+  }
 
   if (type === 'pie' || type === 'doughnut') {
     const s = series[0] || { name: 'Value', data: [] }

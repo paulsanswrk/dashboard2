@@ -14,7 +14,6 @@
         </button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
-        <button class="px-3 py-2 border rounded" @click="openReports = true" :disabled="loading">Save / Load Chart</button>
         <button
           class="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
           @click="openSelectBoard = true"
@@ -132,6 +131,7 @@ const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelected
 const { xDimensions, yMetrics, filters, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions } = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
+const toast = useToast()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
@@ -565,12 +565,20 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       position: position
     })
 
-    // Show success message (you might want to add a toast notification system)
-    alert(`Chart "${data.saveAsName}" has been saved to a new dashboard!`)
+    // Show success message
+    toast.add({
+      title: 'Chart Saved Successfully',
+      description: `Chart "${data.saveAsName}" has been saved to a new dashboard!`,
+      color: 'green'
+    })
 
   } catch (error) {
     console.error('Failed to save chart to dashboard:', error)
-    alert('Failed to save chart to dashboard. Please try again.')
+    toast.add({
+      title: 'Save Failed',
+      description: 'Failed to save chart to dashboard. Please try again.',
+      color: 'red'
+    })
   } finally {
     loading.value = false
   }

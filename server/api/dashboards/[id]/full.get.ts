@@ -114,7 +114,21 @@ export default defineEventHandler(async (event) => {
         }
         columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
       } else {
-        meta.error = 'internal_state_missing'
+        // No SQL available, try to fetch data using dataset preview logic
+        try {
+          const datasetId = internal.selectedDatasetId
+          const connectionId = internal.dataConnectionId ?? null
+          if (datasetId) {
+            // For server-side rendering, we need to simulate the dataset preview
+            // For now, we'll leave this empty and let client-side handle it
+            // TODO: Implement server-side dataset preview
+            meta.error = 'client_side_fetch_required'
+          } else {
+            meta.error = 'no_dataset_or_sql'
+          }
+        } catch (e: any) {
+          meta.error = e?.statusMessage || e?.message || 'dataset_preview_failed'
+        }
       }
     } catch (e: any) {
       meta.error = e?.statusMessage || e?.message || 'query_failed'

@@ -102,26 +102,96 @@
                   </div>
                 </div>
 
-                <!-- Search/Dropdown (only visible when existing is selected) -->
+                <!-- Dashboard Selector (only visible when existing is selected) -->
                 <Transition
                   enter-active-class="transition duration-200 ease-out"
                   enter-from-class="opacity-0 max-h-0"
-                  enter-to-class="opacity-100 max-h-20"
+                  enter-to-class="opacity-100 max-h-96"
                   leave-active-class="transition duration-150 ease-in"
-                  leave-from-class="opacity-100 max-h-20"
+                  leave-from-class="opacity-100 max-h-96"
                   leave-to-class="opacity-0 max-h-0"
                 >
                   <div v-if="isExistingSelected" class="relative">
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Dashboard</label>
+                    <!-- Dropdown Button -->
+                    <button
+                      @click="toggleDropdown"
+                      class="w-full px-4 py-3 pr-10 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      :class="{ 'border-blue-500': isDropdownOpen }"
+                    >
+                      <span :class="{ 'text-gray-500': !selectedDashboard, 'text-gray-900': selectedDashboard }">
+                        {{ selectedDashboard ? selectedDashboard.name : 'Choose a dashboard...' }}
+                      </span>
+                      <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg
+                          class="w-5 h-5 text-gray-400 transition-transform"
+                          :class="{ 'rotate-180': isDropdownOpen }"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <Transition
+                      enter-active-class="transition duration-200 ease-out"
+                      enter-from-class="opacity-0 scale-95"
+                      enter-to-class="opacity-100 scale-100"
+                      leave-active-class="transition duration-150 ease-in"
+                      leave-from-class="opacity-100 scale-100"
+                      leave-to-class="opacity-0 scale-95"
+                    >
+                      <div
+                        v-if="isDropdownOpen"
+                        class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+                      >
+                        <!-- Search Input -->
+                        <div class="p-2 border-b border-gray-200">
+                          <input
+                            v-model="dashboardSearch"
+                            type="text"
+                            placeholder="Search dashboards..."
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            @click.stop
+                          />
+                        </div>
+
+                        <!-- Dashboard List -->
+                        <div v-if="filteredDashboards.length > 0" class="py-1">
+                          <button
+                            v-for="dashboard in filteredDashboards"
+                            :key="dashboard.id"
+                            @click="selectDashboard(dashboard)"
+                            class="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors"
+                          >
+                            <div class="flex items-center justify-between">
+                              <span class="text-sm text-gray-900 truncate">{{ dashboard.name }}</span>
+                              <span v-if="dashboard.is_public" class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                                Public
+                              </span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                              Created {{ new Date(dashboard.created_at).toLocaleDateString() }}
+                            </div>
+                          </button>
+                        </div>
+
+                        <!-- No Results -->
+                        <div v-else class="py-4 px-3 text-center text-sm text-gray-500">
+                          {{ dashboardSearch ? 'No dashboards found' : 'No dashboards available' }}
+                        </div>
+                      </div>
+                    </Transition>
+
+                    <!-- Click outside to close -->
+                    <div
+                      v-if="isDropdownOpen"
+                      @click="isDropdownOpen = false"
+                      class="fixed inset-0 -z-10"
+                    ></div>
                   </div>
                 </Transition>
               </div>
@@ -137,7 +207,8 @@
               </button>
               <button
                 @click="handleSave"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                :disabled="isSaveDisabled"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -150,13 +221,15 @@
 </template>
 
 <script setup lang="ts">
+import { useDashboardsService, type Dashboard } from '~/composables/useDashboardsService'
+
 interface Props {
   isOpen: boolean
 }
 
 interface Emits {
   close: []
-  save: [data: { saveAsName: string; selectedDestination: string }]
+  save: [data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string }]
 }
 
 const props = defineProps<Props>()
@@ -165,16 +238,71 @@ const emit = defineEmits<Emits>()
 // Reactive state
 const saveAsName = ref('Untitled')
 const selectedDestination = ref<'new' | 'existing' | 'desk'>('existing')
+const dashboards = ref<Dashboard[]>([])
+const selectedDashboardId = ref<string>('')
+const dashboardSearch = ref('')
+const isDropdownOpen = ref(false)
 
-// Computed property
+// Computed properties
 const isExistingSelected = computed(() => selectedDestination.value === 'existing')
+const filteredDashboards = computed(() => {
+  if (!dashboardSearch.value) return dashboards.value
+  return dashboards.value.filter(dashboard =>
+    dashboard.name.toLowerCase().includes(dashboardSearch.value.toLowerCase())
+  )
+})
+const selectedDashboard = computed(() =>
+  dashboards.value.find(d => d.id === selectedDashboardId.value)
+)
+const isSaveDisabled = computed(() => {
+  return selectedDestination.value === 'existing' && !selectedDashboardId.value
+})
 
 // Methods
+const { listDashboards } = useDashboardsService()
+
+const fetchDashboards = async () => {
+  try {
+    dashboards.value = await listDashboards()
+  } catch (error) {
+    console.error('Failed to fetch dashboards:', error)
+    dashboards.value = []
+  }
+}
+
+const selectDashboard = (dashboard: Dashboard) => {
+  selectedDashboardId.value = dashboard.id
+  dashboardSearch.value = dashboard.name
+  isDropdownOpen.value = false
+}
+
+const toggleDropdown = () => {
+  isDropdownOpen.value = !isDropdownOpen.value
+}
+
 const handleSave = () => {
+  // Validation: require dashboard selection when saving to existing dashboard
+  if (selectedDestination.value === 'existing' && !selectedDashboardId.value) {
+    // Could add error handling here, but for now just don't save
+    return
+  }
+
   emit('save', {
     saveAsName: saveAsName.value,
-    selectedDestination: selectedDestination.value
+    selectedDestination: selectedDestination.value,
+    selectedDashboardId: selectedDestination.value === 'existing' ? selectedDashboardId.value : undefined
   })
   emit('close')
 }
+
+// Watch for modal opening to fetch dashboards
+watch(() => props.isOpen, async (isOpen) => {
+  if (isOpen) {
+    await fetchDashboards()
+    // Reset selected dashboard when modal opens
+    selectedDashboardId.value = ''
+    dashboardSearch.value = ''
+    isDropdownOpen.value = false
+  }
+})
 </script>
