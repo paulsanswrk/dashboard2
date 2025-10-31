@@ -1,5 +1,16 @@
 <template>
   <div class="p-6">
+    <div class="flex justify-end mb-4">
+      <button
+        class="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+        @click="openSelectBoard = true"
+        :disabled="loading"
+      >
+        <Icon name="heroicons:square-3-stack-3d" class="w-4 h-4" />
+        Save Chart to Dashboard
+      </button>
+    </div>
+
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold">Reporting Builder</h2>
       <div class="flex items-center space-x-2">
@@ -14,14 +25,6 @@
         </button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
         <button v-if="false" class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
-        <button
-          class="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
-          @click="openSelectBoard = true"
-          :disabled="loading"
-        >
-          <Icon name="heroicons:square-3-stack-3d" class="w-4 h-4" />
-          Save Chart to Dashboard
-        </button>
         <div class="flex items-center space-x-2 ml-4">
           <label class="text-sm font-medium text-gray-700">Show SQL</label>
           <button
@@ -131,7 +134,6 @@ const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelected
 const { xDimensions, yMetrics, filters, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions } = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
-const toast = useToast()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
@@ -502,12 +504,7 @@ function handleLoadChart(state: {
   chartType.value = state.chartType as typeof chartType.value
 }
 
-async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string }) {
-  if (data.selectedDestination !== 'new') {
-    // For now, only handle 'new' dashboard creation
-    return
-  }
-
+async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string }) {
   try {
     loading.value = true
 
@@ -540,14 +537,28 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       throw new Error('Failed to save chart')
     }
 
-    // Create the dashboard
-    const dashboardResult = await createDashboard({
-      name: data.saveAsName,
-      isPublic: false
-    })
+    let dashboardId: string
+    let successMessage: string
 
-    if (!dashboardResult.success) {
-      throw new Error('Failed to create dashboard')
+    if (data.selectedDestination === 'new') {
+      // Create the dashboard
+      const dashboardResult = await createDashboard({
+        name: data.saveAsName,
+        isPublic: false
+      })
+
+      if (!dashboardResult.success) {
+        throw new Error('Failed to create dashboard')
+      }
+
+      dashboardId = dashboardResult.dashboardId
+      successMessage = `Chart "${data.saveAsName}" has been saved to a new dashboard!`
+    } else if (data.selectedDestination === 'existing' && data.selectedDashboardId) {
+      // Use existing dashboard
+      dashboardId = data.selectedDashboardId
+      successMessage = `Chart "${data.saveAsName}" has been saved to the existing dashboard!`
+    } else {
+      throw new Error('Invalid destination or missing dashboard ID')
     }
 
     // Create the dashboard-report relationship with default position
@@ -560,25 +571,33 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
     }
 
     await createDashboardReport({
-      dashboardId: dashboardResult.dashboardId,
+      dashboardId: dashboardId,
       chartId: chartResult.chartId,
       position: position
     })
 
-    // Show success message
+    // Show success message BEFORE closing modal
+    const toast = useToast()
     toast.add({
       title: 'Chart Saved Successfully',
-      description: `Chart "${data.saveAsName}" has been saved to a new dashboard!`,
+      description: successMessage,
       color: 'green'
     })
 
+    // Close modal after showing toast
+    openSelectBoard.value = false
+
   } catch (error) {
     console.error('Failed to save chart to dashboard:', error)
+    const toast = useToast()
     toast.add({
       title: 'Save Failed',
       description: 'Failed to save chart to dashboard. Please try again.',
       color: 'red'
     })
+    
+    // Close modal even on error
+    openSelectBoard.value = false
   } finally {
     loading.value = false
   }

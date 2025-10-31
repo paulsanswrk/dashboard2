@@ -3,6 +3,9 @@
     <!-- Color Scheme for theme management -->
     <ColorScheme />
     
+    <!-- Toast Notifications -->
+    <UNotifications position="top-right" />
+    
     <!-- Authenticated layout -->
     <template v-if="isAuthenticated && !isPublicPage">
       <BuilderLayout v-if="useBuilderLayout">
