@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../supabase'
 import { capitalizeRole } from '../../utils/roleUtils'
+import { getCookie } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {

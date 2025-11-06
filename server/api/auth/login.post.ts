@@ -1,4 +1,5 @@
 import { supabaseUser } from '../supabase'
+import { setCookie } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {

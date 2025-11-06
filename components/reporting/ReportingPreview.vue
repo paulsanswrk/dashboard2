@@ -13,7 +13,7 @@
           <tbody>
             <tr v-for="(row, idx) in rows" :key="idx" class="odd:bg-white even:bg-gray-50">
               <td v-for="col in columns" :key="col.key" class="px-3 py-2 border-b">
-                {{ row[col.key] as any }}
+                {{ row[col.key] }}
               </td>
             </tr>
           </tbody>

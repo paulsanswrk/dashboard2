@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../supabase'
+import { getCookie } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {

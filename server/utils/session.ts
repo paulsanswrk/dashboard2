@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../api/supabase'
+import { getCookie } from 'h3'
 
 export async function getUserFromSession(accessToken: string, refreshToken: string) {
   const supabaseUrl = process.env.SUPABASE_URL!
