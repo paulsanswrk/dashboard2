@@ -62,7 +62,7 @@
         <label class="text-sm font-medium">Override SQL</label>
         <input type="checkbox" v-model="overrideSql" :disabled="loading" />
       </div>
-      <textarea :readonly="!overrideSql || loading" v-model="sqlTextComputed" class="w-full h-32 border rounded p-2 font-mono text-xs disabled:opacity-50" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
+      <textarea :readonly="!overrideSql || loading" v-model="displaySql" class="w-full h-32 border rounded p-2 font-mono text-xs disabled:opacity-50" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
       <div class="mt-2 space-x-2">
         <button class="px-3 py-1 border rounded" @click="onRunSqlClick" :disabled="!overrideSql || loading">Run SQL</button>
         <span class="text-xs text-gray-500">Only SELECT queries allowed; LIMIT enforced.</span>
@@ -118,6 +118,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, nextTick } from 'vue'
 import { navigateTo } from '#imports'
+import { format } from 'sql-formatter'
 
 // Props
 const props = defineProps<{
@@ -380,6 +381,31 @@ const sqlGenerated = computed(() => {
 const sqlTextComputed = computed({
   get: () => (overrideSql.value ? sqlText.value : actualExecutedSql.value || sqlGenerated.value),
   set: (v: string) => { sqlText.value = v }
+})
+
+const displaySql = computed({
+  get: () => {
+    // Always format the SQL for display, regardless of override state
+    try {
+      const sql = sqlTextComputed.value
+      if (!sql) return ''
+      return format(sql, {
+        language: 'mysql', // Default to MySQL, can be made configurable later
+        tabWidth: 2,
+        keywordCase: 'upper',
+        linesBetweenQueries: 1
+      })
+    } catch (error) {
+      // If formatting fails, return the original SQL
+      console.warn('SQL formatting failed:', error)
+      return sqlTextComputed.value
+    }
+  },
+  set: (value: string) => {
+    if (overrideSql.value) {
+      sqlTextComputed.value = value
+    }
+  }
 })
 
 function getUrlConnectionId(): number | null {
