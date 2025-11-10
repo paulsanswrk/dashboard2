@@ -98,7 +98,7 @@
               <a href="/data-sources" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">CONNECT</a>
               <a href="/reporting/builder" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ANALYZE</a>
               <a href="/dashboards" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">DASHBOARDS</a>
-              <a href="/reporting" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">REPORTS</a>
+              <a href="/reports" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">REPORTS</a>
               <a href="/alarms" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ALARMS</a>
             </nav>
             <!-- Mobile Navigation -->
@@ -188,23 +188,25 @@ const currentYear = computed(() => new Date().getFullYear())
 
 const isMobileMenuOpen = ref(false)
 
-// Navigation items based on current route
-const route = useRoute()
+// Navigation items based on user role
 const navigationItems = computed(() => {
-  // If we're on admin pages, show admin navigation
-  if (route.path.startsWith('/admin') || route.path.startsWith('/organizations')) {
+  // Admin users get admin navigation
+  if (userProfile.value?.role === 'ADMIN') {
     return [
       { icon: 'heroicons:home', label: 'Dashboard', route: '/admin' },
       { icon: 'heroicons:users', label: 'Users', route: '/admin/users' },
       { icon: 'heroicons:eye', label: 'Viewers', route: '/admin/viewers' },
-      { icon: 'heroicons:building-office', label: 'Organizations', route: '/organizations' }
+      { icon: 'heroicons:building-office', label: 'Organizations', route: '/organizations' },
+      { icon: 'heroicons:document-chart-bar', label: 'Reports', route: '/reports' },
+      { icon: 'heroicons:queue-list', label: 'Email Queue', route: '/reports/monitor' }
     ]
   } else {
-    // For all other pages, show regular user navigation
+    // Regular users (EDITORS and VIEWERS) get user navigation
     return [
       { icon: 'heroicons:home', label: 'Dashboard', route: '/dashboard' },
       { icon: 'heroicons:circle-stack', label: 'Data Sources', route: '/data-sources' },
       { icon: 'heroicons:chart-bar', label: 'My Desk', route: '/my-dashboard' },
+      { icon: 'heroicons:document-chart-bar', label: 'Reports', route: '/reports' },
       { icon: 'heroicons:users', label: 'Users', route: '/users' },
       { icon: 'heroicons:eye', label: 'Viewers', route: '/viewers' },
       { icon: 'heroicons:shield-check', label: 'SSO', route: '/sso' },
