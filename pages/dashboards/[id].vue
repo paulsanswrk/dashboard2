@@ -13,6 +13,10 @@
           <Icon name="heroicons:arrows-pointing-out" class="w-4 h-4 mr-1" />
           Auto Layout
         </UButton>
+        <UButton variant="outline" color="red" size="xs" @click="downloadPDF">
+          <Icon name="heroicons:document-arrow-down" class="w-4 h-4 mr-1" />
+          Get PDF
+        </UButton>
       </div>
     </div>
 
@@ -743,6 +747,31 @@ const maxRowsInput = computed({
 
 function updateGridLayoutFromJson() {
   // The computed property setter handles this
+}
+
+async function downloadPDF() {
+  try {
+    const response = await fetch(`/api/dashboards/${id.value}/pdf`, {
+      method: 'GET',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate PDF: ${response.status}`)
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${dashboardName.value.replace(/[^a-z0-9]/gi, '_')}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (error) {
+    console.error('Failed to download PDF:', error)
+    alert('Failed to generate PDF. Check console for details.')
+  }
 }
 </script>
 
