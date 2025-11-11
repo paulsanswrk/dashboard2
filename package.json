@@ -5,6 +5,7 @@
   "description": "Optiqo - A robust business intelligence and data visualization platform for connecting data sources, creating interactive dashboards, and sharing reports",
   "private": true,
   "scripts": {
+    "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
