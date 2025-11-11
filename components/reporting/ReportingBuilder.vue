@@ -90,7 +90,13 @@
         <div v-if="serverWarnings.length" class="mb-3 p-2 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
           <div v-for="(w, i) in serverWarnings" :key="i">{{ w }}</div>
         </div>
-        <component :is="chartComponent" :key="chartType"
+        <!-- Loading state -->
+        <div v-if="loading" class="flex flex-col items-center justify-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+          <Icon name="heroicons:arrow-path" class="w-8 h-8 animate-spin text-primary-500 mb-3" />
+          <p class="text-sm text-gray-600">Loading chart data...</p>
+        </div>
+        <!-- Chart component -->
+        <component v-else :is="chartComponent" :key="chartType"
                    :columns="columns" :rows="rows"
                    :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
                    :chart-type="chartType" :appearance="appearance" :loading="loading" />
@@ -575,6 +581,21 @@ function handleLoadChartState(state: {
   breakdowns.value = state.breakdowns || []
   excludeNullsInDimensions.value = state.excludeNullsInDimensions || false
   appearance.value = state.appearance || {}
+
+  // Auto-run the query after loading state
+  nextTick(async () => {
+    try {
+      if (useSql.value && overrideSql.value && sqlText.value.trim()) {
+        // Run SQL directly if override mode is enabled
+        await onRunSql(true)
+      } else if ((xDimensions.value.length > 0 || yMetrics.value.length > 0) && canAutoPreview.value) {
+        // Run preview if we have data to visualize
+        await onTestPreview()
+      }
+    } catch (error) {
+      console.warn('Failed to auto-run query after loading chart state:', error)
+    }
+  })
 }
 
 function backToDashboard() {
