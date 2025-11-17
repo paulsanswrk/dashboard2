@@ -13,6 +13,10 @@
           <Icon name="heroicons:arrows-pointing-out" class="w-4 h-4 mr-1" />
           Auto Layout
         </UButton>
+        <UButton variant="outline" color="blue" size="xs" @click="openPreview">
+          <Icon name="heroicons:eye" class="w-4 h-4 mr-1"/>
+          Preview
+        </UButton>
         <UButton variant="outline" color="red" size="xs" @click="downloadPDF">
           <Icon name="heroicons:document-arrow-down" class="w-4 h-4 mr-1" />
           Get PDF
@@ -267,83 +271,16 @@
       </UCard>
     </UModal>
 
-    <div class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden">
-      <!-- Device width indicator overlay - only show for tablet/mobile -->
-      <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
-        <!-- Left overlay -->
-        <div
-          class="bg-black/10"
-          :style="{ width: leftOverlayWidth }"
-        ></div>
-        <!-- Center transparent area (for preview content) -->
-        <div
-          class="flex-shrink-0"
-          :style="{ width: previewWidth + 'px' }"
-        ></div>
-        <!-- Right overlay (mirrors left) -->
-        <div
-          class="bg-black/10"
-          :style="{ width: leftOverlayWidth }"
-        ></div>
-      </div>
-
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-        <span class="ml-3 text-gray-500">Loading dashboard...</span>
-      </div>
-      <div v-else :style="{ width: previewWidth + 'px', margin: '0 auto', position: 'relative', zIndex: 20 }">
-        <ClientOnly>
-        <GridLayout
-          v-model:layout="gridLayout"
-          :col-num="gridConfig.colNum"
-          :row-height="gridConfig.rowHeight"
-          :max-rows="gridConfig.maxRows"
-          :margin="gridConfig.margin"
-          :is-draggable="gridConfig.isDraggable"
-          :is-resizable="gridConfig.isResizable"
-          :is-mirrored="gridConfig.isMirrored"
-          :is-bounded="gridConfig.isBounded"
-          :auto-size="gridConfig.autoSize"
-          :vertical-compact="gridConfig.verticalCompact"
-          :restore-on-drag="gridConfig.restoreOnDrag"
-          :prevent-collision="gridConfig.preventCollision"
-          :use-css-transforms="gridConfig.useCssTransforms"
-          :use-style-cursor="gridConfig.useStyleCursor"
-          :transform-scale="gridConfig.transformScale"
-          :responsive="gridConfig.responsive"
-          :breakpoints="gridConfig.breakpoints"
-          :cols="gridConfig.cols"
-          @layout-updated="onLayoutUpdated"
-        >
-            <GridItem v-for="item in gridLayout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
-              <UCard class="h-full w-full" :ui="{
-                header: { base: 'bg-white dark:bg-gray-800', padding: 'sm:p-1 p-1' },
-                body: { padding: 'sm:p-1 p-1' }
-              }">
-                <template #header>
-                  <div class="flex items-center justify-between">
-                    <div class="font-medium text-center flex-1">{{ findChartName(item.i) }}</div>
-                    <UDropdown :items="getChartMenuItems(item.i)" :popper="{ placement: 'bottom-end' }">
-                      <UButton
-                        variant="ghost"
-                        size="xs"
-                        color="gray"
-                        square
-                      >
-                        <Icon name="heroicons:ellipsis-vertical" class="w-4 h-4" />
-                      </UButton>
-                    </UDropdown>
-                  </div>
-                </template>
-              <div class="h-full">
-                <DashboardChartRenderer :state="findChartState(item.i)" :preloaded-columns="findChartColumns(item.i)" :preloaded-rows="findChartRows(item.i)" />
-              </div>
-            </UCard>
-          </GridItem>
-        </GridLayout>
-        </ClientOnly>
-      </div>
-    </div>
+    <Dashboard
+        :device="device"
+        v-model:layout="gridLayout"
+        :grid-config="gridConfig"
+        :charts="charts"
+        :loading="loading"
+        @edit-chart="editChart"
+        @rename-chart="startRenameChart"
+        @delete-chart="confirmDeleteChart"
+    />
   </div>
 </template>
 
@@ -433,19 +370,6 @@ const gridConfig = reactive({
 
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 
-const previewWidth = computed(() => {
-  if (device.value === 'mobile') return 390
-  if (device.value === 'tablet') return 768
-  return 1600 // Increased from 1200px for better chart readability with 12 columns
-})
-
-// Calculate the left overlay width for the device preview indicator
-const leftOverlayWidth = computed(() => {
-  // The container has p-3 (12px) padding on each side, so inner width is containerWidth - 24px
-  // The preview is centered, so left overlay = (innerWidth - previewWidth) / 2
-  // But since we're using flexbox within the padded area, we can use percentages
-  return `calc((100% - ${previewWidth.value}px) / 2)`
-})
 
 function setDevice(d: 'desktop' | 'tablet' | 'mobile') {
   device.value = d
@@ -506,49 +430,12 @@ function toPositions() {
   return gridLayout.value.map((li: any) => ({ chartId: Number(li.i), position: { x: li.x, y: li.y, w: li.w, h: li.h } }))
 }
 
-function findChartName(i: string) {
-  const c = charts.value.find(c => String(c.chartId) === i)
-  return c?.name || 'Chart'
-}
-
-function findChartState(i: string) {
-  const c = charts.value.find(c => String(c.chartId) === i)
-  return c?.state || {}
-}
-
-function findChartColumns(i: string) {
-  const c = charts.value.find(c => String(c.chartId) === i)
-  return c?.preloadedColumns || undefined
-}
-
-function findChartRows(i: string) {
-  const c = charts.value.find(c => String(c.chartId) === i)
-  return c?.preloadedRows || undefined
-}
-
 function editChart(chartId: string) {
   navigateTo(`/reporting/builder?chartId=${chartId}&dashboard_id=${id.value}`)
 }
 
-function getChartMenuItems(chartId: string) {
-  return [
-    [{
-      label: 'Edit Chart',
-      icon: 'heroicons:document-text',
-      click: () => editChart(chartId)
-    }],
-    [{
-      label: 'Rename Chart',
-      icon: 'heroicons:pencil',
-      disabled: renamingChart.value === chartId,
-      click: () => startRenameChart(chartId)
-    }],
-    [{
-      label: 'Delete Chart',
-      icon: 'heroicons:trash',
-      click: () => confirmDeleteChart(chartId)
-    }]
-  ]
+function openPreview() {
+  navigateTo(`/dashboards/preview/${id.value}`)
 }
 
 async function load() {
@@ -586,9 +473,6 @@ async function save() {
   }
 }
 
-function onLayoutUpdated() {
-  // no-op, local state is already updated via v-model
-}
 
 // Chart operations
 async function startRenameChart(chartId: string) {

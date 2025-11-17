@@ -25,7 +25,8 @@ export default defineNuxtConfig({
         redirectOptions: {
             login: '/login',
             callback: '/auth/callback',
-            exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback']
+            exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password',
+                '/auth/callback', '/render/**']
         },
         // Explicitly set the URL and key
         url: process.env.SUPABASE_URL,
@@ -41,6 +42,7 @@ export default defineNuxtConfig({
             debugEnv: process.env.DEBUG_ENV || 'false',
         },
         supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        renderSecretToken: process.env.RENDER_SECRET_TOKEN,
     },
 
     // UI Configuration

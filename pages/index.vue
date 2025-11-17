@@ -78,7 +78,7 @@
 
 // Page meta - no middleware needed as we handle redirect manually
 definePageMeta({
-  layout: false
+  layout: 'empty'
 })
 
 // State

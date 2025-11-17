@@ -287,7 +287,7 @@ const goToForgotPassword = async () => {
 
 // Page meta
 definePageMeta({
-  layout: false,
+  layout: 'empty',
   middleware: []
 })
 </script>

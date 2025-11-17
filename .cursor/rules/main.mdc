@@ -14,3 +14,5 @@ Please don't start Nuxt yourself. This results in many instances running simulta
 Please don't edit .env file.
 
 There are 2 project in workspace. We work on optiqo-dashboard.
+
+We are on Windows!

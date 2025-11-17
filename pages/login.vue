@@ -279,7 +279,7 @@ const toggleMagicLinkMode = () => {
 
 // Page meta
 definePageMeta({
-  layout: false,
+  layout: 'empty',
   middleware: []
 })
 </script>

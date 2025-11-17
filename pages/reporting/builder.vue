@@ -186,6 +186,12 @@
 </template>
 
 <script setup lang="ts">
+// Page meta - use builder layout (minimal chrome, no sidebar)
+definePageMeta({
+  layout: 'builder',
+  middleware: 'auth'
+})
+
 import ReportingLayout from '../../components/reporting/ReportingLayout.vue'
 import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
@@ -193,10 +199,10 @@ import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import ReportingFilters from '../../components/reporting/ReportingFilters.vue'
 import ReportingAppearancePanel from '../../components/reporting/ReportingAppearancePanel.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
-import { useReportingService } from '../../composables/useReportingService'
-import { useChartsService } from '../../composables/useChartsService'
-import { onMounted, ref, watch, computed, nextTick } from 'vue'
-import { useReportState } from '../../composables/useReportState'
+import {useReportingService} from '../../composables/useReportingService'
+import {useChartsService} from '../../composables/useChartsService'
+import {computed, nextTick, onMounted, ref, watch} from 'vue'
+import {useReportState} from '../../composables/useReportState'
 
 const { listConnections, listDatasets, getSchema, getRelationships, setSelectedDatasetId, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
 const { getChart } = useChartsService()

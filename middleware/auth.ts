@@ -1,12 +1,18 @@
 export default defineNuxtRouteMiddleware(async (to, from) => {
   console.log('🛡️ Auth middleware: Checking route:', to.path)
-  
+
+    // Check if route is public
+    if (isPublicRoute(to.path)) {
+        console.log('🛡️ Auth middleware: Public route, allowing access')
+        return
+    }
+
   const user = useSupabaseUser()
   const supabase = useSupabaseClient()
-  
+
   console.log('🛡️ Auth middleware: User state:', user.value?.id)
-  
-  // If user is not authenticated, redirect to login
+
+    // If user is not authenticated, redirect to login
   if (!user.value) {
     console.log('🛡️ Auth middleware: No user, redirecting to login')
     return navigateTo('/login')
@@ -61,7 +67,8 @@ export const publicRoutes = [
   '/login',
   '/signup',
   '/forgot-password',
-  '/reset-password'
+    '/reset-password',
+    '/dashboards/preview'
 ]
 
 // Check if route is public

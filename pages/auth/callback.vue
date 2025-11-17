@@ -63,7 +63,7 @@
 
 // Page meta
 definePageMeta({
-  layout: false,
+  layout: 'empty',
   middleware: []
 })
 
