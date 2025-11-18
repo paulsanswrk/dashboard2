@@ -72,7 +72,9 @@ function fromPositions() {
 async function load() {
   loading.value = true
   try {
-    const res = await getDashboardFull(id.value)
+    // Get context token from URL query parameter
+    const contextToken = route.query.context as string | undefined
+    const res = await getDashboardFull(id.value, contextToken)
     charts.value = (res.charts || []).map((c: any) => ({
       chartId: c.id,
       name: c.name,

@@ -23,8 +23,15 @@ export function useDashboardsService() {
     return await $fetch(`/api/dashboards/${id}`)
   }
 
-  async function getDashboardFull(id: string): Promise<{ id: string; name: string; isPublic: boolean; createdAt: string; charts: Array<{ id: number; name: string; position: any; state?: any; data?: { columns: any[]; rows: any[]; meta?: any } }> }> {
-    return await $fetch(`/api/dashboards/${id}/full`)
+    async function getDashboardFull(id: string, context?: string): Promise<{
+        id: string;
+        name: string;
+        isPublic: boolean;
+        createdAt: string;
+        charts: Array<{ id: number; name: string; position: any; state?: any; data?: { columns: any[]; rows: any[]; meta?: any } }>
+    }> {
+        const params = context ? {context} : {}
+        return await $fetch(`/api/dashboards/${id}/full`, {params})
   }
 
   async function createDashboard(payload: {

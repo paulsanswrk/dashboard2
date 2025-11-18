@@ -42,7 +42,6 @@ export default defineNuxtConfig({
             debugEnv: process.env.DEBUG_ENV || 'false',
         },
         supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-        renderSecretToken: process.env.RENDER_SECRET_TOKEN,
     },
 
     // UI Configuration

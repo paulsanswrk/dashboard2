@@ -106,20 +106,13 @@ export default defineEventHandler(async (event) => {
       console.error('REQUEST FAILED:', request.url(), request.failure().errorText)
     })
 
-      // Get render secret token
-      const renderSecretToken = process.env.RENDER_SECRET_TOKEN
-      if (!renderSecretToken) {
-          throw new Error('RENDER_SECRET_TOKEN environment variable is not configured')
-      }
+      // Generate render context token
+      const {generateRenderContext} = await import('../../../utils/renderContext')
+      const contextToken = generateRenderContext()
 
-      // Load the render dashboard page with authentication
-      const renderUrl = `${config.public.siteUrl}/render/dashboards/${id}`
+      // Load the render dashboard page with context token
+      const renderUrl = `${config.public.siteUrl}/render/dashboards/${id}?context=${encodeURIComponent(contextToken)}`
       console.log('Loading render URL:', renderUrl)
-
-      // Set the render secret token header
-      await page.setExtraHTTPHeaders({
-          'render_secret_token': renderSecretToken
-      })
 
       await page.goto(renderUrl, {
           waitUntil: 'networkidle0',
