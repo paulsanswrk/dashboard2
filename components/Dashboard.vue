@@ -55,16 +55,16 @@
               <template #header>
                 <div class="flex items-center justify-between">
                   <div class="font-medium text-center flex-1">{{ findChartName(item.i) }}</div>
-                  <UDropdown v-if="!preview" :items="getChartMenuItems(item.i)" :popper="{ placement: 'bottom-end' }">
+                  <UDropdownMenu v-if="!preview" :items="getChartMenuItems(item.i)" :popper="{ placement: 'bottom-end' }">
                     <UButton
                         variant="ghost"
                         size="xs"
                         color="gray"
                         square
                     >
-                      <Icon name="heroicons:ellipsis-vertical" class="w-4 h-4"/>
+                      <Icon name="i-heroicons-ellipsis-vertical" class="w-4 h-4"/>
                     </UButton>
-                  </UDropdown>
+                  </UDropdownMenu>
                 </div>
               </template>
               <div class="h-full">
@@ -163,22 +163,35 @@ function findChartRows(i: string) {
   return c?.preloadedRows || undefined
 }
 
+function handleEditChart(chartId: string) {
+  emit('edit-chart', chartId)
+}
+
+function handleRenameChart(chartId: string) {
+  emit('rename-chart', chartId)
+}
+
+function handleDeleteChart(chartId: string) {
+  emit('delete-chart', chartId)
+}
+
+
 function getChartMenuItems(chartId: string) {
   return [
     [{
       label: 'Edit Chart',
-      icon: 'heroicons:document-text',
-      click: () => emit('edit-chart', chartId)
+      icon: 'i-heroicons-document-text',
+      onClick: () => handleEditChart(chartId),
     }],
     [{
       label: 'Rename Chart',
-      icon: 'heroicons:pencil',
-      click: () => emit('rename-chart', chartId)
+      icon: 'i-heroicons-pencil',
+      onClick: () => handleRenameChart(chartId)
     }],
     [{
       label: 'Delete Chart',
-      icon: 'heroicons:trash',
-      click: () => emit('delete-chart', chartId)
+      icon: 'i-heroicons-trash',
+      onClick: () => handleDeleteChart(chartId)
     }]
   ]
 }

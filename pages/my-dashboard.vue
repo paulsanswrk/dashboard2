@@ -15,11 +15,11 @@
       <h1 class="text-2xl font-heading font-bold tracking-tight">My Dashboard</h1>
       <div class="flex gap-2">
         <UButton color="orange" variant="outline" @click="openShareModal">
-          <Icon name="heroicons:share" class="w-4 h-4 mr-1" />
+          <Icon name="i-heroicons-share" class="w-4 h-4 mr-1"/>
           Share
         </UButton>
         <UButton color="orange" @click="openCreateReportModal">
-          <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+          <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
           New report
         </UButton>
       </div>
@@ -38,7 +38,7 @@
           <h3 class="text-lg font-semibold">Performance Gauge</h3>
         </template>
         <div class="chart-placeholder h-48">
-          <Icon name="heroicons:chart-bar-square" class="w-16 h-16 text-gray-400" />
+          <Icon name="i-heroicons-chart-bar-square" class="w-16 h-16 text-gray-400"/>
         </div>
       </UCard>
 
@@ -48,7 +48,7 @@
           <h3 class="text-lg font-semibold">Monthly Sales</h3>
         </template>
         <div class="chart-placeholder h-48">
-          <Icon name="heroicons:chart-bar" class="w-16 h-16 text-gray-400" />
+          <Icon name="i-heroicons-chart-bar" class="w-16 h-16 text-gray-400"/>
         </div>
       </UCard>
 
@@ -79,7 +79,7 @@
           <h3 class="text-lg font-semibold">Revenue Trend</h3>
         </template>
         <div class="chart-placeholder h-48">
-          <Icon name="heroicons:chart-line" class="w-16 h-16 text-gray-400" />
+          <Icon name="i-heroicons-chart-line" class="w-16 h-16 text-gray-400"/>
         </div>
       </UCard>
 
@@ -89,7 +89,7 @@
           <h3 class="text-lg font-semibold">Customer Satisfaction</h3>
         </template>
         <div class="chart-placeholder h-48">
-          <Icon name="heroicons:chart-pie" class="w-16 h-16 text-gray-400" />
+          <Icon name="i-heroicons-chart-pie" class="w-16 h-16 text-gray-400"/>
         </div>
       </UCard>
 
@@ -113,15 +113,15 @@
     <!-- Dashboard Actions -->
     <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
       <UButton color="orange" variant="outline" @click="editDashboard" class="w-full sm:w-auto">
-        <Icon name="heroicons:pencil" class="w-4 h-4 mr-1" />
+        <Icon name="i-heroicons-pencil" class="w-4 h-4 mr-1"/>
         Edit Dashboard
       </UButton>
       <UButton color="orange" variant="outline" @click="duplicateDashboard" class="w-full sm:w-auto">
-        <Icon name="heroicons:document-duplicate" class="w-4 h-4 mr-1" />
+        <Icon name="i-heroicons-document-duplicate" class="w-4 h-4 mr-1"/>
         Duplicate
       </UButton>
       <UButton color="red" variant="outline" @click="deleteDashboard" class="w-full sm:w-auto">
-        <Icon name="heroicons:trash" class="w-4 h-4 mr-1" />
+        <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
         Delete
       </UButton>
     </div>

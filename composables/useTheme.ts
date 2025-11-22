@@ -22,8 +22,8 @@ export const useTheme = () => {
 
   // Get theme icon based on current theme
   const themeIcon = computed(() => {
-    if (isDark.value) return 'heroicons:sun'
-    return 'heroicons:moon'
+      if (isDark.value) return 'i-heroicons-sun'
+      return 'i-heroicons-moon'
   })
 
   // Get theme label

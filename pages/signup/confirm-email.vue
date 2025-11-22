@@ -20,7 +20,7 @@
         </p>
         <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p class="text-sm text-blue-800 text-center">
-            <Icon name="heroicons:information-circle" class="w-4 h-4 inline mr-1" />
+            <Icon name="i-heroicons-information-circle" class="w-4 h-4 inline mr-1"/>
             <strong>Important:</strong> You must click the confirmation link in your email before you can access your account.
           </p>
         </div>
@@ -30,7 +30,7 @@
         <div class="p-6 space-y-6">
           <!-- Email icon -->
           <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100">
-            <Icon name="heroicons:envelope" class="h-8 w-8 text-blue-600" />
+            <Icon name="i-heroicons-envelope" class="h-8 w-8 text-blue-600"/>
           </div>
 
           <!-- Instructions -->
@@ -54,7 +54,7 @@
               variant="outline"
               class="w-full"
             >
-              <Icon name="heroicons:arrow-path" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-arrow-path" class="w-4 h-4 mr-2"/>
               Resend Confirmation Email
             </UButton>
             

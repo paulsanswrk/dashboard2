@@ -15,4 +15,4 @@ Please don't edit .env file.
 
 There are 2 project in workspace. We work on optiqo-dashboard.
 
-We are on Windows!
+We are on WSL 2.

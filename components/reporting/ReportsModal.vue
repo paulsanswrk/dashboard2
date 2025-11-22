@@ -3,11 +3,11 @@
     <div class="bg-white rounded shadow w-full max-w-xl p-4">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-lg font-medium">Saved Reports</h3>
-        <button class="text-sm underline" @click="$emit('close')">Close</button>
+        <UButton variant="link" size="xs" @click="$emit('close')">Close</UButton>
       </div>
       <div class="mb-3 flex items-center gap-2">
         <input v-model="newName" class="border rounded px-2 py-1 flex-1" placeholder="Report name" />
-        <button class="px-3 py-1 border rounded" @click="saveCurrent" :disabled="!newName">Save</button>
+        <UButton variant="outline" size="xs" @click="saveCurrent" :disabled="!newName">Save</UButton>
       </div>
       <div class="max-h-80 overflow-auto">
         <table class="w-full text-sm">

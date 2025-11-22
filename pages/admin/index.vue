@@ -83,12 +83,12 @@
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Users +</h3>
           <div class="space-y-2">
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/admin/users')">
-              <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
               Manage All Users
             </UButton>
             <div class="space-y-1">
               <div v-for="user in recentUsers" :key="user.id" class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600">
-                <Icon name="heroicons:user" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                <Icon name="i-heroicons-user" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
                 <span class="text-sm text-gray-700 dark:text-gray-200">{{ user.name }}</span>
               </div>
             </div>
@@ -102,12 +102,12 @@
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Viewers +</h3>
           <div class="space-y-2">
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/admin/viewers')">
-              <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
               Manage All Viewers
             </UButton>
             <div class="space-y-1">
               <div v-for="viewer in recentViewers" :key="viewer.id" class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600">
-                <Icon name="heroicons:eye" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                <Icon name="i-heroicons-eye" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
                 <span class="text-sm text-gray-700 dark:text-gray-200">{{ viewer.name }}</span>
               </div>
             </div>
@@ -121,12 +121,12 @@
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Organizations +</h3>
           <div class="space-y-2">
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/organizations')">
-              <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
               Manage Organizations
             </UButton>
             <div class="space-y-1">
               <div v-for="org in recentOrganizations" :key="org.id" class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600">
-                <Icon name="heroicons:building-office" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                <Icon name="i-heroicons-building-office" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
                 <span class="text-sm text-gray-700 dark:text-gray-200">{{ org.name }}</span>
               </div>
             </div>
@@ -140,11 +140,11 @@
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">System Settings</h3>
           <div class="space-y-2">
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/account')">
-              <Icon name="heroicons:cog-6-tooth" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4 mr-2"/>
               Account Settings
             </UButton>
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/billing')">
-              <Icon name="heroicons:credit-card" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-credit-card" class="w-4 h-4 mr-2"/>
               Billing
             </UButton>
           </div>
@@ -180,10 +180,10 @@ const organizationStats = ref({
 
 // Recent activities (mock data)
 const recentActivities = ref([
-  { id: 1, action: 'New user added', user: 'John Smith', time: '2 min ago', icon: 'heroicons:user-plus' },
-  { id: 2, action: 'Dashboard shared', user: 'Sarah Johnson', time: '15 min ago', icon: 'heroicons:share' },
-  { id: 3, action: 'Viewer invited', user: 'Mike Chen', time: '1 hour ago', icon: 'heroicons:eye' },
-  { id: 4, action: 'Organization updated', user: 'Admin', time: '2 hours ago', icon: 'heroicons:building-office' }
+  {id: 1, action: 'New user added', user: 'John Smith', time: '2 min ago', icon: 'i-heroicons-user-plus'},
+  {id: 2, action: 'Dashboard shared', user: 'Sarah Johnson', time: '15 min ago', icon: 'i-heroicons-share'},
+  {id: 3, action: 'Viewer invited', user: 'Mike Chen', time: '1 hour ago', icon: 'i-heroicons-eye'},
+  {id: 4, action: 'Organization updated', user: 'Admin', time: '2 hours ago', icon: 'i-heroicons-building-office'}
 ])
 
 // Recent users (mock data)

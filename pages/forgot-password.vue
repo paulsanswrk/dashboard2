@@ -3,7 +3,7 @@
     <div class="max-w-md w-full space-y-8">
       <div>
         <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-          <Icon name="heroicons:key" class="h-8 w-8 text-blue-600" />
+          <Icon name="i-heroicons-key" class="h-8 w-8 text-blue-600"/>
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Reset your password
@@ -15,16 +15,16 @@
       
       <UCard class="mt-8 bg-white">
         <UForm :state="form" @submit="handleResetPassword" class="space-y-6">
-          <UFormGroup label="Email address" required>
+          <UFormField label="Email address" required>
             <UInput
               v-model="form.email"
               type="email"
               placeholder="Enter your email"
               :error="errors.email"
-              class="text-gray-900"
+              class="!w-full text-gray-900"
               required
             />
-          </UFormGroup>
+          </UFormField>
 
           <UAlert
             v-if="error"

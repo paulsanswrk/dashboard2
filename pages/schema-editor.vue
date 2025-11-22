@@ -16,7 +16,7 @@
           <!-- Progress indicators -->
           <div v-if="loadingDatasets || loadingSchemas" class="text-sm text-gray-600 dark:text-gray-300">
             <div v-if="loadingDatasets" class="flex items-center gap-2">
-              <Icon name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+              <Icon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
               <span>Loading complete database schema...</span>
             </div>
           </div>

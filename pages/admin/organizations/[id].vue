@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-4">
-        <UButton variant="ghost" @click="goBack" class="p-2">
-          <Icon name="heroicons:arrow-left" class="w-5 h-5" />
+        <UButton variant="ghost" @click="goBack" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+          <Icon name="i-heroicons-arrow-left" class="w-5 h-5"/>
         </UButton>
         <div>
           <h1 class="text-2xl font-heading font-bold tracking-tight text-gray-900 dark:text-white">
@@ -21,7 +21,7 @@
       <!-- Loading State -->
       <div v-if="isLoading" class="flex justify-center items-center py-12">
         <div class="text-center">
-          <Icon name="heroicons:arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2" />
+          <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2"/>
           <p class="text-gray-500 dark:text-gray-400">Loading organization details...</p>
         </div>
       </div>
@@ -39,7 +39,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full mx-auto mb-3">
-                <Icon name="heroicons:users" class="w-6 h-6 text-blue-600 dark:text-blue-300" />
+                <Icon name="i-heroicons-users" class="w-6 h-6 text-blue-600 dark:text-blue-300"/>
               </div>
               <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.user_count || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
@@ -47,7 +47,7 @@
             
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full mx-auto mb-3">
-                <Icon name="heroicons:user-group" class="w-6 h-6 text-green-600 dark:text-green-300" />
+                <Icon name="i-heroicons-user-group" class="w-6 h-6 text-green-600 dark:text-green-300"/>
               </div>
               <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.profile_count || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Internal Users</div>
@@ -55,7 +55,7 @@
             
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full mx-auto mb-3">
-                <Icon name="heroicons:eye" class="w-6 h-6 text-purple-600 dark:text-purple-300" />
+                <Icon name="i-heroicons-eye" class="w-6 h-6 text-purple-600 dark:text-purple-300"/>
               </div>
               <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.viewer_count || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Viewers</div>
@@ -63,7 +63,7 @@
             
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-full mx-auto mb-3">
-                <Icon name="heroicons:chart-bar" class="w-6 h-6 text-orange-600 dark:text-orange-300" />
+                <Icon name="i-heroicons-chart-bar" class="w-6 h-6 text-orange-600 dark:text-orange-300"/>
               </div>
               <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.dashboards_count || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Dashboards</div>
@@ -118,13 +118,14 @@
               <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
                 Internal Users ({{ internalUsers?.length || 0 }})
               </h3>
-              <UButton 
-                color="orange" 
-                size="sm" 
+              <UButton
+                  color="orange"
+                  size="sm"
+                  class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
                 @click="openAddUserModal"
                 :disabled="isLoading"
               >
-                <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+                <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
                 Add User
               </UButton>
             </div>
@@ -135,7 +136,7 @@
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                  <Icon name="heroicons:user" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                  <Icon name="i-heroicons-user" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
                 </div>
                 <div>
                   <div class="font-medium text-gray-900 dark:text-white">
@@ -150,22 +151,23 @@
                 <div class="text-sm text-gray-500 dark:text-gray-400">
                   {{ formatDate(profile.created_at, true) }}
                 </div>
-                <UButton 
-                  variant="ghost" 
-                  size="sm" 
-                  color="red" 
+                <UButton
+                    variant="ghost"
+                    size="sm"
+                    color="red"
+                    class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
                   @click="deleteUser(profile)"
                   :disabled="isDeletingUser"
                   :loading="isDeletingUser && deletingUserId === profile.user_id"
                 >
-                  <Icon name="heroicons:trash" class="w-4 h-4" />
+                  <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                 </UButton>
               </div>
             </div>
           </div>
           
           <div v-else class="text-center py-8">
-            <Icon name="heroicons:user-group" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <Icon name="i-heroicons-user-group" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
             <p class="text-gray-500 dark:text-gray-400">No internal users found</p>
           </div>
         </UCard>
@@ -177,13 +179,14 @@
               <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
                 Viewers ({{ allViewers?.length || 0 }})
               </h3>
-              <UButton 
-                color="purple" 
-                size="sm" 
+              <UButton
+                  color="purple"
+                  size="sm"
+                  class="bg-purple-500 hover:bg-purple-600 text-white cursor-pointer"
                 @click="openAddViewerModal"
                 :disabled="isLoading"
               >
-                <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+                <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
                 Add Viewer
               </UButton>
             </div>
@@ -194,7 +197,7 @@
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
-                  <Icon name="heroicons:eye" class="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                  <Icon name="i-heroicons-eye" class="w-4 h-4 text-purple-600 dark:text-purple-300"/>
                 </div>
                 <div>
                   <div class="font-medium text-gray-900 dark:text-white">
@@ -212,22 +215,23 @@
                 <div class="text-sm text-gray-500 dark:text-gray-400">
                   {{ formatDate(viewer.created_at, true) }}
                 </div>
-                <UButton 
-                  variant="ghost" 
-                  size="sm" 
-                  color="red" 
+                <UButton
+                    variant="ghost"
+                    size="sm"
+                    color="red"
+                    class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
                   @click="deleteViewer(viewer)"
                   :disabled="isDeletingViewer"
                   :loading="isDeletingViewer && deletingViewerId === viewer.user_id"
                 >
-                  <Icon name="heroicons:trash" class="w-4 h-4" />
+                  <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                 </UButton>
               </div>
             </div>
           </div>
           
           <div v-else class="text-center py-8">
-            <Icon name="heroicons:eye" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <Icon name="i-heroicons-eye" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
             <p class="text-gray-500 dark:text-gray-400">No viewers found</p>
           </div>
         </UCard>
@@ -258,8 +262,9 @@
                   class="w-24 text-center"
                   :disabled="isUpdating"
                 />
-                <UButton 
-                  color="orange" 
+                <UButton
+                    color="orange"
+                    class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
                   @click="updateLicenses"
                   :loading="isUpdating"
                   :disabled="licensesForm.licenses === organization.licenses"
@@ -291,114 +296,114 @@
 
       <!-- Error State -->
       <div v-else class="text-center py-12">
-        <Icon name="heroicons:exclamation-triangle" class="w-12 h-12 text-red-400 mx-auto mb-4" />
+        <Icon name="i-heroicons-exclamation-triangle" class="w-12 h-12 text-red-400 mx-auto mb-4"/>
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Organization not found</h3>
         <p class="text-gray-500 dark:text-gray-400 mb-4">The organization you're looking for doesn't exist or you don't have permission to view it.</p>
         <UButton @click="goBack" color="orange">
-          <Icon name="heroicons:arrow-left" class="w-4 h-4 mr-1" />
+          <Icon name="i-heroicons-arrow-left" class="w-4 h-4 mr-1"/>
           Go Back
         </UButton>
       </div>
 
       <!-- Add User Modal -->
-      <UModal v-model="showAddUserModal">
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-              Add New User
-            </h3>
-          </template>
-          
+      <UModal v-model:open="showAddUserModal">
+        <template #header>
+          <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+            Add New User
+          </h3>
+        </template>
+
+        <template #body>
           <form @submit.prevent="addUser" class="space-y-4">
-            <UFormGroup label="Email Address" required>
-              <UInput v-model="userForm.email" type="email" placeholder="Enter email address" />
-            </UFormGroup>
-            
+            <UFormField label="Email Address" required>
+              <UInput v-model="userForm.email" type="email" placeholder="Enter email address" class="w-full"/>
+            </UFormField>
+
             <div class="grid grid-cols-2 gap-4">
-              <UFormGroup label="First Name" required>
-                <UInput v-model="userForm.firstName" placeholder="Enter first name" />
-              </UFormGroup>
-              
-              <UFormGroup label="Last Name" required>
-                <UInput v-model="userForm.lastName" placeholder="Enter last name" />
-              </UFormGroup>
+              <UFormField label="First Name" required>
+                <UInput v-model="userForm.firstName" placeholder="Enter first name" class="w-full"/>
+              </UFormField>
+
+              <UFormField label="Last Name" required>
+                <UInput v-model="userForm.lastName" placeholder="Enter last name" class="w-full"/>
+              </UFormField>
             </div>
-            
-            <UFormGroup label="Role">
-              <USelect 
-                v-model="userForm.role" 
+
+            <UFormField label="Role">
+              <USelect
+                  v-model="userForm.role"
                 :options="userRoleOptions"
                 placeholder="Select role"
               />
-            </UFormGroup>
-            
+            </UFormField>
+
             <div class="flex justify-end gap-3 pt-4">
-              <UButton variant="ghost" @click="closeAddUserModal">Cancel</UButton>
-              <UButton type="submit" color="orange" :loading="isAddingUser">
+              <UButton variant="ghost" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="closeAddUserModal">Cancel</UButton>
+              <UButton type="submit" color="orange" class="bg-orange-500 hover:bg-orange-600 text-white dark:text-black cursor-pointer" :loading="isAddingUser">
                 Add User
               </UButton>
             </div>
           </form>
-        </UCard>
+        </template>
       </UModal>
 
       <!-- Add Viewer Modal -->
-      <UModal v-model="showAddViewerModal">
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-              Add New Viewer
-            </h3>
-          </template>
-          
+      <UModal v-model:open="showAddViewerModal">
+        <template #header>
+          <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+            Add New Viewer
+          </h3>
+        </template>
+
+        <template #body>
           <form @submit.prevent="addViewer" class="space-y-4">
-            <UFormGroup label="Email Address" required>
-              <UInput v-model="viewerForm.email" type="email" placeholder="Enter email address" />
-            </UFormGroup>
-            
+            <UFormField label="Email Address" required>
+              <UInput v-model="viewerForm.email" type="email" placeholder="Enter email address" class="w-full"/>
+            </UFormField>
+
             <div class="grid grid-cols-2 gap-4">
-              <UFormGroup label="First Name" required>
-                <UInput v-model="viewerForm.firstName" placeholder="Enter first name" />
-              </UFormGroup>
-              
-              <UFormGroup label="Last Name" required>
-                <UInput v-model="viewerForm.lastName" placeholder="Enter last name" />
-              </UFormGroup>
+              <UFormField label="First Name" required>
+                <UInput v-model="viewerForm.firstName" placeholder="Enter first name" class="w-full"/>
+              </UFormField>
+
+              <UFormField label="Last Name" required>
+                <UInput v-model="viewerForm.lastName" placeholder="Enter last name" class="w-full"/>
+              </UFormField>
             </div>
-            
+
             <div class="grid grid-cols-2 gap-4">
-              <UFormGroup label="Viewer Type">
-                <UInput v-model="viewerForm.type" placeholder="e.g., Viewer, Manager" />
-              </UFormGroup>
-              
-              <UFormGroup label="Group">
-                <UInput v-model="viewerForm.group" placeholder="e.g., Sales, Marketing" />
-              </UFormGroup>
+              <UFormField label="Viewer Type">
+                <UInput v-model="viewerForm.type" placeholder="e.g., Viewer, Manager" class="w-full"/>
+              </UFormField>
+
+              <UFormField label="Group">
+                <UInput v-model="viewerForm.group" placeholder="e.g., Sales, Marketing" class="w-full"/>
+              </UFormField>
             </div>
-            
+
             <div class="flex justify-end gap-3 pt-4">
-              <UButton variant="ghost" @click="closeAddViewerModal">Cancel</UButton>
-              <UButton type="submit" color="purple" :loading="isAddingViewer">
+              <UButton variant="ghost" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="closeAddViewerModal">Cancel</UButton>
+              <UButton type="submit" color="purple" class="bg-purple-500 hover:bg-purple-600 text-white dark:text-black cursor-pointer" :loading="isAddingViewer">
                 Add Viewer
               </UButton>
             </div>
           </form>
-        </UCard>
+        </template>
       </UModal>
 
       <!-- Delete User Confirmation Modal -->
-      <UModal v-model="showDeleteUserModal">
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
-              Delete User
-            </h3>
-          </template>
-          
+      <UModal v-model:open="showDeleteUserModal">
+        <template #header>
+          <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
+            Delete User
+          </h3>
+        </template>
+
+        <template #body>
           <div class="space-y-4">
             <div class="flex items-start gap-3">
               <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
-                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+                <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400"/>
               </div>
               <div class="space-y-2">
                 <p class="text-gray-900 dark:text-white font-medium">
@@ -416,13 +421,13 @@
                 </p>
               </div>
             </div>
-            
+
             <div class="flex justify-end gap-3 pt-4">
               <UButton variant="ghost" @click="cancelDeleteUser" :disabled="isDeletingUser">
                 Cancel
               </UButton>
-              <UButton 
-                color="red" 
+              <UButton
+                  color="red"
                 @click="confirmDeleteUser"
                 :loading="isDeletingUser"
               >
@@ -430,22 +435,22 @@
               </UButton>
             </div>
           </div>
-        </UCard>
+        </template>
       </UModal>
 
       <!-- Delete Viewer Confirmation Modal -->
-      <UModal v-model="showDeleteViewerModal">
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
-              Delete Viewer
-            </h3>
-          </template>
-          
+      <UModal v-model:open="showDeleteViewerModal">
+        <template #header>
+          <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
+            Delete Viewer
+          </h3>
+        </template>
+
+        <template #body>
           <div class="space-y-4">
             <div class="flex items-start gap-3">
               <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
-                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+                <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400"/>
               </div>
               <div class="space-y-2">
                 <p class="text-gray-900 dark:text-white font-medium">
@@ -463,13 +468,13 @@
                 </p>
               </div>
             </div>
-            
+
             <div class="flex justify-end gap-3 pt-4">
               <UButton variant="ghost" @click="cancelDeleteViewer" :disabled="isDeletingViewer">
                 Cancel
               </UButton>
-              <UButton 
-                color="red" 
+              <UButton
+                  color="red"
                 @click="confirmDeleteViewer"
                 :loading="isDeletingViewer"
               >
@@ -477,14 +482,14 @@
               </UButton>
             </div>
           </div>
-        </UCard>
+        </template>
       </UModal>
 
       <template #fallback>
         <!-- Server-side fallback -->
         <div class="flex justify-center items-center py-12">
           <div class="text-center">
-            <Icon name="heroicons:arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2" />
+            <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2"/>
             <p class="text-gray-500 dark:text-gray-400">Loading organization details...</p>
           </div>
         </div>

@@ -8,7 +8,7 @@
         size="sm"
         class="w-full"
       >
-        <Icon name="heroicons:list-bullet" class="w-4 h-4 mr-2" />
+        <Icon name="i-heroicons-list-bullet" class="w-4 h-4 mr-2"/>
         Fields ({{ availableFields.length }})
       </UButton>
     </div>
@@ -27,7 +27,7 @@
           @click="closeMobilePanel"
           class="lg:hidden p-1 hover:bg-gray-200 rounded"
         >
-          <Icon name="heroicons:x-mark" class="w-4 h-4" />
+          <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
         </button>
       </div>
       <div class="space-y-2">
@@ -58,7 +58,7 @@
             <h3 class="text-lg font-semibold">Sales by Region</h3>
           </template>
           <div class="chart-placeholder h-48">
-            <Icon name="heroicons:chart-bar" class="w-16 h-16 text-gray-400" />
+            <Icon name="i-heroicons-chart-bar" class="w-16 h-16 text-gray-400"/>
           </div>
         </UCard>
 
@@ -68,7 +68,7 @@
             <h3 class="text-lg font-semibold">Revenue Distribution</h3>
           </template>
           <div class="chart-placeholder h-48">
-            <Icon name="heroicons:chart-pie" class="w-16 h-16 text-gray-400" />
+            <Icon name="i-heroicons-chart-pie" class="w-16 h-16 text-gray-400"/>
           </div>
         </UCard>
       </div>
@@ -115,7 +115,7 @@
         size="sm"
         class="w-full"
       >
-        <Icon name="heroicons:cog-6-tooth" class="w-4 h-4 mr-2" />
+        <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4 mr-2"/>
         Settings
       </UButton>
     </div>
@@ -134,7 +134,7 @@
           @click="closeMobilePanel"
           class="lg:hidden p-1 hover:bg-gray-200 rounded"
         >
-          <Icon name="heroicons:x-mark" class="w-4 h-4" />
+          <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
         </button>
       </div>
       <div class="space-y-4">

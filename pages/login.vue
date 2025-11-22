@@ -25,27 +25,27 @@
       <UCard class="mt-8 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
         <!-- Password Sign In Form -->
         <UForm v-if="!magicLinkMode" :state="form" @submit="handleSignIn" class="space-y-6 p-6">
-          <UFormGroup label="Email address" required class="text-gray-900 dark:text-white">
+          <UFormField label="Email address" required class="text-gray-900 dark:text-white">
             <UInput
               v-model="form.email"
               type="email"
               placeholder="Enter your email"
               :error="errors.email"
-              class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 dark:focus:ring-0"
+              class="!w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 dark:focus:ring-0"
               required
             />
-          </UFormGroup>
+          </UFormField>
 
-          <UFormGroup label="Password" required class="text-gray-900 dark:text-white">
+          <UFormField label="Password" required class="text-gray-900 dark:text-white">
             <UInput
               v-model="form.password"
               type="password"
               placeholder="Enter your password"
               :error="errors.password"
-              class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 dark:focus:ring-0"
+              class="!w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 dark:focus:ring-0"
               required
             />
-          </UFormGroup>
+          </UFormField>
 
           <div class="flex items-center justify-between">
             <UCheckbox 
@@ -102,7 +102,7 @@
               class="w-full mt-4 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-heading flex items-center justify-center"
               size="lg"
             >
-              <Icon name="heroicons:envelope-open" class="w-5 h-5 mr-2" />
+              <Icon name="i-heroicons-envelope-open" class="w-5 h-5 mr-2"/>
               Sign in with Magic Link
             </UButton>
           </div>
@@ -115,16 +115,16 @@
             <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">We'll send you a secure link to sign in</p>
           </div>
 
-          <UFormGroup label="Email address" required class="text-gray-900 dark:text-white">
+          <UFormField label="Email address" required class="text-gray-900 dark:text-white">
             <UInput
               v-model="magicLinkEmail"
               type="email"
               placeholder="Enter your email"
               :error="errors.magicLinkEmail"
-              class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 dark:focus:ring-0"
+              class="!w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 dark:focus:ring-0"
               required
             />
-          </UFormGroup>
+          </UFormField>
 
           <UAlert
             v-if="error"
@@ -149,7 +149,7 @@
             style="background-color: #F28C28;"
             size="lg"
           >
-            <Icon name="heroicons:envelope-open" class="w-5 h-5 mr-2" />
+            <Icon name="i-heroicons-envelope-open" class="w-5 h-5 mr-2"/>
             Send Magic Link
           </UButton>
 
@@ -170,7 +170,7 @@
               class="w-full mt-4 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-heading flex items-center justify-center"
               size="lg"
             >
-              <Icon name="heroicons:key" class="w-5 h-5 mr-2" />
+              <Icon name="i-heroicons-key" class="w-5 h-5 mr-2"/>
               Sign in with Password
             </UButton>
           </div>

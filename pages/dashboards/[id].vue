@@ -3,22 +3,28 @@
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <UInput v-model="dashboardName" class="w-72" />
-        <UButton color="orange" variant="solid" :loading="saving" @click="save">Save Dashboard</UButton>
+        <UButton color="orange" variant="solid" :loading="saving" @click="save" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium">Save Dashboard</UButton>
       </div>
       <div class="flex items-center gap-2">
-        <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')">Desktop</UButton>
-        <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')">Tablet</UButton>
-        <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')">Mobile</UButton>
-        <UButton variant="outline" color="blue" size="xs" @click="autoLayout">
-          <Icon name="heroicons:arrows-pointing-out" class="w-4 h-4 mr-1" />
+        <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')">
+          <Icon name="i-heroicons-computer-desktop" class="w-4 h-4"/>
+        </UButton>
+        <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')">
+          <Icon name="i-heroicons-device-tablet" class="w-4 h-4"/>
+        </UButton>
+        <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')">
+          <Icon name="i-heroicons-device-phone-mobile" class="w-4 h-4"/>
+        </UButton>
+        <UButton variant="outline" color="blue" size="xs" @click="autoLayout" class="hover:bg-blue-500 hover:text-white">
+          <Icon name="i-heroicons-arrows-pointing-out" class="w-4 h-4 mr-1"/>
           Auto Layout
         </UButton>
-        <UButton variant="outline" color="blue" size="xs" @click="openPreview">
-          <Icon name="heroicons:eye" class="w-4 h-4 mr-1"/>
+        <UButton variant="outline" color="blue" size="xs" @click="openPreview" class="hover:bg-blue-500 hover:text-white">
+          <Icon name="i-heroicons-eye" class="w-4 h-4 mr-1"/>
           Preview
         </UButton>
-        <UButton variant="outline" color="red" size="xs" @click="downloadPDF">
-          <Icon name="heroicons:document-arrow-down" class="w-4 h-4 mr-1" />
+        <UButton variant="outline" color="red" size="xs" @click="downloadPDF" class="hover:bg-red-500 hover:text-white">
+          <Icon name="i-heroicons-document-arrow-down" class="w-4 h-4 mr-1"/>
           Get PDF
         </UButton>
       </div>
@@ -29,7 +35,7 @@
       <div v-if="debugEnv" class="debug-panel border rounded bg-neutral-50 dark:bg-neutral-800 p-2">
       <div class="flex items-center justify-between mb-2">
         <h3 class="font-medium text-xs flex items-center gap-2">
-          <Icon name="heroicons:beaker" class="w-3 h-3 text-orange-500" />
+          <Icon name="i-heroicons-beaker" class="w-3 h-3 text-orange-500"/>
           GridLayout Debug
         </h3>
         <UButton
@@ -38,7 +44,7 @@
           color="gray"
           @click="debugPanelOpen = !debugPanelOpen"
         >
-          <Icon :name="debugPanelOpen ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" class="w-3 h-3" />
+          <Icon :name="debugPanelOpen ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-3 h-3"/>
         </UButton>
       </div>
 
@@ -204,59 +210,59 @@
     </ClientOnly>
 
     <!-- Rename Chart Modal -->
-    <UModal v-model="showRenameModal">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-semibold">Rename Chart</h3>
-        </template>
+    <UModal v-model:open="showRenameModal">
+      <template #header>
+        <h3 class="text-lg font-semibold">Rename Chart</h3>
+      </template>
+      <template #body>
         <UForm :state="renameForm" @submit="renameChart">
-          <UFormGroup label="New Chart Name" name="newName">
-            <UInput v-model="renameForm.newName" />
-          </UFormGroup>
+          <UFormField label="New Chart Name" name="newName">
+            <UInput v-model="renameForm.newName" class="w-full"/>
+          </UFormField>
           <div class="flex justify-end gap-2 mt-4">
-            <UButton variant="outline" @click="showRenameModal = false">Cancel</UButton>
-            <UButton type="submit" color="orange" :loading="renaming">Rename</UButton>
+            <UButton variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="showRenameModal = false">Cancel</UButton>
+            <UButton type="submit" color="orange" class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" :loading="renaming">Rename</UButton>
           </div>
         </UForm>
-      </UCard>
+      </template>
     </UModal>
 
     <!-- Delete Chart Confirmation Modal -->
-    <UModal v-model="showDeleteModal">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-semibold text-red-600">Delete Chart</h3>
-        </template>
+    <UModal v-model:open="showDeleteModal">
+      <template #header>
+        <h3 class="text-lg font-semibold text-red-600">Delete Chart</h3>
+      </template>
+      <template #body>
         <div class="space-y-4">
           <p>Are you sure you want to delete the chart "<strong>{{ chartToDeleteName }}</strong>"?</p>
           <p class="text-sm text-gray-600">This action cannot be undone. The chart will be removed from this dashboard but will still be available in your saved charts.</p>
           <div class="flex justify-end gap-2">
-            <UButton variant="outline" @click="showDeleteModal = false">Cancel</UButton>
-            <UButton color="red" :loading="deleting" @click="deleteChart">Delete</UButton>
+            <UButton variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="showDeleteModal = false">Cancel</UButton>
+            <UButton color="red" class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer" :loading="deleting" @click="deleteChart">Delete</UButton>
           </div>
         </div>
-      </UCard>
+      </template>
     </UModal>
 
     <!-- Add Chart Modal -->
-    <UModal v-model="showAddChartModal" size="2xl">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-semibold">Add Chart to Dashboard</h3>
-        </template>
+    <UModal v-model:open="showAddChartModal" size="2xl">
+      <template #header>
+        <h3 class="text-lg font-semibold">Add Chart to Dashboard</h3>
+      </template>
+      <template #body>
         <div class="space-y-4">
           <div v-if="availableCharts.length === 0" class="text-center py-8 text-gray-500">
-            <Icon name="heroicons:chart-bar" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <Icon name="i-heroicons-chart-bar" class="w-12 h-12 mx-auto mb-4 opacity-50"/>
             <p>No saved charts available</p>
             <p class="text-sm">Create charts in the Report Builder first</p>
           </div>
           <div v-else class="max-h-96 overflow-y-auto">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <UCard
-                v-for="chart in availableCharts"
-                :key="chart.id"
-                class="cursor-pointer hover:border-orange-300 transition-colors"
-                @click="addChartToDashboard(chart.id)"
+                  v-for="chart in availableCharts"
+                  :key="chart.id"
+                  class="cursor-pointer hover:border-orange-300 transition-colors"
+                  @click="addChartToDashboard(chart.id)"
               >
                 <div class="font-medium">{{ chart.name }}</div>
                 <div class="text-sm text-gray-500">{{ chart.description || 'No description' }}</div>
@@ -268,7 +274,7 @@
             <UButton variant="outline" @click="showAddChartModal = false">Cancel</UButton>
           </div>
         </div>
-      </UCard>
+      </template>
     </UModal>
 
     <Dashboard

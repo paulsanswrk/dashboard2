@@ -54,7 +54,7 @@
               </div>
               <div v-if="aiLoading" class="bg-dark-lighter rounded-lg p-3">
                 <div class="flex items-center gap-2">
-                  <Icon name="heroicons:arrow-path" class="w-4 h-4 animate-spin text-neutral-400" />
+                  <Icon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin text-neutral-400"/>
                   <p class="text-sm text-neutral-400">Thinking...</p>
                 </div>
               </div>
@@ -75,7 +75,7 @@
                 :disabled="aiLoading || !aiInput.trim()"
                 class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
               >
-                <Icon v-if="aiLoading" name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+                <Icon v-if="aiLoading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
                 <span v-else>Send</span>
               </button>
             </div>
@@ -90,7 +90,7 @@
 
               <!-- Dataset search (hidden for now) -->
               <div v-if="false" class="relative">
-                <Icon name="heroicons:magnifying-glass" class="w-4 h-4 absolute left-5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <Icon name="i-heroicons-magnifying-glass" class="w-4 h-4 absolute left-5 top-1/2 -translate-y-1/2 text-neutral-400"/>
                 <div class="pl-4">
                   <input v-model="datasetQuery" type="text" placeholder="Search"
                         class="w-full pl-7 pr-2 py-1.5 text-sm rounded bg-dark-light text-white placeholder-neutral-400 border border-dark-lighter focus:outline-none focus:ring-1 focus:ring-primary-400" />
@@ -100,7 +100,7 @@
               <!-- Datasets list as collapsible sections -->
               <div class="space-y-2">
                 <div v-if="datasetsLoading" class="px-4 py-3 text-neutral-300 flex items-center gap-2">
-                  <Icon name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+                  <Icon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
                   <span>Loading tables...</span>
                 </div>
                 <template v-else>
@@ -114,12 +114,12 @@
                       @click="selectDataset(ds.id)"
                     >
                       <span class="truncate">{{ ds.label || ds.name }}</span>
-                      <Icon :name="expandedDatasetId === ds.id ? 'heroicons:chevron-down' : 'heroicons:chevron-right'" class="w-4 h-4" />
+                      <Icon :name="expandedDatasetId === ds.id ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-4 h-4"/>
                     </button>
 
                     <div v-if="expandedDatasetId === ds.id" class="p-3 bg-transparent">
                       <div v-if="schemaLoading" class="flex items-center gap-2 text-sm text-neutral-500">
-                        <Icon name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
+                        <Icon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
                         <span>Loading columns...</span>
                       </div>
                       <ReportingSchemaPanel v-else-if="schema.length && selectedDatasetId === ds.id" :fields="schema" :dataset-name="ds.name" />
@@ -175,7 +175,7 @@
           @click="sidebarVisible = !sidebarVisible"
           class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
         >
-          <Icon name="heroicons:x-mark" class="w-5 h-5 text-gray-500 hover:text-gray-700" />
+          <Icon name="i-heroicons-x-mark" class="w-5 h-5 text-gray-500 hover:text-gray-700"/>
         </button>
 
         <h2 class="font-medium mb-2 pr-8">Appearance</h2>

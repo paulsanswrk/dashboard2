@@ -1,9 +1,8 @@
 /* Import Barlow font for headers and Inter for body text */
 @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "@nuxt/ui";
 
 /* Global typography to match Optiqo logo */
 body {
@@ -109,7 +108,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Custom styles for Optiqo Dashboard */
 :root {
-    /* Primary brand color - Orange-700 from user preference */
+    /* Tailwind CSS v4 color definitions using --color-* naming */
     --color-primary: #c2410c;
     --color-primary-foreground: #ffffff;
     --color-primary-50: #fff7ed;
@@ -123,7 +122,7 @@ h1, h2, h3, h4, h5, h6 {
     --color-primary-800: #9a3412;
     --color-primary-900: #7c2d12;
 
-    /* Dark theme colors from modal example */
+    /* Dark theme colors - using individual properties for Tailwind v4 */
     --color-dark: #222222;
     --color-dark-light: #363636;
     --color-dark-lighter: #595959;
@@ -134,7 +133,7 @@ h1, h2, h3, h4, h5, h6 {
     --color-secondary-foreground: #ffffff;
 
     /* Status colors */
-    --color-success: #c2410c;
+    --color-success: #10b981;
     --color-success-foreground: #ffffff;
     --color-info: #06b6d4;
     --color-info-foreground: #ffffff;
@@ -154,6 +153,48 @@ h1, h2, h3, h4, h5, h6 {
     --color-neutral-700: #404040;
     --color-neutral-800: #262626;
     --color-neutral-900: #171717;
+
+    /* Green color variants */
+    --color-green: #10b981;
+    --color-green-50: #ecfdf5;
+    --color-green-100: #d1fae5;
+    --color-green-200: #a7f3d0;
+    --color-green-300: #6ee7b7;
+    --color-green-400: #34d399;
+    --color-green-500: #10b981;
+    --color-green-600: #059669;
+    --color-green-700: #047857;
+    --color-green-800: #065f46;
+    --color-green-900: #064e3b;
+    --color-green-dark: rgb(23 99 51);
+
+    /* Define colors for Tailwind v4 auto-detection */
+    --color-dark-lighter: #595959;
+}
+
+/* Custom dark theme utility classes for Tailwind v4 compatibility */
+.bg-dark {
+    background-color: var(--color-dark) !important;
+}
+
+.bg-dark-light {
+    background-color: var(--color-dark-light) !important;
+}
+
+.bg-dark-lighter {
+    background-color: var(--color-dark-lighter) !important;
+}
+
+.border-dark {
+    border-color: var(--color-dark) !important;
+}
+
+.border-dark-lighter {
+    border-color: var(--color-dark-lighter) !important;
+}
+
+.text-dark-foreground {
+    color: var(--color-dark-foreground) !important;
 }
 
 /* Sidebar styles - updated with lighter colors for better contrast */
@@ -166,7 +207,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sidebar-item:hover {
-    @apply bg-neutral-700 text-white;
+    @apply bg-neutral-700 text-white cursor-pointer;
 }
 
 .sidebar-item.active {
@@ -232,11 +273,11 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Modal styles - updated with dark theme and semi-transparent overlay */
 .modal-overlay {
-    @apply fixed inset-0 bg-dark-lighter bg-opacity-75 flex items-center justify-center z-50;
+    @apply fixed inset-0 bg-black/75 flex items-center justify-center z-50;
 }
 
 .modal-content {
-    @apply bg-dark rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+    @apply bg-neutral-900 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
 }
 
 /* Dark modal form styles */
@@ -378,7 +419,7 @@ main {
 }
 
 .dark main {
-    @apply bg-neutral-900;
+    background-color: rgb(23 23 23);
 }
 
 /* Dark theme cards */
@@ -421,12 +462,13 @@ footer {
 
 /* Dark theme footer - ensure consistency */
 .dark footer {
-    @apply bg-neutral-800 border-neutral-700;
+    background-color: rgb(38 38 38);
+    @apply border-neutral-600;
 }
 
 /* Dark theme sidebar adjustments - lighter colors for better usability */
 .dark .sidebar {
-    @apply bg-neutral-800;
+    background-color: rgb(38 38 38);
 }
 
 .dark .sidebar-item {
@@ -434,7 +476,7 @@ footer {
 }
 
 .dark .sidebar-item:hover {
-    @apply bg-neutral-700 text-white;
+    @apply bg-neutral-700 text-white cursor-pointer;
 }
 
 .dark .sidebar-item.active {
@@ -587,9 +629,358 @@ body, main, div, span, p, h1, h2, h3, h4, h5, h6, a, button, input, textarea, se
 
 /* Remove button hover background */
 .avatar-button:hover {
-    @apply bg-transparent;
+    @apply bg-transparent cursor-pointer;
 }
 
 .dark .avatar-button:hover {
-    @apply bg-transparent;
+    @apply bg-transparent cursor-pointer;
+}
+
+/* Nuxt UI v4 Button Fixes - More targeted, less aggressive */
+/* Only enhance buttons that need it, don't override Nuxt UI defaults */
+
+/* Ensure outline buttons have visible borders when Nuxt UI might not apply them */
+button.rounded-md:not([class*="border-0"]):not([class*="border-none"]) {
+    /* Only add border if it's missing - let Nuxt UI handle it otherwise */
+}
+
+/* Red outline buttons - enhance hover states without breaking defaults */
+button.rounded-md.border-red-300:hover,
+button.rounded-md.border-red-600:hover,
+.dark button.rounded-md.border-red-300:hover,
+.dark button.rounded-md.border-red-600:hover {
+    @apply bg-red-50 dark:bg-red-900/20;
+    transition: background-color 0.15s ease-in-out;
+}
+
+/* Gray outline buttons - enhance hover states */
+button.rounded-md.border-gray-300:hover,
+button.rounded-md.border-gray-600:hover,
+.dark button.rounded-md.border-gray-300:hover,
+.dark button.rounded-md.border-gray-600:hover {
+    @apply bg-gray-50 dark:bg-gray-700;
+    transition: background-color 0.15s ease-in-out;
+}
+
+/* Ensure buttons maintain proper spacing and don't break layout */
+button.rounded-md.flex-shrink-0 {
+    /* Let Nuxt UI handle this */
+}
+
+/* Disabled button states - ensure they're visible */
+button:disabled,
+button[disabled],
+button[aria-disabled="true"] {
+    @apply opacity-75 cursor-not-allowed;
+    pointer-events: none;
+}
+
+/* Form Input Fixes for Nuxt UI v4 */
+/* UInput component styling */
+input[class*="UInput"],
+.UInput input,
+input[data-component="UInput"] {
+    @apply border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+input[class*="UInput"]:focus,
+.UInput input:focus,
+input[data-component="UInput"]:focus {
+    @apply border-primary dark:border-primary ring-2 ring-primary/20 dark:ring-primary/30 outline-none;
+}
+
+input[class*="UInput"]:disabled,
+.UInput input:disabled,
+input[data-component="UInput"]:disabled {
+    @apply bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed;
+}
+
+/* UInput error state */
+input[class*="UInput"][aria-invalid="true"],
+.UInput input[aria-invalid="true"],
+input[data-component="UInput"][aria-invalid="true"] {
+    @apply border-red-300 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-900/30;
+}
+
+/* USelect component styling */
+select[class*="USelect"],
+.USelect select,
+select[data-component="USelect"] {
+    @apply border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+select[class*="USelect"]:focus,
+.USelect select:focus,
+select[data-component="USelect"]:focus {
+    @apply border-primary dark:border-primary ring-2 ring-primary/20 dark:ring-primary/30 outline-none;
+}
+
+/* UCheckbox component styling */
+input[type="checkbox"][class*="UCheckbox"],
+.UCheckbox input[type="checkbox"],
+input[type="checkbox"][data-component="UCheckbox"] {
+    @apply border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700;
+    transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+input[type="checkbox"][class*="UCheckbox"]:checked,
+.UCheckbox input[type="checkbox"]:checked,
+input[type="checkbox"][data-component="UCheckbox"]:checked {
+    @apply bg-primary dark:bg-primary border-primary dark:border-primary;
+}
+
+input[type="checkbox"][class*="UCheckbox"]:focus,
+.UCheckbox input[type="checkbox"]:focus,
+input[type="checkbox"][data-component="UCheckbox"]:focus {
+    @apply ring-2 ring-primary/20 dark:ring-primary/30 outline-none;
+}
+
+/* Menu/Dropdown Fixes for Nuxt UI v4 */
+/* UDropdownMenu styling */
+[data-headlessui-state][role="menu"],
+.UDropdownMenu [role="menu"] {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-md;
+}
+
+[data-headlessui-state][role="menu"] [role="menuitem"],
+.UDropdownMenu [role="menu"] [role="menuitem"] {
+    @apply text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700;
+    transition: background-color 0.15s ease-in-out;
+}
+
+[data-headlessui-state][role="menu"] [role="menuitem"]:disabled,
+.UDropdownMenu [role="menu"] [role="menuitem"]:disabled {
+    @apply opacity-50 cursor-not-allowed;
+}
+
+/* Ensure proper z-index for dropdowns */
+[data-headlessui-state][role="menu"],
+.UDropdownMenu [role="menu"] {
+    z-index: 50;
+}
+
+/* Form field label styling */
+.UFormField label,
+label[class*="UFormField"] {
+    @apply text-gray-900 dark:text-white font-medium;
+}
+
+/* Textarea styling */
+textarea[class*="UTextarea"],
+.UTextarea textarea,
+textarea[data-component="UTextarea"] {
+    @apply border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+textarea[class*="UTextarea"]:focus,
+.UTextarea textarea:focus,
+textarea[data-component="UTextarea"]:focus {
+    @apply border-primary dark:border-primary ring-2 ring-primary/20 dark:ring-primary/30 outline-none;
+}
+
+/* Additional Nuxt UI v4 fixes - target actual rendered classes */
+/* Button base styles */
+button[class*="rounded"],
+button[class*="px-"],
+button[class*="py-"] {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Ensure outline buttons have visible borders */
+button[class*="border"]:not([class*="border-0"]) {
+    border-width: 1px;
+}
+
+/* Fix for buttons with variant="outline" */
+button[class*="border-gray"]:hover {
+    border-color: rgb(156 163 175); /* gray-400 */
+}
+
+.dark button[class*="border-gray"]:hover {
+    border-color: rgb(107 114 128); /* gray-500 */
+}
+
+/* Ensure proper button backgrounds on hover */
+button:hover:not(:disabled) {
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+/* Form inputs - ensure consistent styling */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    @apply border border-gray-300 dark:border-gray-600;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    @apply outline-none ring-2 ring-primary/20 dark:ring-primary/30 border-primary dark:border-primary;
+}
+
+/* Menu items hover states */
+[role="menuitem"]:hover:not(:disabled) {
+    @apply bg-gray-100 dark:bg-gray-700;
+}
+
+/* Dropdown menu container */
+[role="menu"] {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg;
+}
+
+/* Ensure buttons maintain proper spacing */
+button[class*="gap-"] {
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Fix for disabled button states */
+button:disabled,
+button[disabled] {
+    @apply opacity-50 cursor-not-allowed;
+    pointer-events: none;
+}
+
+/* Ensure primary color buttons use the correct orange */
+button[style*="background-color: #F28C28"],
+button[style*="background-color:#F28C28"] {
+    background-color: #F28C28 !important;
+}
+
+button[style*="background-color: #F28C28"]:hover,
+button[style*="background-color:#F28C28"]:hover {
+    background-color: #ea580c !important; /* orange-600 */
+    opacity: 0.9;
+}
+
+/* Nuxt UI v4 Specific Fixes - Target actual rendered classes */
+/* Buttons with border classes need proper hover states */
+button.border-gray-300:hover,
+button.border-gray-300:focus {
+    @apply border-gray-400 bg-gray-50 dark:bg-gray-700;
+}
+
+.dark button.border-gray-300:hover,
+.dark button.border-gray-300:focus {
+    @apply border-gray-500 bg-gray-800;
+}
+
+/* Red outline buttons - ensure proper styling */
+/* Target buttons with red border classes - more specific selector */
+button.rounded-md.text-sm.border-red-300:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+button.rounded-md.text-sm.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+button.font-medium.rounded-md.border-red-300:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+button.font-medium.rounded-md.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
+    /* Ensure text color is visible and border is present */
+    color: rgb(185 28 28); /* red-700 */
+    border-width: 1px;
+    border-style: solid;
+    transition: all 0.15s ease-in-out;
+}
+
+.dark button.rounded-md.text-sm.border-red-300:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+.dark button.rounded-md.text-sm.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+.dark button.font-medium.rounded-md.border-red-300:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+.dark button.font-medium.rounded-md.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
+    color: rgb(248 113 113); /* red-400 */
+}
+
+/* Red outline button hover states */
+button.rounded-md.text-sm.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+button.rounded-md.text-sm.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+button.font-medium.rounded-md.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+button.font-medium.rounded-md.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
+    background-color: rgb(254 242 242); /* red-50 */
+    border-color: rgb(248 113 113); /* red-400 */
+}
+
+.dark button.rounded-md.text-sm.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+.dark button.rounded-md.text-sm.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+.dark button.font-medium.rounded-md.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+.dark button.font-medium.rounded-md.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
+    background-color: rgb(127 29 29 / 0.2); /* red-900/20 */
+    border-color: rgb(239 68 68); /* red-500 */
+}
+
+/* Small size buttons - ensure proper padding */
+button[class*="text-xs"],
+button[class*="px-2"],
+button[class*="px-1.5"] {
+    min-height: 1.75rem; /* Ensure minimum height for small buttons */
+}
+
+/* Medium size buttons */
+button[class*="text-sm"],
+button[class*="px-3"],
+button[class*="px-4"] {
+    min-height: 2rem;
+}
+
+/* Large size buttons */
+button[class*="text-base"],
+button[class*="px-6"] {
+    min-height: 2.5rem;
+}
+
+/* Input field fixes - ensure consistent appearance */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"] {
+    min-height: 2.5rem;
+    @apply px-3 py-2;
+}
+
+/* Checkbox styling improvements */
+input[type="checkbox"] {
+    @apply w-4 h-4 rounded border-gray-300 dark:border-gray-600;
+    accent-color: #f97316; /* orange-500 */
+}
+
+input[type="checkbox"]:checked {
+    @apply bg-orange-500 dark:bg-orange-600 border-orange-500 dark:border-orange-600;
+}
+
+input[type="checkbox"]:focus {
+    @apply ring-2 ring-orange-500/20 dark:ring-orange-500/30 outline-none;
+}
+
+/* Disabled button states - work with Nuxt UI's opacity-75 */
+button:disabled:not([class*="opacity"]),
+button[disabled]:not([class*="opacity"]),
+button[aria-disabled="true"]:not([class*="opacity"]) {
+    @apply opacity-75 cursor-not-allowed;
+}
+
+/* But respect Nuxt UI's disabled classes if they exist */
+button.disabled\:opacity-75:disabled {
+    /* Nuxt UI handles this */
+}
+
+/* Fix for buttons inside flex containers */
+.flex button,
+[class*="flex"] button {
+    flex-shrink: 0;
+}
+
+/* Ensure search input has proper styling */
+input[placeholder*="search"],
+input[placeholder*="Search"],
+input[placeholder*="Type to search"] {
+    @apply border border-gray-300 dark:border-gray-600 rounded-md;
+}
+
+
+/* Ensure buttons maintain their appearance */
+button:not([class*="bg-transparent"]):not([class*="bg-none"]) {
+    background-clip: padding-box;
 }

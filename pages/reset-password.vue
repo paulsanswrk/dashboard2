@@ -21,7 +21,7 @@
       <UCard v-if="verifyingCode" class="mt-8 bg-white shadow-lg">
         <div class="text-center p-6">
           <div class="mx-auto h-12 w-12 flex items-center justify-center">
-            <Icon name="heroicons:arrow-path" class="animate-spin h-8 w-8 text-primary" />
+            <Icon name="i-heroicons-arrow-path" class="animate-spin h-8 w-8 text-primary"/>
           </div>
           <h3 class="mt-4 text-lg font-medium text-gray-900">Verifying reset link...</h3>
           <p class="mt-2 text-sm text-gray-600">Please wait while we verify your password reset link.</p>
@@ -32,7 +32,7 @@
       <UCard v-else-if="error && !hasValidSession" class="mt-8 bg-white shadow-lg">
         <div class="text-center p-6">
           <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-            <Icon name="heroicons:x-mark" class="h-6 w-6 text-red-600" />
+            <Icon name="i-heroicons-x-mark" class="h-6 w-6 text-red-600"/>
           </div>
           <h3 class="mt-4 text-lg font-medium text-gray-900">Invalid Reset Link</h3>
           <p class="mt-2 text-sm text-gray-600">{{ error }}</p>
@@ -58,7 +58,7 @@
       <!-- Password reset form (only show when we have a valid recovery session) -->
       <UCard v-else-if="hasValidSession" class="mt-8 bg-white shadow-lg">
         <UForm :state="form" @submit="handleResetPassword" class="space-y-6 p-6">
-          <UFormGroup label="New Password" required class="text-black">
+          <UFormField label="New Password" required class="text-black">
             <UInput
               v-model="form.password"
               type="password"
@@ -67,9 +67,9 @@
               class="bg-white border-gray-300 text-black placeholder-gray-500"
               required
             />
-          </UFormGroup>
+          </UFormField>
 
-          <UFormGroup label="Confirm Password" required class="text-black">
+          <UFormField label="Confirm Password" required class="text-black">
             <UInput
               v-model="form.confirmPassword"
               type="password"
@@ -78,7 +78,7 @@
               class="bg-white border-gray-300 text-black placeholder-gray-500"
               required
             />
-          </UFormGroup>
+          </UFormField>
 
           <UAlert
             v-if="error"

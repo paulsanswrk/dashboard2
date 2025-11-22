@@ -45,10 +45,20 @@ export default defineEventHandler(async (event) => {
     } else {
       // For local development, try to find system Chrome/Chromium
       const possiblePaths = [
+          // Windows paths
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
         'C:\\Program Files\\Chromium\\Application\\chromium.exe',
         'C:\\Program Files (x86)\\Chromium\\Application\\chromium.exe',
+          // Linux paths (including WSL)
+          '/usr/bin/google-chrome',
+          '/usr/bin/google-chrome-stable',
+          '/usr/bin/chromium',
+          '/usr/bin/chromium-browser',
+          '/opt/google/chrome/google-chrome',
+          '/opt/google/chrome/chrome',
+          '/snap/bin/chromium',
+          // Environment variable
         process.env.PUPPETEER_EXECUTABLE_PATH
       ].filter(Boolean)
 

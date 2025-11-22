@@ -4,7 +4,7 @@
       <!-- Loading state -->
       <div v-if="loading" class="text-center">
         <div class="mx-auto h-12 w-12 flex items-center justify-center">
-          <Icon name="heroicons:arrow-path" class="animate-spin h-8 w-8 text-primary" />
+          <Icon name="i-heroicons-arrow-path" class="animate-spin h-8 w-8 text-primary"/>
         </div>
         <h2 class="mt-6 text-3xl font-heading font-bold text-gray-900 dark:text-white">
           {{ loadingMessage }}
@@ -17,7 +17,7 @@
       <!-- Error state -->
       <div v-else-if="error" class="text-center">
         <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-          <Icon name="heroicons:x-mark" class="h-6 w-6 text-red-600" />
+          <Icon name="i-heroicons-x-mark" class="h-6 w-6 text-red-600"/>
         </div>
         <h2 class="mt-6 text-3xl font-heading font-bold text-gray-900 dark:text-white">
           Authentication Error
@@ -57,7 +57,7 @@
       <!-- Success state (shouldn't normally show here) -->
       <div v-else-if="success" class="text-center">
         <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-          <Icon name="heroicons:check" class="h-6 w-6 text-green-600" />
+          <Icon name="i-heroicons-check" class="h-6 w-6 text-green-600"/>
         </div>
         <h2 class="mt-6 text-3xl font-heading font-bold text-gray-900 dark:text-white">
           {{ successMessage }}

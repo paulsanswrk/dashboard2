@@ -27,7 +27,7 @@
             <h3 class="text-lg text-black dark:text-white">Personal Information</h3>
             
             <div class="grid grid-cols-2 gap-4">
-              <UFormGroup label="First Name" required class="text-black dark:text-white">
+              <UFormField label="First Name" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.firstName"
                   placeholder="First name"
@@ -35,9 +35,9 @@
                   class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
-              </UFormGroup>
+              </UFormField>
 
-              <UFormGroup label="Last Name" required class="text-black dark:text-white">
+              <UFormField label="Last Name" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.lastName"
                   placeholder="Last name"
@@ -45,51 +45,51 @@
                   class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
-              </UFormGroup>
+              </UFormField>
             </div>
 
-            <UFormGroup label="Email address" required class="text-black dark:text-white">
+            <UFormField label="Email address" required class="text-black dark:text-white">
               <UInput
                 v-model="form.email"
                 type="email"
                 placeholder="Enter your email"
                 :error="errors.email"
-                class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
+                class="!w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                 required
               />
-            </UFormGroup>
+            </UFormField>
 
             <!-- Password fields - only show in password mode -->
             <template v-if="!magicLinkMode">
-              <UFormGroup label="Password" required class="text-black dark:text-white">
+              <UFormField label="Password" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.password"
                   type="password"
                   placeholder="Create a password"
                   :error="errors.password"
-                  class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
+                  class="!w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
-              </UFormGroup>
+              </UFormField>
 
-              <UFormGroup label="Confirm Password" required class="text-black dark:text-white">
+              <UFormField label="Confirm Password" required class="text-black dark:text-white">
                 <UInput
                   v-model="form.confirmPassword"
                   type="password"
                   placeholder="Confirm your password"
                   :error="errors.confirmPassword"
-                  class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
+                  class="!w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
                   required
                 />
-              </UFormGroup>
+              </UFormField>
             </template>
           </div>
 
           <!-- Organization Information -->
             <div class="space-y-4 pt-6 border-t border-gray-300 dark:border-gray-600">
             <h3 class="text-lg text-black dark:text-white">Organization Information</h3>
-            
-            <UFormGroup label="Organization Name (Optional)" class="text-black dark:text-white">
+
+              <UFormField label="Organization Name (Optional)" class="text-black dark:text-white">
               <UInput
                 v-model="form.organizationName"
                 placeholder="Enter your organization name"
@@ -101,7 +101,7 @@
                   Leave blank if you don't want to create an organization yet.
                 </p>
               </template>
-            </UFormGroup>
+              </UFormField>
           </div>
 
           <!-- Terms and Conditions -->
@@ -127,7 +127,7 @@
           <div v-if="showEmailConfirmationMessage" class="mt-4">
             <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-6">
               <div class="flex">
-                <Icon name="heroicons:check-circle" class="w-6 h-6 text-green-400 mr-3 mt-0.5" />
+                <Icon name="i-heroicons-check-circle" class="w-6 h-6 text-green-400 mr-3 mt-0.5"/>
                 <div class="flex-1">
                   <h4 class="text-lg font-medium text-green-800 dark:text-white mb-2">
                     {{ magicLinkMode ? 'Magic Link Sent!' : 'Account Created Successfully!' }}
@@ -164,7 +164,7 @@
             style="background-color: #F28C28;"
             size="lg"
           >
-            <Icon v-if="magicLinkMode" name="heroicons:envelope-open" class="w-5 h-5 mr-2" />
+            <Icon v-if="magicLinkMode" name="i-heroicons-envelope-open" class="w-5 h-5 mr-2"/>
             {{ magicLinkMode ? 'Send Magic Link' : 'Create Account' }}
           </UButton>
 
@@ -186,7 +186,7 @@
               class="w-full mt-4 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-heading flex items-center justify-center"
               size="lg"
             >
-              <Icon :name="magicLinkMode ? 'heroicons:key' : 'heroicons:envelope-open'" class="w-5 h-5 mr-2" />
+              <Icon :name="magicLinkMode ? 'i-heroicons-key' : 'i-heroicons-envelope-open'" class="w-5 h-5 mr-2"/>
               {{ magicLinkMode ? 'Create Account with Password' : 'Create Account with Magic Link' }}
             </UButton>
           </div>
@@ -195,16 +195,16 @@
           <div v-if="showPasswordErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
             <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
               <div class="flex">
-                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2" />
+                <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-400 mr-2"/>
                 <div class="text-sm text-red-800 dark:text-red-200">
                   <h4 class="font-medium mb-2">Please fix the following errors:</h4>
                   <ul class="space-y-1">
                     <li v-for="error in passwordValidationErrors" :key="error" class="flex items-center">
-                      <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                      <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
                       {{ error }}
                     </li>
                     <li v-if="passwordConfirmError" class="flex items-center">
-                      <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                      <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
                       {{ passwordConfirmError }}
                     </li>
                   </ul>

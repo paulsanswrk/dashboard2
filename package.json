@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --no-fork --host 127.0.0.1",
+    "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
@@ -15,37 +15,38 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
+    "@anthropic-ai/sdk": "^0.70.0",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
+    "@iconify-json/heroicons": "^1.2.3",
     "@nuxt/icon": "^2.1.0",
-    "@nuxt/ui": "^2.18.5",
+    "@nuxt/ui": "^4.2.0",
     "@nuxtjs/supabase": "^1.6.2",
-    "@nuxtjs/tailwindcss": "^6.12.1",
     "@sendgrid/mail": "^8.1.6",
-    "@supabase/supabase-js": "^2.80.0",
+    "@sparticuz/chromium": "^141.0.0",
+    "@supabase/supabase-js": "^2.83.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vueuse/core": "^14.0.0",
     "@vueuse/nuxt": "^14.0.0",
     "echarts": "^6.0.0",
     "mysql2": "^3.15.3",
     "openai": "^4.72.0",
+    "puppeteer-core": "^24.30.0",
     "sql-formatter": "^15.6.10",
     "ssh2": "^1.17.0",
-    "vite": "^7.2.1",
-    "vue3-grid-layout": "^1.0.0",
-    "puppeteer-core": "^24.29.1",
-    "@sparticuz/chromium": "^141.0.0"
+    "tailwindcss": "^4.1.17",
+    "vite": "^7.2.2",
+    "vue3-grid-layout": "^1.0.0"
   },
   "devDependencies": {
-    "@nuxt/devtools": "latest",
-    "@vitest/ui": "^4.0.7",
-    "autoprefixer": "^10.4.21",
-    "devalue": "^5.4.2",
-    "jsdom": "^27.1.0",
+    "@iconify-json/lucide": "^1.2.74",
+    "@nuxt/devtools": "^3.1.0",
+    "@vitest/ui": "^4.0.10",
+    "autoprefixer": "^10.4.22",
+    "devalue": "^5.5.0",
+    "jsdom": "^27.2.0",
     "nuxt": "4.1.3",
-    "tailwindcss": "^3.4.0",
-    "vitest": "^4.0.7"
+    "vitest": "^4.0.10"
   },
   "engines": {
     "node": ">=18.0.0"

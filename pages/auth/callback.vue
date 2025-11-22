@@ -10,7 +10,7 @@
       <!-- Success state -->
       <div v-else-if="isSuccess" class="space-y-4">
         <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-          <Icon name="heroicons:check" class="h-6 w-6 text-green-600" />
+          <Icon name="i-heroicons-check" class="h-6 w-6 text-green-600"/>
         </div>
         <h2 class="text-xl font-semibold text-gray-900">{{ successMessage }}</h2>
         <p class="text-gray-600">{{ successDescription }}</p>
@@ -22,7 +22,7 @@
       <!-- Error state -->
       <div v-else-if="error" class="space-y-4">
         <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-          <Icon name="heroicons:x-mark" class="h-6 w-6 text-red-600" />
+          <Icon name="i-heroicons-x-mark" class="h-6 w-6 text-red-600"/>
         </div>
         <h2 class="text-xl font-semibold text-gray-900">Authentication Error</h2>
         <p class="text-gray-600">{{ error }}</p>

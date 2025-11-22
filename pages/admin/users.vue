@@ -8,7 +8,7 @@
         size="sm"
         class="w-full"
       >
-        <Icon name="heroicons:users" class="w-4 h-4 mr-2" />
+        <Icon name="i-heroicons-users" class="w-4 h-4 mr-2"/>
         All Users ({{ users.length }})
       </UButton>
     </div>
@@ -25,7 +25,7 @@
         <h2 class="text-xl font-bold">All Users ({{ filteredUsers.length }} / {{ totalUsers }})</h2>
         <!-- Add User button hidden for admin - no organization context -->
         <!-- <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto" color="green">
-          <Icon name="heroicons:user-plus" class="w-4 h-4 mr-2" />
+          <Icon name="i-heroicons-user-plus" class="w-4 h-4 mr-2" />
           Add User
         </UButton> -->
       </div>
@@ -43,16 +43,16 @@
             @click="searchQuery = ''"
             class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
-            <Icon name="heroicons:x-mark" class="w-4 h-4" />
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
           </button>
         </div>
         <div class="flex gap-2" v-if="selectedUsers.size > 0">
           <UButton variant="outline" size="sm" @click="addToGroup" :disabled="loading">
-            <Icon name="heroicons:user-group" class="w-4 h-4 mr-1" />
+            <Icon name="i-heroicons-user-group" class="w-4 h-4 mr-1"/>
             add to group
           </UButton>
           <UButton color="red" variant="outline" size="sm" @click="confirmBulkDelete" :disabled="loading">
-            <Icon name="heroicons:trash" class="w-4 h-4 mr-1" />
+            <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
             delete
           </UButton>
         </div>
@@ -74,7 +74,7 @@
 
       <!-- Error state -->
       <div v-else-if="error" class="text-center py-8">
-        <Icon name="heroicons:exclamation-triangle" class="w-12 h-12 mx-auto mb-4 text-red-500" />
+        <Icon name="i-heroicons-exclamation-triangle" class="w-12 h-12 mx-auto mb-4 text-red-500"/>
         <p class="text-red-600 mb-4">{{ error }}</p>
         <UButton @click="refresh" variant="outline">
           Try Again
@@ -95,7 +95,7 @@
 
       <!-- Empty state -->
       <div v-else class="text-center py-8">
-        <Icon name="heroicons:users" class="w-12 h-12 mx-auto mb-4 text-gray-300" />
+        <Icon name="i-heroicons-users" class="w-12 h-12 mx-auto mb-4 text-gray-300"/>
         <p class="text-gray-500 mb-4">No users found</p>
         <!-- Add First User button hidden for admin - no organization context -->
         <!-- <UButton @click="openAddUserModal" color="green">

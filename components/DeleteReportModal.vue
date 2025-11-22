@@ -1,10 +1,10 @@
 <template>
-  <UModal :model-value="isOpen" @update:model-value="$emit('update:isOpen', $event)">
-    <UCard>
-      <template #header>
-        <h3 class="text-lg font-semibold text-red-600 dark:text-red-400">Delete Report</h3>
-      </template>
+  <UModal :open="isOpen" @update:open="$emit('update:isOpen', $event)">
+    <template #header>
+      <h3 class="text-lg font-semibold text-red-600 dark:text-red-400">Delete Report</h3>
+    </template>
 
+    <template #body>
       <div class="space-y-4">
         <p class="text-gray-700 dark:text-gray-300">
           Are you sure you want to delete <strong>"{{ reportToDelete?.report_title || 'this report' }}"</strong>?
@@ -20,7 +20,7 @@
           </UButton>
         </div>
       </div>
-    </UCard>
+    </template>
   </UModal>
 </template>
 

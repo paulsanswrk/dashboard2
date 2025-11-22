@@ -3,7 +3,7 @@
     <div v-if="zoneConfig.showXDimensions" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
-          <Icon name="heroicons:rectangle-group" class="w-4 h-4 text-neutral-300" />
+          <Icon name="i-heroicons-rectangle-group" class="w-4 h-4 text-neutral-300"/>
           {{ zoneConfig.xLabel || 'X (Dimensions)' }}
         </span>
       </div>
@@ -24,7 +24,7 @@
               <div v-if="d.table" class="text-xs text-neutral-300">{{ d.table }}</div>
             </div>
             <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('x', i)" aria-label="Remove" data-remove>
-              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
         </ul>
@@ -37,7 +37,7 @@
     <div v-if="zoneConfig.showYMetrics" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
-          <Icon name="heroicons:squares-2x2" class="w-4 h-4 text-neutral-300" />
+          <Icon name="i-heroicons-squares-2x2" class="w-4 h-4 text-neutral-300"/>
           {{ zoneConfig.yLabel || 'Y (Metrics)' }}
         </span>
       </div>
@@ -61,7 +61,7 @@
               </div>
             </div>
             <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('y', i)" aria-label="Remove" data-remove>
-              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
         </ul>
@@ -74,7 +74,7 @@
     <div v-if="zoneConfig.showBreakdowns" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('breakdowns')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
-          <Icon name="heroicons:chart-bar" class="w-4 h-4 text-neutral-300" />
+          <Icon name="i-heroicons-chart-bar" class="w-4 h-4 text-neutral-300"/>
           {{ zoneConfig.breakdownLabel || 'Breakdown' }}
         </span>
       </div>
@@ -95,7 +95,7 @@
               <div v-if="b.table" class="text-xs text-neutral-300">{{ b.table }}</div>
             </div>
             <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('breakdowns', i)" aria-label="Remove" data-remove>
-              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
         </ul>

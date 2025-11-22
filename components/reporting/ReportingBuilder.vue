@@ -1,38 +1,40 @@
 <template>
   <div class="p-6">
     <div class="flex justify-end mb-4 gap-2">
-      <button
+      <UButton
         v-if="props.dashboardId"
-        class="px-3 py-2 bg-gray-600 text-white border border-gray-600 rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
+        color="gray"
+        class="hover:bg-gray-700 hover:text-white cursor-pointer"
         @click="backToDashboard"
       >
-        <Icon name="heroicons:arrow-left" class="w-4 h-4" />
+        <Icon name="i-heroicons-arrow-left" class="w-4 h-4"/>
         Back to Dashboard
-      </button>
-      <button
-        class="px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+      </UButton>
+      <UButton
+          color="blue"
+          class="hover:bg-blue-700 hover:text-white cursor-pointer"
         @click="props.editingChartId ? saveExistingChart() : openSelectBoard = true"
         :disabled="loading"
       >
-        <Icon name="heroicons:square-3-stack-3d" class="w-4 h-4" />
+        <Icon name="i-heroicons-square-3-stack-3d" class="w-4 h-4"/>
         {{ props.editingChartId ? 'Save Chart' : 'Save Chart to Dashboard' }}
-      </button>
+      </UButton>
     </div>
 
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold">Reporting Builder</h2>
       <div class="flex items-center space-x-2">
-        <button
-          class="px-3 py-2 border rounded flex items-center gap-2"
+        <UButton
+            variant="outline"
           @click="onTestPreview"
           :disabled="!canAutoPreview || loading"
         >
-          <Icon v-if="loading" name="heroicons:arrow-path" class="w-4 h-4 animate-spin" />
-          <Icon v-else name="heroicons:arrow-path" class="w-4 h-4" />
+          <Icon v-if="loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
+          <Icon v-else name="i-heroicons-arrow-path" class="w-4 h-4"/>
           Refresh
-        </button>
-        <button v-if="false" class="px-3 py-2 border rounded" @click="onUndo" :disabled="!canUndo">Undo</button>
-        <button v-if="false" class="px-3 py-2 border rounded" @click="onRedo" :disabled="!canRedo">Redo</button>
+        </UButton>
+        <UButton v-if="false" variant="outline" @click="onUndo" :disabled="!canUndo">Undo</UButton>
+        <UButton v-if="false" variant="outline" @click="onRedo" :disabled="!canRedo">Redo</UButton>
         <div class="flex items-center space-x-2 ml-4">
           <label class="text-sm font-medium text-gray-700">Show SQL</label>
           <button
@@ -47,13 +49,13 @@
             />
           </button>
         </div>
-        <button
+        <UButton
           v-if="!sidebarVisible"
+          variant="outline"
           @click="$emit('toggle-sidebar')"
-          class="px-3 py-2 border rounded hover:bg-gray-50 transition-colors flex items-center gap-2"
         >
-          <Icon name="heroicons:cog-6-tooth" class="w-4 h-4 text-gray-600" />
-        </button>
+          <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
+        </UButton>
       </div>
     </div>
 
@@ -64,7 +66,7 @@
       </div>
       <textarea :readonly="!overrideSql || loading" v-model="displaySql" class="w-full h-32 border rounded p-2 font-mono text-xs disabled:opacity-50" placeholder="SELECT * FROM your_table LIMIT 100"></textarea>
       <div class="mt-2 space-x-2">
-        <button class="px-3 py-1 border rounded" @click="onRunSqlClick" :disabled="!overrideSql || loading">Run SQL</button>
+        <UButton variant="outline" size="xs" @click="onRunSqlClick" :disabled="!overrideSql || loading">Run SQL</UButton>
         <span class="text-xs text-gray-500">Only SELECT queries allowed; LIMIT enforced.</span>
       </div>
     </div>
@@ -77,7 +79,7 @@
           <div class="flex items-center gap-2">
             <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
                     :disabled="loading"
-                    class="flex flex-col items-center justify-center w-16 h-16 rounded border disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="flex flex-col items-center justify-center w-16 h-16 rounded border disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     :class="chartType === t.value ? 'border-primary bg-primary-50' : 'border-neutral-300 bg-white'">
               <Icon :name="t.icon" class="w-6 h-6" />
               <span class="text-xs mt-1">{{ t.label }}</span>
@@ -92,7 +94,7 @@
         </div>
         <!-- Loading state -->
         <div v-if="loading" class="flex flex-col items-center justify-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <Icon name="heroicons:arrow-path" class="w-8 h-8 animate-spin text-primary-500 mb-3" />
+          <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500 mb-3"/>
           <p class="text-sm text-gray-600">Loading chart data...</p>
         </div>
         <!-- Chart component -->
@@ -167,17 +169,17 @@ const sqlText = ref('')
 const actualExecutedSql = ref('')
 
 const chartTypes = [
-  { value: 'table', label: 'Table', icon: 'heroicons:table-cells' },
-  { value: 'bar', label: 'Bar', icon: 'heroicons:chart-bar' },
-  { value: 'line', label: 'Line', icon: 'heroicons:chart-bar' },
-  { value: 'area', label: 'Area', icon: 'heroicons:chart-bar' },
-  { value: 'pie', label: 'Pie', icon: 'heroicons:chart-pie' },
-  { value: 'donut', label: 'Donut', icon: 'heroicons:circle-stack' },
-  { value: 'funnel', label: 'Funnel', icon: 'heroicons:rectangle-stack' },
-  { value: 'gauge', label: 'Gauge', icon: 'heroicons:clock' },
-  { value: 'scatter', label: 'Scatter', icon: 'heroicons:squares-2x2' },
-  { value: 'treemap', label: 'Treemap', icon: 'heroicons:squares-plus' },
-  { value: 'sankey', label: 'Sankey', icon: 'heroicons:arrows-right-left' }
+  {value: 'table', label: 'Table', icon: 'i-heroicons-table-cells'},
+  {value: 'bar', label: 'Bar', icon: 'i-heroicons-chart-bar'},
+  {value: 'line', label: 'Line', icon: 'i-heroicons-chart-bar'},
+  {value: 'area', label: 'Area', icon: 'i-heroicons-chart-bar'},
+  {value: 'pie', label: 'Pie', icon: 'i-heroicons-chart-pie'},
+  {value: 'donut', label: 'Donut', icon: 'i-heroicons-circle-stack'},
+  {value: 'funnel', label: 'Funnel', icon: 'i-heroicons-rectangle-stack'},
+  {value: 'gauge', label: 'Gauge', icon: 'i-heroicons-clock'},
+  {value: 'scatter', label: 'Scatter', icon: 'i-heroicons-squares-2x2'},
+  {value: 'treemap', label: 'Treemap', icon: 'i-heroicons-squares-plus'},
+  {value: 'sankey', label: 'Sankey', icon: 'i-heroicons-arrows-right-left'}
 ]
 
 // Zone configuration for different chart types

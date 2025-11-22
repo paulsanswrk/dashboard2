@@ -11,13 +11,13 @@
       <div class="col-span-5 font-medium text-gray-700 dark:text-gray-300">
         <div class="flex items-center gap-1">
           Email
-          <Icon name="heroicons:chevron-up-down" class="w-4 h-4" />
+          <Icon name="i-heroicons-chevron-up-down" class="w-4 h-4"/>
         </div>
       </div>
       <div class="col-span-6 font-medium text-gray-700 dark:text-gray-300">
         <div class="flex items-center gap-1">
           Name
-          <Icon name="heroicons:chevron-up-down" class="w-4 h-4" />
+          <Icon name="i-heroicons-chevron-up-down" class="w-4 h-4"/>
         </div>
       </div>
     </div>

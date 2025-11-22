@@ -3,9 +3,6 @@
     <!-- Color Scheme for theme management -->
     <ColorScheme/>
 
-    <!-- Toast Notifications -->
-    <UNotifications position="top-right"/>
-
     <div class="flex h-screen bg-gray-50">
       <!-- Mobile Overlay -->
       <div
@@ -22,7 +19,7 @@
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       ]"
       >
-        <div class="p-4 lg:p-6 border-b border-neutral-700">
+        <div class="p-4 lg:p-6 border-b border-neutral-700 dark:border-[rgb(64,64,64)]">
           <div class="flex items-center justify-center">
             <div class="logo-container">
               <img
@@ -40,7 +37,7 @@
               :key="item.route"
               :to="item.route"
               class="sidebar-item"
-              :class="{ active: $route.path === item.route }"
+              :class="{ active: isActiveRoute(item.route) }"
               @click="closeMobileMenu"
           >
             <Icon :name="item.icon" class="w-5 h-5"/>
@@ -48,9 +45,9 @@
           </NuxtLink>
         </nav>
 
-        <div class="p-4 border-t border-neutral-700">
+        <div class="p-4 border-t border-neutral-600 dark:border-[rgb(64,64,64)]">
           <!-- User Info -->
-          <div v-if="userProfile" class="mb-4 p-3 bg-neutral-700 rounded-lg">
+          <div v-if="userProfile" class="mb-4 p-3 bg-neutral-700 dark:bg-[rgb(64,64,64)] rounded-lg">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center" style="background-color: var(--color-primary);">
                 <img
@@ -59,7 +56,7 @@
                     :alt="`${userProfile.firstName} ${userProfile.lastName}`"
                     class="w-full h-full object-cover"
                 />
-                <Icon v-else name="heroicons:user" class="w-4 h-4 text-white"/>
+                <Icon v-else name="i-heroicons-user" class="w-4 h-4 text-white"/>
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-medium text-white truncate">{{ userProfile.firstName }} {{ userProfile.lastName }}</p>
@@ -72,12 +69,14 @@
           </div>
 
           <button class="sidebar-item theme-toggle" @click="toggleTheme">
-            <Icon :name="themeIcon" class="w-5 h-5"/>
-            {{ themeLabel }}
+            <ClientOnly>
+              <Icon :name="themeIcon" class="w-5 h-5"/>
+              {{ themeLabel }}
+            </ClientOnly>
           </button>
 
           <button class="sidebar-item" @click="handleSignOut">
-            <Icon name="heroicons:arrow-right-on-rectangle" class="w-5 h-5"/>
+            <Icon name="i-heroicons-arrow-right-on-rectangle" class="w-5 h-5"/>
             Sign out
           </button>
         </div>
@@ -94,7 +93,7 @@
                   @click="toggleMobileMenu"
                   class="lg:hidden p-2 hover:bg-black/10 rounded-md transition-colors"
               >
-                <Icon :name="isMobileMenuOpen ? 'heroicons:x-mark' : 'heroicons:bars-3'" class="w-5 h-5"/>
+                <Icon :name="isMobileMenuOpen ? 'i-heroicons-x-mark' : 'i-heroicons-bars-3'" class="w-5 h-5"/>
               </button>
               <button @click="navigateTo('/my-dashboard')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide">
                 OPTIQO
@@ -116,11 +115,11 @@
             </div>
             <div class="flex items-center gap-2 lg:gap-4">
               <button class="p-2 hover:bg-black/10 rounded">
-                <Icon name="heroicons:cog-6-tooth" class="w-4 h-4"/>
+                <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
               </button>
 
               <!-- Account Dropdown -->
-              <UDropdown :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-white dark:bg-gray-800' }">
+              <UDropdownMenu :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-white dark:bg-gray-800' }" @select="handleMenuSelect">
                 <UButton variant="ghost" class="p-1 hover:bg-transparent avatar-button">
                   <UAvatar
                       :alt="userDisplayName"
@@ -138,7 +137,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ userProfile?.email }}</p>
                   </div>
                 </template>
-              </UDropdown>
+              </UDropdownMenu>
             </div>
           </div>
         </div>
@@ -149,7 +148,7 @@
         </main>
 
         <!-- Footer with Q Logo and Copyright -->
-        <footer class="bg-neutral-800 border-t border-neutral-700 px-4 lg:px-6 py-3 lg:py-4">
+        <footer class="bg-neutral-800 border-t border-neutral-600 dark:border-[rgb(64,64,64)] px-4 lg:px-6 py-3 lg:py-4">
           <div class="flex items-center justify-center gap-2">
             <img
                 src="/images/qtransparent.png"
@@ -173,6 +172,9 @@ const user = useSupabaseUser()
 
 // Theme management
 const {isDark, toggleTheme, themeIcon, themeLabel} = useTheme()
+
+// Route management
+const route = useRoute()
 
 // Get organization from user profile
 const organization = computed(() => userProfile.value?.organization)
@@ -200,26 +202,26 @@ const navigationItems = computed(() => {
   // Admin users get admin navigation
   if (userProfile.value?.role === 'ADMIN') {
     return [
-      {icon: 'heroicons:home', label: 'Dashboard', route: '/admin'},
-      {icon: 'heroicons:users', label: 'Users', route: '/admin/users'},
-      {icon: 'heroicons:eye', label: 'Viewers', route: '/admin/viewers'},
-      {icon: 'heroicons:building-office', label: 'Organizations', route: '/organizations'},
-      {icon: 'heroicons:document-chart-bar', label: 'Reports', route: '/reports'},
-      {icon: 'heroicons:queue-list', label: 'Email Queue', route: '/reports/monitor'}
+      {icon: 'i-heroicons-home', label: 'Dashboard', route: '/admin'},
+      {icon: 'i-heroicons-users', label: 'Users', route: '/admin/users'},
+      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/admin/viewers'},
+      {icon: 'i-heroicons-building-office', label: 'Organizations', route: '/organizations'},
+      {icon: 'i-heroicons-document-chart-bar', label: 'Reports', route: '/reports'},
+      {icon: 'i-heroicons-queue-list', label: 'Email Queue', route: '/reports/monitor'}
     ]
   } else {
     // Regular users (EDITORS and VIEWERS) get user navigation
     return [
-      {icon: 'heroicons:home', label: 'Dashboard', route: '/dashboard'},
-      {icon: 'heroicons:circle-stack', label: 'Data Sources', route: '/data-sources'},
-      {icon: 'heroicons:chart-bar', label: 'My Desk', route: '/my-dashboard'},
-      {icon: 'heroicons:document-chart-bar', label: 'Reports', route: '/reports'},
-      {icon: 'heroicons:users', label: 'Users', route: '/users'},
-      {icon: 'heroicons:eye', label: 'Viewers', route: '/viewers'},
-      {icon: 'heroicons:shield-check', label: 'SSO', route: '/sso'},
-      {icon: 'heroicons:user', label: 'Account', route: '/account'},
-      {icon: 'heroicons:question-mark-circle', label: 'Support', route: '/support'},
-      {icon: 'heroicons:credit-card', label: 'Plan & Billing', route: '/billing'}
+      {icon: 'i-heroicons-home', label: 'Dashboard', route: '/dashboard'},
+      {icon: 'i-heroicons-circle-stack', label: 'Data Sources', route: '/data-sources'},
+      {icon: 'i-heroicons-chart-bar', label: 'My Desk', route: '/my-dashboard'},
+      {icon: 'i-heroicons-document-chart-bar', label: 'Reports', route: '/reports'},
+      {icon: 'i-heroicons-users', label: 'Users', route: '/users'},
+      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/viewers'},
+      {icon: 'i-heroicons-shield-check', label: 'SSO', route: '/sso'},
+      {icon: 'i-heroicons-user', label: 'Account', route: '/account'},
+      {icon: 'i-heroicons-question-mark-circle', label: 'Support', route: '/support'},
+      {icon: 'i-heroicons-credit-card', label: 'Plan & Billing', route: '/billing'}
     ]
   }
 })
@@ -238,12 +240,12 @@ const accountMenuItems = computed(() => {
   if (userProfile.value?.role === 'ADMIN') {
     baseItems.push([{
       label: 'Admin Dashboard',
-      icon: 'heroicons:shield-check',
-      click: () => navigateTo('/admin')
+      icon: 'i-heroicons-shield-check',
+      to: '/admin'
     }, {
       label: 'User Dashboard',
-      icon: 'heroicons:home',
-      click: () => navigateTo('/dashboard')
+      icon: 'i-heroicons-home',
+      to: '/dashboard'
     }])
   }
 
@@ -251,18 +253,22 @@ const accountMenuItems = computed(() => {
   baseItems.push(
       [{
         label: 'Account Settings',
-        icon: 'heroicons:user',
-        click: () => navigateTo('/account')
+        icon: 'i-heroicons-user',
+        to: '/account'
       }],
       [{
         label: themeLabel.value,
         icon: themeIcon.value,
-        click: toggleTheme
+        onClick() {
+          toggleTheme()
+        }
       }],
       [{
         label: 'Sign Out',
-        icon: 'heroicons:arrow-right-on-rectangle',
-        click: handleSignOut
+        icon: 'i-heroicons-arrow-right-on-rectangle',
+        onClick() {
+          handleSignOut()
+        }
       }]
   )
 
@@ -275,6 +281,67 @@ const toggleMobileMenu = () => {
 
 const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
+}
+
+// Helper function to determine if a route is active
+const isActiveRoute = (routePath: string) => {
+  const currentPath = route.path
+
+  // Exact match takes priority
+  if (currentPath === routePath) return true
+
+  // Special handling to avoid multiple active items for nested routes
+  // Check if there are navigation items with more specific routes that match the current path
+  const allNavRoutes = navigationItems.value.map(item => item.route)
+  const moreSpecificRoutes = allNavRoutes.filter(r =>
+      r !== routePath &&
+      currentPath.startsWith(r) &&
+      r.length > routePath.length
+  )
+
+  // If there are more specific routes that match, don't mark this as active
+  if (moreSpecificRoutes.length > 0) {
+    return false
+  }
+
+  // For nested routes, check if current path starts with route
+  // but avoid false positives (e.g., /dashboard shouldn't match /data-sources)
+  if (routePath !== '/' && currentPath.startsWith(routePath)) {
+    // Make sure the next character after the route is '/' or end of string
+    const remaining = currentPath.slice(routePath.length)
+    return remaining === '' || remaining.startsWith('/')
+  }
+
+  return false
+}
+
+const handleThemeToggle = () => {
+  debugger
+  toggleTheme()
+}
+
+const handleSignOutClick = () => {
+  handleSignOut()
+}
+
+const handleMenuSelect = (item: any) => {
+  console.log('Menu item selected:', item)
+  if (item.to) {
+    navigateTo(item.to)
+  } else if (item.onClick) {
+    console.log('Calling onClick handler')
+    item.onClick()
+  } else if (item.click) {
+    console.log('Calling click handler')
+    item.click()
+  } else if (item.action) {
+    console.log('Handling action:', item.action)
+    if (item.action === 'toggleTheme') {
+      toggleTheme()
+    }
+  } else {
+    console.log('No onClick, click, to, or action property found')
+  }
 }
 
 const handleSignOut = async () => {

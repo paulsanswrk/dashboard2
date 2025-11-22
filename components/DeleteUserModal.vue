@@ -1,26 +1,26 @@
 <template>
-  <UModal :model-value="isOpen" @update:model-value="$emit('update:isOpen', $event)">
-    <UCard>
-      <template #header>
-        <h3 class="text-lg font-semibold text-red-600">Delete User</h3>
-      </template>
-      
+  <UModal :open="isOpen" @update:open="$emit('update:isOpen', $event)">
+    <template #header>
+      <h3 class="text-lg font-semibold text-red-600">Delete User</h3>
+    </template>
+
+    <template #body>
       <div class="space-y-4">
         <p class="text-gray-700">
-          Are you sure you want to delete <strong>{{ userToDelete?.name || 'this user' }}</strong>? 
+          Are you sure you want to delete <strong>{{ userToDelete?.name || 'this user' }}</strong>?
           This action cannot be undone.
         </p>
-        
+
         <div class="flex justify-end gap-2">
           <UButton variant="outline" @click="$emit('closeModal')" :disabled="loading">
             Cancel
           </UButton>
-          <UButton color="red" @click="$emit('confirmDelete')" :loading="loading" :disabled="loading">
+          <UButton color="red" variant="outline" @click="$emit('confirmDelete')" :loading="loading" :disabled="loading" class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer">
             Delete User
           </UButton>
         </div>
       </div>
-    </UCard>
+    </template>
   </UModal>
 </template>
 

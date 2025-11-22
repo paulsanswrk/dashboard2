@@ -8,14 +8,14 @@
     <!-- Success/Error Messages -->
     <div v-if="success" class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
       <div class="flex items-center">
-        <Icon name="heroicons:check-circle" class="w-5 h-5 text-green-400 mr-2" />
+        <Icon name="i-heroicons-check-circle" class="w-5 h-5 text-green-400 mr-2"/>
         <p class="text-green-800">{{ success }}</p>
       </div>
     </div>
 
     <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
       <div class="flex items-center">
-        <Icon name="heroicons:x-circle" class="w-5 h-5 text-red-400 mr-2" />
+        <Icon name="i-heroicons-x-circle" class="w-5 h-5 text-red-400 mr-2"/>
         <p class="text-red-800">{{ error }}</p>
       </div>
     </div>
@@ -25,14 +25,14 @@
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <!-- Loading State -->
         <div v-if="orgLoading" class="flex items-center justify-center py-8">
-          <Icon name="heroicons:arrow-path" class="w-6 h-6 text-gray-400 animate-spin mr-2" />
+          <Icon name="i-heroicons-arrow-path" class="w-6 h-6 text-gray-400 animate-spin mr-2"/>
           <span class="text-gray-500">Loading organization details...</span>
         </div>
         
         <!-- Error State -->
         <div v-else-if="orgError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
           <div class="flex">
-            <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2" />
+            <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-400 mr-2"/>
             <div>
               <h4 class="text-sm font-medium text-red-800 dark:text-red-200">Error loading organization</h4>
               <p class="text-sm text-red-700 dark:text-red-300 mt-1">{{ orgError }}</p>
@@ -51,7 +51,7 @@
             v-if="userProfile?.role === 'ADMIN'"
             color="green"
           >
-            <Icon name="heroicons:users" class="w-4 h-4 mr-2" />
+            <Icon name="i-heroicons-users" class="w-4 h-4 mr-2"/>
             Manage Users
           </UButton>
         </div>
@@ -111,13 +111,13 @@
                   :alt="`${userProfile.firstName} ${userProfile.lastName}`"
                   class="w-full h-full object-cover"
                 />
-                <Icon v-else name="heroicons:user" class="w-12 h-12 text-gray-400" />
+                <Icon v-else name="i-heroicons-user" class="w-12 h-12 text-gray-400"/>
               </div>
               
               <!-- Upload Overlay -->
               <div class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
                    @click="triggerFileInput">
-                <Icon name="heroicons:camera" class="w-6 h-6 text-white" />
+                <Icon name="i-heroicons-camera" class="w-6 h-6 text-white"/>
               </div>
             </div>
 
@@ -139,7 +139,7 @@
                 size="sm"
                 color="green"
               >
-                <Icon name="heroicons:photo" class="w-4 h-4 mr-2" />
+                <Icon name="i-heroicons-photo" class="w-4 h-4 mr-2"/>
                 {{ userProfile?.avatar_url ? 'Change Photo' : 'Upload Photo' }}
               </UButton>
               
@@ -152,7 +152,7 @@
                 size="sm"
                 class="w-full"
               >
-                <Icon name="heroicons:trash" class="w-4 h-4 mr-2" />
+                <Icon name="i-heroicons-trash" class="w-4 h-4 mr-2"/>
                 Remove Photo
               </UButton>
             </div>
@@ -181,6 +181,7 @@
                   v-model="profileForm.firstName"
                   placeholder="Enter your first name"
                   :disabled="loading"
+                  class="w-full"
                 />
               </div>
               
@@ -193,6 +194,7 @@
                   v-model="profileForm.lastName"
                   placeholder="Enter your last name"
                   :disabled="loading"
+                  class="w-full"
                 />
               </div>
             </div>
@@ -240,6 +242,7 @@
                 type="password"
                 placeholder="Enter your current password"
                 :disabled="loading"
+                class="w-full"
               />
             </div>
 
@@ -253,6 +256,7 @@
                 type="password"
                 placeholder="Enter your new password"
                 :disabled="loading"
+                class="w-full"
               />
             </div>
 
@@ -266,6 +270,7 @@
                 type="password"
                 placeholder="Confirm your new password"
                 :disabled="loading"
+                class="w-full"
               />
             </div>
 
@@ -283,16 +288,16 @@
             <div v-if="passwordErrors.showErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
               <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
                 <div class="flex">
-                  <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2" />
+                  <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-400 mr-2"/>
                   <div class="text-sm text-red-800 dark:text-red-200">
                     <h4 class="font-medium mb-2">Please fix the following errors:</h4>
                     <ul class="space-y-1">
                       <li v-for="error in passwordValidationErrors" :key="error" class="flex items-center">
-                        <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                        <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
                         {{ error }}
                       </li>
                       <li v-if="passwordConfirmError" class="flex items-center">
-                        <Icon name="heroicons:x-mark" class="w-4 h-4 mr-1" />
+                        <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
                         {{ passwordConfirmError }}
                       </li>
                     </ul>

@@ -1,10 +1,10 @@
 <template>
-  <UModal v-model="isOpen">
-    <UCard class="w-full max-w-2xl mx-4">
-      <template #header>
-        <h3 class="text-lg font-semibold">Share Dashboard</h3>
-      </template>
-      
+  <UModal v-model:open="isOpen" class="w-full max-w-2xl mx-4">
+    <template #header>
+      <h3 class="text-lg font-semibold">Share Dashboard</h3>
+    </template>
+
+    <template #body>
       <UTabs :items="tabs" class="w-full">
         <template #users="{ item }">
           <div class="space-y-4 max-h-96 overflow-y-auto">
@@ -40,7 +40,7 @@
 
         <template #public="{ item }">
           <div class="space-y-4">
-            <UFormGroup label="Public URL">
+            <UFormField label="Public URL">
               <div class="flex flex-col sm:flex-row gap-2">
                 <UInput 
                   value="https://app.optiqo.com/public/dashboard/abc123" 
@@ -48,19 +48,19 @@
                   class="flex-1"
                 />
                 <UButton size="sm" variant="outline" class="w-full sm:w-auto">
-                  <Icon name="heroicons:clipboard-document" class="w-4 h-4" />
+                  <Icon name="i-heroicons-clipboard-document" class="w-4 h-4"/>
                 </UButton>
               </div>
-            </UFormGroup>
-            
-            <UFormGroup label="Embed Code">
+            </UFormField>
+
+            <UFormField label="Embed Code">
               <UTextarea 
                 :value="embedCode"
                 readonly
                 rows="3"
                 class="font-mono text-xs"
               />
-            </UFormGroup>
+            </UFormField>
 
             <UCheckbox v-model="isPasswordProtected">
               Password protected
@@ -68,7 +68,7 @@
           </div>
         </template>
       </UTabs>
-    </UCard>
+    </template>
   </UModal>
 </template>
 

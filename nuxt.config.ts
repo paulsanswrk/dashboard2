@@ -9,15 +9,10 @@ export default defineNuxtConfig({
     // Modules
     modules: [
         '@nuxt/ui',
-        '@nuxtjs/tailwindcss',
         '@vueuse/nuxt',
         '@nuxt/icon',
         '@nuxtjs/supabase'
     ],
-
-
-    // Global CSS
-    css: ['~/assets/css/main.css'],
 
 
     // Supabase Configuration
@@ -47,8 +42,11 @@ export default defineNuxtConfig({
     // UI Configuration
     ui: {
         global: true,
-        icons: ['heroicons'],
-        primary: 'orange'
+        primary: 'orange',
+        // Disable Tailwind CSS processing to avoid Windows path issues
+        tailwind: {
+            viewer: false
+        }
     },
 
     // Color Mode Configuration
@@ -66,32 +64,31 @@ export default defineNuxtConfig({
     // CSS
     css: ['~/assets/css/main.css'],
 
-    // PostCSS Configuration
-    postcss: {
-        plugins: {
-            tailwindcss: {},
-            autoprefixer: {}
-        }
-    },
-
     // Vite configuration
     vite: {
         optimizeDeps: {
             include: []
         },
         ssr: {
-            noExternal: ['@headlessui/vue'],
+            noExternal: ['@headlessui/vue', '@supabase/supabase-js'],
         },
         server: {
             watch: {
                 ignored: ['**/node_modules/**', '**/node-scripts/**', '**/.git/**', '**/.nuxt/**', '**/dist/**', '**/docs/**']
             }
+        },
+        resolve: {
+            alias: {
+                // Ensure paths are resolved correctly on Windows
+            },
+            extensionAlias: {
+                '.js': ['.js', '.ts', '.tsx'],
+            }
         }
-
     },
 
     build: {
-        transpile: ['@headlessui/vue'],
+        transpile: ['@headlessui/vue', '@supabase/supabase-js'],
     },
 
     // Nitro configuration

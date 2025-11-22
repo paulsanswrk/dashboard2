@@ -17,18 +17,19 @@
         <div class="grid grid-cols-1 gap-6">
           <!-- Report Title -->
           <div>
-            <UFormGroup label="Report Title" required>
+            <UFormField label="Report Title" required>
               <UInput
                 v-model="reportForm.report_title"
                 placeholder="Enter report title"
+                class="w-full"
                 required
               />
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Recipients -->
           <div>
-            <UFormGroup label="Recipients" required>
+            <UFormField label="Recipients" required>
               <div class="space-y-3">
                 <div v-for="(recipient, index) in recipients" :key="index" class="flex gap-2">
                   <UInput
@@ -55,33 +56,35 @@
                   Add Recipient
                 </UButton>
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Email Subject -->
           <div>
-            <UFormGroup label="Email Subject" required>
+            <UFormField label="Email Subject" required>
               <UInput
                 v-model="reportForm.email_subject"
                 placeholder="Enter email subject"
+                class="w-full"
                 required
               />
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Email Message -->
           <div>
-            <UFormGroup label="Email Message">
+            <UFormField label="Email Message">
               <UTextarea
                 v-model="reportForm.email_message"
                 placeholder="Add a custom message to your report email..."
+                class="w-full"
                 :rows="4"
                 :maxlength="500"
               />
               <div class="text-sm text-gray-500 mt-1">
                 {{ (reportForm.email_message || '').length }}/500 characters
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
         </div>
       </div>
@@ -93,25 +96,26 @@
         <div class="grid grid-cols-1 gap-6">
           <!-- Scope Selection -->
           <div>
-            <UFormGroup label="Report Scope" required>
+            <UFormField label="Report Scope" required>
               <div class="flex gap-2">
                 <UButton
                   v-for="scopeOption in scopeOptions"
                   :key="scopeOption.value"
                   :variant="reportForm.scope === scopeOption.value ? 'solid' : 'outline'"
-                  :color="reportForm.scope === scopeOption.value ? 'orange' : 'gray'"
+                  :color="reportForm.scope === scopeOption.value ? 'orange' : undefined"
+                  :ui="reportForm.scope === scopeOption.value ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
                   size="sm"
                   @click="reportForm.scope = scopeOption.value"
                 >
                   {{ scopeOption.label }}
                 </UButton>
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Content Selector -->
           <div>
-            <UFormGroup :label="contentSelectorLabel" required>
+            <UFormField :label="contentSelectorLabel" required>
               <USelect
                 v-model="reportForm.content_id"
                 :options="contentOptions"
@@ -119,29 +123,30 @@
                 placeholder="Select content to report on"
                 required
               />
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Time Frame -->
           <div>
-            <UFormGroup label="Time Frame" required>
+            <UFormField label="Time Frame" required>
               <USelect
                 v-model="reportForm.time_frame"
                 :options="timeFrameOptions"
                 required
               />
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Export Formats -->
           <div>
-            <UFormGroup label="Export Formats" required>
+            <UFormField label="Export Formats" required>
               <div class="flex flex-wrap gap-2">
                 <UButton
                   v-for="format in formatOptions"
                   :key="format.value"
                   :variant="selectedFormats.includes(format.value) ? 'solid' : 'outline'"
-                  :color="selectedFormats.includes(format.value) ? 'orange' : 'gray'"
+                  :color="selectedFormats.includes(format.value) ? 'orange' : undefined"
+                  :ui="selectedFormats.includes(format.value) ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
                   size="sm"
                   @click="toggleFormat(format.value)"
                 >
@@ -152,7 +157,7 @@
                   {{ format.label }}
                 </UButton>
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
         </div>
       </div>
@@ -164,54 +169,56 @@
         <div class="grid grid-cols-1 gap-6">
           <!-- Interval -->
           <div>
-            <UFormGroup label="Frequency" required>
+            <UFormField label="Frequency" required>
               <div class="flex gap-2">
                 <UButton
                   v-for="intervalOption in intervalOptions"
                   :key="intervalOption.value"
                   :variant="reportForm.interval === intervalOption.value ? 'solid' : 'outline'"
-                  :color="reportForm.interval === intervalOption.value ? 'orange' : 'gray'"
+                  :color="reportForm.interval === intervalOption.value ? 'orange' : undefined"
+                  :ui="reportForm.interval === intervalOption.value ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
                   size="sm"
                   @click="reportForm.interval = intervalOption.value"
                 >
                   {{ intervalOption.label }}
                 </UButton>
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Send Time -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <UFormGroup label="Send Time (HH:MM)" required>
+              <UFormField label="Send Time (HH:MM)" required>
                 <UInput
                   v-model="reportForm.send_time"
                   type="time"
+                  class="w-full"
                   required
                 />
-              </UFormGroup>
+              </UFormField>
             </div>
 
             <!-- Timezone -->
             <ClientOnly>
               <div>
-                <UFormGroup label="Timezone" required>
+                <UFormField label="Timezone" required>
                   <USelect
                     v-model="reportForm.timezone"
                     :options="timezoneOptions"
                     placeholder="Select timezone"
                     required
                   />
-                </UFormGroup>
+                </UFormField>
               </div>
               <template #fallback>
                 <div>
-                  <UFormGroup label="Timezone" required>
+                  <UFormField label="Timezone" required>
                     <UInput
                       value="Loading timezone..."
                       disabled
                     />
-                  </UFormGroup>
+                  </UFormField>
                 </div>
               </template>
             </ClientOnly>
@@ -219,7 +226,7 @@
 
           <!-- Day of Week (only for weekly) -->
           <div v-if="reportForm.interval === 'WEEKLY'">
-            <UFormGroup label="Days of Week" required>
+            <UFormField label="Days of Week" required>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <UCheckbox
                   v-for="day in dayOfWeekOptions"
@@ -229,25 +236,26 @@
                   :label="day.label"
                 />
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
 
           <!-- Status -->
           <div>
-            <UFormGroup label="Status" required>
+            <UFormField label="Status" required>
               <div class="flex gap-2">
                 <UButton
                   v-for="statusOption in statusOptions"
                   :key="statusOption.value"
                   :variant="reportForm.status === statusOption.value ? 'solid' : 'outline'"
-                  :color="reportForm.status === statusOption.value ? 'orange' : 'gray'"
+                  :color="reportForm.status === statusOption.value ? 'orange' : undefined"
+                  :ui="reportForm.status === statusOption.value ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
                   size="sm"
                   @click="reportForm.status = statusOption.value"
                 >
                   {{ statusOption.label }}
                 </UButton>
               </div>
-            </UFormGroup>
+            </UFormField>
           </div>
         </div>
       </div>
@@ -276,6 +284,7 @@
         <UButton
           variant="outline"
           color="gray"
+          :ui="{ base: 'hover:bg-gray-100 dark:hover:bg-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors' }"
           @click="$emit('cancel')"
           :disabled="saving"
         >
@@ -284,6 +293,7 @@
         <UButton
           type="submit"
           color="orange"
+          :ui="{ base: 'hover:bg-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
           :loading="saving"
         >
           {{ props.editingReport ? 'Update Scheduled Report' : 'Create Scheduled Report' }}

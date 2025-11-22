@@ -3,9 +3,6 @@
     <!-- Color Scheme for theme management -->
     <ColorScheme/>
 
-    <!-- Toast Notifications -->
-    <UNotifications position="top-right"/>
-
     <!-- Page Content - no global chrome -->
     <slot/>
   </div>

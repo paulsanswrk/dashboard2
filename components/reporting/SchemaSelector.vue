@@ -13,7 +13,7 @@
           <div class="mb-2 relative">
             <UInput v-model="tablesQuery" placeholder="Search" class="w-full pr-8" />
             <button v-if="tablesQuery" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500" @click="tablesQuery = ''">
-              <Icon name="heroicons:x-mark" class="w-4 h-4" />
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </div>
           <ul class="space-y-1">

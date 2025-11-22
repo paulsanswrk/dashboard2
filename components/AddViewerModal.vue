@@ -1,53 +1,53 @@
 <template>
-  <UModal :model-value="isOpen" @update:model-value="$emit('update:isOpen', $event)">
-    <UCard>
-      <template #header>
-        <h3 class="text-lg font-semibold">Add Viewer</h3>
-      </template>
-      
+  <UModal :open="isOpen" @update:open="$emit('update:isOpen', $event)">
+    <template #header>
+      <h3 class="text-lg font-semibold">Add Viewer</h3>
+    </template>
+
+    <template #body>
       <form @submit.prevent="$emit('addViewer', newViewer)" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
-          <UFormGroup label="Email" required>
-            <UInput placeholder="viewer@example.com" v-model="newViewer.email" type="email" required />
-          </UFormGroup>
-          <UFormGroup label="First Name">
-            <UInput placeholder="First Name" v-model="newViewer.firstName" />
-          </UFormGroup>
+          <UFormField label="Email" required>
+            <UInput placeholder="viewer@example.com" v-model="newViewer.email" type="email" required class="w-full"/>
+          </UFormField>
+          <UFormField label="First Name">
+            <UInput placeholder="First Name" v-model="newViewer.firstName" class="w-full"/>
+          </UFormField>
         </div>
-        
+
         <div class="grid grid-cols-2 gap-4">
-          <UFormGroup label="Last Name">
-            <UInput placeholder="Last Name" v-model="newViewer.lastName" />
-          </UFormGroup>
-          <UFormGroup label="Language">
-            <USelect 
-              v-model="newViewer.language"
-              :options="languageOptions"
-              placeholder="English"
+          <UFormField label="Last Name">
+            <UInput placeholder="Last Name" v-model="newViewer.lastName" class="w-full"/>
+          </UFormField>
+          <UFormField label="Language">
+            <USelect
+                v-model="newViewer.language"
+                :options="languageOptions"
+                placeholder="English"
             />
-          </UFormGroup>
+          </UFormField>
         </div>
 
-        <UFormGroup label="Viewer Type" required>
-          <USelect 
-            v-model="newViewer.type"
-            :options="viewerTypeOptions"
-            placeholder="Select type"
-            required
+        <UFormField label="Viewer Type" required>
+          <USelect
+              v-model="newViewer.type"
+              :options="viewerTypeOptions"
+              placeholder="Select type"
+              required
           />
-        </UFormGroup>
+        </UFormField>
 
-        <UFormGroup label="Groups">
-          <USelect 
-            v-model="newViewer.group"
-            :options="groupOptions"
-            placeholder="Select group"
+        <UFormField label="Groups">
+          <USelect
+              v-model="newViewer.group"
+              :options="groupOptions"
+              placeholder="Select group"
           />
-        </UFormGroup>
+        </UFormField>
 
-        <UFormGroup>
-          <UCheckbox v-model="newViewer.sendInvitation" label="Send invitation emails" />
-        </UFormGroup>
+        <UFormField>
+          <UCheckbox v-model="newViewer.sendInvitation" label="Send invitation emails"/>
+        </UFormField>
 
         <!-- Error display in modal -->
         <div v-if="error" class="p-3 bg-red-50 border border-red-200 rounded-md">
@@ -63,7 +63,7 @@
           </UButton>
         </div>
       </form>
-    </UCard>
+    </template>
   </UModal>
 </template>
 

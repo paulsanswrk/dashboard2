@@ -22,11 +22,11 @@
       </div>
       <div class="flex gap-2">
         <UButton color="orange" variant="outline" @click="navigateTo('/my-dashboard')">
-          <Icon name="heroicons:chart-bar" class="w-4 h-4 mr-1" />
+          <Icon name="i-heroicons-chart-bar" class="w-4 h-4 mr-1"/>
           My Desk
         </UButton>
         <UButton color="orange" @click="navigateTo('/data-sources')">
-          <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+          <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
           Connect Data
         </UButton>
       </div>
@@ -95,7 +95,7 @@
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">My Data Sources</h3>
           <div class="space-y-2">
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/data-sources')">
-              <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
               Connect New Source
             </UButton>
             <div class="space-y-1">
@@ -113,8 +113,8 @@
         <div class="p-4">
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">My Dashboards</h3>
           <div class="space-y-2">
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/my-dashboard')">
-              <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-orange-50 dark:hover:bg-orange-900/20 cursor-pointer" @click="navigateTo('/my-dashboard')">
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
               Create Dashboard
             </UButton>
             <div class="space-y-1">
@@ -131,7 +131,7 @@
         <div class="p-4">
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Insights</h3>
           <div class="h-32 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-600">
-            <Icon name="heroicons:chart-bar-square" class="w-8 h-8" style="color: rgb(194, 65, 12);" />
+            <Icon name="i-heroicons-chart-bar-square" class="w-8 h-8" style="color: rgb(194, 65, 12);"/>
           </div>
           <p class="text-xs mt-2 text-center text-gray-600 dark:text-gray-300">Create Smart Insights from your data</p>
         </div>
@@ -143,7 +143,7 @@
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Alarms +</h3>
           <div class="space-y-2">
             <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-              <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
               New Alert
             </UButton>
             <div class="p-2 rounded bg-gray-100 dark:bg-gray-600">
@@ -180,17 +180,17 @@ if (route.query.welcome === 'true') {
 
 // Recent activities (user-focused)
 const recentActivities = ref([
-  { id: 1, action: 'Created new chart', time: '2 hours ago', icon: 'heroicons:chart-bar' },
-  { id: 2, action: 'Updated dashboard', time: '1 day ago', icon: 'heroicons:pencil' },
-  { id: 3, action: 'Connected data source', time: '2 days ago', icon: 'heroicons:circle-stack' },
-  { id: 4, action: 'Shared report', time: '3 days ago', icon: 'heroicons:share' }
+  {id: 1, action: 'Created new chart', time: '2 hours ago', icon: 'i-heroicons-chart-bar'},
+  {id: 2, action: 'Updated dashboard', time: '1 day ago', icon: 'i-heroicons-pencil'},
+  {id: 3, action: 'Connected data source', time: '2 days ago', icon: 'i-heroicons-circle-stack'},
+  {id: 4, action: 'Shared report', time: '3 days ago', icon: 'i-heroicons-share'}
 ])
 
 // My data sources
 const myDataSources = ref([
-  { id: 1, name: 'Sales Database', icon: 'heroicons:circle-stack' },
-  { id: 2, name: 'Analytics API', icon: 'heroicons:cloud' },
-  { id: 3, name: 'CSV Upload', icon: 'heroicons:document' }
+  {id: 1, name: 'Sales Database', icon: 'i-heroicons-circle-stack'},
+  {id: 2, name: 'Analytics API', icon: 'i-heroicons-cloud'},
+  {id: 3, name: 'CSV Upload', icon: 'i-heroicons-document'}
 ])
 
 // My dashboards

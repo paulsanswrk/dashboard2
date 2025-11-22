@@ -1,43 +1,45 @@
 <template>
-  <UModal v-model="isOpen">
-    <UCard class="w-full max-w-2xl mx-4">
-      <template #header>
-        <h3 class="text-lg font-semibold">Create New Report</h3>
-      </template>
+  <UModal v-model:open="isOpen" class="w-full max-w-2xl mx-4">
+    <template #header>
+      <h3 class="text-lg font-semibold">Create New Report</h3>
+    </template>
 
+    <template #body>
       <div class="space-y-6 max-h-96 overflow-y-auto">
         <!-- Recipients and Email details -->
         <div>
           <h3 class="font-medium mb-4">Recipients and Email details</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <UFormGroup label="Recipients">
-              <UInput 
-                placeholder="Enter email addresses" 
+            <UFormField label="Recipients">
+              <UInput
+                  placeholder="Enter email addresses"
                 v-model="form.recipients"
+                  class="w-full"
               />
-            </UFormGroup>
-            <UFormGroup label="Subject">
-              <UInput 
-                placeholder="Report Subject" 
+            </UFormField>
+            <UFormField label="Subject">
+              <UInput
+                  placeholder="Report Subject"
                 v-model="form.subject"
+                  class="w-full"
               />
-            </UFormGroup>
+            </UFormField>
           </div>
           <div class="mt-4">
-            <UFormGroup label="Message">
+            <UFormField label="Message">
               <UTextarea 
                 placeholder="Add a message to your report..." 
                 v-model="form.message"
                 rows="3"
               />
-            </UFormGroup>
+            </UFormField>
           </div>
         </div>
 
         <!-- Content -->
         <div>
           <h3 class="font-medium mb-4">Content</h3>
-          <UFormGroup label="Format">
+          <UFormField label="Format">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
               <UCheckbox 
                 v-for="format in formats" 
@@ -49,7 +51,7 @@
                 {{ format }}
               </UCheckbox>
             </div>
-          </UFormGroup>
+          </UFormField>
         </div>
 
         <!-- Schedule Report -->
@@ -67,7 +69,7 @@
           Create Report
         </UButton>
       </div>
-    </UCard>
+    </template>
   </UModal>
 </template>
 

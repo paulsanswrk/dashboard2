@@ -14,8 +14,8 @@
               :class="getStepClasses(step)"
             >
               <Icon 
-                v-if="step.completed" 
-                name="heroicons:check" 
+                v-if="step.completed"
+                name="i-heroicons-check" 
                 class="w-4 h-4" 
               />
               <span v-else>{{ step.step }}</span>
@@ -37,7 +37,7 @@
               <!-- Show debug badges only when in debug mode -->
               <div v-if="debugMode" class="flex items-center gap-2">
                 <UBadge color="orange" variant="soft" size="sm">
-                  <Icon name="heroicons:bug-ant" class="w-3 h-3 mr-1" />
+                  <Icon name="i-heroicons-bug-ant" class="w-3 h-3 mr-1"/>
                   Debug Mode
                 </UBadge>
                 <UBadge v-if="debugConfigLoaded" color="green" variant="soft" size="sm">
@@ -78,72 +78,72 @@
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Left Column - Form Fields -->
             <div class="space-y-4">
-              <UFormGroup label="Internal Name" required class="text-gray-900 dark:text-white">
+              <UFormField label="Internal Name" required class="text-gray-900 dark:text-white">
                 <UInput 
                   placeholder="insta800.net" 
                   v-model="form.internalName"
                   :error="errors.internalName"
                 />
-              </UFormGroup>
-              
-              <UFormGroup label="Database Name" required class="text-gray-900 dark:text-white">
+              </UFormField>
+
+              <UFormField label="Database Name" required class="text-gray-900 dark:text-white">
                 <UInput 
                   placeholder="datapine_insider" 
                   v-model="form.databaseName"
                   :error="errors.databaseName"
                 />
-              </UFormGroup>
-              
-              <UFormGroup label="Database Type" required class="text-gray-900 dark:text-white">
+              </UFormField>
+
+              <UFormField label="Database Type" required class="text-gray-900 dark:text-white">
                 <USelect 
                   v-model="form.databaseType"
                   :options="databaseTypes"
                   placeholder="Select Database Type"
                   :error="errors.databaseType"
                 />
-              </UFormGroup>
-              
-              <UFormGroup label="Host / IP" required class="text-gray-900 dark:text-white">
+              </UFormField>
+
+              <UFormField label="Host / IP" required class="text-gray-900 dark:text-white">
                 <UInput 
                   placeholder="reporting.insta800.net" 
                   v-model="form.host"
                   :error="errors.host"
                 />
-              </UFormGroup>
-              
-              <UFormGroup label="Username" required class="text-gray-900 dark:text-white">
+              </UFormField>
+
+              <UFormField label="Username" required class="text-gray-900 dark:text-white">
                 <UInput 
                   placeholder="insta800" 
                   v-model="form.username"
                   :error="errors.username"
                 />
-              </UFormGroup>
-              
-              <UFormGroup label="Password" required class="text-gray-900 dark:text-white">
+              </UFormField>
+
+              <UFormField label="Password" required class="text-gray-900 dark:text-white">
                 <UInput 
                   type="password" 
                   placeholder="Enter Password" 
                   v-model="form.password"
                   :error="errors.password"
                 />
-              </UFormGroup>
+              </UFormField>
 
-              <UFormGroup label="Database Port" required class="text-gray-900 dark:text-white">
+              <UFormField label="Database Port" required class="text-gray-900 dark:text-white">
                 <UInput 
                   placeholder="3306" 
                   v-model="form.port"
                   :error="errors.port"
                 />
-              </UFormGroup>
+              </UFormField>
 
-              <UFormGroup label="Server Time" required class="text-gray-900 dark:text-white">
+              <UFormField label="Server Time" required class="text-gray-900 dark:text-white">
                 <USelect 
                   v-model="form.serverTime"
                   :options="timeZones"
                   placeholder="Select Time Zone"
                   :error="errors.serverTime"
                 />
-              </UFormGroup>
+              </UFormField>
             </div>
 
             <!-- Right Column - Info and SSH -->
@@ -165,42 +165,42 @@
                     aria-label="Use SSH Tunneling"
                   />
                 </div>
-                
-                <UFormGroup label="Authentication Method" v-if="form.useSshTunneling" class="text-gray-900 dark:text-white">
+
+                <UFormField label="Authentication Method" v-if="form.useSshTunneling" class="text-gray-900 dark:text-white">
                   <URadioGroup v-model="form.sshAuthMethod" :options="sshAuthMethods" />
-                </UFormGroup>
+                </UFormField>
 
                 <div v-if="form.useSshTunneling" class="space-y-3">
-                  <UFormGroup label="SSH Port" class="text-gray-900 dark:text-white">
+                  <UFormField label="SSH Port" class="text-gray-900 dark:text-white">
                     <UInput 
                       placeholder="22" 
                       v-model="form.sshPort"
                     />
-                  </UFormGroup>
-                  
-                  <UFormGroup label="SSH User" class="text-gray-900 dark:text-white">
+                  </UFormField>
+
+                  <UFormField label="SSH User" class="text-gray-900 dark:text-white">
                     <UInput 
                       placeholder="Enter SSH User Name" 
                       v-model="form.sshUser"
                     />
-                  </UFormGroup>
-                  
-                  <UFormGroup label="SSH Host" class="text-gray-900 dark:text-white">
+                  </UFormField>
+
+                  <UFormField label="SSH Host" class="text-gray-900 dark:text-white">
                     <UInput 
                       placeholder="Enter SSH Host Address" 
                       v-model="form.sshHost"
                     />
-                  </UFormGroup>
-                  
-                  <UFormGroup label="SSH Password" v-if="form.sshAuthMethod === 'password'" class="text-gray-900 dark:text-white">
+                  </UFormField>
+
+                  <UFormField label="SSH Password" v-if="form.sshAuthMethod === 'password'" class="text-gray-900 dark:text-white">
                     <UInput 
                       type="password" 
                       placeholder="Enter SSH Password" 
                       v-model="form.sshPassword"
                     />
-                  </UFormGroup>
+                  </UFormField>
 
-                  <UFormGroup label="SSH Private Key" v-if="form.sshAuthMethod === 'public-key'" class="text-gray-900 dark:text-white">
+                  <UFormField label="SSH Private Key" v-if="form.sshAuthMethod === 'public-key'" class="text-gray-900 dark:text-white">
                     <UTextarea 
                       placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAFwAAAAdzc2gtcn
@@ -215,7 +215,7 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
                         Paste your SSH private key here. Make sure to include the BEGIN and END lines.
                       </p>
                     </template>
-                  </UFormGroup>
+                  </UFormField>
                 </div>
               </div>
 
@@ -231,7 +231,7 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
           <div v-if="showErrors && validationErrors.length > 0" class="mt-4">
             <div class="bg-red-50 border border-red-200 rounded-md p-4">
               <div class="flex">
-                <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-400 mr-2 mt-0.5" />
+                <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-400 mr-2 mt-0.5"/>
                 <div>
                   <h4 class="text-sm font-medium text-red-800 mb-1">Please fix the following errors:</h4>
                   <ul class="text-sm text-red-700 list-disc list-inside">
@@ -253,8 +253,8 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
               ]"
             >
               <div class="flex">
-                <Icon 
-                  :name="connectionTestResult.success ? 'heroicons:check-circle' : 'heroicons:x-circle'" 
+                <Icon
+                    :name="connectionTestResult.success ? 'i-heroicons-check-circle' : 'i-heroicons-x-circle'"
                   :class="[
                     'w-5 h-5 mr-2 mt-0.5',
                     connectionTestResult.success ? 'text-green-400' : 'text-red-400'
@@ -311,9 +311,9 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
                 :disabled="isTestingConnection"
                 variant="outline"
                 color="gray"
-                class="w-full sm:w-auto"
+                class="w-full sm:w-auto hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
               >
-                <Icon name="heroicons:play" class="w-4 h-4 mr-2" />
+                <Icon name="i-heroicons-play" class="w-4 h-4 mr-2"/>
                 Test Connection
               </UButton>
               <UButton
@@ -321,17 +321,17 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
                 @click="nextStep"
                 :disabled="!connectionTestResult?.success || saving"
                 :loading="saving"
-                class="w-full sm:w-auto"
+                class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white cursor-pointer"
                 color="green"
               >
                 {{ saving ? 'Analyzing...' : 'Save and continue setup' }}
               </UButton>
-              <UButton 
+              <UButton
                 v-else
-                @click="finishWizard" 
+                @click="finishWizard"
                 :disabled="!schemaSelectionCount || savingSchema"
                 :loading="savingSchema"
-                class="w-full sm:w-auto" 
+                class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white cursor-pointer"
                 color="green"
               >
                 Continue to Builder

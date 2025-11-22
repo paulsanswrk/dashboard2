@@ -2,8 +2,8 @@
   <div class="p-6 space-y-6">
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-heading font-bold tracking-tight">Organizations</h1>
-      <UButton color="orange" @click="openCreateOrganizationModal">
-        <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+      <UButton color="orange" class="bg-orange-500 cursor-pointer hover:bg-orange-600 text-white dark:text-black" @click="openCreateOrganizationModal">
+        <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
         New Organization
       </UButton>
     </div>
@@ -18,18 +18,18 @@
         <!-- Loading State -->
         <div v-if="isLoading && organizations.length === 0" class="flex justify-center items-center py-12">
           <div class="text-center">
-            <Icon name="heroicons:arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2" />
+            <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2"/>
             <p class="text-gray-500 dark:text-gray-400">Loading organizations...</p>
           </div>
         </div>
 
         <!-- Empty State -->
         <div v-else-if="!isLoading && organizations.length === 0" class="text-center py-12">
-          <Icon name="heroicons:building-office" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <Icon name="i-heroicons-building-office" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
           <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No organizations found</h3>
           <p class="text-gray-500 dark:text-gray-400 mb-4">Get started by creating your first organization.</p>
           <UButton color="orange" @click="openCreateOrganizationModal">
-            <Icon name="heroicons:plus" class="w-4 h-4 mr-1" />
+            <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
             Create Organization
           </UButton>
         </div>
@@ -53,7 +53,7 @@
                 <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
                   <div class="flex items-center gap-3">
                     <div class="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                      <Icon name="heroicons:building-office" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                      <Icon name="i-heroicons-building-office" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
                     </div>
                     <div>
                       <div class="font-medium text-gray-900 dark:text-white">{{ org.name }}</div>
@@ -63,13 +63,13 @@
                 </td>
                 <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
                   <div class="flex items-center gap-2">
-                    <Icon name="heroicons:users" class="w-4 h-4 text-gray-400" />
+                    <Icon name="i-heroicons-users" class="w-4 h-4 text-gray-400"/>
                     <span class="text-gray-900 dark:text-white">{{ org.user_count || 0 }}</span>
                   </div>
                 </td>
                 <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
                   <div class="flex items-center gap-2">
-                    <Icon name="heroicons:key" class="w-4 h-4 text-gray-400" />
+                    <Icon name="i-heroicons-key" class="w-4 h-4 text-gray-400"/>
                     <span class="text-gray-900 dark:text-white">{{ org.licenses || 0 }}</span>
                   </div>
                 </td>
@@ -91,7 +91,7 @@
                       :disabled="isLoading"
                       :loading="isDeleting && deletingOrgId === org.id"
                     >
-                      <Icon name="heroicons:trash" class="w-4 h-4" />
+                      <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                     </UButton>
                   </div>
                 </td>
@@ -104,7 +104,7 @@
           <!-- Server-side fallback -->
           <div class="flex justify-center items-center py-12">
             <div class="text-center">
-              <Icon name="heroicons:arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2" />
+              <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-400 mx-auto mb-2"/>
               <p class="text-gray-500 dark:text-gray-400">Loading organizations...</p>
             </div>
           </div>
@@ -113,46 +113,47 @@
     </UCard>
 
     <!-- Create/Edit Organization Modal -->
-    <UModal v-model="isCreateModalOpen">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-            {{ editingOrganization ? 'Edit Organization' : 'Create New Organization' }}
-          </h3>
-        </template>
-        
+    <UModal v-model:open="isCreateModalOpen">
+      <template #header>
+        <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+          {{ editingOrganization ? 'Edit Organization' : 'Create New Organization' }}
+        </h3>
+      </template>
+
+      <template #body>
         <form @submit.prevent="saveOrganization" class="space-y-4">
-          <UFormGroup label="Organization Name" required>
-            <UInput v-model="organizationForm.name" placeholder="Enter organization name" />
-          </UFormGroup>
-          
-          <UFormGroup label="Description">
-            <UTextarea v-model="organizationForm.description" placeholder="Enter organization description" />
-          </UFormGroup>
-          
+          <UFormField label="Organization Name" required>
+            <UInput v-model="organizationForm.name" placeholder="Enter organization name" class="w-full"/>
+          </UFormField>
+
+          <UFormField label="Description">
+            <UTextarea v-model="organizationForm.description" placeholder="Enter organization description"
+                       class="w-full"/>
+          </UFormField>
+
           <div class="flex justify-end gap-3 pt-4">
-            <UButton variant="ghost" @click="closeCreateModal">Cancel</UButton>
-            <UButton type="submit" color="orange" :loading="isLoading">
+            <UButton variant="ghost" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="closeCreateModal">Cancel</UButton>
+            <UButton type="submit" color="orange" class="bg-orange-500 hover:bg-orange-600 text-white dark:text-black cursor-pointer" :loading="isLoading">
               {{ editingOrganization ? 'Update' : 'Create' }} Organization
             </UButton>
           </div>
         </form>
-      </UCard>
+      </template>
     </UModal>
 
     <!-- Delete Confirmation Modal -->
-    <UModal v-model="showDeleteModal">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
-            Delete Organization
-          </h3>
-        </template>
-        
+    <UModal v-model:open="showDeleteModal">
+      <template #header>
+        <h3 class="text-lg font-heading font-semibold tracking-tight text-red-600 dark:text-red-400">
+          Delete Organization
+        </h3>
+      </template>
+
+      <template #body>
         <div class="space-y-4">
           <div class="flex items-start gap-3">
             <div class="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center flex-shrink-0">
-              <Icon name="heroicons:exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+              <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400"/>
             </div>
             <div class="space-y-2">
               <p class="text-gray-900 dark:text-white font-medium">
@@ -172,13 +173,13 @@
               </p>
             </div>
           </div>
-          
+
           <div class="flex justify-end gap-3 pt-4">
             <UButton variant="ghost" @click="cancelDelete" :disabled="isDeleting">
               Cancel
             </UButton>
-            <UButton 
-              color="red" 
+            <UButton
+                color="red"
               @click="confirmDelete"
               :loading="isDeleting"
             >
@@ -186,7 +187,7 @@
             </UButton>
           </div>
         </div>
-      </UCard>
+      </template>
     </UModal>
   </div>
 </template>

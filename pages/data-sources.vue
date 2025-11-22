@@ -3,7 +3,7 @@
     <div class="mb-6">
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <UButton color="orange" @click="navigateTo('/integration-wizard')" class="w-fit">
-          <Icon name="heroicons:plus" class="w-4 h-4 mr-2" />
+          <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
           add data source
         </UButton>
         <div class="text-sm text-gray-600 text-center sm:text-right">{{ connections.length }} / 20 DATA SOURCES USED</div>
@@ -14,7 +14,7 @@
       <!-- Search -->
       <div class="mb-6">
         <div class="relative">
-          <Icon name="heroicons:magnifying-glass" class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Icon name="i-heroicons-magnifying-glass" class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"/>
           <UInput 
             placeholder="Search" 
             class="pl-10 w-full"
@@ -37,23 +37,26 @@
             >
               <div class="flex items-start justify-between p-4">
                 <div class="flex items-center gap-4">
-                  <Icon name="heroicons:circle-stack" class="w-8 h-8 text-gray-400" />
+                  <Icon name="i-heroicons-circle-stack" class="w-8 h-8 text-gray-400"/>
                   <div class="min-w-0">
                     <h4 class="font-medium truncate">{{ c.internal_name }}</h4>
                     <p class="text-sm text-gray-600 truncate">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2" @click.stop>
-                  <UButton size="xs" variant="outline" @click="editConnection(c.id)">
-                    <Icon name="heroicons:pencil-square" class="w-4 h-4 mr-1" /> Edit
+                  <UButton size="xs" variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="editConnection(c.id)">
+                    <Icon name="i-heroicons-pencil-square" class="w-4 h-4 mr-1"/>
+                    Edit
                   </UButton>
-                  <UButton size="xs" variant="outline" color="gray" @click="renameConnection(c)">
-                    <Icon name="heroicons:squares-2x2" class="w-4 h-4 mr-1" /> Rename
+                  <UButton size="xs" variant="outline" color="gray" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="openRenameModal(c)">
+                    <Icon name="i-heroicons-squares-2x2" class="w-4 h-4 mr-1"/>
+                    Rename
                   </UButton>
-                  <UButton size="xs" color="red" variant="outline" @click="deleteConnection(c.id)">
-                    <Icon name="heroicons:trash" class="w-4 h-4 mr-1" /> Delete
+                  <UButton size="xs" color="red" class="bg-red-500 hover:bg-red-600 text-white cursor-pointer" @click="openDeleteModal(c)">
+                    <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
+                    Delete
                   </UButton>
-                  <UButton size="xs" color="primary" @click="goToBuilder(c.id)">
+                  <UButton size="xs" color="primary" class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer" @click="goToBuilder(c.id)">
                     Open
                   </UButton>
                 </div>
@@ -75,7 +78,7 @@
               @click="importDemo(d)"
             >
               <div class="flex items-center gap-4 p-4">
-                <Icon name="heroicons:bookmark" class="w-8 h-8 text-gray-400" />
+                <Icon name="i-heroicons-bookmark" class="w-8 h-8 text-gray-400"/>
                 <div>
                   <h4 class="font-medium">{{ d.label }}</h4>
                   <p class="text-sm text-gray-600">{{ d.description }}</p>
@@ -90,10 +93,31 @@
         <div v-if="false"></div>
       </div>
     </div>
+
+    <!-- Rename Connection Modal -->
+    <RenameConnectionModal
+        v-model:is-open="showRenameModal"
+        :connection="selectedConnection"
+        :loading="renameLoading"
+        @close-modal="closeRenameModal"
+        @confirm-rename="handleRename"
+    />
+
+    <!-- Delete Connection Modal -->
+    <DeleteConnectionModal
+        v-model:is-open="showDeleteModal"
+        :connection="selectedConnection"
+        :loading="deleteLoading"
+        @close-modal="closeDeleteModal"
+        @confirm-delete="handleDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+// Modal components
+import RenameConnectionModal from '~/components/RenameConnectionModal.vue'
+import DeleteConnectionModal from '~/components/DeleteConnectionModal.vue'
 const searchQuery = ref('')
 
 const connections = ref<Array<{ id: number; internal_name: string; database_type?: string; host?: string; port?: number }>>([])
@@ -101,6 +125,13 @@ const demos = ref<Array<{ id: string; label: string; description?: string }>>([]
 
 const loadingConnections = ref(true)
 const loadingDemos = ref(true)
+
+// Modal states
+const showRenameModal = ref(false)
+const showDeleteModal = ref(false)
+const selectedConnection = ref(null)
+const renameLoading = ref(false)
+const deleteLoading = ref(false)
 
 const filteredConnections = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -144,24 +175,58 @@ function editConnection(connectionId: number) {
   navigateTo(`/integration-wizard?id=${connectionId}`)
 }
 
-async function deleteConnection(connectionId: number) {
-  if (!confirm('Delete this data source? This cannot be undone.')) return
+function openRenameModal(connection: any) {
+  selectedConnection.value = connection
+  showRenameModal.value = true
+}
+
+function openDeleteModal(connection: any) {
+  selectedConnection.value = connection
+  showDeleteModal.value = true
+}
+
+function closeRenameModal() {
+  showRenameModal.value = false
+  selectedConnection.value = null
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false
+  selectedConnection.value = null
+}
+
+async function handleRename({id, newName}: { id: number; newName: string }) {
+  renameLoading.value = true
   try {
-    await $fetch('/api/reporting/connections', { method: 'DELETE', params: { id: connectionId } })
+    await $fetch('/api/reporting/connections', {
+      method: 'PUT',
+      params: {id},
+      body: {internal_name: newName}
+    })
     await loadConnections()
+    closeRenameModal()
   } catch (e) {
-    console.error('Failed to delete connection', e)
+    console.error('Failed to rename connection', e)
+  } finally {
+    renameLoading.value = false
   }
 }
 
-async function renameConnection(c: { id: number; internal_name: string }) {
-  const next = prompt('New name', c.internal_name)
-  if (!next || next.trim() === c.internal_name) return
+async function handleDelete() {
+  if (!selectedConnection.value) return
+
+  deleteLoading.value = true
   try {
-    await $fetch('/api/reporting/connections', { method: 'PUT', params: { id: c.id }, body: { internal_name: next.trim() } })
+    await $fetch('/api/reporting/connections', {
+      method: 'DELETE',
+      params: {id: selectedConnection.value.id}
+    })
     await loadConnections()
+    closeDeleteModal()
   } catch (e) {
-    console.error('Failed to rename connection', e)
+    console.error('Failed to delete connection', e)
+  } finally {
+    deleteLoading.value = false
   }
 }
 

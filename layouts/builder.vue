@@ -3,9 +3,6 @@
     <!-- Color Scheme for theme management -->
     <ColorScheme/>
 
-    <!-- Toast Notifications -->
-    <UNotifications position="top-right"/>
-
     <div class="flex h-screen bg-gray-50">
       <!-- Main Content (no sidebar) -->
       <div class="flex-1 flex flex-col lg:ml-0">
@@ -33,10 +30,10 @@
             </div>
             <div class="flex items-center gap-2 lg:gap-4">
               <button class="p-2 hover:bg-black/10 rounded">
-                <Icon name="heroicons:cog-6-tooth" class="w-4 h-4"/>
+                <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
               </button>
               <!-- Account Dropdown -->
-              <UDropdown :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-white dark:bg-gray-800' }">
+              <UDropdownMenu :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-white dark:bg-gray-800' }" @select="handleMenuSelect">
                 <UButton variant="ghost" class="p-1 hover:bg-transparent avatar-button">
                   <UAvatar
                       :alt="userDisplayName"
@@ -53,7 +50,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ userProfile?.email }}</p>
                   </div>
                 </template>
-              </UDropdown>
+              </UDropdownMenu>
             </div>
           </div>
         </div>
@@ -64,7 +61,7 @@
         </main>
 
         <!-- Footer -->
-        <footer class="bg-neutral-800 border-t border-neutral-700 px-4 lg:px-6 py-3 lg:py-4">
+        <footer class="bg-neutral-800 border-t border-neutral-600 dark:border-[rgb(64,64,64)] px-4 lg:px-6 py-3 lg:py-4">
           <div class="flex items-center justify-center gap-2">
             <img
                 src="/images/qtransparent.png"
@@ -104,6 +101,31 @@ const userInitials = computed(() => {
 // Current year for copyright
 const currentYear = computed(() => new Date().getFullYear())
 
+const handleThemeToggle = () => {
+  toggleTheme()
+}
+
+const handleSignOutClick = () => {
+  handleSignOut()
+}
+
+const handleMenuSelect = (item: any) => {
+  console.log('Menu item selected:', item)
+  if (item.to) {
+    navigateTo(item.to)
+  } else if (item.click) {
+    console.log('Calling click handler')
+    item.click()
+  } else if (item.action) {
+    console.log('Handling action:', item.action)
+    if (item.action === 'toggleTheme') {
+      toggleTheme()
+    }
+  } else {
+    console.log('No click, to, or action property found')
+  }
+}
+
 const handleSignOut = async () => {
   try {
     await signOut()
@@ -127,18 +149,18 @@ const accountMenuItems = computed(() => {
   baseItems.push(
       [{
         label: 'Account Settings',
-        icon: 'heroicons:user',
-        click: () => navigateTo('/account')
+        icon: 'i-heroicons-user',
+        to: '/account'
       }],
       [{
         label: themeLabel.value,
         icon: themeIcon.value,
-        click: toggleTheme
+        action: 'toggleTheme'
       }],
       [{
         label: 'Sign Out',
-        icon: 'heroicons:arrow-right-on-rectangle',
-        click: handleSignOut
+        icon: 'i-heroicons-arrow-right-on-rectangle',
+        click: () => handleSignOutClick()
       }]
   )
 

@@ -22,7 +22,7 @@
         <ul class="space-y-1">
           <li v-for="(j, i) in appliedJoins" :key="i" class="border rounded p-2">
             <div class="font-medium flex items-center gap-2">
-              <Icon name="heroicons:link" class="w-4 h-4 text-blue-400" />
+              <Icon name="i-heroicons-link" class="w-4 h-4 text-blue-400"/>
               <span>{{ j.joinType.toUpperCase() }}: {{ j.sourceTable }} → {{ j.targetTable }}</span>
             </div>
             <div class="text-gray-200 mt-0.5">{{ formatPairs(j.columnPairs) }}</div>
@@ -37,7 +37,7 @@
             <input type="radio" name="joinChoice" :value="idx" v-model.number="choiceIdx" />
             <div>
               <div class="font-medium flex items-center gap-2">
-                <Icon name="heroicons:link" class="w-4 h-4 text-blue-400" />
+                <Icon name="i-heroicons-link" class="w-4 h-4 text-blue-400"/>
                 <span>{{ rel.sourceTable }} → {{ rel.targetTable }}</span>
               </div>
               <div class="text-gray-200 flex items-center gap-2">
