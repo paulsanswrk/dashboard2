@@ -51,22 +51,44 @@ export default defineEventHandler(async (event) => {
             throw createError({statusCode: 500, statusMessage: 'Access control error'})
         }
 
-        // Load positions
-        let links: any[] = []
+        // Load tabs
+        let tabs: any[] = []
         try {
-            const {data: linksData, error: linksError} = await supabaseAdmin
-                .from('dashboard_charts')
-                .select('chart_id, position, created_at')
+            const {data: tabsData, error: tabsError} = await supabaseAdmin
+                .from('dashboard_tab')
+                .select('id, name, position')
                 .eq('dashboard_id', dashboard.id)
-                .order('created_at', {ascending: true})
+                .order('position', {ascending: true})
 
-            if (linksError) {
-                throw createError({statusCode: 500, statusMessage: linksError.message})
+            if (tabsError) {
+                throw createError({statusCode: 500, statusMessage: tabsError.message})
             }
-            links = linksData || []
+            tabs = tabsData || []
         } catch (e: any) {
             if (e.statusCode) throw e
-            console.error('[full.get.ts] Error loading dashboard_charts:', e?.message || e)
+            console.error('[full.get.ts] Error loading dashboard tabs:', e?.message || e)
+            throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard tabs'})
+        }
+
+        // Load chart links for all tabs
+        let links: any[] = []
+        try {
+            if (tabs.length > 0) {
+                const tabIds = tabs.map((t: any) => t.id)
+                const {data: linksData, error: linksError} = await supabaseAdmin
+                    .from('dashboard_charts')
+                    .select('tab_id, chart_id, position, created_at')
+                    .in('tab_id', tabIds)
+                    .order('created_at', {ascending: true})
+
+                if (linksError) {
+                    throw createError({statusCode: 500, statusMessage: linksError.message})
+                }
+                links = linksData || []
+            }
+        } catch (e: any) {
+            if (e.statusCode) throw e
+            console.error('[full.get.ts] Error loading dashboard charts:', e?.message || e)
             throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard charts'})
         }
 
@@ -139,8 +161,19 @@ export default defineEventHandler(async (event) => {
             }
         }
 
+        // Group links by tab
+        const linksByTab: Record<string, any[]> = {}
+        for (const link of links || []) {
+            if (!linksByTab[link.tab_id]) {
+                linksByTab[link.tab_id] = []
+            }
+            linksByTab[link.tab_id].push(link)
+        }
+
         // Fetch external data for all charts in parallel (uses internal info server-side)
-        const tasks = (links || []).map(async (lnk: any) => {
+        const tabTasks = tabs.map(async (tab: any) => {
+            const tabLinks = linksByTab[tab.id] || []
+            const chartTasks = tabLinks.map(async (lnk: any) => {
             try {
                 const chart = chartsById[lnk.chart_id]
                 if (!chart) {
@@ -233,14 +266,24 @@ export default defineEventHandler(async (event) => {
                     data: {columns: [], rows: [], meta: {error: e?.statusMessage || e?.message || 'chart_processing_failed'}}
                 }
             }
+            })
+
+            const chartResults = await Promise.all(chartTasks)
+
+            return {
+                id: tab.id,
+                name: tab.name,
+                position: tab.position,
+                charts: chartResults
+            }
         })
 
-        let results: any[]
+        let tabResults: any[]
         try {
-            results = await Promise.all(tasks)
+            tabResults = await Promise.all(tabTasks)
         } catch (e: any) {
             console.error('[full.get.ts] Error in Promise.all:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to process charts'})
+            throw createError({statusCode: 500, statusMessage: 'Failed to process tabs'})
         }
 
         return {
@@ -248,7 +291,7 @@ export default defineEventHandler(async (event) => {
             name: dashboard.name,
             isPublic: dashboard.is_public,
             createdAt: dashboard.created_at,
-            charts: results
+            tabs: tabResults
         }
     } catch (e: any) {
         if (e.statusCode) throw e

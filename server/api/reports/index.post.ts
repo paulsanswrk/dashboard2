@@ -1,9 +1,9 @@
-import { defineEventHandler, readBody } from 'h3'
+import {defineEventHandler, readBody} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     email_message,
     scope,
     dashboard_id,
-    chart_id,
+      tab_id,
     time_frame,
     formats,
     interval,
@@ -46,8 +46,8 @@ export default defineEventHandler(async (event) => {
   if (scope === 'Dashboard' && !dashboard_id) {
     throw createError({ statusCode: 400, statusMessage: 'Dashboard selection is required' })
   }
-  if (scope === 'Single Chart' && !chart_id) {
-    throw createError({ statusCode: 400, statusMessage: 'Chart selection is required' })
+    if (scope === 'Single Tab' && !tab_id) {
+        throw createError({statusCode: 400, statusMessage: 'Tab selection is required'})
   }
 
   if (!Array.isArray(formats) || formats.length === 0) {
@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
         email_message: email_message?.trim() || null,
         scope,
         dashboard_id: scope === 'Dashboard' ? dashboard_id : null,
-        chart_id: scope === 'Single Chart' ? chart_id : null,
+          tab_id: scope === 'Single Tab' ? tab_id : null,
         time_frame,
         formats,
         interval,

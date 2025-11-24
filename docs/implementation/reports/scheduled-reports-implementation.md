@@ -28,9 +28,9 @@ CREATE TABLE public.reports (
     recipients JSONB NOT NULL,
     email_subject TEXT NOT NULL,
     email_message TEXT,
-    scope TEXT NOT NULL CHECK (scope IN ('Single Chart', 'Dashboard')),
+    scope TEXT NOT NULL CHECK (scope IN ('Dashboard', 'Single Tab')),
     dashboard_id UUID REFERENCES public.dashboards(id) ON DELETE CASCADE,
-    chart_id BIGINT REFERENCES public.charts(id) ON DELETE CASCADE,
+    tab_id UUID REFERENCES public.dashboard_tab(id) ON DELETE CASCADE,
     time_frame TEXT NOT NULL CHECK (time_frame IN ('As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter')),
     formats JSONB NOT NULL,
     interval TEXT NOT NULL CHECK (interval IN ('DAILY', 'WEEKLY', 'MONTHLY')),
@@ -39,8 +39,8 @@ CREATE TABLE public.reports (
     day_of_week JSONB,
     status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Paused', 'Draft')),
     CONSTRAINT check_content_type_strict CHECK (
-        (scope = 'Dashboard' AND dashboard_id IS NOT NULL AND chart_id IS NULL) OR
-        (scope = 'Single Chart' AND dashboard_id IS NULL AND chart_id IS NOT NULL)
+        (scope = 'Dashboard' AND dashboard_id IS NOT NULL AND tab_id IS NULL) OR
+        (scope = 'Single Tab' AND dashboard_id IS NULL AND tab_id IS NOT NULL)
     )
 );
 ```
@@ -96,9 +96,9 @@ Both tables have RLS enabled with policies that allow:
     "recipients": ["email1@example.com", "email2@example.com"],
     "email_subject": "string",
     "email_message": "string (optional)",
-    "scope": "Dashboard" | "Single Chart",
+    "scope": "Dashboard" | "Single Tab",
     "dashboard_id": "uuid (if scope = 'Dashboard')",
-    "chart_id": "number (if scope = 'Single Chart')",
+    "tab_id": "uuid (if scope = 'Single Tab')",
     "time_frame": "Last 7 Days" | "Last 30 Days" | "Last Quarter" | "As On Dashboard",
     "formats": ["PDF", "XLS", "CSV", "PNG"],
     "interval": "DAILY" | "WEEKLY" | "MONTHLY",
@@ -210,7 +210,7 @@ const toast = useToast()
    - Email subject and optional message
 
 2. **Content Selection**
-   - Scope: Dashboard vs Single Chart
+    - Scope: Dashboard vs Single Tab
    - Content selector (populated dynamically)
    - Time frame options
    - Export format checkboxes
@@ -241,9 +241,9 @@ export type ScheduledReport = {
   recipients: any[]
   email_subject: string
   email_message?: string
-  scope: 'Single Chart' | 'Dashboard'
+  scope: 'Dashboard' | 'Single Tab'
   dashboard_id?: string
-  chart_id?: number
+  tab_id?: string
   time_frame: string
   formats: string[]
   interval: 'DAILY' | 'WEEKLY' | 'MONTHLY'

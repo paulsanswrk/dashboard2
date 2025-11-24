@@ -1,19 +1,39 @@
-# Dashboard Charts Implementation
+# Multi-Tab Dashboard Charts Implementation
 
 ## Overview
 
-This document outlines the implementation of dashboard charts functionality, allowing users to save charts from the Report Builder and organize them on dashboards with custom positioning.
+This document outlines the implementation of multi-tab dashboard charts functionality, allowing users to save charts from the Report Builder and organize them across multiple tabs within dashboards with custom positioning.
 
 ## 🎯 Key Features
 
 - **Chart Saving**: Save complete chart configurations including SQL queries, appearance settings, and chart types
-- **Dashboard Organization**: Create dashboards that can contain multiple charts with custom positioning
+- **Multi-Tab Dashboard Organization**: Create dashboards with multiple tabs, each containing charts with custom positioning
+- **Tab Management**: Create, rename, and delete dashboard tabs with full CRUD operations
 - **Vue Grid Layout Integration**: Charts are positioned using Vue Grid Layout for responsive dashboard layouts
 - **Complete State Preservation**: All chart state (SQL, filters, appearance, chart type) is preserved
+- **Flexible Reporting**: Generate reports for entire dashboards or specific tabs
 
 ## 🗄️ Database Schema
 
 ### Tables Created/Modified
+
+#### `dashboard_tab` Table (New)
+
+```sql
+CREATE TABLE public.dashboard_tab (
+    id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    dashboard_id UUID NOT NULL REFERENCES public.dashboards(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+```
+
+**Key Fields:**
+
+- `dashboard_id`: Reference to the parent dashboard
+- `name`: Display name of the tab
+- `position`: Order of tabs within the dashboard (0-based)
 
 #### `charts` Table (Renamed from `reporting_reports`)
 ```sql
@@ -33,20 +53,31 @@ CREATE TABLE public.charts (
 - `state_json`: Complete chart state including SQL, filters, appearance, and chart configuration
 - `owner_id`: Links to Supabase auth.users for ownership verification
 
-#### `dashboard_charts` Table (Junction Table)
+#### `dashboard_charts` Table (Junction Table - Modified)
 ```sql
 CREATE TABLE public.dashboard_charts (
-    dashboard_id uuid NOT NULL REFERENCES public.dashboards(id) ON DELETE CASCADE,
+    tab_id UUID NOT NULL REFERENCES public.dashboard_tab(id) ON DELETE CASCADE,
     chart_id bigint NOT NULL REFERENCES public.charts(id) ON DELETE CASCADE,
     position jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    PRIMARY KEY (dashboard_id, chart_id)
+    PRIMARY KEY (tab_id, chart_id)
 );
 ```
 
 **Key Fields:**
+
+- `tab_id`: Reference to the dashboard tab containing this chart
 - `position`: JSON object containing Vue Grid Layout position data (x, y, width, height, etc.)
-- Composite primary key ensures each chart appears only once per dashboard
+- Composite primary key ensures each chart appears only once per tab
+
+#### `reports` Table (Modified)
+
+```sql
+-- Reports can now reference either entire dashboards or specific tabs
+-- scope: 'Dashboard' or 'Single Tab'
+-- dashboard_id: set when scope = 'Dashboard'
+-- tab_id: set when scope = 'Single Tab'
+```
 
 #### `dashboards` Table (Existing)
 - Referenced by `dashboard_charts` for ownership and permissions
@@ -76,13 +107,41 @@ Deletes a chart.
 - **Query Params**: `id`
 - **Authentication**: Required, verifies ownership
 
-### Dashboard Charts API (`/api/dashboard-reports/`)
+### Dashboard Tabs API (`/api/dashboard-tabs/`)
 
-#### `POST /api/dashboard-reports/`
-Adds a chart to a dashboard with positioning.
-- **Input**: `{ dashboardId, chartId, position }`
+#### `POST /api/dashboard-tabs/`
+
+Adds a chart to a specific dashboard tab with positioning.
+
+- **Input**: `{ tabId, chartId, position }`
 - **Output**: `{ success: true }`
-- **Authentication**: Required, verifies ownership of both dashboard and chart
+- **Authentication**: Required, verifies ownership of both tab and chart
+
+### Dashboard Tabs Management API (`/api/dashboards/tabs/`)
+
+#### `POST /api/dashboards/tabs/`
+
+Creates a new tab in a dashboard.
+
+- **Input**: `{ dashboardId, name }`
+- **Output**: `{ success: true, tab: { id, name, position } }`
+- **Authentication**: Required, verifies dashboard ownership
+
+#### `PUT /api/dashboards/tabs/`
+
+Updates a tab (rename or reposition).
+
+- **Input**: `{ tabId, name?, position? }`
+- **Output**: `{ success: true, tab: updatedTab }`
+- **Authentication**: Required, verifies tab ownership
+
+#### `DELETE /api/dashboards/tabs/`
+
+Deletes a tab (cannot delete the last tab in a dashboard).
+
+- **Query Params**: `id` (tab ID)
+- **Output**: `{ success: true }`
+- **Authentication**: Required, verifies tab ownership
 
 ### Dashboards API (`/api/dashboards`)
 
@@ -91,28 +150,35 @@ Server endpoints for managing dashboards and layouts.
 #### `GET /api/dashboards`
 Lists dashboards owned by the authenticated user.
 
-#### `GET /api/dashboards/:id`
-Returns dashboard with chart links and saved positions. Implementation avoids ambiguous PostgREST embeds by fetching `dashboard_charts` and `charts` separately and mapping server-side.
+#### `GET /api/dashboards/:id/full`
+
+Returns complete dashboard with all tabs and their charts. Returns `{ id, name, isPublic, createdAt, tabs: [{ id, name, position, charts: [...] }] }`.
+
+- **Authentication**: Required for private dashboards, public access for public dashboards
+- **Server Processing**: Loads dashboard, tabs, charts, and executes SQL queries in parallel
 
 #### `PUT /api/dashboards`
-Updates dashboard name and/or layout positions. Input: `{ id, name?, layout?: [{ chartId, position }] }`.
+
+Updates dashboard name.
+
+- **Input**: `{ id, name }`
+- **Output**: `{ success: true }`
 
 #### `DELETE /api/dashboards?id=...`
 Deletes a dashboard (owner-only).
 
 ### Dashboard Full Load API (`/api/dashboards/[id]/full`)
 
-Single endpoint that returns everything needed to render a dashboard. Sensitive fields are stored under `state_json.internal` and are removed from the response if the user is not the owner.
+Single endpoint that returns everything needed to render a multi-tab dashboard. Sensitive fields are stored under `state_json.internal` and are removed from the response if the user is not the owner.
 
 - Auth behavior:
   - Public dashboards: response is public-safe (no internal fields), but includes chart data required for rendering.
   - Private dashboards: only the owner may load; owner receives flattened state (public + internal fields for backward compatibility).
 - Server process:
-  1) Load dashboard, links, and charts from Supabase.
-  2) Use `state_json.internal` to execute external SQL for all charts in parallel.
+    1) Load dashboard, tabs, chart links, and charts from Supabase.
+    2) Use `state_json.internal` to execute external SQL for all charts in parallel across all tabs.
   3) Return data; omit SQL and internal fields for non-owners.
-- Response for non-owners: `{ id, name, isPublic, createdAt, charts: [{ id, name, position, state (public only), data: { columns, rows } }] }`
-- Response for owners: `{ id, name, isPublic, createdAt, charts: [{ id, name, position, state (flattened), data: { columns, rows, meta } }] }`
+- Response structure: `{ id, name, isPublic, createdAt, tabs: [{ id, name, position, charts: [{ id, name, position, state, data: { columns, rows, meta? } }] }] }`
 
 Note: Charts saved prior to this refactor (without `state_json.internal`) are not supported by this endpoint or the builder APIs.
 
@@ -143,8 +209,17 @@ Enhanced to support dashboard saving functionality.
 #### `pages/dashboards/index.vue` (New)
 Lists user dashboards with Create/Edit/Delete actions.
 
-#### `pages/dashboards/[id].vue` (New)
-Edit Dashboard page using Vue Grid Layout with device preview toggles (desktop/tablet/mobile). Uses `ClientOnly` and a client-only plugin to avoid SSR DOM access. Loads data via `GET /api/dashboards/[id]/full` and passes preloaded data to chart renderer.
+#### `pages/dashboards/[id].vue` (Enhanced)
+
+Multi-tab dashboard editor with integrated toolbar. Features:
+
+- **Tab Navigation**: Outlined tab headers with active state indication (orange border-bottom)
+- **Tab Management**: Create, rename, delete tabs with dropdown menus
+- **Toolbar Integration**: Save Dashboard, device preview toggles, Auto Layout, Preview, Get PDF buttons within tab area
+- **Chart Management**: Add charts to specific tabs, drag-and-drop positioning
+- **Vue Grid Layout**: Responsive chart positioning with device-specific layouts
+- Uses `ClientOnly` and client-only plugins to avoid SSR DOM access
+- Loads data via `GET /api/dashboards/[id]/full` and renders tab-organized charts
 
 #### `DashboardChartRenderer.vue` (New)
 Renders saved chart state without builder controls. Props:
@@ -159,12 +234,18 @@ Renders saved chart state without builder controls. Props:
 ### Chart Saving Process
 1. User creates chart in Report Builder
 2. Clicks "Save Chart to Dashboard"
-3. Selects destination (New Dashboard or Existing Dashboard)
+3. Selects destination (New Dashboard or Existing Dashboard Tab)
 4. System:
    - Saves complete chart state to `charts` table
-   - Creates new dashboard if selected
-   - Creates entry in `dashboard_charts` with positioning
+   - Creates new dashboard/tab if selected
+   - Creates entry in `dashboard_charts` linking chart to tab with positioning
    - Shows success confirmation
+
+### Tab Management Process
+
+1. User clicks "+" to create new tab or uses dropdown to rename/delete tabs
+2. System validates permissions and tab constraints (minimum 1 tab per dashboard)
+3. Updates `dashboard_tab` table and refreshes UI
 
 ### Chart Loading Process
 1. User opens saved chart from ChartsModal
@@ -173,11 +254,11 @@ Renders saved chart state without builder controls. Props:
    - Restores all settings (SQL, filters, appearance, chart type)
    - Updates URL parameters for connection persistence
 
-### Dashboard Loading Process (Single Request)
+### Dashboard Loading Process (Multi-Tab)
 1. Client calls `GET /api/dashboards/[id]/full`.
-2. Server loads dashboard, links, and charts from Supabase.
-3. For each chart with SQL state, server runs external queries in parallel using the saved `dataConnectionId` (LIMIT enforced; destructive statements blocked).
-4. Server returns a single payload with layout, chart configs, and chart data.
+2. Server loads dashboard, all tabs, chart links, and charts from Supabase.
+3. For each chart with SQL state across all tabs, server runs external queries in parallel using the saved `dataConnectionId` (LIMIT enforced; destructive statements blocked).
+4. Server returns a single payload with dashboard info, tabs array, and chart data organized by tab.
 
 ## 📊 Chart State Structure
 

@@ -17,24 +17,24 @@ We require two tables: `reports` (for configuration) and `email_queue` (for sche
 
 This table stores the full configuration for each recurring report.
 
-| **Field Name** | **Data Type** | **Description** | **Constraints** |
-| --- | --- | --- | --- |
-| `id` | `UUID` | Unique identifier. | `primary key` |
-| `created_at` | `timestampz` | Timestamp of creation. | `default now()` |
-| `user_id` | `UUID` | ID of the user who created the report. | `references auth.users(id)` |
-| `report_title` | `text` | The user-defined title of the report. | `not null` |
-| `recipients` | `jsonb` | Array of recipient identifiers (emails/user IDs). | `not null` |
-| `email_subject` | `text` | Subject line for the delivery email. | `not null` |
-| `email_message` | `text` | Custom message body for the email. | `nullable` |
-| `scope` | `text` | **'Single Chart'** or **'Dashboard'**. | `not null` |
-| `content_id` | `UUID` | ID of the selected Dashboard or Chart. | `not null` |
-| `time_frame` | `text` | Filter application: 'As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter'. | `not null` |
-| `formats` | `jsonb` | Array of selected formats: `['XLS', 'CSV', 'PDF', 'PNG']`. | `not null` |
-| `interval` | `text` | **'DAILY'**, **'WEEKLY'**, or **'MONTHLY'**. | `not null` |
-| `send_time` | `text` | Time of day to send (e.g., **'08:00'** in HH:MM format). | `not null` |
-| `timezone` | `text` | User's IANA Timezone (e.g., 'Europe/Berlin'). | `not null` |
-| `day_of_week` | `jsonb` | Array of selected days for weekly reports: `['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']`. | `nullable` |
-| `status` | `text` | 'Active', 'Paused', 'Draft'. | `default 'Active'` |
+| **Field Name**  | **Data Type** | **Description**                                                                          | **Constraints**             |
+|-----------------|---------------|------------------------------------------------------------------------------------------|-----------------------------|
+| `id`            | `UUID`        | Unique identifier.                                                                       | `primary key`               |
+| `created_at`    | `timestampz`  | Timestamp of creation.                                                                   | `default now()`             |
+| `user_id`       | `UUID`        | ID of the user who created the report.                                                   | `references auth.users(id)` |
+| `report_title`  | `text`        | The user-defined title of the report.                                                    | `not null`                  |
+| `recipients`    | `jsonb`       | Array of recipient identifiers (emails/user IDs).                                        | `not null`                  |
+| `email_subject` | `text`        | Subject line for the delivery email.                                                     | `not null`                  |
+| `email_message` | `text`        | Custom message body for the email.                                                       | `nullable`                  |
+| `scope`         | `text`        | **'Dashboard'** or **'Single Tab'**.                                                     | `not null`                  |
+| `content_id`    | `UUID`        | ID of the selected Dashboard or Tab.                                                     | `not null`                  |
+| `time_frame`    | `text`        | Filter application: 'As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter'.    | `not null`                  |
+| `formats`       | `jsonb`       | Array of selected formats: `['XLS', 'CSV', 'PDF', 'PNG']`.                               | `not null`                  |
+| `interval`      | `text`        | **'DAILY'**, **'WEEKLY'**, or **'MONTHLY'**.                                             | `not null`                  |
+| `send_time`     | `text`        | Time of day to send (e.g., **'08:00'** in HH:MM format).                                 | `not null`                  |
+| `timezone`      | `text`        | User's IANA Timezone (e.g., 'Europe/Berlin').                                            | `not null`                  |
+| `day_of_week`   | `jsonb`       | Array of selected days for weekly reports: `['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']`. | `nullable`                  |
+| `status`        | `text`        | 'Active', 'Paused', 'Draft'.                                                             | `default 'Active'`          |
 
 ### Table B: `email_queue` (Delivery Queue)
 
@@ -79,20 +79,20 @@ Use the required `reportForm` reactive object to manage state.
 
 Implement the form with the following structure:
 
-| **Section** | **Field/Component** | **UI Description & Requirements** | **Data Binding** |
-| --- | --- | --- | --- |
-| **Recipients** | Report title | Standard text input for the report name. | `reportForm.report_title` |
-|  | Select recipients | A **Tag/Chip Input component** that allows users to type emails or select from a simulated list of available users/groups (e.g., `userList` fetched from mock/Supabase `users` table). | `reportForm.recipients` |
-|  | Subject | Standard text input for the email subject line. | `reportForm.email_subject` |
-|  | Message | A **Textarea** input for the custom email body, with a visible character counter below it. | `reportForm.email_message` |
-| **Content** | Scope | A radio button group or toggle buttons for **Single Chart** / **Dashboard**. | `reportForm.scope` |
-|  | Content Selector | A **select dropdown**. The label and available options must dynamically change based on the selected `scope`. (Mock structures for `dashboardList` and `chartList` are required). | `reportForm.content_id` |
-|  | Time frame | A **select dropdown** with the required options: 'As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter'. | `reportForm.time_frame` |
-|  | Format | A group of checkboxes allowing multiple selections: **XLS, CSV, PDF, PNG**. Must default to PDF selected. | `reportForm.formats` (Array) |
-| **Schedule** | Interval | **Toggle/Segmented buttons** for the interval: **DAILY, WEEKLY, MONTHLY**. | `reportForm.interval` |
-|  | Send at (Time) | A text input configured for **HH:MM** (24-hour format) input, defaulting to '08:00'. | `reportForm.send_time` |
-|  | Send at (Timezone) | A **select dropdown** populated with a **comprehensive list of IANA Timezones** (e.g., 'America/New\_York', 'Europe/London', etc.). The display format should be user-friendly (e.g., "GMT+02:00 Europe/Berlin"). | `reportForm.timezone` |
-|  | Day of week | A group of checkboxes (Mo, Tu, We, Th, Fr, Sa, Su). **This section must be conditionally rendered ONLY when `reportForm.interval === 'WEEKLY'`.** Default selection is Mo-Fr. | `reportForm.day_of_week` (Array) |
+| **Section**    | **Field/Component** | **UI Description & Requirements**                                                                                                                                                                                 | **Data Binding**                 |
+|----------------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------|
+| **Recipients** | Report title        | Standard text input for the report name.                                                                                                                                                                          | `reportForm.report_title`        |
+|                | Select recipients   | A **Tag/Chip Input component** that allows users to type emails or select from a simulated list of available users/groups (e.g., `userList` fetched from mock/Supabase `users` table).                            | `reportForm.recipients`          |
+|                | Subject             | Standard text input for the email subject line.                                                                                                                                                                   | `reportForm.email_subject`       |
+|                | Message             | A **Textarea** input for the custom email body, with a visible character counter below it.                                                                                                                        | `reportForm.email_message`       |
+| **Content**    | Scope               | A radio button group or toggle buttons for **Dashboard** / **Single Tab**.                                                                                                                                        | `reportForm.scope`               |
+|                | Content Selector    | A **select dropdown**. The label and available options must dynamically change based on the selected `scope`. (Mock structures for `dashboardList` and `chartList` are required).                                 | `reportForm.content_id`          |
+|                | Time frame          | A **select dropdown** with the required options: 'As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter'.                                                                                                | `reportForm.time_frame`          |
+|                | Format              | A group of checkboxes allowing multiple selections: **XLS, CSV, PDF, PNG**. Must default to PDF selected.                                                                                                         | `reportForm.formats` (Array)     |
+| **Schedule**   | Interval            | **Toggle/Segmented buttons** for the interval: **DAILY, WEEKLY, MONTHLY**.                                                                                                                                        | `reportForm.interval`            |
+|                | Send at (Time)      | A text input configured for **HH:MM** (24-hour format) input, defaulting to '08:00'.                                                                                                                              | `reportForm.send_time`           |
+|                | Send at (Timezone)  | A **select dropdown** populated with a **comprehensive list of IANA Timezones** (e.g., 'America/New\_York', 'Europe/London', etc.). The display format should be user-friendly (e.g., "GMT+02:00 Europe/Berlin"). | `reportForm.timezone`            |
+|                | Day of week         | A group of checkboxes (Mo, Tu, We, Th, Fr, Sa, Su). **This section must be conditionally rendered ONLY when `reportForm.interval === 'WEEKLY'`.** Default selection is Mo-Fr.                                     | `reportForm.day_of_week` (Array) |
 
 ### C. Core Logic: Form Submission (`saveReport`)
 

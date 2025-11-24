@@ -7,6 +7,7 @@
           color="orange"
           @click="navigateTo('/reports/create')"
           icon="i-heroicons-plus"
+          class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
         >
           Create New Report
         </UButton>
@@ -88,6 +89,7 @@
                       color="gray"
                       @click="editReport(report)"
                       icon="i-heroicons-pencil"
+                      class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     >
                       Edit
                     </UButton>
@@ -97,6 +99,7 @@
                       size="xs"
                       @click="toggleReportStatus(report)"
                       :icon="report.status === 'Active' ? 'i-heroicons-pause' : 'i-heroicons-play'"
+                      class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     >
                       {{ report.status === 'Active' ? 'Pause' : 'Activate' }}
                     </UButton>
@@ -106,6 +109,7 @@
                       color="red"
                       @click="deleteReport(report)"
                       icon="i-heroicons-trash"
+                      class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
                     >
                       Delete
                     </UButton>
@@ -130,8 +134,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useScheduledReportsService } from '~/composables/useScheduledReportsService'
+import {onMounted, ref} from 'vue'
+import {useScheduledReportsService} from '~/composables/useScheduledReportsService'
 
 const { listReports, toggleReportStatus: toggleStatus, deleteReport: deleteReportService, getEmailQueueForReport } = useScheduledReportsService()
 const toast = useToast()

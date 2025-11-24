@@ -6,9 +6,9 @@ export type ScheduledReport = {
   recipients: any[]
   email_subject: string
   email_message?: string
-  scope: 'Single Chart' | 'Dashboard'
+    scope: 'Dashboard' | 'Single Tab'
   dashboard_id?: string
-  chart_id?: number
+    tab_id?: string
   time_frame: string
   formats: string[]
   interval: 'DAILY' | 'WEEKLY' | 'MONTHLY'

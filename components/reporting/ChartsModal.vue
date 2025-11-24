@@ -39,9 +39,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useChartsService } from '@/composables/useChartsService'
-import { useReportState } from '@/composables/useReportState'
+import {onMounted, ref, watch} from 'vue'
+import {useChartsService} from '@/composables/useChartsService'
+import {useReportState} from '@/composables/useReportState'
 
 const props = defineProps<{
   open: boolean

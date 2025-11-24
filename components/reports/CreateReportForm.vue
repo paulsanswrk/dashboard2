@@ -42,6 +42,7 @@
                     variant="outline"
                     size="sm"
                     color="red"
+                    :ui="{ base: 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors' }"
                     @click="removeRecipient(index)"
                     icon="i-heroicons-minus"
                   />
@@ -50,6 +51,7 @@
                   variant="outline"
                   color="orange"
                   size="sm"
+                  :ui="{ base: 'cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/20 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
                   @click="addRecipient"
                   icon="i-heroicons-plus"
                 >
@@ -97,19 +99,25 @@
           <!-- Scope Selection -->
           <div>
             <UFormField label="Report Scope" required>
-              <div class="flex gap-2">
-                <UButton
+              <fieldset class="flex gap-2" aria-label="Report Scope">
+                <legend class="sr-only">Report Scope</legend>
+                <label
                   v-for="scopeOption in scopeOptions"
                   :key="scopeOption.value"
-                  :variant="reportForm.scope === scopeOption.value ? 'solid' : 'outline'"
-                  :color="reportForm.scope === scopeOption.value ? 'orange' : undefined"
-                  :ui="reportForm.scope === scopeOption.value ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
-                  size="sm"
-                  @click="reportForm.scope = scopeOption.value"
+                  class="cursor-pointer"
                 >
-                  {{ scopeOption.label }}
-                </UButton>
-              </div>
+                  <input
+                      class="sr-only"
+                      type="radio"
+                      name="report-scope"
+                      :value="scopeOption.value"
+                      v-model="reportForm.scope"
+                  />
+                  <span :class="getToggleButtonClasses(reportForm.scope === scopeOption.value)">
+                    {{ scopeOption.label }}
+                  </span>
+                </label>
+              </fieldset>
             </UFormField>
           </div>
 
@@ -118,10 +126,12 @@
             <UFormField :label="contentSelectorLabel" required>
               <USelect
                 v-model="reportForm.content_id"
-                :options="contentOptions"
+                :items="contentOptions"
                 :loading="contentLoading"
                 placeholder="Select content to report on"
                 required
+                class="w-64"
+                :ui="{ content: 'cursor-pointer' }"
               />
             </UFormField>
           </div>
@@ -131,8 +141,10 @@
             <UFormField label="Time Frame" required>
               <USelect
                 v-model="reportForm.time_frame"
-                :options="timeFrameOptions"
+                :items="timeFrameOptions"
                 required
+                class="w-64"
+                :ui="{ content: 'cursor-pointer' }"
               />
             </UFormField>
           </div>
@@ -146,7 +158,9 @@
                   :key="format.value"
                   :variant="selectedFormats.includes(format.value) ? 'solid' : 'outline'"
                   :color="selectedFormats.includes(format.value) ? 'orange' : undefined"
-                  :ui="selectedFormats.includes(format.value) ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
+                  :ui="selectedFormats.includes(format.value)
+                    ? { base: 'cursor-pointer hover:bg-orange-600 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }
+                    : { base: 'cursor-pointer text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
                   size="sm"
                   @click="toggleFormat(format.value)"
                 >
@@ -170,19 +184,25 @@
           <!-- Interval -->
           <div>
             <UFormField label="Frequency" required>
-              <div class="flex gap-2">
-                <UButton
+              <fieldset class="flex gap-2" aria-label="Frequency">
+                <legend class="sr-only">Frequency</legend>
+                <label
                   v-for="intervalOption in intervalOptions"
                   :key="intervalOption.value"
-                  :variant="reportForm.interval === intervalOption.value ? 'solid' : 'outline'"
-                  :color="reportForm.interval === intervalOption.value ? 'orange' : undefined"
-                  :ui="reportForm.interval === intervalOption.value ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
-                  size="sm"
-                  @click="reportForm.interval = intervalOption.value"
+                  class="cursor-pointer"
                 >
-                  {{ intervalOption.label }}
-                </UButton>
-              </div>
+                  <input
+                      class="sr-only"
+                      type="radio"
+                      name="report-interval"
+                      :value="intervalOption.value"
+                      v-model="reportForm.interval"
+                  />
+                  <span :class="getToggleButtonClasses(reportForm.interval === intervalOption.value)">
+                    {{ intervalOption.label }}
+                  </span>
+                </label>
+              </fieldset>
             </UFormField>
           </div>
 
@@ -208,6 +228,8 @@
                     :options="timezoneOptions"
                     placeholder="Select timezone"
                     required
+                    class="w-64"
+                    :ui="{ content: 'cursor-pointer' }"
                   />
                 </UFormField>
               </div>
@@ -242,19 +264,25 @@
           <!-- Status -->
           <div>
             <UFormField label="Status" required>
-              <div class="flex gap-2">
-                <UButton
+              <fieldset class="flex gap-2" aria-label="Status">
+                <legend class="sr-only">Status</legend>
+                <label
                   v-for="statusOption in statusOptions"
                   :key="statusOption.value"
-                  :variant="reportForm.status === statusOption.value ? 'solid' : 'outline'"
-                  :color="reportForm.status === statusOption.value ? 'orange' : undefined"
-                  :ui="reportForm.status === statusOption.value ? {} : { base: 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
-                  size="sm"
-                  @click="reportForm.status = statusOption.value"
+                  class="cursor-pointer"
                 >
-                  {{ statusOption.label }}
-                </UButton>
-              </div>
+                  <input
+                      class="sr-only"
+                      type="radio"
+                      name="report-status"
+                      :value="statusOption.value"
+                      v-model="reportForm.status"
+                  />
+                  <span :class="getToggleButtonClasses(reportForm.status === statusOption.value)">
+                    {{ statusOption.label }}
+                  </span>
+                </label>
+              </fieldset>
             </UFormField>
           </div>
         </div>
@@ -284,7 +312,7 @@
         <UButton
           variant="outline"
           color="gray"
-          :ui="{ base: 'hover:bg-gray-100 dark:hover:bg-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors' }"
+          :ui="{ base: 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors' }"
           @click="$emit('cancel')"
           :disabled="saving"
         >
@@ -293,7 +321,7 @@
         <UButton
           type="submit"
           color="orange"
-          :ui="{ base: 'hover:bg-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
+          :ui="{ base: 'cursor-pointer hover:bg-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
           :loading="saving"
         >
           {{ props.editingReport ? 'Update Scheduled Report' : 'Create Scheduled Report' }}
@@ -304,7 +332,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import {computed, nextTick, onMounted, ref, watch} from 'vue'
 
 // Props
 const props = defineProps<{
@@ -329,9 +357,9 @@ const reportForm = ref({
   recipients: [],
   email_subject: '',
   email_message: '',
-  scope: 'Dashboard' as 'Dashboard' | 'Single Chart',
+  scope: 'Dashboard' as 'Dashboard' | 'Single Tab',
   content_id: '',
-  time_frame: 'Last 7 Days',
+  time_frame: 'Last week',
   formats: [] as string[],
   interval: 'DAILY' as 'DAILY' | 'WEEKLY' | 'MONTHLY',
   send_time: '08:00',
@@ -351,14 +379,22 @@ const selectedDays = ref(['Mo', 'Tu', 'We', 'Th', 'Fr'])
 // Options
 const scopeOptions = [
   { label: 'Dashboard', value: 'Dashboard' },
-  { label: 'Single Chart', value: 'Single Chart' }
+  {label: 'Single Tab', value: 'Single Tab'}
 ]
 
 const timeFrameOptions = [
   { label: 'As On Dashboard', value: 'As On Dashboard' },
-  { label: 'Last 7 Days', value: 'Last 7 Days' },
-  { label: 'Last 30 Days', value: 'Last 30 Days' },
-  { label: 'Last Quarter', value: 'Last Quarter' }
+  {label: 'Yesterday', value: 'Yesterday'},
+  {label: 'Last week', value: 'Last week'},
+  {label: 'Last month', value: 'Last month'},
+  {label: 'Last quarter', value: 'Last quarter'},
+  {label: 'Last year', value: 'Last year'},
+  {label: 'Today', value: 'Today'},
+  {label: 'This week', value: 'This week'},
+  {label: 'This month', value: 'This month'},
+  {label: 'This quarter', value: 'This quarter'},
+  {label: 'This year', value: 'This year'},
+  {label: 'All times', value: 'All times'}
 ]
 
 const formatOptions = [
@@ -389,6 +425,15 @@ const statusOptions = [
   { label: 'Paused', value: 'Paused' },
   { label: 'Draft', value: 'Draft' }
 ]
+
+const toggleButtonBaseClasses = 'rounded-md font-medium inline-flex items-center px-2.5 py-1.5 text-xs gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
+
+const getToggleButtonClasses = (isActive: boolean) => [
+  toggleButtonBaseClasses,
+  isActive
+      ? 'bg-orange-500 text-white border border-transparent focus-visible:ring-orange-500 focus-visible:ring-offset-orange-100 hover:bg-orange-600'
+      : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
+].join(' ')
 
 // Timezone options - comprehensive list
 const timezoneOptions = computed(() => {
@@ -432,7 +477,7 @@ const timezoneOptions = computed(() => {
 // Content options based on scope
 const contentOptions = ref([])
 const contentSelectorLabel = computed(() =>
-  reportForm.value.scope === 'Dashboard' ? 'Select Dashboard' : 'Select Chart'
+    reportForm.value.scope === 'Dashboard' ? 'Select Dashboard' : 'Select Tab'
 )
 
 // Load content options
@@ -452,16 +497,21 @@ const loadContentOptions = async (scope: string) => {
         value: d.id
       }))
     } else {
-      // Load charts - using the charts table
-      const { data: charts, error } = await supabase
-        .from('charts')
-        .select('id, name')
-        .order('name')
+      // Load dashboard tabs joined with dashboard names
+      const {data: tabs, error} = await supabase
+          .from('dashboard_tab')
+          .select(`
+          id,
+          name,
+          dashboards!inner(name)
+        `)
+          .order('dashboards(name)', {ascending: true})
+          .order('position', {ascending: true})
 
       if (error) throw error
-      contentOptions.value = (charts || []).map(c => ({
-        label: c.name,
-        value: c.id.toString()
+      contentOptions.value = (tabs || []).map(t => ({
+        label: `${t.dashboards.name} - ${t.name}`,
+        value: t.id
       }))
     }
   } catch (error) {
@@ -474,6 +524,8 @@ const loadContentOptions = async (scope: string) => {
 
 // Watch for scope changes to load appropriate content
 watch(() => reportForm.value.scope, async (newScope) => {
+  // Clear the content selection when scope changes
+  reportForm.value.content_id = ''
   await loadContentOptions(newScope)
 }, { immediate: true })
 
@@ -614,7 +666,7 @@ const saveReport = async () => {
       scope: reportForm.value.scope,
       // Send the appropriate content field based on scope
       dashboard_id: reportForm.value.scope === 'Dashboard' ? reportForm.value.content_id : undefined,
-      chart_id: reportForm.value.scope === 'Single Chart' ? parseInt(reportForm.value.content_id) : undefined,
+      tab_id: reportForm.value.scope === 'Single Tab' ? reportForm.value.content_id : undefined,
       time_frame: reportForm.value.time_frame,
       formats: reportForm.value.formats,
       interval: reportForm.value.interval,
@@ -673,7 +725,7 @@ const resetForm = () => {
       email_subject: '',
       email_message: '',
       scope: 'Dashboard',
-      time_frame: 'Last 7 Days',
+      time_frame: 'Last week',
       formats: [],
       interval: 'DAILY',
       send_time: '08:00',
@@ -711,7 +763,7 @@ watch(() => props.editingReport, (newReport) => {
       scope: newReport.scope || 'Dashboard',
       // Set content_id based on which field is populated (fallback to old content_id for unmigrated data)
       content_id: newReport.dashboard_id || newReport.chart_id?.toString() || newReport.content_id || '',
-      time_frame: newReport.time_frame || 'Last 7 Days',
+      time_frame: newReport.time_frame || 'Last week',
       formats: newReport.formats || ['PDF'],
       interval: newReport.interval || 'DAILY',
       send_time: newReport.send_time || '08:00',

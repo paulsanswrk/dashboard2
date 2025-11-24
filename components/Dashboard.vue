@@ -61,6 +61,8 @@
                         size="xs"
                         color="gray"
                         square
+                        class="cursor-pointer"
+                        title="Chart options"
                     >
                       <Icon name="i-heroicons-ellipsis-vertical" class="w-4 h-4"/>
                     </UButton>
@@ -181,16 +183,19 @@ function getChartMenuItems(chartId: string) {
     [{
       label: 'Edit Chart',
       icon: 'i-heroicons-document-text',
+      class: 'cursor-pointer',
       onClick: () => handleEditChart(chartId),
     }],
     [{
       label: 'Rename Chart',
       icon: 'i-heroicons-pencil',
+      class: 'cursor-pointer',
       onClick: () => handleRenameChart(chartId)
     }],
     [{
       label: 'Delete Chart',
       icon: 'i-heroicons-trash',
+      class: 'cursor-pointer',
       onClick: () => handleDeleteChart(chartId)
     }]
   ]

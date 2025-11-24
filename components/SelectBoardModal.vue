@@ -225,7 +225,7 @@
 </template>
 
 <script setup lang="ts">
-import { useDashboardsService, type Dashboard } from '~/composables/useDashboardsService'
+import {type Dashboard, useDashboardsService} from '~/composables/useDashboardsService'
 
 interface Props {
   isOpen: boolean
