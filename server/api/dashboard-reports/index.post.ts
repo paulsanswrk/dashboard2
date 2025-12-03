@@ -1,9 +1,9 @@
-import { defineEventHandler, readBody } from 'h3'
+import {defineEventHandler, readBody} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { dashboardId, chartId, position } = body || {}
+    const {dashboardId, chartId, position, tabId} = body || {}
 
   if (!dashboardId || !chartId || !position) {
     throw createError({ statusCode: 400, statusMessage: 'Missing dashboardId, chartId, or position' })
@@ -42,10 +42,43 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Chart not found or access denied' })
   }
 
+    let targetTabId: string
+
+    if (tabId) {
+        // Verify the provided tab belongs to the dashboard and user owns it
+        const {data: tab, error: tabError} = await supabaseAdmin
+            .from('dashboard_tab')
+            .select('id')
+            .eq('id', tabId)
+            .eq('dashboard_id', dashboardId)
+            .single()
+
+        if (tabError || !tab) {
+            throw createError({statusCode: 400, statusMessage: 'Invalid tab for this dashboard'})
+        }
+
+        targetTabId = tabId
+    } else {
+        // Get the first tab of the dashboard (dashboards must have at least one tab)
+        const {data: firstTab, error: tabError} = await supabaseAdmin
+            .from('dashboard_tab')
+            .select('id')
+            .eq('dashboard_id', dashboardId)
+            .order('position', {ascending: true})
+            .limit(1)
+            .single()
+
+        if (tabError || !firstTab) {
+            throw createError({statusCode: 400, statusMessage: 'Dashboard has no tabs or tab access failed'})
+        }
+
+        targetTabId = firstTab.id
+    }
+
   const { error } = await supabaseAdmin
     .from('dashboard_charts')
     .insert({
-      dashboard_id: dashboardId,
+        tab_id: targetTabId,
       chart_id: chartId,
       position: position
     })

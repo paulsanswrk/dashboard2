@@ -1,6 +1,6 @@
-import { defineEventHandler, readBody } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
+import {defineEventHandler, readBody} from 'h3'
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -15,6 +15,11 @@ export default defineEventHandler(async (event) => {
   if (name != null) updates.name = name
   if (description != null) updates.description = description
   if (state != null) {
+      // Extract data_connection_id from state and store in dedicated column
+      if (state.dataConnectionId != null) {
+          updates.data_connection_id = state.dataConnectionId
+      }
+
     const publicKeys = new Set(['appearance', 'chartType'])
     const publicPart: any = {}
     const internalPart: any = {}

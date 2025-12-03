@@ -1,9 +1,9 @@
-import { defineEventHandler, readBody } from 'h3'
+import {defineEventHandler, readBody} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -35,6 +35,12 @@ export default defineEventHandler(async (event) => {
     owner_email: ownerEmail,
     state_json: toStoredState(state)
   }
+
+    // Extract data_connection_id from state and store in dedicated column
+    if (state.dataConnectionId != null) {
+        payload.data_connection_id = state.dataConnectionId
+    }
+
   // Set owner_id from session when available
   if (user?.id) payload.owner_id = user.id
 

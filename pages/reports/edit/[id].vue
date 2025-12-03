@@ -41,8 +41,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useScheduledReportsService } from '~/composables/useScheduledReportsService'
+import {onMounted, ref} from 'vue'
+import {useScheduledReportsService} from '~/composables/useScheduledReportsService'
 import CreateReportForm from '~/components/reports/CreateReportForm.vue'
 
 const route = useRoute()
@@ -76,11 +76,6 @@ const loadReport = async () => {
 }
 
 const onReportUpdated = () => {
-  toast.add({
-    title: 'Success',
-    description: 'Report updated successfully',
-    color: 'green'
-  })
   navigateTo('/reports')
 }
 

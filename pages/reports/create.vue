@@ -28,11 +28,6 @@ import CreateReportForm from "../../components/reports/CreateReportForm.vue";
 const toast = useToast()
 
 const onReportCreated = () => {
-  toast.add({
-    title: 'Success',
-    description: 'Report created successfully',
-    color: 'green'
-  })
   navigateTo('/reports')
 }
 

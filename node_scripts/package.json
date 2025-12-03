@@ -8,6 +8,7 @@
     "test-ssh-mysql": "node test-ssh-mysql-connection.js",
     "test-invitations": "node test-invitation-emails.js",
     "test-deps": "node test-dependencies.js",
+    "test-supabase": "node supabase/test-supabase.js",
     "ai-chart": "node ai/claude-chart-generator.js",
     "ai-chart-interactive": "node ai/claude-chart-generator.js --interactive",
     "ai-chart-simple": "node ai/generate-chart-simple.js"
@@ -15,6 +16,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@sendgrid/mail": "^8.1.3",
+    "@supabase/supabase-js": "^2.83.0",
     "dotenv": "^16.4.5",
     "mysql2": "^3.6.5",
     "ssh2": "^1.15.0"

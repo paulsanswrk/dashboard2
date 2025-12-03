@@ -2,7 +2,15 @@
   <div class="space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between py-6 px-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Email Queue Monitor</h1>
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Email Queue Monitor</h1>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Last updated: {{ lastUpdated ? formatDateTime(lastUpdated) : 'Never' }}
+            <span v-if="autoRefreshEnabled" class="ml-2 text-green-600 dark:text-green-400">
+              • Auto-refresh ON ({{ autoRefreshInterval }}s)
+            </span>
+          </p>
+        </div>
         <div class="flex gap-2">
           <USelect
             v-model="statusFilter"
@@ -11,12 +19,32 @@
             class="w-48"
           />
           <UButton
+              @click="toggleAutoRefresh"
+              :variant="autoRefreshEnabled ? 'solid' : 'outline'"
+              :icon="autoRefreshEnabled ? 'i-heroicons-pause' : 'i-heroicons-play'"
+              :ui="{ base: 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors' }"
+              size="sm"
+          >
+            {{ autoRefreshEnabled ? 'Pause' : 'Auto' }}
+          </UButton>
+          <UButton
             @click="fetchQueue"
             variant="outline"
             icon="i-heroicons-arrow-path"
+            :ui="{ base: 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors' }"
             :loading="loading"
           >
             Refresh
+          </UButton>
+          <UButton
+              @click="runCronJob"
+              variant="outline"
+              icon="i-heroicons-play"
+              :ui="{ base: 'cursor-pointer hover:bg-green-600 hover:text-white transition-colors' }"
+              :loading="cronRunning"
+              color="green"
+          >
+            Run Cron
           </UButton>
         </div>
       </div>
@@ -45,16 +73,19 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Error Message
                 </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               <tr v-if="loading" class="text-center">
-                <td colspan="6" class="px-6 py-4">
+                <td colspan="7" class="px-6 py-4">
                   <UIcon name="i-heroicons-arrow-path" class="animate-spin h-5 w-5 mx-auto" />
                 </td>
               </tr>
               <tr v-else-if="queueItems.length === 0" class="text-center">
-                <td colspan="6" class="px-6 py-4 text-gray-500 dark:text-gray-400">
+                <td colspan="7" class="px-6 py-4 text-gray-500 dark:text-gray-400">
                   No queue items found.
                 </td>
               </tr>
@@ -62,10 +93,11 @@
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="text-sm font-medium text-gray-900 dark:text-white">
                     <UButton
-                      variant="link"
+                        variant="outline"
                       size="xs"
                       @click="showReportDetails(item.report_id)"
-                      class="p-0 h-auto text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                        :ui="{ base: 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors' }"
+                        color="blue"
                     >
                       {{ item.report_id.slice(0, 8) }}...
                     </UButton>
@@ -102,6 +134,43 @@
                   </div>
                   <span v-else class="text-gray-400 dark:text-gray-500">-</span>
                 </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div class="flex gap-2">
+                    <UButton
+                        v-if="item.delivery_status === 'FAILED' && item.attempt_count < 3"
+                        @click="retryQueueItem(item)"
+                        variant="outline"
+                        size="xs"
+                        icon="i-heroicons-arrow-path"
+                        :ui="{ base: 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors' }"
+                        color="blue"
+                        :loading="retryingItems.has(item.id)"
+                    >
+                      Retry
+                    </UButton>
+                    <UButton
+                        v-if="item.delivery_status === 'PENDING'"
+                        @click="cancelQueueItem(item)"
+                        variant="outline"
+                        size="xs"
+                        icon="i-heroicons-x-mark"
+                        :ui="{ base: 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors' }"
+                        color="red"
+                    >
+                      Cancel
+                    </UButton>
+                    <UButton
+                        @click="showDetails(item)"
+                        variant="outline"
+                        size="xs"
+                        icon="i-heroicons-eye"
+                        :ui="{ base: 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors' }"
+                        color="gray"
+                    >
+                      Details
+                    </UButton>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -118,6 +187,7 @@
                 variant="outline"
                 size="sm"
                 :disabled="currentPage === 1"
+                :ui="{ base: 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors' }"
                 @click="currentPage--"
               >
                 Previous
@@ -126,6 +196,7 @@
                 variant="outline"
                 size="sm"
                 :disabled="currentPage === totalPages"
+                :ui="{ base: 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors' }"
                 @click="currentPage++"
               >
                 Next
@@ -185,12 +256,120 @@
           </div>
         </div>
       </div>
+
+    <!-- Queue Item Details Modal -->
+    <UModal v-model:open="showDetailsModal" class="w-full max-w-2xl mx-4">
+      <template #header>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Queue Item Details</h3>
+      </template>
+
+      <template #body>
+        <div v-if="selectedQueueItem" class="space-y-4">
+          <div class="grid grid-cols-1 gap-4">
+            <div class="border-b border-gray-200 dark:border-gray-700 pb-2">
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Basic Information</h4>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Queue ID</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-white font-mono">{{ selectedQueueItem.id }}</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                <span
+                    :class="getStatusClasses(selectedQueueItem.delivery_status)"
+                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1"
+                >
+                    {{ selectedQueueItem.delivery_status }}
+                  </span>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Report ID</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-white font-mono">{{ selectedQueueItem.report_id }}</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Report Title</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ getReportTitle(selectedQueueItem.report_id) }}</p>
+              </div>
+            </div>
+
+            <div class="border-b border-gray-200 dark:border-gray-700 pb-2">
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Scheduling</h4>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Scheduled For</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDateTime(selectedQueueItem.scheduled_for) }}</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ timeAgo(selectedQueueItem.scheduled_for) }}</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Processed At</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-white">
+                  {{ selectedQueueItem.processed_at ? formatDateTime(selectedQueueItem.processed_at) : 'Not processed' }}
+                </p>
+              </div>
+            </div>
+
+            <div class="border-b border-gray-200 dark:border-gray-700 pb-2">
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivery Information</h4>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Attempt Count</label>
+                <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ selectedQueueItem.attempt_count }}</p>
+              </div>
+              <div class="col-span-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Recipients (To)</label>
+                <div class="mt-1">
+                  <div v-if="selectedQueueItem.reports?.recipients && selectedQueueItem.reports.recipients.length > 0" class="flex flex-wrap gap-2">
+                      <span
+                          v-for="recipient in selectedQueueItem.reports.recipients"
+                          :key="recipient"
+                          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
+                      >
+                        {{ recipient }}
+                      </span>
+                  </div>
+                  <p v-else class="text-sm text-gray-500 dark:text-gray-400">No recipients found</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="selectedQueueItem.error_message" class="border-b border-gray-200 dark:border-gray-700 pb-2">
+              <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Error Information</h4>
+            </div>
+
+            <div v-if="selectedQueueItem.error_message" class="col-span-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Error Message</label>
+              <div class="mt-1 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p class="text-sm text-red-800 dark:text-red-300 whitespace-pre-wrap">{{ selectedQueueItem.error_message }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end">
+          <UButton
+              variant="outline"
+              :ui="{ base: 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors' }"
+              @click="showDetailsModal = false"
+          >
+            Close
+          </UButton>
+        </div>
+      </template>
+    </UModal>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { useScheduledReportsService } from '~/composables/useScheduledReportsService'
+import {computed, onMounted, ref, watch} from 'vue'
+import {useScheduledReportsService} from '~/composables/useScheduledReportsService'
 
 // Toast notifications
 const toast = useToast()
@@ -205,6 +384,13 @@ const currentPage = ref(1)
 const pageSize = 50
 const totalCount = ref(0)
 const statusFilter = ref('')
+const lastUpdated = ref(null)
+const autoRefreshEnabled = ref(false)
+const autoRefreshInterval = ref(30) // seconds
+const cronRunning = ref(false)
+const retryingItems = ref(new Set())
+const showDetailsModal = ref(false)
+const selectedQueueItem = ref(null)
 
 // Computed
 const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
@@ -245,6 +431,43 @@ const stats = computed(() => {
   return counts
 })
 
+// Auto-refresh functionality
+let refreshTimer: NodeJS.Timeout | null = null
+
+const startAutoRefresh = () => {
+  if (refreshTimer) clearInterval(refreshTimer)
+  refreshTimer = setInterval(() => {
+    if (autoRefreshEnabled.value) {
+      fetchQueue()
+    }
+  }, autoRefreshInterval.value * 1000)
+}
+
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+const toggleAutoRefresh = () => {
+  autoRefreshEnabled.value = !autoRefreshEnabled.value
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh()
+    toast.add({
+      title: 'Auto-refresh enabled',
+      description: `Refreshing every ${autoRefreshInterval.value} seconds`,
+      color: 'green'
+    })
+  } else {
+    stopAutoRefresh()
+    toast.add({
+      title: 'Auto-refresh disabled',
+      color: 'gray'
+    })
+  }
+}
+
 // Methods
 const fetchQueue = async () => {
   loading.value = true
@@ -252,6 +475,7 @@ const fetchQueue = async () => {
     const { items, total } = await listEmailQueue(statusFilter.value || undefined, currentPage.value, pageSize)
     queueItems.value = items
     totalCount.value = total
+    lastUpdated.value = new Date().toISOString()
 
     // Cache report titles
     items.forEach((item: any) => {
@@ -264,9 +488,112 @@ const fetchQueue = async () => {
     console.error('Error fetching email queue:', error)
     queueItems.value = []
     totalCount.value = 0
+    toast.add({
+      title: 'Error fetching queue',
+      description: 'Failed to load email queue data',
+      color: 'red'
+    })
   } finally {
     loading.value = false
   }
+}
+
+const runCronJob = async () => {
+  cronRunning.value = true
+  try {
+    const response = await $fetch('/api/cron/process-reports', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.CRON_SECRET || 'test-token'}`
+      }
+    })
+
+    toast.add({
+      title: 'Cron job completed',
+      description: `Processed ${response.processed} reports (${response.successful} successful, ${response.failed} failed)`,
+      color: 'green'
+    })
+
+    // Refresh the queue after cron job
+    await fetchQueue()
+
+  } catch (error: any) {
+    console.error('Error running cron job:', error)
+    toast.add({
+      title: 'Cron job failed',
+      description: error.message || 'Failed to execute cron job',
+      color: 'red'
+    })
+  } finally {
+    cronRunning.value = false
+  }
+}
+
+const retryQueueItem = async (item: any) => {
+  retryingItems.value.add(item.id)
+  try {
+    // Reset the queue item to pending and increment attempt count
+    const {error} = await $fetch('/api/email-queue/retry', {
+      method: 'POST',
+      body: {queueItemId: item.id}
+    })
+
+    if (error) throw error
+
+    toast.add({
+      title: 'Queue item reset',
+      description: 'Item has been reset to pending status for retry',
+      color: 'blue'
+    })
+
+    await fetchQueue()
+
+  } catch (error: any) {
+    console.error('Error retrying queue item:', error)
+    toast.add({
+      title: 'Retry failed',
+      description: error.message || 'Failed to reset queue item',
+      color: 'red'
+    })
+  } finally {
+    retryingItems.value.delete(item.id)
+  }
+}
+
+const cancelQueueItem = async (item: any) => {
+  try {
+    const confirmed = await confirm('Cancel Queue Item', 'Are you sure you want to cancel this queue item? It will not be processed.')
+    if (!confirmed) return
+
+    const {error} = await $fetch('/api/email-queue/cancel', {
+      method: 'POST',
+      body: {queueItemId: item.id}
+    })
+
+    if (error) throw error
+
+    toast.add({
+      title: 'Queue item cancelled',
+      description: 'Item has been marked as cancelled',
+      color: 'orange'
+    })
+
+    await fetchQueue()
+
+  } catch (error: any) {
+    console.error('Error cancelling queue item:', error)
+    toast.add({
+      title: 'Cancellation failed',
+      description: error.message || 'Failed to cancel queue item',
+      color: 'red'
+    })
+  }
+}
+
+const showDetails = (item: any) => {
+  // Show detailed modal with queue item information
+  selectedQueueItem.value = item
+  showDetailsModal.value = true
 }
 
 const getReportTitle = (reportId: string) => {
@@ -331,6 +658,11 @@ watch([currentPage, statusFilter], () => {
 // Lifecycle
 onMounted(() => {
   fetchQueue()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 
 // Page meta - requires authentication

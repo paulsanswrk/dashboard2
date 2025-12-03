@@ -156,11 +156,12 @@
                 <UButton
                   v-for="format in formatOptions"
                   :key="format.value"
+                  color="neutral"
                   :variant="selectedFormats.includes(format.value) ? 'solid' : 'outline'"
-                  :color="selectedFormats.includes(format.value) ? 'orange' : undefined"
                   :ui="selectedFormats.includes(format.value)
-                    ? { base: 'cursor-pointer hover:bg-orange-600 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }
-                    : { base: 'cursor-pointer text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
+                    ? { base: 'cursor-pointer hover:bg-orange-600 transition-colors' }
+                    : { base: 'cursor-pointer text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors' }"
+
                   size="sm"
                   @click="toggleFormat(format.value)"
                 >
@@ -225,7 +226,7 @@
                 <UFormField label="Timezone" required>
                   <USelect
                     v-model="reportForm.timezone"
-                    :options="timezoneOptions"
+                    :items="timezoneOptions"
                     placeholder="Select timezone"
                     required
                     class="w-64"
@@ -365,7 +366,7 @@ const reportForm = ref({
   send_time: '08:00',
   timezone: 'UTC', // Will be set to user's timezone on client mount
   day_of_week: [] as string[],
-  status: 'Active' as 'Active' | 'Paused' | 'Draft'
+  status: 'Active' as 'Active' | 'Paused'
 })
 
 // UI state
@@ -400,8 +401,7 @@ const timeFrameOptions = [
 const formatOptions = [
   { label: 'XLS', value: 'XLS' },
   { label: 'CSV', value: 'CSV' },
-  { label: 'PDF', value: 'PDF' },
-  { label: 'PNG', value: 'PNG' }
+  {label: 'PDF', value: 'PDF'}
 ]
 
 const intervalOptions = [
@@ -422,8 +422,7 @@ const dayOfWeekOptions = [
 
 const statusOptions = [
   { label: 'Active', value: 'Active' },
-  { label: 'Paused', value: 'Paused' },
-  { label: 'Draft', value: 'Draft' }
+  {label: 'Paused', value: 'Paused'}
 ]
 
 const toggleButtonBaseClasses = 'rounded-md font-medium inline-flex items-center px-2.5 py-1.5 text-xs gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
@@ -435,43 +434,32 @@ const getToggleButtonClasses = (isActive: boolean) => [
       : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700'
 ].join(' ')
 
-// Timezone options - comprehensive list
+// Timezone options using Intl.supportedValuesOf() API
 const timezoneOptions = computed(() => {
   try {
-    // Try to get supported timezones from Intl API
-    const supportedTimezones = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : []
+    // Use the modern Intl.supportedValuesOf API to get all supported timezones
+    const supportedTimezones = Intl.supportedValuesOf('timeZone')
 
-    if (supportedTimezones.length > 0) {
-      return supportedTimezones.map(tz => {
-        // Create a user-friendly display name
-        const now = new Date()
-        const offset = new Intl.DateTimeFormat('en', {
-          timeZone: tz,
-          timeZoneName: 'short'
-        }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value || ''
+    return supportedTimezones.map(tz => {
+      // Create a user-friendly display name with GMT offset
+      const now = new Date()
+      const offset = new Intl.DateTimeFormat('en', {
+        timeZone: tz,
+        timeZoneName: 'short'
+      }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value || ''
 
-        return {
-          label: `${offset} ${tz.replace('_', ' ')}`,
-          value: tz
-        }
-      }).sort((a, b) => a.label.localeCompare(b.label))
-    }
+      return {
+        label: `${offset} ${tz.replace('_', ' ')}`,
+        value: tz
+      }
+    }).sort((a, b) => a.label.localeCompare(b.label))
   } catch (error) {
-    // Fallback to common timezones if Intl API fails
+    console.warn('Intl.supportedValuesOf not available, falling back to UTC only')
+    // Minimal fallback for environments without Intl support
+    return [
+      {label: 'GMT+00:00 UTC', value: 'UTC'}
+    ]
   }
-
-  // Fallback hardcoded list of common timezones
-  return [
-    { label: 'GMT+00:00 Europe/London', value: 'Europe/London' },
-    { label: 'GMT+01:00 Europe/Berlin', value: 'Europe/Berlin' },
-    { label: 'GMT+01:00 Europe/Paris', value: 'Europe/Paris' },
-    { label: 'GMT-05:00 America/New_York', value: 'America/New_York' },
-    { label: 'GMT-08:00 America/Los_Angeles', value: 'America/Los_Angeles' },
-    { label: 'GMT+08:00 Asia/Shanghai', value: 'Asia/Shanghai' },
-    { label: 'GMT+09:00 Asia/Tokyo', value: 'Asia/Tokyo' },
-    { label: 'GMT+10:00 Australia/Sydney', value: 'Australia/Sydney' },
-    { label: 'GMT-03:00 America/Sao_Paulo', value: 'America/Sao_Paulo' }
-  ]
 })
 
 // Content options based on scope
@@ -632,8 +620,6 @@ const getFormatIcon = (formatValue: string) => {
       return 'i-heroicons-queue-list'
     case 'PDF':
       return 'i-heroicons-document-text' // More specific PDF-like document icon
-    case 'PNG':
-      return 'i-heroicons-photo'
     default:
       return 'i-heroicons-document'
   }
@@ -695,16 +681,17 @@ const saveReport = async () => {
     // Show success toast
     toast.add({
       title: 'Success',
-      description: 'Report created successfully',
+      description: props.editingReport ? 'Report updated successfully' : 'Report created successfully',
       color: 'green'
     })
 
   } catch (error: any) {
     console.error('Error saving report:', error)
     // Show error toast with specific message
+    const action = props.editingReport ? 'update' : 'create'
     toast.add({
       title: 'Error',
-      description: error.response?.data?.message || 'Failed to create report. Please try again.',
+      description: error.response?.data?.message || `Failed to ${action} report. Please try again.`,
       color: 'red'
     })
     if (error.response?.status === 400) {

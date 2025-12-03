@@ -2,16 +2,33 @@
 
 ## Overview
 
-The Scheduled Reports system enables users to create automated report deliveries via email. Users can configure reports based on dashboards or individual charts, set up recurring schedules (daily, weekly, monthly), and receive formatted exports (PDF, CSV, XLS, PNG) at specified times.
+The Scheduled Reports system enables users to create automated report deliveries via email. Users can configure reports based on dashboards or individual charts, set up recurring schedules (daily, weekly, monthly), and receive formatted exports (PDF, CSV, XLS) at specified times. The system includes complete scheduling, processing, monitoring, and delivery capabilities with enterprise-grade
+reliability and security.
+
+**Status**: ✅ **FULLY IMPLEMENTED AND PRODUCTION READY**
+
+The implementation includes:
+
+- Complete scheduling engine with timezone support
+- Automated cron job processing via Vercel
+- Multi-format report generation (PDF, CSV, XLS)
+- Email delivery with attachments
+- Comprehensive logging and monitoring
+- Admin dashboard with real-time updates
+- Retry mechanisms and error recovery
 
 ## Architecture
 
 ### Core Components
 
-1. **Database Layer**: Two main tables with Row Level Security
-2. **Backend API**: Server routes using Supabase Service Role
-3. **Frontend**: Nuxt 3 pages and components with full dark mode support
-4. **Scheduling**: Vercel Cron integration (planned)
+1. **Database Layer**: Enhanced tables with Row Level Security and performance indexes
+2. **Scheduling Engine**: TypeScript utility for timezone-aware scheduling calculations
+3. **Cron Job Processing**: Vercel Cron integration with automated report generation
+4. **Report Generation**: Multi-format export system (PDF, CSV, XLS) using Puppeteer and SQL execution
+5. **Email Service**: SendGrid-powered email delivery with attachment support
+6. **Logging System**: Comprehensive audit logging to `app_log` table
+7. **Backend API**: Server routes using Supabase Service Role with security policies
+8. **Frontend**: Nuxt 3 pages and components with full dark mode support and real-time monitoring
 
 ## Database Schema
 
@@ -33,15 +50,18 @@ CREATE TABLE public.reports (
     tab_id UUID REFERENCES public.dashboard_tab(id) ON DELETE CASCADE,
     time_frame TEXT NOT NULL CHECK (time_frame IN ('As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter')),
     formats JSONB NOT NULL,
+    formats_metadata JSONB,
     interval TEXT NOT NULL CHECK (interval IN ('DAILY', 'WEEKLY', 'MONTHLY')),
     send_time TEXT NOT NULL,
     timezone TEXT NOT NULL,
     day_of_week JSONB,
+    next_run_at TIMESTAMP WITH TIME ZONE,
     status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Paused', 'Draft')),
     CONSTRAINT check_content_type_strict CHECK (
         (scope = 'Dashboard' AND dashboard_id IS NOT NULL AND tab_id IS NULL) OR
         (scope = 'Single Tab' AND dashboard_id IS NULL AND tab_id IS NOT NULL)
-    )
+    ),
+    CONSTRAINT check_formats_valid CHECK (formats <@ '["PDF", "XLS", "CSV"]'::jsonb AND jsonb_array_length(formats) > 0)
 );
 ```
 
@@ -61,12 +81,26 @@ CREATE TABLE public.email_queue (
 );
 ```
 
+### Table Schema Details
+
+#### New Columns Added (Sprint 1)
+
+- **`formats_metadata` JSONB**: Stores metadata for export formats, including tab information for XLS/CSV exports
+- **`next_run_at` TIMESTAMP WITH TIME ZONE**: Timezone-aware timestamp for the next scheduled run, automatically recalculated when schedule updates
+- **`check_formats_valid` CONSTRAINT**: Ensures formats array only contains `["PDF", "XLS", "CSV"]` (PNG removed as per requirements)
+
+#### Performance Indexes
+
+- **`idx_email_queue_next_run_at`**: Index on `next_run_at` for efficient scheduling queries
+- **`idx_email_queue_cron_lookup`**: Composite index on `(scheduled_for, delivery_status)` for cron job processing (filtered to `PENDING` status)
+
 ### Security: Row Level Security (RLS)
 
-Both tables have RLS enabled with policies that allow:
-- Users to manage their own reports
-- Admins to view all email queue entries for monitoring
-- Service role to bypass RLS for system operations
+Both tables have comprehensive RLS enabled with policies that allow:
+
+- **Users**: Manage their own reports and view email queue entries for their reports
+- **Service Role**: Full access to all reports and email queue for cron job processing
+- **Secure Access**: All operations validated through user ownership or service role authentication
 
 ### Database Migrations
 
@@ -81,6 +115,17 @@ Both tables have RLS enabled with policies that allow:
 - Validates migration success
 - Removes old `content_id` column
 - Finalizes constraints for data integrity
+
+#### `20251125120000_sprint_01_report_scheduling_updates.sql` ⭐ **NEW**
+
+- **Formats Validation**: Adds CHECK constraint limiting formats to `["PDF", "XLS", "CSV"]` only (removes PNG support)
+- **Timezone-Aware Scheduling**: Adds `next_run_at` column with timezone support
+- **Format Metadata**: Adds `formats_metadata` JSONB for export configuration
+- **Performance Indexes**: Adds indexes on `email_queue` for efficient cron job queries:
+    - `idx_email_queue_next_run_at` for general scheduling queries
+    - `idx_email_queue_cron_lookup` composite index on `(scheduled_for, delivery_status)` with WHERE clause for PENDING status
+- **Enhanced RLS Policies**: Comprehensive security policies with service role bypass for both reports and email_queue tables
+- **Automatic Updates**: Trigger function to recalculate `next_run_at` when schedule changes
 
 ## Backend Implementation
 
@@ -129,6 +174,249 @@ All database operations use the Supabase Service Role to bypass RLS, ensuring:
 - Reliable system operations regardless of user permissions
 - Proper audit trails and data integrity
 - Administrative monitoring capabilities
+
+### Scheduling Engine ⭐ **NEW**
+
+#### `server/utils/schedulingUtils.ts` - Next Run Time Calculator
+
+The scheduling engine provides timezone-aware calculation of next run times for scheduled reports.
+
+**Key Functions:**
+
+- `calculateNextRun(schedule, fromTime?)`: Calculates next execution timestamp
+- `validateSchedule(schedule)`: Validates schedule configuration
+- `getUpcomingRuns(schedule, count)`: Returns multiple future run times
+- `shouldRunNow(scheduledTime, tolerance)`: Checks if schedule should execute
+- `formatRunTime(runTime, userTimezone)`: Formats DateTime for display in user timezone
+
+**Features:**
+
+- ✅ **Timezone Support**: Full IANA timezone handling using Luxon
+- ✅ **Interval Types**: DAILY, WEEKLY, MONTHLY with proper date math
+- ✅ **Day-of-Week Selection**: Weekly reports support specific days (Mo, Tu, We, Th, Fr, Sa, Su)
+- ✅ **Validation**: Comprehensive input validation with error messages
+- ✅ **Future Scheduling**: Handles past/future time calculations correctly
+- ✅ **Day Mapping**: Proper weekday mapping for cron-like scheduling
+
+**Example Usage:**
+
+```typescript
+const schedule = {
+  interval: 'WEEKLY',
+  send_time: '09:00',
+  timezone: 'America/New_York',
+  day_of_week: ['Mo', 'We', 'Fr']
+}
+
+const nextRun = calculateNextRun(schedule)
+// Returns DateTime object for next Monday/Wednesday/Friday at 9:00 AM EST
+```
+
+**Example Usage:**
+
+```typescript
+const schedule = {
+  interval: 'WEEKLY',
+  send_time: '09:00',
+  timezone: 'America/New_York',
+  day_of_week: ['Mo', 'We', 'Fr']
+}
+
+const nextRun = calculateNextRun(schedule)
+// Returns DateTime object for next Monday/Wednesday/Friday at 9:00 AM EST
+```
+
+### Cron Job Processing ⭐ **NEW**
+
+#### `server/api/cron/process-reports.get.ts` - Vercel Cron Job Handler
+
+Automated report processing endpoint triggered by Vercel Cron every 5 minutes.
+
+**Security:**
+
+- Token-based authentication (`CRON_SECRET`)
+    - Generate with: `openssl rand -hex 32`
+    - Should be exactly 64 hex characters (32 bytes)
+- Local development bypass: When `DEBUG_ENV=true` in `.env`, authentication is bypassed for testing
+- Service role database access for system operations
+
+**Processing Logic:**
+
+1. **Queue Selection**: Finds PENDING items within 5-minute execution window
+2. **Batch Processing**: Processes multiple reports per cron run
+3. **Retry Logic**: Automatic retry up to 3 attempts with exponential backoff
+4. **Next Run Scheduling**: Recalculates next execution for recurring reports
+5. **Error Handling**: Comprehensive error logging and recovery
+
+**Response Format:**
+
+```json
+{
+  "success": true,
+  "processed": 5,
+  "successful": 4,
+  "failed": 1,
+  "duration": 1250
+}
+```
+
+### Report Generation Engine ⭐ **NEW**
+
+#### `server/utils/reportGenerator.ts` - Multi-Format Report Generation
+
+Generates PDF, CSV, and XLS reports from dashboard/chart data using a unified interface.
+
+**Core Function:**
+
+- `generateReportAttachments(report)`: Main function that orchestrates report generation
+
+**PDF Generation:**
+
+- Uses existing dashboard PDF logic with Puppeteer
+- Supports both dashboard-wide and single-tab reports
+- Pixel-perfect rendering with custom dimensions (1800px width, dynamic height)
+- Context token security for authenticated access
+- Cross-platform Chrome/Chromium detection for development
+- @sparticuz/chromium for serverless environments
+
+**CSV Generation:**
+
+- Executes individual chart SQL queries to extract data
+- Applies time frame filtering to queries
+- **Single Chart**: Generates individual CSV file per chart
+- **Multiple Charts**: Creates ZIP file with organized directory structure:
+    - Subdirectories named after dashboard tabs
+    - Individual CSV files named after charts within each tab
+    - Filename deduplication for charts with identical names (adds `_1`, `_2`, etc.)
+- Intelligent SQL query modification for time frame filtering
+
+**XLS Generation:**
+
+- Executes individual chart SQL queries to extract data
+- Applies time frame filtering to queries
+- **Single Excel File**: Creates multi-sheet workbook (Excel container format)
+- **Sheet Naming**: `{TabName}_{ChartName}` format with workbook-level deduplication
+- **Data Conversion**: Transforms SQL result objects to Excel tabular format with headers
+- **Multiple Charts**: One sheet per chart within single Excel file
+
+**Supported Formats:**
+
+- **PDF**: Full dashboard rendering using Puppeteer with networkidle0 waiting
+- **CSV**: Individual chart data in ZIP structure for multiple charts, single file for single chart
+- **XLS**: Multi-sheet Excel workbook with proper data formatting
+
+**Time Frame Filtering:**
+
+- **Last 7 Days**: `created_at >= NOW() - INTERVAL '7 days'`
+- **Last 30 Days**: `created_at >= NOW() - INTERVAL '30 days'`
+- **Last Quarter**: `created_at >= NOW() - INTERVAL '3 months'`
+- **As On Dashboard**: No filtering applied
+
+### Email Service ⭐ **NEW**
+
+#### `server/utils/emailService.ts` - Report Email Delivery
+
+Professional email delivery with attachment support using SendGrid.
+
+**Core Functions:**
+
+- `sendReportEmail(data)`: Sends reports with multiple attachments
+- `sendTestEmail(to)`: Test email configuration
+- `generateReportEmailTemplate(data)`: Creates professional email templates
+
+**Features:**
+
+- SendGrid integration with proper error handling
+- HTML email templates with dark mode support
+- Multi-attachment handling (PDF + CSV + XLS)
+- Custom message inclusion from report configuration
+- Delivery status tracking and error reporting
+- Professional Optiqo branding with responsive design
+
+**Template Features:**
+
+- Professional Optiqo branding with logo
+- Responsive design for all devices and email clients
+- Dark mode compatible styling
+- Security notices and disclaimers
+- Attachment summary with file type icons
+- Custom message section for report creators
+
+**Email Template Structure:**
+
+- Header with Optiqo branding and "Scheduled Report" badge
+- Report title and delivery information
+- Custom message section (if provided)
+- Attachments list with download-ready links
+- Footer with security notices and branding
+
+### Logging System ⭐ **NEW**
+
+#### `server/utils/loggingUtils.ts` - Comprehensive Audit Logging
+
+All system operations logged to the `app_log` table for monitoring and debugging.
+
+**Core Functions:**
+
+- `logToAppLog()`: Generic logging function with structured data
+- `logReportCreated()`, `logReportUpdated()`, `logReportDeleted()`: Report lifecycle logging
+- `logCronJobExecution()`: Cron job performance metrics
+- `logReportProcessingStart/Success/Failure()`: Detailed processing tracking
+- `logEmailSent()`: Email delivery status
+- `logAttachmentGeneration()`: Report generation tracking
+- `logAuthFailure()`: Security event logging
+- `logPerformance()`: Performance monitoring
+- `cleanupOldLogs()`: Log maintenance utility
+
+**Log Categories:**
+
+- **Cron Jobs**: Execution tracking and performance metrics with duration
+- **Report Processing**: Success/failure events with attempt counts and error details
+- **Email Delivery**: Send status, recipient counts, and delivery errors
+- **User Actions**: Authentication, authorization, and CRUD operations
+- **Performance**: Duration and resource usage metrics
+- **Security**: Authentication failures and access control events
+- **System Health**: Component status and error monitoring
+
+**Log Levels:** `error`, `warn`, `debug` with structured JSON metadata
+
+**Database Integration:** All logs stored in `app_log` table with proper indexing on level, time, and user_id
+
+### Additional API Endpoints ⭐ **NEW**
+
+#### `server/api/cron/process-reports.get.ts` - Vercel Cron Job Handler
+
+- Secure cron job endpoint with token authentication (`CRON_SECRET`)
+- Processes pending `email_queue` entries within 5-minute execution window
+- Automatic retry logic (max 3 attempts) with exponential backoff
+- Recalculates next run times for recurring reports
+- Comprehensive error handling and logging
+- Service role database access for system operations
+
+**Processing Logic:**
+
+1. **Queue Selection**: Finds PENDING items within 5-minute tolerance window
+2. **Batch Processing**: Processes multiple reports per cron run
+3. **Report Generation**: Calls `generateReportAttachments()` for each format
+4. **Email Delivery**: Sends formatted emails with attachments via SendGrid
+5. **Next Run Scheduling**: Creates new queue entries for recurring reports
+6. **Error Recovery**: Updates attempt counts and handles failures gracefully
+
+#### `server/api/email-queue/retry.post.ts` - Manual Retry
+
+- Resets failed queue items to PENDING status for retry
+- Validates retry eligibility (max 3 attempts, must be FAILED status)
+- User authentication required
+- Updates attempt count and clears error messages
+- Returns success/error status with descriptive messages
+
+#### `server/api/email-queue/cancel.post.ts` - Queue Cancellation
+
+- Cancels pending queue items to prevent execution
+- Only works on PENDING status items
+- User authentication required
+- Sets status to CANCELLED and updates processed_at timestamp
+- Admin operation with proper authorization checks
 
 ## Frontend Implementation
 
@@ -185,13 +473,27 @@ const toast = useToast()
 - Shows toast and redirects to /reports
 ```
 
-#### `/pages/reports/monitor.vue` - Admin Email Queue Monitor
+#### `/pages/reports/monitor.vue` - Admin Email Queue Monitor ⭐ **ENHANCED**
 **Features:**
-- View all email queue entries across all users
-- Filter by delivery status
-- Real-time statistics dashboard
-- Pagination for large datasets
-- Admin-only access via role-based routing
+
+- **Real-time Monitoring**: Auto-refresh every 30 seconds with pause/play controls
+- **Manual Cron Execution**: Trigger cron job processing on-demand with loading states
+- **Queue Management**: Retry failed items (max 3 attempts) and cancel pending items
+- **Advanced Filtering**: Status-based filtering (All, Pending, Sent, Failed, Cancelled)
+- **Detailed Inspection**: Modal popup showing complete queue item details and error messages
+- **Live Statistics**: Real-time dashboard with color-coded status counts
+- **Performance Tracking**: Last updated timestamps and auto-refresh status indicators
+- **Admin Actions**: Full queue lifecycle management with confirmation dialogs
+- **Responsive Design**: Works on all screen sizes with proper mobile layout
+- **Error Handling**: Toast notifications for all operations with success/error feedback
+
+**UI Components:**
+
+- Status badges with appropriate colors (yellow=PENDING, green=SENT, red=FAILED, gray=CANCELLED)
+- Action buttons for retry/cancel operations with loading states
+- Statistics cards with icons and count displays
+- Pagination for large queue lists
+- Auto-scrolling table with proper overflow handling
 
 ### Components
 
@@ -283,9 +585,13 @@ export function useScheduledReportsService() {
 ### 3. Content Integration
 - ✅ Dashboard-based reports with UUID references
 - ✅ Single chart reports with integer ID references
-- ✅ Multiple export formats with icons (PDF, XLS, CSV, PNG)
+- ✅ Smart export formats:
+    - **PDF**: Full dashboard rendering with pixel-perfect layout
+    - **CSV**: Individual chart files in ZIP structure (multi-chart) or single file (single chart)
+    - **XLS**: Multi-sheet Excel workbook with tab-prefixed sheet names
 - ✅ Time frame filtering
 - ✅ Separate database columns for type safety
+- ✅ Filename/sheet name deduplication to prevent conflicts
 
 ### 4. User Experience
 - ✅ Dedicated pages for create and edit operations
@@ -449,16 +755,113 @@ export function useScheduledReportsService() {
 - No server/client mismatch warnings
 - `process.client` checks for browser-specific APIs
 
-## Conclusion
+## Production Deployment ⭐ **FULLY IMPLEMENTED**
 
-The Scheduled Reports implementation provides a robust, user-friendly system for automated report delivery with:
+### Environment Variables Required
 
-- **Complete CRUD functionality** with dedicated pages for each operation
-- **Toast notifications** for immediate user feedback
-- **Advanced scheduling** with hydration-safe timezone support
-- **Enterprise-grade security** using service roles
-- **Full dark mode compatibility** for modern UX
-- **Scalable architecture** ready for Vercel Cron integration
-- **Clean separation of concerns** between pages and components
+```bash
+# Cron Job Authentication
+CRON_SECRET=your-secure-token-here
 
-The system successfully bridges the gap between user-facing report creation and backend automation, providing a seamless experience for managing scheduled report deliveries with proper SSR/CSR handling. 🎯
+# Email Service (SendGrid)
+SENDGRID_API_KEY=your-sendgrid-api-key
+SENDGRID_SENDER_EMAIL=noreply@optiqo.com
+
+# Supabase (existing)
+SUPABASE_URL=your-supabase-url
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### Vercel Configuration
+
+The system is configured for automatic deployment with Vercel Cron:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/process-reports",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+```
+
+### Database Migration
+
+Run the Sprint 1 migration to enable the complete feature set:
+
+```sql
+-- Execute: docs/database/migrations/20251125120000_sprint_01_report_scheduling_updates.sql
+```
+
+## Architecture Highlights ⭐ **COMPLETE SYSTEM**
+
+### End-to-End Flow
+
+```
+User Creates Report → Database Storage → Cron Job Trigger → Report Generation → Email Delivery → Logging
+```
+
+### Core Capabilities
+
+- ✅ **Scheduling Engine**: Timezone-aware calculations with Luxon
+- ✅ **Cron Processing**: Vercel-powered automated execution every 5 minutes
+- ✅ **Multi-Format Generation**: PDF (Puppeteer), CSV (ZIP with individual chart files), XLS (multi-sheet Excel workbooks)
+- ✅ **Email Delivery**: SendGrid with professional templates and attachments
+- ✅ **Monitoring Dashboard**: Real-time admin interface with manual controls
+- ✅ **Comprehensive Logging**: Full audit trail in `app_log` table
+- ✅ **Security**: RLS policies with service role bypass
+- ✅ **Error Recovery**: Automatic retry logic with manual intervention
+- ✅ **Performance**: Optimized queries with database indexes
+
+### Reliability Features
+
+- **Automatic Retries**: Failed reports retry up to 3 times
+- **Manual Intervention**: Admin can retry or cancel stuck items
+- **Comprehensive Logging**: Every operation tracked for debugging
+- **Graceful Degradation**: System continues operating even with partial failures
+- **Security First**: All operations validated and audited
+
+## Export Format Refinements ⭐ **LATEST**
+
+### CSV Export Structure
+
+- **Single Chart**: Direct CSV file download
+- **Multiple Charts**: ZIP archive with organized structure:
+  ```
+  report_name_csv.zip/
+  ├── tab_name_1/
+  │   ├── chart_name_1.csv
+  │   ├── chart_name_2.csv
+  │   └── chart_name_2_1.csv  # Deduplicated filename
+  └── tab_name_2/
+      └── chart_name_3.csv
+  ```
+- **Deduplication**: Automatic numbering (`_1`, `_2`, etc.) for charts with identical names within the same tab
+
+### XLS Export Structure
+
+- **Single Excel File**: Multi-sheet workbook container format
+- **Sheet Naming**: `{TabName}_{ChartName}` convention with workbook-level deduplication
+- **Data Format**: Proper Excel tabular format with headers and converted SQL result objects
+- **Sheet Conflicts**: Automatic suffix addition (`_1`, `_2`, etc.) for duplicate sheet names across the entire workbook
+
+### Technical Implementation
+
+- **ExcelJS Integration**: Proper Excel file generation with multi-sheet support
+- **Data Transformation**: Object-to-array conversion for Excel compatibility
+- **Conflict Resolution**: Separate deduplication logic for CSV filenames vs Excel sheet names
+- **Format-Specific Handling**: CSV uses ZIP compression, XLS uses Excel's native container format
+
+## Future Enhancements
+
+- **Report Templates**: Pre-configured report formats
+- **Advanced Scheduling**: Cron expression support
+- **Bulk Operations**: Mass report management
+- **Delivery Analytics**: Success rates and performance metrics
+- **Custom Email Templates**: Branded email designs
+
+---
+
+**Status**: 🎉 **PRODUCTION READY** - Complete scheduled reports system with enterprise-grade reliability and monitoring capabilities.

@@ -15,7 +15,7 @@ export type ScheduledReport = {
   send_time: string
   timezone: string
   day_of_week?: string[]
-  status: 'Active' | 'Paused' | 'Draft'
+    status: 'Active' | 'Paused'
 }
 
 export type EmailQueueItem = {
@@ -87,9 +87,14 @@ export function useScheduledReportsService() {
     return { success: true }
   }
 
-  async function toggleReportStatus(id: string, currentStatus: string): Promise<{ success: boolean }> {
-    const newStatus = currentStatus === 'Active' ? 'Paused' : 'Active'
-    return updateReport(id, { status: newStatus })
+    async function toggleReportStatus(id: string, currentStatus: string): Promise<{ success: boolean; newStatus: string }> {
+        const {error} = await $fetch('/api/reports/status', {
+            method: 'PUT',
+            body: {id, currentStatus}
+        })
+
+        if (error) throw error
+        return {success: true, newStatus: currentStatus === 'Active' ? 'Paused' : 'Active'}
   }
 
   async function getEmailQueueForReport(reportId: string): Promise<EmailQueueItem[]> {

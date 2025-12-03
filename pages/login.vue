@@ -181,16 +181,17 @@
 </template>
 
 <script setup>
-// Redirect if already authenticated
+// Auth composable
 const { isAuthenticated, redirectToDashboard } = useAuth()
 
-// Use nextTick to ensure the auth state is properly initialized
-await nextTick()
-
-if (isAuthenticated.value) {
-  console.log('🔄 User already authenticated, redirecting...')
-  await redirectToDashboard()
-}
+// Watch for authentication state changes and redirect if already authenticated
+watch(isAuthenticated, async (newValue) => {
+  if (newValue) {
+    console.log('🔄 User already authenticated, redirecting...')
+    await nextTick() // Ensure DOM is ready
+    await redirectToDashboard()
+  }
+}, {immediate: true})
 
 // Form state
 const form = ref({

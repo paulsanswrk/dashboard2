@@ -189,11 +189,11 @@ const fetchReports = async () => {
 
 const toggleReportStatus = async (report: Report) => {
   try {
-    await toggleStatus(report.id, report.status)
-    report.status = report.status === 'Active' ? 'Paused' : 'Active'
+    const result = await toggleStatus(report.id, report.status)
+    report.status = result.newStatus
     toast.add({
       title: 'Success',
-      description: `Report ${report.status === 'Active' ? 'activated' : 'paused'} successfully`,
+      description: `Report ${result.newStatus === 'Active' ? 'activated' : 'paused'} successfully`,
       color: 'green'
     })
   } catch (error) {
@@ -264,8 +264,6 @@ const getStatusClasses = (status: string) => {
       return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
     case 'Paused':
       return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
-    case 'Draft':
-      return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
     default:
       return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
   }
@@ -276,11 +274,6 @@ const getNextRunTime = (report: Report) => {
   // Paused reports don't have next runs
   if (report.status === 'Paused') {
     return 'Paused'
-  }
-
-  // Draft reports are not scheduled
-  if (report.status === 'Draft') {
-    return 'Draft'
   }
 
   return nextRunTimes.value.get(report.id) || 'Loading...'

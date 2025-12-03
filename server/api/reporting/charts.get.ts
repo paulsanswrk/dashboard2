@@ -1,6 +1,6 @@
-import { defineEventHandler, getQuery } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
+import {defineEventHandler, getQuery} from 'h3'
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   if (id) {
     const { data, error } = await supabaseAdmin
       .from('charts')
-      .select('id, name, description, owner_email, state_json, created_at, updated_at, owner_id')
+        .select('id, name, description, owner_email, state_json, created_at, updated_at, owner_id, data_connection_id')
       .eq('id', id)
       .single()
     if (error) throw createError({ statusCode: 500, statusMessage: error.message })
@@ -26,6 +26,12 @@ export default defineEventHandler(async (event) => {
     }
     const flattened = { ...sj, ...sj.internal }
     delete (flattened as any).internal
+
+      // Include data_connection_id from database column in the state
+      if (data.data_connection_id != null) {
+          flattened.dataConnectionId = data.data_connection_id
+      }
+
     return {
       id: data.id,
       name: data.name,

@@ -63,13 +63,15 @@ export function useDashboardsService() {
     dashboardId: string
     chartId: number
     position: any
+      tabId?: string
   }): Promise<{ success: boolean }> {
     return await $fetch<{ success: boolean }>('/api/dashboard-reports', {
       method: 'POST',
       body: {
         dashboardId: payload.dashboardId,
         chartId: payload.chartId,
-        position: payload.position
+          position: payload.position,
+          tabId: payload.tabId
       }
     })
   }

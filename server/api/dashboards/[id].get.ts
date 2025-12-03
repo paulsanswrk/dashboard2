@@ -1,9 +1,9 @@
-import { defineEventHandler } from 'h3'
+import {defineEventHandler} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -26,14 +26,27 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Dashboard not found' })
   }
 
-  // Get chart links first (no embedding to avoid ambiguous relationships)
-  const { data: links, error: linksError } = await supabaseAdmin
-    .from('dashboard_charts')
-    .select('chart_id, position, created_at')
-    .eq('dashboard_id', dashboard.id)
-    .order('created_at', { ascending: true })
+    // Get all tabs for this dashboard first
+    const {data: tabs, error: tabsError} = await supabaseAdmin
+        .from('dashboard_tab')
+        .select('id')
+        .eq('dashboard_id', dashboard.id)
 
-  if (linksError) throw createError({ statusCode: 500, statusMessage: linksError.message })
+    if (tabsError) throw createError({statusCode: 500, statusMessage: tabsError.message})
+
+    let links: any[] = []
+    if (tabs && tabs.length > 0) {
+        // Get chart links for all tabs (no embedding to avoid ambiguous relationships)
+        const tabIds = tabs.map((tab: any) => tab.id)
+        const {data: linksData, error: linksError} = await supabaseAdmin
+            .from('dashboard_charts')
+            .select('chart_id, position, created_at')
+            .in('tab_id', tabIds)
+            .order('created_at', {ascending: true})
+
+        if (linksError) throw createError({statusCode: 500, statusMessage: linksError.message})
+        links = linksData || []
+    }
 
   const chartIds: number[] = (links || []).map((l: any) => l.chart_id)
 

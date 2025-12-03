@@ -75,7 +75,16 @@ async function load() {
     // Get context token from URL query parameter
     const contextToken = route.query.context as string | undefined
     const res = await getDashboardFull(id.value, contextToken)
-    charts.value = (res.charts || []).map((c: any) => ({
+
+    // Flatten charts from all tabs
+    const allCharts: any[] = []
+    for (const tab of res.tabs || []) {
+      for (const chart of tab.charts || []) {
+        allCharts.push(chart)
+      }
+    }
+
+    charts.value = allCharts.map((c: any) => ({
       chartId: c.id,
       name: c.name,
       position: c.position,

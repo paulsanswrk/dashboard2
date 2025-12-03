@@ -1,9 +1,9 @@
-import { defineEventHandler, readBody } from 'h3'
+import {defineEventHandler, readBody} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 type LayoutItem = { chartId: number; position: any }
 
@@ -38,17 +38,43 @@ export default defineEventHandler(async (event) => {
   }
 
   if (Array.isArray(layout)) {
-    // Update positions for each item
-    const updates = (layout as LayoutItem[]).map((li) =>
-      supabaseAdmin
-        .from('dashboard_charts')
-        .update({ position: li.position })
-        .eq('dashboard_id', id)
-        .eq('chart_id', li.chartId)
-    )
-    const results = await Promise.all(updates)
-    const err = results.find(r => (r as any).error)
-    if (err && (err as any).error) throw createError({ statusCode: 500, statusMessage: (err as any).error.message })
+      // Get all tabs for this dashboard first
+      const {data: tabs, error: tabsError} = await supabaseAdmin
+          .from('dashboard_tab')
+          .select('id')
+          .eq('dashboard_id', id)
+
+      if (tabsError) throw createError({statusCode: 500, statusMessage: tabsError.message})
+
+      if (tabs && tabs.length > 0) {
+          const tabIds = tabs.map((tab: any) => tab.id)
+
+          // Update positions for each item - need to find which tab each chart belongs to
+          const updates = (layout as LayoutItem[]).map(async (li) => {
+              // Find which tab this chart belongs to
+              const {data: chartLink, error: linkError} = await supabaseAdmin
+                  .from('dashboard_charts')
+                  .select('tab_id')
+                  .eq('chart_id', li.chartId)
+                  .in('tab_id', tabIds)
+                  .single()
+
+              if (linkError || !chartLink) {
+                  console.warn(`Chart ${li.chartId} not found in dashboard ${id}, skipping position update`)
+                  return null
+              }
+
+              return supabaseAdmin
+                  .from('dashboard_charts')
+                  .update({position: li.position})
+                  .eq('tab_id', chartLink.tab_id)
+                  .eq('chart_id', li.chartId)
+          })
+
+          const results = await Promise.all(updates)
+          const err = results.find(r => r && (r as any).error)
+          if (err && (err as any).error) throw createError({statusCode: 500, statusMessage: (err as any).error.message})
+      }
   }
 
   return { success: true }

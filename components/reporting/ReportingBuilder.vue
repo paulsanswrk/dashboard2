@@ -80,7 +80,7 @@
             <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
                     :disabled="loading"
                     class="flex flex-col items-center justify-center w-16 h-16 rounded border disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    :class="chartType === t.value ? 'border-primary bg-primary-50' : 'border-neutral-300 bg-white'">
+                    :class="chartType === t.value ? 'border-primary bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'">
               <Icon :name="t.icon" class="w-6 h-6" />
               <span class="text-xs mt-1">{{ t.label }}</span>
             </button>
@@ -116,17 +116,24 @@
       @load-chart="handleLoadChart"
     />
     <SelectBoardModal
-      :is-open="openSelectBoard"
-      @close="openSelectBoard=false"
+        v-model:open="openSelectBoard"
       @save="handleSaveToDashboard"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, nextTick } from 'vue'
-import { navigateTo } from '#imports'
-import { format } from 'sql-formatter'
+import {computed, nextTick, onMounted, ref, watch} from 'vue'
+import {navigateTo} from '#imports'
+import {format} from 'sql-formatter'
+import ReportingChart from './ReportingChart.vue'
+import ChartsModal from './ChartsModal.vue'
+import ReportingPreview from './ReportingPreview.vue'
+import SelectBoardModal from '../SelectBoardModal.vue'
+import {useReportingService} from '../../composables/useReportingService'
+import {useReportState} from '../../composables/useReportState'
+import {useChartsService} from '../../composables/useChartsService'
+import {useDashboardsService} from '../../composables/useDashboardsService'
 
 // Props
 const props = defineProps<{
@@ -141,14 +148,6 @@ const emit = defineEmits<{
   'toggle-sidebar': []
   'preview-meta': [{ error: string | null; warnings: string[] }]
 }>()
-import ReportingChart from './ReportingChart.vue'
-import ChartsModal from './ChartsModal.vue'
-import ReportingPreview from './ReportingPreview.vue'
-import SelectBoardModal from '../SelectBoardModal.vue'
-import { useReportingService } from '../../composables/useReportingService'
-import { useReportState } from '../../composables/useReportState'
-import { useChartsService } from '../../composables/useChartsService'
-import { useDashboardsService } from '../../composables/useDashboardsService'
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
 const { xDimensions, yMetrics, filters, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions } = useReportState()
@@ -663,7 +662,7 @@ async function saveExistingChart() {
   }
 }
 
-async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string }) {
+async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string; selectedTabId?: string; newDashboardName?: string }) {
   try {
     loading.value = true
 
@@ -702,7 +701,7 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
     if (data.selectedDestination === 'new') {
       // Create the dashboard
       const dashboardResult = await createDashboard({
-        name: data.saveAsName,
+        name: data.newDashboardName || data.saveAsName,
         isPublic: false
       })
 
@@ -732,7 +731,8 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
     await createDashboardReport({
       dashboardId: dashboardId,
       chartId: chartResult.chartId,
-      position: position
+      position: position,
+      tabId: data.selectedTabId
     })
 
     // Show success message BEFORE closing modal

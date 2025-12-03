@@ -1,9 +1,9 @@
-import { defineEventHandler, readBody } from 'h3'
+import {defineEventHandler, readBody} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -35,5 +35,26 @@ export default defineEventHandler(async (event) => {
     .single()
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+
+    // Auto-create a "Main" tab for the new dashboard
+    const {error: tabError} = await supabaseAdmin
+        .from('dashboard_tab')
+        .insert({
+            dashboard_id: data.id,
+            name: 'Main',
+            position: 0
+        })
+
+    if (tabError) {
+        // If tab creation fails, we should clean up the dashboard
+        await supabaseAdmin
+            .from('dashboards')
+            .delete()
+            .eq('id', data.id)
+            .eq('owner_id', user.id)
+
+        throw createError({statusCode: 500, statusMessage: 'Failed to create default tab for dashboard'})
+    }
+
   return { success: true, dashboardId: data.id }
 })

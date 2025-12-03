@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
-import { validateNewViewerRole } from '../../utils/roleUtils'
-import { generateViewerInvitationTemplate, sendEmail, generateMagicLink } from '../../utils/emailUtils'
+import {createClient} from '@supabase/supabase-js'
+import {validateNewViewerRole} from '../../utils/roleUtils'
+import {generateMagicLink, generateViewerInvitationTemplate, sendEmail} from '../../utils/emailUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -150,7 +150,8 @@ export default defineEventHandler(async (event) => {
           lastName: lastName || undefined,
           type: type || 'Viewer',
           group: group || undefined,
-          confirmationUrl
+            confirmationUrl,
+            siteUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000'
         })
 
         const emailSent = await sendEmail(email, emailTemplate)

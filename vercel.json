@@ -3,5 +3,11 @@
   "outputDirectory": ".output",
   "framework": "nuxtjs",
   "installCommand": "npm install",
-  "devCommand": "npm run dev"
+  "devCommand": "npm run dev",
+  "crons": [
+    {
+      "path": "/api/cron/process-reports",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

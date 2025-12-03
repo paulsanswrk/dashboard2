@@ -1,266 +1,192 @@
 <template>
-  <Teleport to="body">
-    <Transition
-      enter-active-class="transition duration-300 ease-out"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition duration-200 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="isOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-        @click.self="$emit('close')"
-      >
+  <UModal v-model:open="visible" class="w-full max-w-md mx-4">
+    <template #header>
+      <h2 class="text-lg font-semibold">Select Board</h2>
+    </template>
+
+    <template #body>
+      <UForm :state="{ saveAsName, newDashboardName }" class="space-y-6">
+        <!-- Save as Section -->
+        <UFormField label="Save as" required>
+          <UInput
+              v-model="saveAsName"
+              placeholder="Untitled"
+              class="w-full"
+          />
+        </UFormField>
+
+        <!-- New Dashboard Name Section -->
         <Transition
-          enter-active-class="transition duration-300 ease-out"
-          enter-from-class="scale-95 opacity-0"
-          enter-to-class="scale-100 opacity-100"
-          leave-active-class="transition duration-200 ease-in"
-          leave-from-class="scale-100 opacity-100"
-          leave-to-class="scale-95 opacity-0"
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 max-h-0"
+            enter-to-class="opacity-100 max-h-96"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 max-h-96"
+            leave-to-class="opacity-0 max-h-0"
         >
-          <div class="relative w-full max-w-md mx-4 bg-white rounded-lg shadow-xl">
-            <!-- Header -->
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 class="text-xl font-semibold text-gray-900">Select Board</h2>
-              <button
-                @click="$emit('close')"
-                class="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <UFormField v-if="isNewSelected" label="Dashboard name" required>
+            <UInput
+                v-model="newDashboardName"
+                placeholder="My Dashboard"
+            />
+          </UFormField>
+        </Transition>
+
+        <!-- Save chart to Section -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-3">Save chart to</label>
+          <!-- Selection Options -->
+          <div class="grid grid-cols-3 gap-3">
+            <!-- New Dashboard Option -->
+            <div
+                @click="selectedDestination = 'new'"
+                class="p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-primary-300"
+                :class="selectedDestination === 'new' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'"
+            >
+              <div class="flex flex-col items-center space-y-2">
+                <UIcon name="i-heroicons-plus-circle" class="w-8 h-8 text-gray-600"/>
+                <span class="text-xs text-center text-gray-700">New Dashboard</span>
+              </div>
             </div>
 
-            <!-- Body -->
-            <div class="p-6 space-y-6">
-              <!-- Save as Section -->
-              <div class="space-y-2">
-                <label class="block text-sm font-medium text-gray-700">Save as</label>
-                <input
-                  v-model="saveAsName"
-                  type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Untitled"
-                />
+            <!-- Existing Dashboard Option -->
+            <div
+                @click="selectedDestination = 'existing'"
+                class="p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-primary-300"
+                :class="selectedDestination === 'existing' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'"
+            >
+              <div class="flex flex-col items-center space-y-2">
+                <UIcon name="i-heroicons-squares-2x2" class="w-8 h-8 text-gray-600"/>
+                <span class="text-xs text-center text-gray-700">Existing Dashboard</span>
               </div>
+            </div>
 
-              <!-- Save chart to Section -->
-              <div class="space-y-3">
-                <label class="block text-sm font-medium text-gray-700">Save chart to</label>
+            <!-- My Desk Option (Disabled) -->
+            <div class="p-4 border-2 rounded-lg opacity-50 cursor-not-allowed bg-gray-100">
+              <div class="flex flex-col items-center space-y-2">
+                <UIcon name="i-heroicons-computer-desktop" class="w-8 h-8 text-gray-600"/>
+                <span class="text-xs text-center text-gray-700">My Desk</span>
+              </div>
+            </div>
+          </div>
 
-                <!-- Selection Tiles -->
-                <div class="grid grid-cols-3 gap-3">
-                  <!-- New Dashboard Tile -->
-                  <div
-                    @click="selectedDestination = 'new'"
-                    class="p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300"
-                    :class="selectedDestination === 'new' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'"
-                  >
-                    <div class="flex flex-col items-center space-y-2">
-                      <div class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                      </div>
-                      <span class="text-xs text-center text-gray-700">New Dashboard</span>
-                    </div>
-                  </div>
+          <!-- Dashboard Selector -->
+          <Transition
+              enter-active-class="transition duration-200 ease-out"
+              enter-from-class="opacity-0 max-h-0 mt-4"
+              enter-to-class="opacity-100 max-h-96 mt-4"
+              leave-active-class="transition duration-150 ease-in"
+              leave-from-class="opacity-100 max-h-96 mt-4"
+              leave-to-class="opacity-0 max-h-0 mt-4"
+          >
+            <div v-if="isExistingSelected" class="space-y-4 mt-6">
+              <!-- Dashboard Selection -->
+              <UFormField label="Select Dashboard" required>
+                <USelectMenu
+                    v-model="selectedDashboard"
+                    :items="filteredDashboards.map(d => ({
+                    id: d.id,
+                    label: d.name,
+                    value: d,
+                    avatar: { src: '', fallback: d.name.charAt(0).toUpperCase() },
+                    suffix: d.is_public ? 'Public' : null
+                  }))"
+                    searchable
+                    searchable-placeholder="Search dashboards..."
+                    placeholder="Choose a dashboard..."
+                    @update:model-value="onDashboardChange"
+                    class="w-full"
+                />
+              </UFormField>
 
-                  <!-- Existing Dashboard Tile -->
-                  <div
-                    @click="selectedDestination = 'existing'"
-                    class="p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300"
-                    :class="selectedDestination === 'existing' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'"
-                  >
-                    <div class="flex flex-col items-center space-y-2">
-                      <div class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <span class="text-xs text-center text-gray-700">Existing Dashboard</span>
-                    </div>
-                  </div>
-
-                  <!-- My Desk Tile (Disabled) -->
-                  <div
-                    class="p-4 border-2 rounded-lg opacity-50 cursor-not-allowed bg-gray-100"
-                  >
-                    <div class="flex flex-col items-center space-y-2">
-                      <div class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0M9 9h6" />
-                        </svg>
-                      </div>
-                      <span class="text-xs text-center text-gray-700">My Desk</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Dashboard Selector (only visible when existing is selected) -->
-                <Transition
+              <!-- Tab Selection -->
+              <Transition
                   enter-active-class="transition duration-200 ease-out"
                   enter-from-class="opacity-0 max-h-0"
                   enter-to-class="opacity-100 max-h-96"
                   leave-active-class="transition duration-150 ease-in"
                   leave-from-class="opacity-100 max-h-96"
                   leave-to-class="opacity-0 max-h-0"
-                >
-                  <div v-if="isExistingSelected" class="relative">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Dashboard</label>
-                    <!-- Dropdown Button -->
-                    <button
-                      @click="toggleDropdown"
-                      class="w-full px-4 py-3 pr-10 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      :class="{ 'border-blue-500': isDropdownOpen }"
-                    >
-                      <span :class="{ 'text-gray-500': !selectedDashboard, 'text-gray-900': selectedDashboard }">
-                        {{ selectedDashboard ? selectedDashboard.name : 'Choose a dashboard...' }}
-                      </span>
-                      <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <svg
-                          class="w-5 h-5 text-gray-400 transition-transform"
-                          :class="{ 'rotate-180': isDropdownOpen }"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </button>
-
-                    <!-- Dropdown Menu -->
-                    <Transition
-                      enter-active-class="transition duration-200 ease-out"
-                      enter-from-class="opacity-0 scale-95"
-                      enter-to-class="opacity-100 scale-100"
-                      leave-active-class="transition duration-150 ease-in"
-                      leave-from-class="opacity-100 scale-100"
-                      leave-to-class="opacity-0 scale-95"
-                    >
-                      <div
-                        v-if="isDropdownOpen"
-                        class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
-                      >
-                        <!-- Search Input -->
-                        <div class="p-2 border-b border-gray-200">
-                          <input
-                            v-model="dashboardSearch"
-                            type="text"
-                            placeholder="Search dashboards..."
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            @click.stop
-                          />
-                        </div>
-
-                        <!-- Dashboard List -->
-                        <div v-if="filteredDashboards.length > 0" class="py-1">
-                          <button
-                            v-for="dashboard in filteredDashboards"
-                            :key="dashboard.id"
-                            @click="selectDashboard(dashboard)"
-                            class="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors"
-                          >
-                            <div class="flex items-center justify-between">
-                              <span class="text-sm text-gray-900 truncate">{{ dashboard.name }}</span>
-                              <span v-if="dashboard.is_public" class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
-                                Public
-                              </span>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1">
-                              Created {{ new Date(dashboard.created_at).toLocaleDateString() }}
-                            </div>
-                          </button>
-                        </div>
-
-                        <!-- No Results -->
-                        <div v-else class="py-4 px-3 text-center text-sm text-gray-500">
-                          {{ dashboardSearch ? 'No dashboards found' : 'No dashboards available' }}
-                        </div>
-                      </div>
-                    </Transition>
-
-                    <!-- Click outside to close -->
-                    <div
-                      v-if="isDropdownOpen"
-                      @click="isDropdownOpen = false"
-                      class="fixed inset-0 -z-10"
-                    ></div>
-                  </div>
-                </Transition>
-              </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="flex justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                @click="$emit('close')"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
               >
-                Cancel
-              </button>
-              <button
-                @click="handleSave"
-                :disabled="isSaveDisabled"
-                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <svg v-if="isSaving" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {{ isSaving ? 'Saving...' : 'Save' }}
-              </button>
+                <UFormField v-if="selectedDashboard" label="Select Tab" required>
+                  <USelectMenu
+                      v-model="selectedTab"
+                      :items="filteredTabs.map(t => ({
+                      id: t.id,
+                      label: t.name,
+                      value: t,
+                      suffix: `Position ${t.position}`
+                    }))"
+                      searchable
+                      searchable-placeholder="Search tabs..."
+                      placeholder="Choose a tab..."
+                      class="w-full"
+                  />
+                </UFormField>
+              </Transition>
             </div>
-          </div>
-        </Transition>
+          </Transition>
+        </div>
+      </UForm>
+
+      <div class="flex justify-end space-x-3 pt-4">
+        <UButton variant="outline" @click="handleClose">
+          Cancel
+        </UButton>
+        <UButton
+            @click="handleSave"
+            :loading="isSaving"
+            :disabled="isSaveDisabled"
+        >
+          Save
+        </UButton>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+  </UModal>
 </template>
 
 <script setup lang="ts">
 import {type Dashboard, useDashboardsService} from '~/composables/useDashboardsService'
 
 interface Props {
-  isOpen: boolean
+  open: boolean
 }
 
 interface Emits {
   close: []
-  save: [data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string }]
+  save: [data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string; selectedTabId?: string; newDashboardName?: string }]
+  'update:open': [boolean]
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const visible = computed({
+  get: () => props.open,
+  set: (value: boolean) => emit('update:open', value)
+})
+
 // Reactive state
 const saveAsName = ref('Untitled')
 const selectedDestination = ref<'new' | 'existing' | 'desk'>('existing')
 const dashboards = ref<Dashboard[]>([])
-const selectedDashboardId = ref<string>('')
-const dashboardSearch = ref('')
-const isDropdownOpen = ref(false)
+const selectedDashboard = ref<Dashboard | null>(null)
 const isSaving = ref(false)
+const newDashboardName = ref('My Dashboard')
+
+// Tab-related state
+const tabs = ref<Array<{ id: string; name: string; position: number }>>([])
+const selectedTab = ref<{ id: string; name: string; position: number } | null>(null)
 
 // Computed properties
 const isExistingSelected = computed(() => selectedDestination.value === 'existing')
-const filteredDashboards = computed(() => {
-  if (!dashboardSearch.value) return dashboards.value
-  return dashboards.value.filter(dashboard =>
-    dashboard.name.toLowerCase().includes(dashboardSearch.value.toLowerCase())
-  )
-})
-const selectedDashboard = computed(() =>
-  dashboards.value.find(d => d.id === selectedDashboardId.value)
-)
+const isNewSelected = computed(() => selectedDestination.value === 'new')
+const filteredDashboards = computed(() => dashboards.value)
+const filteredTabs = computed(() => tabs.value)
 const isSaveDisabled = computed(() => {
-  return isSaving.value || (selectedDestination.value === 'existing' && !selectedDashboardId.value)
+  return isSaving.value ||
+      (selectedDestination.value === 'existing' && (!selectedDashboard.value || !selectedTab.value)) ||
+      (selectedDestination.value === 'new' && !newDashboardName.value.trim())
 })
 
 // Methods
@@ -275,42 +201,79 @@ const fetchDashboards = async () => {
   }
 }
 
-const selectDashboard = (dashboard: Dashboard) => {
-  selectedDashboardId.value = dashboard.id
-  dashboardSearch.value = dashboard.name
-  isDropdownOpen.value = false
+const fetchTabs = async (dashboardId: string) => {
+  try {
+    const response = await $fetch<{ tabs: Array<{ id: string; name: string; position: number }> }>(`/api/dashboards/${dashboardId}/tabs`)
+    tabs.value = response.tabs
+    // Auto-select the first tab if available
+    if (tabs.value.length > 0 && !selectedTab.value) {
+      selectedTab.value = tabs.value[0]
+    }
+  } catch (error) {
+    console.error('Failed to fetch tabs:', error)
+    tabs.value = []
+  }
 }
 
-const toggleDropdown = () => {
-  isDropdownOpen.value = !isDropdownOpen.value
+const onDashboardChange = async (dashboard: Dashboard | null) => {
+  selectedDashboard.value = dashboard
+  if (dashboard) {
+    // Reset tab selection when dashboard changes
+    selectedTab.value = null
+    // Fetch tabs for the selected dashboard
+    await fetchTabs(dashboard.id)
+  } else {
+    // Clear tabs when no dashboard is selected
+    tabs.value = []
+    selectedTab.value = null
+  }
+}
+
+const handleClose = () => {
+  visible.value = false
+  emit('close')
 }
 
 const handleSave = () => {
-  // Validation: require dashboard selection when saving to existing dashboard
-  if (selectedDestination.value === 'existing' && !selectedDashboardId.value) {
-    // Could add error handling here, but for now just don't save
+  // Validation
+  if (selectedDestination.value === 'existing' && (!selectedDashboard.value || !selectedTab.value)) {
+    return
+  }
+  if (selectedDestination.value === 'new' && !newDashboardName.value.trim()) {
     return
   }
 
   isSaving.value = true
-  
-  // Emit save event - parent will close the modal when done
+
+  // Emit save event
   emit('save', {
     saveAsName: saveAsName.value,
     selectedDestination: selectedDestination.value,
-    selectedDashboardId: selectedDestination.value === 'existing' ? selectedDashboardId.value : undefined
+    selectedDashboardId: selectedDestination.value === 'existing' ? selectedDashboard.value?.id : undefined,
+    selectedTabId: selectedDestination.value === 'existing' ? selectedTab.value?.id : undefined,
+    newDashboardName: selectedDestination.value === 'new' ? newDashboardName.value : undefined
   })
+
+  // Close modal after save
+  handleClose()
 }
 
 // Watch for modal opening to fetch dashboards
-watch(() => props.isOpen, async (isOpen) => {
+watch(() => props.open, async (isOpen) => {
   if (isOpen) {
     await fetchDashboards()
-    // Reset selected dashboard when modal opens
-    selectedDashboardId.value = ''
-    dashboardSearch.value = ''
-    isDropdownOpen.value = false
+    // Reset state when modal opens
+    selectedDashboard.value = null
+    tabs.value = []
+    selectedTab.value = null
     isSaving.value = false
   }
+})
+
+// Watch for destination changes to reset selections
+watch(selectedDestination, () => {
+  selectedDashboard.value = null
+  tabs.value = []
+  selectedTab.value = null
 })
 </script>

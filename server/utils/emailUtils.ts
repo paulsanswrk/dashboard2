@@ -1,4 +1,5 @@
 import sgMail from '@sendgrid/mail'
+import {saveEmailLocally} from './emailSaver'
 
 // Configure SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY || '')
@@ -18,7 +19,7 @@ export interface UserInvitationData {
   role: string
   organizationName?: string
   confirmationUrl: string
-  siteUrl?: string
+    siteUrl: string
 }
 
 export interface ViewerInvitationData {
@@ -28,14 +29,14 @@ export interface ViewerInvitationData {
   type: string
   group?: string
   confirmationUrl: string
-  siteUrl?: string
+    siteUrl: string
 }
 
 /**
  * Generate user invitation email template
  */
 export function generateUserInvitationTemplate(data: UserInvitationData): EmailTemplate {
-  const { email, firstName, lastName, role, confirmationUrl } = data
+    const {email, firstName, lastName, role, confirmationUrl, siteUrl} = data
   const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
   
   const subject = `Welcome to Optiqo - Complete Your Account Setup`
@@ -282,7 +283,7 @@ Ready to transform your data into insights? Let's get started!
  * Generate viewer invitation email template
  */
 export function generateViewerInvitationTemplate(data: ViewerInvitationData): EmailTemplate {
-  const { email, firstName, lastName, type, group, confirmationUrl } = data
+    const {email, firstName, lastName, type, group, confirmationUrl, siteUrl} = data
   const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'Viewer'
   
   const subject = `You've been invited to view Optiqo dashboards`
@@ -574,8 +575,18 @@ export async function sendEmail(to: string, template: EmailTemplate): Promise<bo
       html: template.html,
     }
 
+      // Save email locally for development testing if SAVE_EMAILS_TO is configured
+      await saveEmailLocally({
+          from: SENDER_EMAIL,
+          to,
+          subject: template.subject,
+          html: template.html,
+          text: template.text
+      })
+
     await sgMail.send(msg)
-    console.log(`Email sent successfully to ${to}`)
+
+      console.log(`Email sent successfully to ${to}`)
     return true
   } catch (error) {
     console.error('Error sending email:', error)

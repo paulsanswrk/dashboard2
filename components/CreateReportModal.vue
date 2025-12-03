@@ -96,7 +96,7 @@ const form = ref({
   schedule: 'once'
 })
 
-const formats = ['XLS', 'CSV', 'PDF', 'PNG']
+const formats = ['XLS', 'CSV', 'PDF']
 
 const scheduleOptions = [
   { label: 'Send once', value: 'once' },
