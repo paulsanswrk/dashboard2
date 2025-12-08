@@ -295,8 +295,8 @@ const handleAuthCallback = async () => {
 
         // Auto-redirect to dashboard after 3 seconds
         setTimeout(() => {
-          console.log('🔐 [CALLBACK] Auto-redirecting to dashboard in 3 seconds...')
-          navigateTo('/dashboard')
+          console.log('🔐 [CALLBACK] Auto-redirecting home in 3 seconds...')
+          navigateTo('/')
         }, 3000)
         return
       }

@@ -114,8 +114,11 @@ CREATE TABLE public.organizations (
 ```
 
 #### Related Tables
-- **profiles**: Internal users (ADMIN/EDITOR roles)
-- **viewers**: External viewers with organization_id foreign key
+
+- **profiles**: Internal users (ADMIN/EDITOR/EDITOR roles) with organization_id constraint:
+    - SUPERADMIN users must have organization_id = NULL (system-wide access)
+    - ADMIN/EDITOR/VIEWER users must have organization_id IS NOT NULL (organization-specific access)
+- **viewers**: External viewers with organization_id foreign key (always NOT NULL)
 - **User Count**: Calculated as `profiles + viewers` per organization
 
 ### UI Components

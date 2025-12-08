@@ -38,7 +38,6 @@ optiqo-dashboard/
 │   ├── data-sources.vue          # Data sources management
 │   ├── integration-wizard.vue    # Data source integration
 │   ├── analyze.vue               # Chart analysis tools
-│   ├── my-dashboard.vue          # Dashboard creation/editing
 │   ├── users.vue                 # User management
 │   ├── viewers.vue               # Viewer management
 │   ├── sso.vue                   # SSO configuration (stub)
@@ -104,7 +103,8 @@ npm run dev
 - Real-time preview
 
 ### My Dashboard (`/my-dashboard`)
-- Dashboard creation and editing
+
+*Removed*
 - Chart grid layout
 - Dashboard actions (share, duplicate, delete)
 - Activity tracking

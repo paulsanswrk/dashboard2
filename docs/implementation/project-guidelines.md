@@ -50,7 +50,6 @@ optiqo-dashboard/
 │   ├── data-sources.vue  # Data management
 │   ├── integration-wizard.vue
 │   ├── analyze.vue       # Chart creation
-│   ├── my-dashboard.vue  # Dashboard management
 │   ├── users.vue         # User management
 │   ├── viewers.vue       # Viewer management
 │   └── [stub-pages].vue  # Placeholder pages
@@ -63,7 +62,8 @@ optiqo-dashboard/
 ```
 
 #### Naming Conventions
-- **Files**: kebab-case (`my-dashboard.vue`)
+
+- **Files**: kebab-case (`dashboard.vue`)
 - **Components**: PascalCase (`ShareDashboardModal.vue`)
 - **Variables**: camelCase (`selectedUser`)
 - **Constants**: UPPER_SNAKE_CASE (`DATABASE_TYPES`)

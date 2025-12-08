@@ -17,12 +17,22 @@ export default defineEventHandler(async (event) => {
   const { id, name, layout } = body || {}
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing dashboard id' })
 
-  // Verify ownership
+    const {data: profile, error: profileError} = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+    if (profileError || !profile?.organization_id) {
+        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    }
+
+    // Verify org ownership
   const { data: dashboard, error: dashError } = await supabaseAdmin
     .from('dashboards')
     .select('id')
     .eq('id', id)
-    .eq('owner_id', user.id)
+      .eq('organization_id', profile.organization_id)
     .single()
 
   if (dashError || !dashboard) {

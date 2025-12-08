@@ -18,9 +18,20 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing dashboard name' })
   }
 
+    const {data: profile, error: profileError} = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+    if (profileError || !profile?.organization_id) {
+        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    }
+
   const payload: any = {
     name,
-    owner_id: user.id,
+      organization_id: profile.organization_id,
+      creator: user.id,
     is_public: isPublic
   }
 
@@ -51,7 +62,7 @@ export default defineEventHandler(async (event) => {
             .from('dashboards')
             .delete()
             .eq('id', data.id)
-            .eq('owner_id', user.id)
+            .eq('organization_id', profile.organization_id)
 
         throw createError({statusCode: 500, statusMessage: 'Failed to create default tab for dashboard'})
     }

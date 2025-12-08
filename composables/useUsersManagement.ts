@@ -236,7 +236,8 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
         },
         body: {
           firstName: selectedUser.value.firstName,
-          lastName: selectedUser.value.lastName
+            lastName: selectedUser.value.lastName,
+            role: selectedUser.value.role
         }
       })
 

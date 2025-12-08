@@ -18,24 +18,33 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing dashboardId, chartId, or position' })
   }
 
-  // Verify the user owns the dashboard
+    // Verify the dashboard is in the user's organization
+    const {data: profile, error: profileError} = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+    if (profileError || !profile?.organization_id) {
+        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    }
+
   const { data: dashboard, error: dashboardError } = await supabaseAdmin
     .from('dashboards')
     .select('id')
     .eq('id', dashboardId)
-    .eq('owner_id', user.id)
+      .eq('organization_id', profile.organization_id)
     .single()
 
   if (dashboardError || !dashboard) {
     throw createError({ statusCode: 403, statusMessage: 'Dashboard not found or access denied' })
   }
 
-  // Verify the user owns the chart
+    // Verify the chart exists (dashboard-level permissions handle visibility)
   const { data: chart, error: chartError } = await supabaseAdmin
     .from('charts')
     .select('id')
     .eq('id', chartId)
-    .eq('owner_id', user.id)
     .single()
 
   if (chartError || !chart) {

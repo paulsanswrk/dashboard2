@@ -18,12 +18,22 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 400, statusMessage: 'Missing dashboardId or name'})
     }
 
-    // Verify the user owns the dashboard
+    const {data: profile, error: profileError} = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+    if (profileError || !profile?.organization_id) {
+        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    }
+
+    // Verify dashboard belongs to user's organization
     const {data: dashboard, error: dashboardError} = await supabaseAdmin
         .from('dashboards')
         .select('id')
         .eq('id', dashboardId)
-        .eq('owner_id', user.id)
+        .eq('organization_id', profile.organization_id)
         .single()
 
     if (dashboardError || !dashboard) {

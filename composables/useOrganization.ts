@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import {computed, ref} from 'vue'
 
 export interface OrganizationDetails {
   id: string
@@ -79,6 +79,37 @@ export const useOrganization = () => {
   const userCount = computed(() => organizationDetails.value?.user_count || 0)
   const viewerCount = computed(() => organizationDetails.value?.viewer_count || 0)
 
+    // Update organization name
+    const updateOrganizationName = async (organizationId: string, newName: string) => {
+        try {
+            loading.value = true
+            error.value = null
+
+            const response = await $fetch(`/api/organizations/${organizationId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${(await useSupabaseClient().auth.getSession()).data.session?.access_token}`
+                },
+                body: {
+                    name: newName
+                }
+            })
+
+            if (response.success && organizationDetails.value) {
+                // Update the local organization details
+                organizationDetails.value.name = newName
+            }
+
+            return response
+        } catch (err: any) {
+            error.value = err.message || 'Failed to update organization name'
+            console.error('Error updating organization name:', err)
+            throw err
+        } finally {
+            loading.value = false
+        }
+    }
+
   // Clear organization data
   const clearOrganization = () => {
     organizationDetails.value = null
@@ -91,6 +122,7 @@ export const useOrganization = () => {
     error,
     getOrganizationDetails,
     fetchUserCount,
+      updateOrganizationName,
     hasOrganization,
     organizationName,
     totalMembers,

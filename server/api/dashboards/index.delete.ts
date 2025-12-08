@@ -1,9 +1,9 @@
-import { defineEventHandler, getQuery } from 'h3'
+import {defineEventHandler, getQuery} from 'h3'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
-// @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -13,12 +13,22 @@ export default defineEventHandler(async (event) => {
   const { id } = getQuery(event)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing id' })
 
-  // Verify ownership
+    const {data: profile, error: profileError} = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+    if (profileError || !profile?.organization_id) {
+        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    }
+
+    // Verify org ownership
   const { data: dashboard, error: dashError } = await supabaseAdmin
     .from('dashboards')
     .select('id')
     .eq('id', id)
-    .eq('owner_id', user.id)
+      .eq('organization_id', profile.organization_id)
     .single()
 
   if (dashError || !dashboard) {

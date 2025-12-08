@@ -10,7 +10,7 @@
         <div class="topbar">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 lg:gap-6">
-              <button @click="navigateTo('/my-dashboard')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide">
+              <button @click="navigateTo('/')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide">
                 OPTIQO
               </button>
               <!-- Desktop Navigation -->

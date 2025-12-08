@@ -1,5 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
-import { capitalizeRole } from '../../../utils/roleUtils'
+import {createClient} from '@supabase/supabase-js'
+import {capitalizeRole} from '../../../utils/roleUtils'
+
+// Role hierarchy (higher number = higher privileges)
+const roleHierarchy = {
+    'VIEWER': 1,
+    'EDITOR': 2,
+    'ADMIN': 3,
+    'SUPERADMIN': 4
+}
 
 export default defineEventHandler(async (event) => {
   try {
@@ -57,20 +65,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { firstName, lastName, role, organizationId } = body
 
-    // Capitalize and validate role if provided
-    let capitalizedRole: string | null = null
-    if (role) {
-      try {
-        capitalizedRole = capitalizeRole(role)
-      } catch (error: any) {
-        setResponseStatus(event, 400)
-        return {
-          success: false,
-          error: error.message
-        }
-      }
-    }
-
     // Get user's profile to check if they have admin access
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -85,6 +79,50 @@ export default defineEventHandler(async (event) => {
         error: 'User profile not found'
       }
     }
+
+      // Capitalize and validate role if provided
+      let capitalizedRole: string | null = null
+      if (role) {
+          // Prevent users from changing their own role
+          if (targetUserId === userId) {
+              setResponseStatus(event, 403)
+              return {
+                  success: false,
+                  error: 'Users cannot change their own role'
+              }
+          }
+
+          // Check if current user has permission to change roles (only ADMIN and SUPERADMIN)
+          if (profile.role !== 'ADMIN' && profile.role !== 'SUPERADMIN') {
+              setResponseStatus(event, 403)
+              return {
+                  success: false,
+                  error: 'Insufficient permissions to change user roles'
+              }
+          }
+
+          // Check if the new role is not higher than the assigner's role
+          const assignerRoleLevel = roleHierarchy[profile.role as keyof typeof roleHierarchy] || 0
+          const newRoleLevel = roleHierarchy[role.toUpperCase() as keyof typeof roleHierarchy] || 0
+
+          if (newRoleLevel > assignerRoleLevel) {
+              setResponseStatus(event, 403)
+              return {
+                  success: false,
+                  error: 'Cannot assign a role higher than your own role level'
+              }
+          }
+
+          try {
+              capitalizedRole = capitalizeRole(role)
+          } catch (error: any) {
+              setResponseStatus(event, 400)
+              return {
+                  success: false,
+                  error: error.message
+              }
+          }
+      }
 
     // Check if target user exists (across all organizations for admin)
     const { data: existingUser, error: userError } = await supabase

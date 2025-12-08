@@ -600,7 +600,8 @@ export async function sendEmail(to: string, template: EmailTemplate): Promise<bo
 export function generateUserInvitationWithMagicLinkTemplate(data: UserInvitationData): EmailTemplate {
   const { email, firstName, lastName, role, organizationName, siteUrl = 'http://localhost:3000' } = data
   const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
-  const roleDisplay = role === 'ADMIN' ? 'Administrator' : 'Editor'
+    const roleDisplay = role === 'SUPERADMIN' ? 'Super Administrator' :
+        role === 'ADMIN' ? 'Administrator' : 'Editor'
   
   const subject = `Welcome to Optiqo - Complete Your Account Setup`
   

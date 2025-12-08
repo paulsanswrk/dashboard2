@@ -1,6 +1,6 @@
-import { supabaseAdmin } from '../supabase'
-import { capitalizeRole } from '../../utils/roleUtils'
-import { getCookie } from 'h3'
+import {supabaseAdmin} from '../supabase'
+import {capitalizeRole} from '../../utils/roleUtils'
+import {getCookie} from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -43,7 +43,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check if user can update this profile
-    const canUpdate = 
+      const canUpdate =
+          currentUserProfile.role === 'SUPERADMIN' || // Superadmins can update any profile
       currentUserProfile.role === 'ADMIN' || // Admins can update any profile
       (currentUserProfile.role === 'EDITOR' && profileId === user.id) || // Editors can update their own profile
       (currentUserProfile.role === 'EDITOR' && currentUserProfile.organization_id === organizationId) // Editors can update profiles in their organization

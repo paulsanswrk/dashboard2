@@ -1,16 +1,16 @@
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  console.log('🛡️ Auth middleware: Checking route:', to.path)
+    // console.log('🛡️ Auth middleware: Checking route:', to.path)
 
     // Check if route is public
     if (isPublicRoute(to.path)) {
-        console.log('🛡️ Auth middleware: Public route, allowing access')
+        // console.log('🛡️ Auth middleware: Public route, allowing access')
         return
     }
 
   const user = useSupabaseUser()
   const supabase = useSupabaseClient()
 
-  console.log('🛡️ Auth middleware: User state:', user.value?.id)
+    // console.log('🛡️ Auth middleware: User state:', user.value?.id)
 
     // If user is not authenticated, redirect to login
   if (!user.value) {
@@ -18,11 +18,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return navigateTo('/login')
   }
 
-  console.log('🛡️ Auth middleware: User authenticated:', user.value.id)
+    // console.log('🛡️ Auth middleware: User authenticated:', user.value.id)
 
   // Validate user exists in database and get role
   try {
-    console.log('🛡️ Auth middleware: Validating user profile in database...')
+      // console.log('🛡️ Auth middleware: Validating user profile in database...')
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('user_id, role')
@@ -41,8 +41,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         return navigateTo('/login')
       }
     }
-    
-    console.log('✅ Auth middleware: User profile validated, allowing access')
+
+      // console.log('✅ Auth middleware: User profile validated, allowing access')
     
     // Import redirect utilities
     const { canAccessPath, getFallbackPath } = await import('~/server/utils/redirectUtils')

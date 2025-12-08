@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import {createClient} from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -54,8 +54,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Check if user is admin
-    if (profileData.role !== 'ADMIN') {
+      // Check if user is admin or superadmin
+      if (profileData.role !== 'ADMIN' && profileData.role !== 'SUPERADMIN') {
       throw createError({
         statusCode: 403,
         statusMessage: 'Only admins can update organizations'

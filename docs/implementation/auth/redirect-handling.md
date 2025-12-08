@@ -26,11 +26,12 @@ The initial implementation had several issues with user redirects after authenti
 
 ### Redirect Rules
 
-| User Role | Redirect Destination | Description |
-|-----------|---------------------|-------------|
-| `ADMIN`   | `/admin`            | Admin dashboard for organization management |
-| `EDITOR`  | `/dashboard`        | User dashboard for content creation |
-| `VIEWER`  | `/dashboard`        | User dashboard for viewing content |
+| User Role    | Redirect Destination | Description                                      |
+|--------------|----------------------|--------------------------------------------------|
+| `SUPERADMIN` | `/admin`             | Super admin dashboard for system-wide management |
+| `ADMIN`      | `/admin`             | Admin dashboard for organization management      |
+| `EDITOR`     | `/dashboard`         | User dashboard for content creation              |
+| `VIEWER`     | `/dashboard`         | User dashboard for viewing content               |
 
 ## Implementation Details
 
@@ -41,7 +42,7 @@ The initial implementation had several issues with user redirects after authenti
 The utility provides centralized functions for role-based redirects:
 
 ```typescript
-export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER'
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'EDITOR' | 'VIEWER'
 
 export interface UserProfile {
   id: string
@@ -326,27 +327,34 @@ graph TD
 ```typescript
 // Example test cases for redirect logic
 describe('Redirect Handling', () => {
-  test('ADMIN users redirect to /admin', () => {
+    test('SUPERADMIN users redirect to /admin', () => {
+        const profile = {role: 'SUPERADMIN'}
+        expect(getRedirectPathFromProfile(profile)).toBe('/admin')
+    })
+
+    test('ADMIN users redirect to /admin', () => {
     const profile = { role: 'ADMIN' }
     expect(getRedirectPathFromProfile(profile)).toBe('/admin')
   })
-  
+
   test('EDITOR users redirect to /dashboard', () => {
     const profile = { role: 'EDITOR' }
     expect(getRedirectPathFromProfile(profile)).toBe('/dashboard')
   })
-  
+
   test('VIEWER users redirect to /dashboard', () => {
     const profile = { role: 'VIEWER' }
     expect(getRedirectPathFromProfile(profile)).toBe('/dashboard')
   })
-  
-  test('Non-ADMIN users cannot access /admin', () => {
+
+    test('Non-admin users cannot access /admin', () => {
     expect(canAccessPath('EDITOR', '/admin')).toBe(false)
     expect(canAccessPath('VIEWER', '/admin')).toBe(false)
   })
-  
-  test('ADMIN users can access all paths', () => {
+
+    test('Admin and superadmin users can access all paths', () => {
+        expect(canAccessPath('SUPERADMIN', '/admin')).toBe(true)
+        expect(canAccessPath('SUPERADMIN', '/dashboard')).toBe(true)
     expect(canAccessPath('ADMIN', '/admin')).toBe(true)
     expect(canAccessPath('ADMIN', '/dashboard')).toBe(true)
   })

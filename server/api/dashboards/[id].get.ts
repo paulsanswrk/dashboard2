@@ -14,12 +14,22 @@ export default defineEventHandler(async (event) => {
   const id = event.context.params?.id as string
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing dashboard id' })
 
-  // Verify ownership and get dashboard
+    const {data: profile, error: profileError} = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+    if (profileError || !profile?.organization_id) {
+        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    }
+
+    // Verify org access and get dashboard
   const { data: dashboard, error: dashError } = await supabaseAdmin
     .from('dashboards')
-    .select('id, name, owner_id, is_public, created_at')
+      .select('id, name, organization_id, creator, is_public, created_at')
     .eq('id', id)
-    .eq('owner_id', user.id)
+      .eq('organization_id', profile.organization_id)
     .single()
 
   if (dashError || !dashboard) {
@@ -56,7 +66,6 @@ export default defineEventHandler(async (event) => {
       .from('charts')
       .select('id, name, description, state_json')
       .in('id', chartIds)
-      .eq('owner_id', user.id)
 
     if (chartsError) throw createError({ statusCode: 500, statusMessage: chartsError.message })
     chartsById = Object.fromEntries((charts || []).map((c: any) => [c.id, c]))

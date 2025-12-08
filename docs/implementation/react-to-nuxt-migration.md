@@ -83,8 +83,9 @@ This document outlines the successful migration of the Optiqo Dashboard applicat
 - ✅ Chart type selection
 - ✅ Real-time preview capabilities
 
-#### Dashboard Management (`/my-dashboard`)
-- ✅ Dashboard creation and editing
+#### Dashboard Management
+
+*Removed `/my-dashboard` legacy page*
 - ✅ Chart grid layout
 - ✅ Dashboard actions (share, duplicate, delete)
 - ✅ Activity tracking

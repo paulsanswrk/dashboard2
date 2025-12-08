@@ -44,12 +44,13 @@
         <div v-else-if="hasOrganization">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Organization Information</h3>
-          <UButton 
-            variant="outline" 
+          <UButton
+              variant="outline"
             size="sm"
             @click="navigateTo('/users')"
-            v-if="userProfile?.role === 'ADMIN'"
+              v-if="userProfile?.role === 'ADMIN' || userProfile?.role === 'SUPERADMIN'"
             color="green"
+              class="cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20"
           >
             <Icon name="i-heroicons-users" class="w-4 h-4 mr-2"/>
             Manage Users
@@ -59,9 +60,22 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <!-- Organization Name -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Organization Name
-            </label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Organization Name
+              </label>
+              <UButton
+                  v-if="canEditOrgName"
+                  size="xs"
+                  variant="ghost"
+                  @click="openOrgNameModal"
+                  color="gray"
+                  class="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <Icon name="i-heroicons-pencil" class="w-3 h-3 mr-1"/>
+                Edit
+              </UButton>
+            </div>
             <div class="text-lg font-medium text-gray-900 dark:text-white">
               {{ organizationName }}
             </div>
@@ -132,25 +146,25 @@
 
             <!-- Action Buttons -->
             <div class="flex flex-col gap-2 w-full">
-              <UButton 
+              <UButton
                 @click="triggerFileInput"
                 :loading="loading"
-                class="w-full"
+                class="w-full cursor-pointer hover:bg-green-600"
                 size="sm"
                 color="green"
               >
                 <Icon name="i-heroicons-photo" class="w-4 h-4 mr-2"/>
                 {{ userProfile?.avatar_url ? 'Change Photo' : 'Upload Photo' }}
               </UButton>
-              
-              <UButton 
+
+              <UButton
                 v-if="userProfile?.avatar_url"
                 @click="handleDeleteAvatar"
                 :loading="loading"
                 variant="outline"
                 color="red"
                 size="sm"
-                class="w-full"
+                class="w-full cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <Icon name="i-heroicons-trash" class="w-4 h-4 mr-2"/>
                 Remove Photo
@@ -215,11 +229,12 @@
             </div>
 
             <div class="flex justify-end">
-              <UButton 
-                type="submit" 
+              <UButton
+                  type="submit"
                 :loading="loading"
                 :disabled="!hasProfileChanges"
                 color="green"
+                  class="cursor-pointer hover:bg-green-600"
               >
                 Save Changes
               </UButton>
@@ -275,10 +290,11 @@
             </div>
 
             <div class="flex justify-end">
-              <UButton 
-                type="submit" 
+              <UButton
+                  type="submit"
                 :loading="loading"
                 color="orange"
+                  class="cursor-pointer hover:bg-orange-600"
               >
                 Update Password
               </UButton>
@@ -309,6 +325,63 @@
         </div>
       </div>
     </div>
+
+    <!-- Organization Name Edit Modal -->
+    <UModal v-model:open="isOrgNameModalOpen">
+      <!-- Hidden trigger button required by UModal -->
+      <div style="display: none;"></div>
+
+      <template #content>
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+              Edit Organization Name
+            </h3>
+            <UButton
+                variant="ghost"
+                size="sm"
+                @click="closeOrgNameModal"
+                class="cursor-pointer"
+            >
+              <Icon name="i-heroicons-x-mark" class="w-5 h-5"/>
+            </UButton>
+          </div>
+
+          <form @submit.prevent="saveOrgName" class="space-y-4">
+            <UFormField label="Organization Name" required>
+              <UInput
+                  v-model="editingOrgName"
+                  placeholder="Enter organization name"
+                  required
+                  autofocus
+                  class="w-full"
+              />
+            </UFormField>
+
+            <div class="flex justify-end gap-2 pt-4">
+              <UButton
+                  type="button"
+                  variant="outline"
+                  @click="closeOrgNameModal"
+                  :disabled="orgLoading"
+                  class="cursor-pointer"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                  type="submit"
+                  :disabled="!editingOrgName.trim() || orgLoading"
+                  :loading="orgLoading"
+                  color="green"
+                  class="cursor-pointer"
+              >
+                Save Changes
+              </UButton>
+            </div>
+          </form>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -318,17 +391,52 @@ const { userProfile, updateProfile, updatePassword, uploadAvatar, deleteAvatar, 
 
 // Organization
 const { 
-  organizationDetails, 
-  loading: orgLoading, 
-  error: orgError, 
-  getOrganizationDetails, 
-  fetchUserCount, 
-  hasOrganization, 
-  organizationName, 
-  totalMembers, 
-  userCount, 
-  viewerCount 
+  organizationDetails,
+  loading: orgLoading,
+  error: orgError,
+  getOrganizationDetails,
+  fetchUserCount,
+  updateOrganizationName,
+  hasOrganization,
+  organizationName,
+  totalMembers,
+  userCount,
+  viewerCount
 } = useOrganization()
+
+// Organization editing modal state
+const isOrgNameModalOpen = ref(false)
+const editingOrgName = ref('')
+
+// Computed properties
+const canEditOrgName = computed(() => {
+  return userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN'
+})
+
+// Organization name modal functions
+const openOrgNameModal = async () => {
+  editingOrgName.value = organizationName.value
+  await nextTick()
+  isOrgNameModalOpen.value = true
+}
+
+const closeOrgNameModal = () => {
+  editingOrgName.value = ''
+  isOrgNameModalOpen.value = false
+}
+
+const saveOrgName = async () => {
+  if (!editingOrgName.value.trim() || !userProfile.value?.organizationId) return
+
+  try {
+    await updateOrganizationName(userProfile.value.organizationId, editingOrgName.value.trim())
+    closeOrgNameModal()
+    // Success message could be added here
+  } catch (error) {
+    console.error('Failed to update organization name:', error)
+    // Error handling could be added here
+  }
+}
 
 // Form data
 const profileForm = ref({

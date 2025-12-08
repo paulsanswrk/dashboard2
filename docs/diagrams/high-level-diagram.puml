@@ -1,0 +1,73 @@
+@startuml High Level Database Diagram
+!pragma layout smetana
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam sequenceParticipant underline
+
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    BorderThickness 2
+    FontSize 18
+    FontStyle bold
+}
+
+skinparam arrow {
+    FontSize 16
+    FontStyle bold
+}
+
+class organizations
+
+class profiles
+
+class viewers
+
+class dashboards
+
+class dashboard_access
+
+class dashboard_tab
+
+class charts
+
+class data_connections
+
+class dashboard_charts
+
+class reports
+
+class email_queue
+
+class app_log
+
+class user_groups
+
+class user_group_members
+
+' User Management
+organizations --> profiles : created_by\norganization_id
+organizations --> viewers : organization_id
+organizations --> user_groups : organization_id
+user_groups --> user_group_members : group_id
+organizations --> dashboards : organization_id
+
+' Dashboard and Chart Management
+dashboards --> dashboard_access : dashboard_id
+dashboards --> dashboard_tab : dashboard_id
+dashboards --> reports : dashboard_id
+
+dashboard_tab --> dashboard_charts : tab_id
+dashboard_tab --> reports : tab_id
+
+charts --> dashboard_charts : chart_id
+data_connections --> charts : data_connection_id
+
+' Access Control
+dashboard_access --> user_groups : target_group_id
+
+' Reporting System
+reports --> email_queue : report_id
+
+
+@enduml

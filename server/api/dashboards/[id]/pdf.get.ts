@@ -20,16 +20,26 @@ export default defineEventHandler(async (event) => {
   // Load dashboard first
   const { data: dashboard, error: dashError } = await supabaseAdmin
     .from('dashboards')
-    .select('id, name, owner_id, is_public, created_at')
+      .select('id, name, organization_id, creator, is_public, created_at')
     .eq('id', id)
     .single()
 
   if (dashError || !dashboard) throw createError({ statusCode: 404, statusMessage: 'Dashboard not found' })
 
-  // Access control: if not public, require owner
+    // Access control: if not public, require org membership
   if (!dashboard.is_public) {
     const user = await serverSupabaseUser(event)
-    if (!user || user.id !== dashboard.owner_id) {
+      if (!user) {
+          throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+      }
+
+      const {data: profile, error: profileError} = await supabaseAdmin
+          .from('profiles')
+          .select('organization_id')
+          .eq('user_id', user.id)
+          .single()
+
+      if (profileError || !profile?.organization_id || profile.organization_id !== dashboard.organization_id) {
       throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
     }
   }

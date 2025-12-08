@@ -23,7 +23,12 @@
     >
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h2 class="text-xl font-bold">Users ({{ filteredUsers.length }} / {{ totalUsers }})</h2>
-        <UButton size="sm" @click="openAddUserModal" class="w-full sm:w-auto" color="green">
+        <UButton
+            size="sm"
+            @click="openAddUserModal"
+            class="w-full sm:w-auto cursor-pointer hover:bg-green-600"
+            color="green"
+        >
           <Icon name="i-heroicons-user-plus" class="w-4 h-4 mr-2"/>
           Add User
         </UButton>

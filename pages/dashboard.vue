@@ -21,10 +21,6 @@
         </p>
       </div>
       <div class="flex gap-2">
-        <UButton color="orange" variant="outline" @click="navigateTo('/my-dashboard')">
-          <Icon name="i-heroicons-chart-bar" class="w-4 h-4 mr-1"/>
-          My Desk
-        </UButton>
         <UButton color="orange" @click="navigateTo('/data-sources')">
           <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
           Connect Data
@@ -113,10 +109,6 @@
         <div class="p-4">
           <h3 class="font-medium mb-2 text-gray-900 dark:text-white">My Dashboards</h3>
           <div class="space-y-2">
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-orange-50 dark:hover:bg-orange-900/20 cursor-pointer" @click="navigateTo('/my-dashboard')">
-              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
-              Create Dashboard
-            </UButton>
             <div class="space-y-1">
               <div v-for="dashboard in myDashboards" :key="dashboard.id" class="p-2 rounded text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
                 {{ dashboard.name }}
@@ -126,16 +118,6 @@
         </div>
       </UCard>
 
-      <!-- Insights -->
-      <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-        <div class="p-4">
-          <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Insights</h3>
-          <div class="h-32 flex items-center justify-center rounded bg-gray-100 dark:bg-gray-600">
-            <Icon name="i-heroicons-chart-bar-square" class="w-8 h-8" style="color: rgb(194, 65, 12);"/>
-          </div>
-          <p class="text-xs mt-2 text-center text-gray-600 dark:text-gray-300">Create Smart Insights from your data</p>
-        </div>
-      </UCard>
 
       <!-- Alarms & Reports -->
       <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
@@ -202,6 +184,7 @@ const myDashboards = ref([
 
 // Page meta
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
+  alias: ['/']
 })
 </script>

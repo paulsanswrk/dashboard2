@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
         try {
             const {data, error: dashError} = await supabaseAdmin
                 .from('dashboards')
-                .select('id, name, owner_id, is_public, created_at')
+                .select('id, name, organization_id, creator, is_public, created_at')
                 .eq('id', id)
                 .single()
 
@@ -37,12 +37,43 @@ export default defineEventHandler(async (event) => {
             throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard'})
         }
 
-        // Access control: if not public, require owner OR valid render context
+        // Access control: if not public, require org membership OR valid render context
+        let user: any = null
+        let userOrg: string | null = null
+        let sameOrg = false
+        let isOwner = false
         try {
             if (!dashboard.is_public && !isRenderContext) {
-                const user = await serverSupabaseUser(event)
-                if (!user || user.id !== dashboard.owner_id) {
+                user = await serverSupabaseUser(event)
+                if (!user) {
                     throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                }
+                const {data: profile, error: profileError} = await supabaseAdmin
+                    .from('profiles')
+                    .select('organization_id')
+                    .eq('user_id', user.id)
+                    .single()
+                if (profileError || !profile?.organization_id) {
+                    throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                }
+                userOrg = profile.organization_id
+                sameOrg = userOrg === dashboard.organization_id
+                isOwner = sameOrg // org-scoped ownership; org members can edit
+                if (!sameOrg) {
+                    throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                }
+            } else {
+                // For public dashboards, capture org context if user is present
+                user = await serverSupabaseUser(event).catch(() => null as any)
+                if (user) {
+                    const {data: profile} = await supabaseAdmin
+                        .from('profiles')
+                        .select('organization_id')
+                        .eq('user_id', user.id)
+                        .maybeSingle()
+                    userOrg = profile?.organization_id ?? null
+                    sameOrg = !!userOrg && userOrg === dashboard.organization_id
+                    isOwner = sameOrg
                 }
             }
         } catch (e: any) {
@@ -113,30 +144,20 @@ export default defineEventHandler(async (event) => {
             throw createError({statusCode: 500, statusMessage: 'Failed to load charts'})
         }
 
-        // Get user and determine ownership
-        let user: any = null
-        let isOwner = false
-        try {
-            user = await serverSupabaseUser(event).catch(() => null as any)
-            isOwner = !!user && user.id === dashboard.owner_id
-        } catch (e: any) {
-            // Non-fatal, continue with user = null
-        }
-
         async function loadConnectionConfigForOwner(connectionId: number) {
             try {
-                // If owner is the requester, reuse existing helper (enforces ownership)
-                if (isOwner) {
+                // If same org as dashboard, reuse helper (enforces ownership/org on that helper)
+                if (sameOrg) {
                     return await loadConnectionConfigFromSupabase(event, Number(connectionId))
                 }
-                // Public access path: verify the connection belongs to the dashboard owner, then build cfg
+                // Public render path: verify the connection belongs to the dashboard org, then build cfg
                 const {data, error} = await supabaseAdmin
                     .from('data_connections')
-                    .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, owner_id')
+                    .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
                     .eq('id', Number(connectionId))
                     .single()
 
-                if (error || !data || data.owner_id !== dashboard.owner_id) {
+                if (error || !data || data.organization_id !== dashboard.organization_id) {
                     throw createError({statusCode: 403, statusMessage: 'Access to connection denied'})
                 }
                 return {

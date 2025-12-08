@@ -1,9 +1,10 @@
 <template>
-  <div>
+  <div class="min-h-screen flex flex-col">
+    <template v-if="roleLoaded">
     <!-- Color Scheme for theme management -->
     <ColorScheme/>
 
-    <div class="flex h-screen bg-gray-50">
+      <div class="flex flex-1 h-screen bg-gray-50">
       <!-- Mobile Overlay -->
       <div
           v-if="isMobileMenuOpen"
@@ -13,6 +14,7 @@
 
       <!-- Sidebar -->
       <div
+          v-if="showSideNav"
           :class="[
         'sidebar flex flex-col transition-transform duration-300 ease-in-out',
         'fixed lg:static inset-y-0 left-0 z-50 w-64',
@@ -21,19 +23,40 @@
       >
         <div class="p-4 lg:p-6 border-b border-neutral-700 dark:border-[rgb(64,64,64)]">
           <div class="flex items-center justify-center">
-            <div class="logo-container">
+            <a href="/" class="logo-container block cursor-pointer">
               <img
                   src="/images/Optiqo_logo.png"
                   alt="Optiqo"
                   class="h-6 lg:h-8 w-auto"
               />
-            </div>
+            </a>
           </div>
         </div>
 
         <nav class="flex-1 p-4 space-y-2">
+          <!-- Mobile-only top nav items -->
+          <div v-if="topNavItems.length" class="lg:hidden space-y-1 mb-3">
+            <NuxtLink
+                v-for="item in topNavItems"
+                :key="item.route"
+                :to="item.route"
+                class="sidebar-item"
+                :class="{ active: isActiveRoute(item.route) }"
+                @click="closeMobileMenu"
+            >
+              <Icon name="i-heroicons-arrow-top-right-on-square" class="w-5 h-5"/>
+              {{ item.label }}
+            </NuxtLink>
+          </div>
+
+          <!-- Divider between mobile top nav and side nav when both exist -->
+          <div v-if="topNavItems.length && sideNavItems.length" class="lg:hidden">
+            <hr class="border-neutral-600 dark:border-[rgb(64,64,64)] my-2">
+          </div>
+
+          <!-- Side nav items -->
           <NuxtLink
-              v-for="item in navigationItems"
+              v-for="item in sideNavItems"
               :key="item.route"
               :to="item.route"
               class="sidebar-item"
@@ -95,22 +118,35 @@
               >
                 <Icon :name="isMobileMenuOpen ? 'i-heroicons-x-mark' : 'i-heroicons-bars-3'" class="w-5 h-5"/>
               </button>
-              <button @click="navigateTo('/my-dashboard')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide">
+              <template v-if="isEditorOrViewer">
+                <OptiqoLogo/>
+              </template>
+              <template v-else>
+                <NuxtLink to="/" class="text-xl lg:text-sm font-heading font-semibold tracking-wide cursor-pointer">
                 OPTIQO
-              </button>
+                </NuxtLink>
+              </template>
               <!-- Desktop Navigation -->
-              <nav class="hidden lg:flex gap-6">
-                <a href="/data-sources" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">CONNECT</a>
-                <a href="/reporting/builder" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ANALYZE</a>
-                <a href="/dashboards" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">DASHBOARDS</a>
-                <a href="/reports" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">REPORTS</a>
-                <a href="/alarms" class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors">ALARMS</a>
+              <nav v-if="topNavItems.length" class="hidden lg:flex gap-6">
+                <NuxtLink
+                    v-for="item in topNavItems"
+                    :key="item.route"
+                    :to="item.route"
+                    class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors"
+                >
+                  {{ item.label }}
+                </NuxtLink>
               </nav>
               <!-- Mobile Navigation -->
-              <nav class="lg:hidden flex gap-2 text-xs">
-                <a href="/data-sources" class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">CONNECT</a>
-                <a href="/reporting/builder" class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">ANALYZE</a>
-                <a href="/dashboards" class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors">DASH</a>
+              <nav v-if="topNavItems.length" class="lg:hidden flex gap-2 text-xs">
+                <NuxtLink
+                    v-for="item in topNavItems"
+                    :key="item.route"
+                    :to="item.route"
+                    class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors"
+                >
+                  {{ item.shortLabel || item.label }}
+                </NuxtLink>
               </nav>
             </div>
             <div class="flex items-center gap-2 lg:gap-4">
@@ -162,6 +198,15 @@
         </footer>
       </div>
     </div>
+    </template>
+    <template v-else>
+      <div class="flex flex-1 items-center justify-center h-screen bg-gray-50">
+        <div class="flex items-center gap-3 text-gray-600">
+          <Icon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin"/>
+          <span>Loading workspace...</span>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -178,6 +223,14 @@ const route = useRoute()
 
 // Get organization from user profile
 const organization = computed(() => userProfile.value?.organization)
+
+const role = computed(() => userProfile.value?.role)
+const roleLoaded = computed(() => role.value !== undefined && role.value !== null)
+const isViewer = computed(() => role.value === 'VIEWER')
+const isEditor = computed(() => role.value === 'EDITOR')
+const isAdmin = computed(() => role.value === 'ADMIN')
+const isSuperAdmin = computed(() => role.value === 'SUPERADMIN')
+const isEditorOrViewer = computed(() => isEditor.value || isViewer.value)
 
 // User display properties
 const userDisplayName = computed(() => {
@@ -197,34 +250,50 @@ const currentYear = computed(() => new Date().getFullYear())
 
 const isMobileMenuOpen = ref(false)
 
-// Navigation items based on user role
-const navigationItems = computed(() => {
-  // Admin users get admin navigation
-  if (userProfile.value?.role === 'ADMIN') {
+// Top navigation items by role (content work)
+const topNavItems = computed(() => {
+  if (isSuperAdmin.value) return []
+  if (isViewer.value) {
     return [
-      {icon: 'i-heroicons-home', label: 'Dashboard', route: '/admin'},
+      {label: 'DASHBOARDS', shortLabel: 'DASH', route: '/dashboards'},
+      {label: 'REPORTS', route: '/reports'}
+    ]
+  }
+  // ADMIN and EDITOR
+  return [
+    {label: 'CONNECT', route: '/data-sources'},
+    {label: 'ANALYZE', route: '/reporting/builder'},
+    {label: 'DASHBOARDS', shortLabel: 'DASH', route: '/dashboards'},
+    {label: 'REPORTS', route: '/reports'}
+  ]
+})
+
+// Side navigation items by role (admin work)
+const sideNavItems = computed(() => {
+  if (isSuperAdmin.value) {
+    return [
+      {icon: 'i-heroicons-home', label: 'Admin Dashboard', route: '/admin'},
       {icon: 'i-heroicons-users', label: 'Users', route: '/admin/users'},
       {icon: 'i-heroicons-eye', label: 'Viewers', route: '/admin/viewers'},
       {icon: 'i-heroicons-building-office', label: 'Organizations', route: '/organizations'},
-      {icon: 'i-heroicons-document-chart-bar', label: 'Reports', route: '/reports'},
       {icon: 'i-heroicons-queue-list', label: 'Email Queue', route: '/reports/monitor'}
     ]
-  } else {
-    // Regular users (EDITORS and VIEWERS) get user navigation
+  }
+  if (isAdmin.value) {
     return [
-      {icon: 'i-heroicons-home', label: 'Dashboard', route: '/dashboard'},
-      {icon: 'i-heroicons-circle-stack', label: 'Data Sources', route: '/data-sources'},
-      {icon: 'i-heroicons-chart-bar', label: 'My Desk', route: '/my-dashboard'},
-      {icon: 'i-heroicons-document-chart-bar', label: 'Reports', route: '/reports'},
-      {icon: 'i-heroicons-users', label: 'Users', route: '/users'},
-      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/viewers'},
-      {icon: 'i-heroicons-shield-check', label: 'SSO', route: '/sso'},
-      {icon: 'i-heroicons-user', label: 'Account', route: '/account'},
-      {icon: 'i-heroicons-question-mark-circle', label: 'Support', route: '/support'},
-      {icon: 'i-heroicons-credit-card', label: 'Plan & Billing', route: '/billing'}
+      {icon: 'i-heroicons-home', label: 'Admin Dashboard', route: '/admin'},
+      {icon: 'i-heroicons-users', label: 'Users', route: '/admin/users'},
+      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/admin/viewers'},
+      {icon: 'i-heroicons-building-office', label: 'Organizations', route: '/organizations'}
     ]
   }
+  // Editors/Viewers: no side nav
+  return []
 })
+
+const showSideNav = computed(() =>
+    sideNavItems.value.length > 0 || (isMobileMenuOpen.value && topNavItems.value.length > 0)
+)
 
 // Account dropdown menu items
 const accountMenuItems = computed(() => {
@@ -236,8 +305,8 @@ const accountMenuItems = computed(() => {
     }]
   ]
 
-  // Add dashboard navigation for ADMIN users
-  if (userProfile.value?.role === 'ADMIN') {
+  // Add dashboard navigation for ADMIN and SUPERADMIN users
+  if (userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN') {
     baseItems.push([{
       label: 'Admin Dashboard',
       icon: 'i-heroicons-shield-check',
@@ -245,7 +314,7 @@ const accountMenuItems = computed(() => {
     }, {
       label: 'User Dashboard',
       icon: 'i-heroicons-home',
-      to: '/dashboard'
+      to: '/'
     }])
   }
 
@@ -292,7 +361,7 @@ const isActiveRoute = (routePath: string) => {
 
   // Special handling to avoid multiple active items for nested routes
   // Check if there are navigation items with more specific routes that match the current path
-  const allNavRoutes = navigationItems.value.map(item => item.route)
+  const allNavRoutes = sideNavItems.value.map(item => item.route)
   const moreSpecificRoutes = allNavRoutes.filter(r =>
       r !== routePath &&
       currentPath.startsWith(r) &&

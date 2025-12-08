@@ -94,7 +94,7 @@
                 v-model="form.organizationName"
                 placeholder="Enter your organization name"
                 :error="errors.organizationName"
-                class="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
+                class="w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0"
               />
               <template #help>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">

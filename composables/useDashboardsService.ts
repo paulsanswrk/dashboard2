@@ -1,7 +1,8 @@
 export type Dashboard = {
   id: string
   name: string
-  owner_id: string
+    organization_id: string
+    creator: string
   is_public: boolean
   password?: string
   created_at: string

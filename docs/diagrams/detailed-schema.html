@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Schema - Detailed View</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            margin: 0 auto;
+            padding: 15px;
+            background-color: white;
+            font-size: 10px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .schema-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .schema-table td {
+            vertical-align: top;
+            padding: 15px;
+            border: 2px solid #ddd;
+            width: 25%;
+        }
+
+        .table-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+
+        .column {
+            margin: 3px 0;
+            font-size: 11px;
+        }
+
+        .column-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .column-type {
+            color: #7f8c8d;
+            font-style: italic;
+            margin-left: 8px;
+        }
+
+        .fk-badge {
+            background-color: #f39c12;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .pk-badge {
+            background-color: #27ae60;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .enum-label {
+            color: #34495e;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .not-null {
+            color: #c0392b;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        @media print {
+            body {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<table class="schema-table">
+    <tr>
+        <!-- Column 1: User Management -->
+        <td>
+            <div class="table-name">organizations</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">viewer_count</span><span class="column-type">integer</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_by</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <hr>
+
+            <div class="table-name">profiles</div>
+            <div class="column"><span class="column-name">user_id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">first_name</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">last_name</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">role</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">organization_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">avatar_url</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">viewer_type</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">group_name</span><span class="column-type">text</span></div>
+            <hr>
+
+            <div class="table-name">viewers</div>
+            <div class="column"><span class="column-name">user_id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">organization_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">first_name</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">last_name</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">viewer_type</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">group_name</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+
+            <hr>
+
+            <div class="table-name">user_groups</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">organization_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">created_by</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+
+            <hr>
+
+            <div class="table-name">user_group_members</div>
+            <div class="column"><span class="column-name">group_id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">user_id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+
+            <hr>
+
+        </td>
+
+        <!-- Column 2: Dashboard Management -->
+        <td>
+            <div class="table-name">dashboards</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">is_public</span><span class="column-type">boolean</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">password</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">organization_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">creator</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <hr>
+
+            <div class="table-name">dashboard_access</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">dashboard_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">shared_by</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">target_type</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">target_user_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">target_org_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">target_group_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">access_level</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <hr>
+
+            <div class="table-name">dashboard_tab</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">dashboard_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">position</span><span class="column-type">integer</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+
+
+            <hr>
+            <div class="table-name">charts</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">bigserial</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">description</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">owner_email</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">owner_id</span><span class="column-type">uuid</span></div>
+            <div class="column"><span class="column-name">state_json</span><span class="column-type">jsonb</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">updated_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">data_connection_id</span><span class="column-type">bigint</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">width</span><span class="column-type">integer</span></div>
+            <div class="column"><span class="column-name">height</span><span class="column-type">integer</span></div>
+            <div class="column"><span class="column-name">thumbnail_url</span><span class="column-type">text</span></div>
+        </td>
+
+        <!-- Column 3: Charts & Data -->
+        <td>
+
+            <div class="table-name">dashboard_charts</div>
+            <div class="column"><span class="column-name">chart_id</span><span class="column-type">bigint</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">position</span><span class="column-type">jsonb</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">tab_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">config_override</span><span class="column-type">jsonb</span><span class="not-null">Not null</span></div>
+            <hr>
+
+            <div class="table-name">data_connections</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">bigserial</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">owner_id</span><span class="column-type">uuid</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">organization_id</span><span class="column-type">uuid</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">internal_name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">database_name</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">database_type</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">host</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">username</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">password</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">port</span><span class="column-type">integer</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">server_time</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">use_ssh_tunneling</span><span class="column-type">boolean</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">ssh_auth_method</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">ssh_port</span><span class="column-type">integer</span></div>
+            <div class="column"><span class="column-name">ssh_user</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">ssh_host</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">ssh_password</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">ssh_private_key</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">storage_location</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">updated_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">schema_json</span><span class="column-type">jsonb</span></div>
+            <div class="column"><span class="column-name">auto_join_info</span><span class="column-type">jsonb</span></div>
+            <div class="column"><span class="column-name">dbms_version</span><span class="column-type">text</span></div>
+
+            <hr>
+            <div class="table-name">email_queue</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">report_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">scheduled_for</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">delivery_status</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">attempt_count</span><span class="column-type">integer</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">error_message</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">processed_at</span><span class="column-type">timestamp</span></div>
+
+        </td>
+
+        <!-- Column 4: Reporting & Logging -->
+        <td>
+            <div class="table-name">reports</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">user_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">report_title</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">recipients</span><span class="column-type">jsonb</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">email_subject</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">email_message</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">scope</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">time_frame</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">formats</span><span class="column-type">jsonb</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">interval</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">send_time</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">timezone</span><span class="column-type">text</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">day_of_week</span><span class="column-type">jsonb</span></div>
+            <div class="column"><span class="column-name">status</span><span class="column-type">text</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">dashboard_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">tab_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">formats_metadata</span><span class="column-type">jsonb</span></div>
+            <div class="column"><span class="column-name">next_run_at</span><span class="column-type">timestamp</span></div>
+
+            <hr>
+
+            <div class="table-name">app_log</div>
+            <div class="column"><span class="column-name">id</span><span class="column-type">uuid</span><span class="pk-badge">PK</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">time</span><span class="column-type">timestamp</span></div>
+            <div class="column"><span class="column-name">level</span><span class="column-type">varchar(10)</span><span class="enum-label">ENUM</span><span class="not-null">Not null</span></div>
+            <div class="column"><span class="column-name">module</span><span class="column-type">varchar(255)</span></div>
+            <div class="column"><span class="column-name">stacktrace</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">request</span><span class="column-type">jsonb</span></div>
+            <div class="column"><span class="column-name">response</span><span class="column-type">jsonb</span></div>
+            <div class="column"><span class="column-name">user_id</span><span class="column-type">uuid</span><span class="fk-badge">FK</span></div>
+            <div class="column"><span class="column-name">url</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">tag</span><span class="column-type">text</span></div>
+            <div class="column"><span class="column-name">created_at</span><span class="column-type">timestamp</span></div>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

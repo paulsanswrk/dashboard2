@@ -1,21 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
-import { capitalizeRole } from '../../utils/roleUtils'
+import {capitalizeRole} from '../../utils/roleUtils'
+import {createOrganization, createProfile, findOrganizationByName, findProfileByUserId, updateProfile} from '~/lib/db/queries/profiles'
 
 export default defineEventHandler(async (event) => {
   try {
-    // Get environment variables
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: 'Missing Supabase configuration'
-      })
-    }
-
-    // Create Supabase client with service role (bypasses RLS)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get the request body
     const body = await readBody(event)
@@ -42,121 +29,81 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Prepare profile data for optiqo-dashboard structure
-    const profileDataToCreate = {
-      user_id: userId,
-      first_name: profileData?.firstName || userMetadata?.firstName || null,
-      last_name: profileData?.lastName || userMetadata?.lastName || null,
-      role: capitalizedRole,
-      organization_id: null, // Will be set later if organization is created
-      created_at: new Date().toISOString()
-    }
-
-    console.log('Profile data to create:', profileDataToCreate)
-
     // Check if profile already exists
-    const { data: existingProfile, error: checkError } = await supabase
-      .from('profiles')
-      .select('user_id')
-      .eq('user_id', userId)
-      .single()
+      const existingProfile = await findProfileByUserId(userId)
 
     if (existingProfile) {
       console.log('Profile already exists, updating...')
       // Profile already exists, update it
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: profileDataToCreate.first_name,
-          last_name: profileDataToCreate.last_name,
-          role: capitalizedRole
+        const updatedProfile = await updateProfile(userId, {
+            firstName: profileData?.firstName || userMetadata?.firstName || null,
+            lastName: profileData?.lastName || userMetadata?.lastName || null,
+            role: capitalizedRole
         })
-        .eq('user_id', userId)
-        .select()
-        .single()
 
-      if (error) {
-        console.error('Error updating profile:', error)
-        throw createError({
-          statusCode: 500,
-          statusMessage: `Error updating profile: ${error.message}`
-        })
-      }
-
-      console.log('Profile updated successfully:', data)
-      return { success: true, profile: data, action: 'updated' }
+        console.log('Profile updated successfully:', updatedProfile)
+        return {success: true, profile: updatedProfile, action: 'updated'}
     }
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking profile existence:', checkError)
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Error checking profile: ${checkError.message}`
-      })
-    }
-
-    // Handle organization creation if needed
+      // Handle organization assignment/creation
     let organizationId = null
-    if (profileData?.organizationName && capitalizedRole === 'ADMIN') {
-      console.log('Creating organization for admin user...')
-      
-      // Check if organization already exists
-      const { data: existingOrg, error: orgCheckError } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('name', profileData.organizationName)
-        .single()
 
-      if (existingOrg) {
-        organizationId = existingOrg.id
-        console.log('Organization already exists:', organizationId)
-      } else if (!orgCheckError || orgCheckError.code === 'PGRST116') {
-        // Create new organization
-        const { data: newOrg, error: orgCreateError } = await supabase
-          .from('organizations')
-          .insert({
+      // SUPERADMIN users must have organization_id = null
+      if (capitalizedRole === 'SUPERADMIN') {
+          organizationId = null
+          console.log('SUPERADMIN user - setting organization_id to null')
+      } else {
+          // All other roles (ADMIN, EDITOR, VIEWER) must have organization_id IS NOT NULL
+
+          if (profileData?.organizationName && capitalizedRole === 'ADMIN') {
+              console.log('Creating/joining organization for admin user...')
+
+              // Check if organization already exists
+              const existingOrg = await findOrganizationByName(profileData.organizationName)
+
+              if (existingOrg) {
+                  organizationId = existingOrg.id
+                  console.log('Organization already exists:', organizationId)
+              } else {
+                  // Create new organization
+                  const newOrg = await createOrganization({
             name: profileData.organizationName,
-            viewer_count: 0,
-            created_by: profileDataToCreate.user_id
+                      createdBy: userId
           })
-          .select()
-          .single()
-
-        if (orgCreateError) {
-          console.error('Error creating organization:', orgCreateError)
-          // Don't fail the entire request if organization creation fails
-        } else {
           organizationId = newOrg.id
           console.log('Organization created successfully:', newOrg)
         }
+          } else {
+              // No organization specified - create a default organization for the user
+              console.log('Creating default organization for user...')
+
+              const defaultOrgName = `${profileData?.firstName || userMetadata?.firstName || 'User'}'s Organization`
+
+              const newOrg = await createOrganization({
+                  name: defaultOrgName,
+                  createdBy: userId
+              })
+              organizationId = newOrg.id
+              console.log('Default organization created successfully:', newOrg)
       }
     }
 
-    // Update profile data with organization ID
-    profileDataToCreate.organization_id = organizationId
-
     // Profile doesn't exist, create it
     console.log('Profile does not exist, creating new one...')
-    const { data: profile, error: createError } = await supabase
-      .from('profiles')
-      .insert(profileDataToCreate)
-      .select()
-      .single()
-
-    if (createError) {
-      console.error('Error creating profile:', createError)
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Error creating profile: ${createError.message}`
+      const profile = await createProfile({
+          userId: userId,
+          firstName: profileData?.firstName || userMetadata?.firstName || null,
+          lastName: profileData?.lastName || userMetadata?.lastName || null,
+          role: capitalizedRole,
+          organizationId: organizationId
       })
-    }
 
     console.log('Profile created successfully:', profile)
 
-    return { 
-      success: true, 
-      profile, 
-      action: 'created' 
+      return {
+          success: true,
+          profile,
+          action: 'created'
     }
 
   } catch (error: any) {

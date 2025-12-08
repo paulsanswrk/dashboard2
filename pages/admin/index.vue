@@ -10,8 +10,25 @@
       class="mb-6"
       @close="showWelcomeMessage = false"
     />
-    
-    <div class="flex justify-between items-center">
+
+    <!-- Loading State -->
+    <div v-if="loading" class="flex justify-center items-center py-12">
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-gray-600 dark:text-gray-300"/>
+      <span class="ml-2 text-gray-600 dark:text-gray-300">Loading dashboard data...</span>
+    </div>
+
+    <!-- Error State -->
+    <UAlert
+        v-if="error && !loading"
+        color="red"
+        variant="soft"
+        title="Error Loading Dashboard"
+        :description="error"
+        class="mb-6"
+    />
+
+    <!-- Main Content -->
+    <div v-if="!loading && !error" class="flex justify-between items-center">
       <h1 class="text-2xl font-heading font-bold tracking-tight">
         Admin Dashboard - {{ userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'Admin' }}
       </h1>
@@ -52,27 +69,6 @@
         </div>
       </UCard>
 
-      <!-- Recent Activity -->
-      <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-        <template #header>
-          <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">Recent Activity</h3>
-        </template>
-        
-        <div class="space-y-4">
-          <div v-for="activity in recentActivities" :key="activity.id" class="flex justify-between items-center">
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                <Icon :name="activity.icon" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
-              </div>
-              <div>
-                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activity.action }}</p>
-                <p class="text-xs text-gray-600 dark:text-gray-300">{{ activity.user }}</p>
-              </div>
-            </div>
-            <span class="text-xs text-gray-500 dark:text-gray-400">{{ activity.time }}</span>
-          </div>
-        </div>
-      </UCard>
     </div>
 
     <!-- Quick Actions Grid -->
@@ -170,40 +166,80 @@ if (route.query.welcome === 'true') {
   showWelcomeMessage.value = true
 }
 
-// Organization statistics (mock data for now)
+// Organization statistics
 const organizationStats = ref({
-  charts: 1247,
-  dashboards: 89,
-  users: 12,
-  viewers: 45
+  charts: 0,
+  dashboards: 0,
+  users: 0,
+  viewers: 0
 })
 
-// Recent activities (mock data)
-const recentActivities = ref([
-  {id: 1, action: 'New user added', user: 'John Smith', time: '2 min ago', icon: 'i-heroicons-user-plus'},
-  {id: 2, action: 'Dashboard shared', user: 'Sarah Johnson', time: '15 min ago', icon: 'i-heroicons-share'},
-  {id: 3, action: 'Viewer invited', user: 'Mike Chen', time: '1 hour ago', icon: 'i-heroicons-eye'},
-  {id: 4, action: 'Organization updated', user: 'Admin', time: '2 hours ago', icon: 'i-heroicons-building-office'}
-])
+// Recent activities
+const recentActivities = ref([])
 
-// Recent users (mock data)
-const recentUsers = ref([
-  { id: 1, name: 'John Smith' },
-  { id: 2, name: 'Sarah Johnson' },
-  { id: 3, name: 'Mike Chen' }
-])
+// Recent users
+const recentUsers = ref([])
 
-// Recent viewers (mock data)
-const recentViewers = ref([
-  { id: 1, name: 'Viewer 1' },
-  { id: 2, name: 'Viewer 2' },
-  { id: 3, name: 'Viewer 3' }
-])
+// Recent viewers
+const recentViewers = ref([])
 
-// Recent organizations (mock data)
-const recentOrganizations = computed(() => [
-  { id: 1, name: organization.value?.name || 'Current Org' }
-])
+// Recent organizations
+const recentOrganizations = ref([])
+
+// Loading and error states
+const loading = ref(true)
+const error = ref(null)
+
+// Fetch admin dashboard data
+const fetchDashboardData = async () => {
+  try {
+    loading.value = true
+    error.value = null
+
+    const supabase = useSupabaseClient()
+    const {data: {session}} = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      throw new Error('No valid session found')
+    }
+
+    const response = await $fetch('/api/admin/dashboard', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    })
+
+    if (response.success) {
+      organizationStats.value = response.data.organizationStats
+      recentActivities.value = response.data.recentActivities
+      recentUsers.value = response.data.recentUsers
+      recentViewers.value = response.data.recentViewers
+      recentOrganizations.value = response.data.recentOrganizations
+    } else {
+      throw new Error(response.error || 'Failed to fetch dashboard data')
+    }
+  } catch (err) {
+    error.value = err.message || 'Failed to load dashboard data'
+    console.error('Error fetching dashboard data:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Watch for user authentication and fetch data
+const user = useSupabaseUser()
+watch(user, async (newUser) => {
+  if (newUser) {
+    await fetchDashboardData()
+  } else {
+    // Reset data when user logs out
+    organizationStats.value = {charts: 0, dashboards: 0, users: 0, viewers: 0}
+    recentActivities.value = []
+    recentUsers.value = []
+    recentViewers.value = []
+    recentOrganizations.value = []
+  }
+}, {immediate: true})
 
 // Page meta
 definePageMeta({

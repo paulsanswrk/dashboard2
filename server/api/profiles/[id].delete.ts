@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../supabase'
-import { getCookie } from 'h3'
+import {supabaseAdmin} from '../supabase'
+import {getCookie} from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -40,7 +40,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check if user can delete this profile
-    const canDelete = 
+      const canDelete =
+          currentUserProfile.role === 'SUPERADMIN' || // Superadmins can delete any profile
       currentUserProfile.role === 'ADMIN' || // Admins can delete any profile
       (currentUserProfile.role === 'EDITOR' && profileId === user.id) // Editors can delete their own profile
 
@@ -51,8 +52,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Prevent users from deleting their own profile if they're the only admin
-    if (profileId === user.id && currentUserProfile.role === 'ADMIN') {
+      // Prevent users from deleting their own profile if they're the only admin/superadmin
+      if (profileId === user.id && (currentUserProfile.role === 'ADMIN' || currentUserProfile.role === 'SUPERADMIN')) {
       // Check if there are other admins
       const { data: otherAdmins, error: adminsError } = await supabaseAdmin
         .from('profiles')

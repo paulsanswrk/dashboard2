@@ -2,14 +2,15 @@
 
 ## Overview
 
-This document describes the implementation of the Admin Dashboard functionality in the Optiqo application. The admin dashboard provides organization-wide management capabilities for users with ADMIN role, while maintaining the ability for admins to switch to a user view for testing purposes.
+This document describes the implementation of the Admin Dashboard functionality in the Optiqo application. The admin dashboard provides organization-wide management capabilities for users with ADMIN or SUPERADMIN role, while maintaining the ability for admins to switch to a user view for testing purposes.
 
 ## Key Features Implemented
 
 ### 1. Role-Based Authentication & Redirects
-- **Post-Login Redirects**: ADMIN users are automatically redirected to `/admin` after login
-- **Route Protection**: Non-ADMIN users cannot access `/admin` (redirected to `/dashboard`)
-- **Flexible Access**: ADMIN users can access both `/admin` and `/dashboard` directly
+
+- **Post-Login Redirects**: ADMIN and SUPERADMIN users are automatically redirected to `/admin` after login
+- **Route Protection**: Non-admin users cannot access `/admin` (redirected to `/dashboard`)
+- **Flexible Access**: ADMIN and SUPERADMIN users can access both `/admin` and `/dashboard` directly
 
 ### 2. Separate Dashboard Pages
 - **Admin Dashboard** (`/admin`): Organization-wide management view
@@ -22,7 +23,8 @@ This document describes the implementation of the Admin Dashboard functionality 
 - **User Navigation**: Shows full user menu including Data Sources, My Desk, etc.
 
 ### 4. Enhanced Account Menu
-- **Dual Dashboard Access**: ADMIN users see both "Admin Dashboard" and "User Dashboard" links
+
+- **Dual Dashboard Access**: ADMIN and SUPERADMIN users see both "Admin Dashboard" and "User Dashboard" links
 - **Seamless Switching**: Easy navigation between admin and user views
 
 ## Implementation Details
@@ -85,7 +87,6 @@ const navigationItems = computed(() => {
     return [
       { icon: 'heroicons:home', label: 'Dashboard', route: '/dashboard' },
       { icon: 'heroicons:circle-stack', label: 'Data Sources', route: '/data-sources' },
-      { icon: 'heroicons:chart-bar', label: 'My Desk', route: '/my-dashboard' },
       // ... other user navigation items
     ]
   }
@@ -94,8 +95,8 @@ const navigationItems = computed(() => {
 
 #### Account Menu Enhancement
 ```javascript
-// Add dashboard navigation for ADMIN users
-if (userProfile.value?.role === 'ADMIN') {
+// Add dashboard navigation for ADMIN and SUPERADMIN users
+if (userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN') {
   baseItems.push([{
     label: 'Admin Dashboard',
     icon: 'heroicons:shield-check',
@@ -113,17 +114,17 @@ if (userProfile.value?.role === 'ADMIN') {
 #### Login Redirects
 ```javascript
 // Redirect based on user role
-if (userProfile.value?.role === 'ADMIN') {
+if (userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN') {
   await navigateTo('/admin')
 } else {
-  await navigateTo('/my-dashboard')
+    await navigateTo('/dashboard')
 }
 ```
 
 #### Middleware Protection
 ```javascript
-// Check if user is not ADMIN and trying to access admin - redirect to dashboard
-if (profile.role !== 'ADMIN' && to.path === '/admin') {
+// Check if user is not ADMIN/SUPERADMIN and trying to access admin - redirect to dashboard
+if (profile.role !== 'ADMIN' && profile.role !== 'SUPERADMIN' && to.path === '/admin') {
   return navigateTo('/dashboard')
 }
 ```
@@ -137,13 +138,15 @@ if (profile.role !== 'ADMIN' && to.path === '/admin') {
 4. Navigation adapts based on current route
 
 ### 2. Dashboard Switching
-1. ADMIN user clicks "User Dashboard" in account menu
+
+1. ADMIN or SUPERADMIN user clicks "User Dashboard" in account menu
 2. Navigates to `/dashboard`
 3. Navigation switches to user navigation
 4. Content shows user-focused dashboard
 
 ### 3. Organization Management
-1. ADMIN user navigates to `/organizations`
+
+1. ADMIN or SUPERADMIN user navigates to `/organizations`
 2. Navigation shows admin navigation
 3. CRUD operations for organization management
 4. Real-time updates to organization list
@@ -151,7 +154,8 @@ if (profile.role !== 'ADMIN' && to.path === '/admin') {
 ## Security Considerations
 
 ### 1. Route Protection
-- Non-ADMIN users cannot access `/admin` routes
+
+- Non-admin users cannot access `/admin` routes
 - Middleware validates user role before allowing access
 - Automatic redirects prevent unauthorized access
 
@@ -162,7 +166,7 @@ if (profile.role !== 'ADMIN' && to.path === '/admin') {
 
 ### 3. Navigation Security
 - Navigation items are filtered based on user permissions
-- Admin-only features are only visible to ADMIN users
+- Admin-only features are only visible to ADMIN and SUPERADMIN users
 - Context-aware navigation prevents confusion
 
 ## Testing Scenarios

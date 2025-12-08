@@ -3,7 +3,7 @@
  * Handles all user role redirects consistently across the application
  */
 
-export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER'
+export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'EDITOR' | 'VIEWER'
 
 export interface UserProfile {
   id: string
@@ -24,15 +24,16 @@ export interface UserProfile {
  */
 export function getRedirectPathByRole(role: UserRole): string {
   switch (role) {
+      case 'SUPERADMIN':
     case 'ADMIN':
       return '/admin'
     case 'EDITOR':
     case 'VIEWER':
-      return '/dashboard'
+        return '/'
     default:
       // Fallback for unknown roles
-      console.warn(`Unknown role: ${role}, defaulting to dashboard`)
-      return '/dashboard'
+        console.warn(`Unknown role: ${role}, defaulting to home`)
+        return '/'
   }
 }
 
@@ -56,16 +57,28 @@ export function getRedirectPathFromProfile(userProfile: UserProfile | null): str
  * @returns True if the user can access the path
  */
 export function canAccessPath(role: UserRole, path: string): boolean {
+    // Superadmin can access everything
+    if (role === 'SUPERADMIN') {
+        return true
+    }
+
   // Admin can access everything
   if (role === 'ADMIN') {
     return true
   }
-  
+
+    // Viewers cannot access data connections or reporting builder
+    if (role === 'VIEWER') {
+        if (path.startsWith('/data-sources') || path.startsWith('/reporting')) {
+            return false
+        }
+    }
+
   // Non-admin users cannot access admin paths
   if (path.startsWith('/admin')) {
     return false
   }
-  
+
   // All other paths are accessible to EDITOR and VIEWER
   return true
 }
@@ -77,11 +90,11 @@ export function canAccessPath(role: UserRole, path: string): boolean {
  * @returns The fallback path to redirect to
  */
 export function getFallbackPath(role: UserRole, requestedPath: string): string {
-  // If they tried to access admin but aren't admin, redirect to their dashboard
-  if (requestedPath.startsWith('/admin') && role !== 'ADMIN') {
+    // If they tried to access admin but aren't admin or superadmin, redirect to their dashboard
+    if (requestedPath.startsWith('/admin') && role !== 'ADMIN' && role !== 'SUPERADMIN') {
     return getRedirectPathByRole(role)
   }
-  
-  // Default to their role-based dashboard
+
+    // Default to their role-based dashboard
   return getRedirectPathByRole(role)
 }

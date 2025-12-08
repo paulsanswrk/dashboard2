@@ -1,5 +1,5 @@
-import { ref, computed, watch } from 'vue'
-import { getRedirectPathFromProfile, type UserRole } from '~/server/utils/redirectUtils'
+import {computed, ref, watch} from 'vue'
+import {getRedirectPathFromProfile} from '~/server/utils/redirectUtils'
 
 export interface Organization {
   id: string
@@ -15,7 +15,7 @@ export interface UserProfile {
   firstName: string
   lastName: string
   organizationId: string | null
-  role: 'ADMIN' | 'EDITOR' | 'VIEWER'
+    role: 'SUPERADMIN' | 'ADMIN' | 'EDITOR' | 'VIEWER'
   organization?: Organization
   avatar_url?: string | null
   created_at: string
@@ -37,7 +37,7 @@ export const useAuth = () => {
   const isAuthenticated = computed(() => !!user.value)
   
   const isAdmin = computed(() => {
-    return userProfile.value?.role === 'ADMIN'
+      return userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN'
   })
 
   // Clear messages
@@ -265,9 +265,9 @@ export const useAuth = () => {
   // Check if user can invite more users (license validation)
   const canInviteUsers = computed(() => {
     if (!userProfile.value) return false
-    
-    // Only admins can invite users
-    return userProfile.value.role === 'ADMIN'
+
+      // Only admins and superadmins can invite users
+      return userProfile.value.role === 'ADMIN' || userProfile.value.role === 'SUPERADMIN'
   })
 
   // Centralized redirect function based on user role
