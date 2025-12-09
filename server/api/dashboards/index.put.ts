@@ -2,6 +2,7 @@ import {defineEventHandler, readBody} from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../supabase'
+import {uploadDashboardThumbnail} from '../../utils/chartThumbnails'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -14,7 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { id, name, layout } = body || {}
+    const {id, name, layout, width, height, thumbnailBase64} = body || {}
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing dashboard id' })
 
     const {data: profile, error: profileError} = await supabaseAdmin
@@ -39,10 +40,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Dashboard not found' })
   }
 
-  if (name != null) {
+    if (name != null || width != null || height != null || thumbnailBase64) {
     const { error } = await supabaseAdmin
       .from('dashboards')
-      .update({ name })
+        .update({
+            ...(name != null ? {name} : {}),
+            ...(Number.isFinite(Number(width)) ? {width: Math.round(Number(width))} : {}),
+            ...(Number.isFinite(Number(height)) ? {height: Math.round(Number(height))} : {})
+        })
       .eq('id', id)
     if (error) throw createError({ statusCode: 500, statusMessage: error.message })
   }
@@ -86,6 +91,29 @@ export default defineEventHandler(async (event) => {
           if (err && (err as any).error) throw createError({statusCode: 500, statusMessage: (err as any).error.message})
       }
   }
+
+    if (thumbnailBase64) {
+        let organizationName: string | null = null
+        const {data: org, error: orgError} = await supabaseAdmin
+            .from('organizations')
+            .select('name')
+            .eq('id', profile.organization_id)
+            .single()
+        if (!orgError && org?.name) {
+            organizationName = org.name as string
+        }
+
+        try {
+            const thumbnailUrl = await uploadDashboardThumbnail(thumbnailBase64, organizationName, name || 'dashboard')
+            const {error: thumbErr} = await supabaseAdmin
+                .from('dashboards')
+                .update({thumbnail_url: thumbnailUrl})
+                .eq('id', id)
+            if (thumbErr) throw thumbErr
+        } catch (error: any) {
+            throw createError({statusCode: 500, statusMessage: error?.message || 'Thumbnail upload failed'})
+        }
+    }
 
   return { success: true }
 })

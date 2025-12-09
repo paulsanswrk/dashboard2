@@ -114,6 +114,9 @@ export const dashboards = pgTable('dashboards', {
     creator: uuid('creator').notNull().references(() => authUsers.id, {onDelete: 'cascade'}),
     isPublic: boolean('is_public').default(false).notNull(),
     password: text('password'),
+    width: integer('width'),
+    height: integer('height'),
+    thumbnailUrl: text('thumbnail_url'),
     createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
 }, (table) => [
     index('idx_dashboards_organization_id').on(table.organizationId),

@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     // Verify org access and get dashboard
   const { data: dashboard, error: dashError } = await supabaseAdmin
     .from('dashboards')
-      .select('id, name, organization_id, creator, is_public, created_at')
+      .select('id, name, organization_id, creator, is_public, created_at, width, height, thumbnail_url')
     .eq('id', id)
       .eq('organization_id', profile.organization_id)
     .single()
@@ -75,6 +75,9 @@ export default defineEventHandler(async (event) => {
     id: dashboard.id,
     name: dashboard.name,
     created_at: dashboard.created_at,
+      width: dashboard.width,
+      height: dashboard.height,
+      thumbnail_url: dashboard.thumbnail_url,
     charts: (links || []).map((it: any) => {
       const c = chartsById[it.chart_id]
       return {

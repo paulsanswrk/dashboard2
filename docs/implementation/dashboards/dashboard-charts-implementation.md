@@ -6,8 +6,9 @@ This document outlines the implementation of multi-tab dashboard charts function
 
 ## 🎯 Key Features
 
-- **Chart Saving**: Save complete chart configurations including SQL queries, appearance settings, and chart types
+- **Chart Saving**: Save complete chart configurations including SQL, appearance, chart type, and PNG thumbnails plus width/height
 - **Multi-Tab Dashboard Organization**: Create dashboards with multiple tabs, each containing charts with custom positioning
+- **Dashboard Thumbnails**: Dashboards capture PNG thumbnails on save (client-side snapshot) and store width/height
 - **Tab Management**: Create, rename, and delete dashboard tabs with full CRUD operations
 - **Vue Grid Layout Integration**: Charts are positioned using Vue Grid Layout for responsive dashboard layouts
 - **Complete State Preservation**: All chart state (SQL, filters, appearance, chart type) is preserved
@@ -44,6 +45,10 @@ CREATE TABLE public.charts (
     owner_email text NOT NULL,
     owner_id uuid,
     state_json jsonb NOT NULL,
+    data_connection_id bigint REFERENCES public.data_connections(id),
+    width integer,
+    height integer,
+    thumbnail_url text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -51,6 +56,9 @@ CREATE TABLE public.charts (
 
 **Key Fields:**
 - `state_json`: Complete chart state including SQL, filters, appearance, and chart configuration
+- `data_connection_id`: Stored alongside state for quicker filtering
+- `width` / `height`: Captured client-side canvas size when saved
+- `thumbnail_url`: Public URL to PNG stored in the `chart-thumbnails` bucket (PNG-only, generated client-side)
 - `owner_id`: Links to Supabase auth.users for ownership verification
 
 #### `dashboard_charts` Table (Junction Table - Modified)
@@ -79,8 +87,12 @@ CREATE TABLE public.dashboard_charts (
 -- tab_id: set when scope = 'Single Tab'
 ```
 
-#### `dashboards` Table (Existing)
+#### `dashboards` Table (Existing, extended)
 - Referenced by `dashboard_charts` for ownership and permissions
+- Extended with:
+    - `width integer`
+    - `height integer`
+    - `thumbnail_url text` (PNG stored in `dashboard-thumbnails` bucket, generated client-side with `html-to-image`)
 
 ## 🔧 API Endpoints
 
@@ -88,7 +100,8 @@ CREATE TABLE public.dashboard_charts (
 
 #### `POST /api/reporting/charts/`
 Creates a new saved chart.
-- **Input**: `{ name, description?, state }`
+
+- **Input**: `{ name, description?, state, width?, height?, thumbnailBase64? }`
 - **Output**: `{ success: true, chartId: number }`
 - **Authentication**: Required, verifies ownership
 
@@ -99,7 +112,8 @@ Lists saved charts for the authenticated user.
 
 #### `PUT /api/reporting/charts/`
 Updates an existing chart.
-- **Input**: `{ id, name?, description?, state? }`
+
+- **Input**: `{ id, name?, description?, state?, width?, height?, thumbnailBase64? }`
 - **Authentication**: Required, verifies ownership
 
 #### `DELETE /api/reporting/charts/`
@@ -150,18 +164,20 @@ Server endpoints for managing dashboards and layouts.
 #### `GET /api/dashboards`
 Lists dashboards owned by the authenticated user.
 
+- Returns `width`, `height`, and `thumbnail_url` for cards/list thumbnails.
+
 #### `GET /api/dashboards/:id/full`
 
-Returns complete dashboard with all tabs and their charts. Returns `{ id, name, isPublic, createdAt, tabs: [{ id, name, position, charts: [...] }] }`.
+Returns complete dashboard with all tabs and their charts. Returns `{ id, name, isPublic, createdAt, width?, height?, thumbnailUrl?, tabs: [{ id, name, position, charts: [...] }] }`.
 
 - **Authentication**: Required for private dashboards, public access for public dashboards
 - **Server Processing**: Loads dashboard, tabs, charts, and executes SQL queries in parallel
 
 #### `PUT /api/dashboards`
 
-Updates dashboard name.
+Updates dashboard metadata.
 
-- **Input**: `{ id, name }`
+- **Input**: `{ id, name?, layout?, width?, height?, thumbnailBase64? }`
 - **Output**: `{ success: true }`
 
 #### `DELETE /api/dashboards?id=...`
@@ -203,11 +219,15 @@ Enhanced to support dashboard saving functionality.
   - Integration with SelectBoardModal
   - Complete chart state saving (SQL, appearance, chart type)
   - Dashboard chart relationship creation
+  - Captures chart thumbnails (PNG) with width/height and uploads to `chart-thumbnails`
 
 ### Dashboards UI
 
 #### `pages/dashboards/index.vue` (New)
 Lists user dashboards with Create/Edit/Delete actions.
+
+- Provides List/Grid layout toggle (pill control) with persisted preference (localStorage).
+- Grid view shows dashboard thumbnails (from `thumbnail_url`) with created date; fallback text when missing.
 
 #### `pages/dashboards/[id].vue` (Enhanced)
 
@@ -220,6 +240,7 @@ Multi-tab dashboard editor with integrated toolbar. Features:
 - **Vue Grid Layout**: Responsive chart positioning with device-specific layouts
 - Uses `ClientOnly` and client-only plugins to avoid SSR DOM access
 - Loads data via `GET /api/dashboards/[id]/full` and renders tab-organized charts
+- Captures dashboard PNG thumbnail via `html-to-image` on save, stores width/height + `thumbnail_url` in `dashboard-thumbnails`
 
 #### `DashboardChartRenderer.vue` (New)
 Renders saved chart state without builder controls. Props:
@@ -256,7 +277,7 @@ Renders saved chart state without builder controls. Props:
 
 ### Dashboard Loading Process (Multi-Tab)
 1. Client calls `GET /api/dashboards/[id]/full`.
-2. Server loads dashboard, all tabs, chart links, and charts from Supabase.
+2. Server loads dashboard (including width/height/thumbnail), all tabs, chart links, and charts from Supabase.
 3. For each chart with SQL state across all tabs, server runs external queries in parallel using the saved `dataConnectionId` (LIMIT enforced; destructive statements blocked).
 4. Server returns a single payload with dashboard info, tabs array, and chart data organized by tab.
 
@@ -299,6 +320,10 @@ Complete chart state saved in `state_json` with sensitive fields wrapped under `
    - Removes legacy `dashboard_reports` table
    - Ensures column naming consistency (`chart_id`)
    - Updates constraints and indexes
+
+3. **`20251209120000_add_dashboard_thumbnail_columns.sql`**
+    - Adds `width`, `height`, `thumbnail_url` to `dashboards`
+    - Complements earlier addition of width/height/thumbnail to `charts`
 
 ## 🔒 Security & Permissions
 

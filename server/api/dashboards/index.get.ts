@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabaseAdmin
     .from('dashboards')
-      .select('id, name, organization_id, creator, is_public, created_at')
+      .select('id, name, organization_id, creator, is_public, created_at, width, height, thumbnail_url')
       .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: false })
 
@@ -35,7 +35,10 @@ export default defineEventHandler(async (event) => {
       organization_id: d.organization_id,
       creator: d.creator,
     is_public: d.is_public,
-    created_at: d.created_at
+      created_at: d.created_at,
+      width: d.width,
+      height: d.height,
+      thumbnail_url: d.thumbnail_url
   }))
 })
 

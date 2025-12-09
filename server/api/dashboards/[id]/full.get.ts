@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
         try {
             const {data, error: dashError} = await supabaseAdmin
                 .from('dashboards')
-                .select('id, name, organization_id, creator, is_public, created_at')
+                .select('id, name, organization_id, creator, is_public, created_at, width, height, thumbnail_url')
                 .eq('id', id)
                 .single()
 
@@ -312,6 +312,9 @@ export default defineEventHandler(async (event) => {
             name: dashboard.name,
             isPublic: dashboard.is_public,
             createdAt: dashboard.created_at,
+            width: dashboard.width,
+            height: dashboard.height,
+            thumbnailUrl: dashboard.thumbnail_url,
             tabs: tabResults
         }
     } catch (e: any) {

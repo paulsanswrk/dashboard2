@@ -1,8 +1,50 @@
 <template>
   <div class="p-4 lg:p-6 space-y-4">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div class="flex items-center gap-3 flex-1">
+        <template v-if="isEditableSession">
+          <UInput v-model="dashboardName" class="w-72"/>
+          <UButton
+              color="orange"
+              variant="solid"
+              :loading="saving"
+              @click="save"
+              class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium cursor-pointer"
+              title="Save dashboard changes"
+          >
+            Save Dashboard
+          </UButton>
+        </template>
+        <template v-else>
+          <h1 class="text-xl lg:text-2xl font-semibold truncate">{{ dashboardName }}</h1>
+        </template>
+      </div>
+      <div class="flex items-center gap-2">
+        <UButton v-if="false" variant="outline" color="blue" size="sm" @click="openPreview" class="hover:bg-blue-500 hover:text-white cursor-pointer" title="Preview dashboard">
+          <Icon name="i-heroicons-eye" class="w-4 h-4 mr-1"/>
+          Preview
+        </UButton>
+        <UButton v-if="false" variant="outline" color="red" size="sm" @click="downloadPDF" class="hover:bg-red-500 hover:text-white cursor-pointer" title="Download as PDF">
+          <Icon name="i-heroicons-document-arrow-down" class="w-4 h-4 mr-1"/>
+          Get PDF
+        </UButton>
+        <UButton
+            v-if="canEditDashboard"
+            :color="isEditableSession ? 'gray' : 'orange'"
+            variant="solid"
+            size="sm"
+            class="cursor-pointer"
+            @click="handleModeToggle"
+        >
+          <Icon :name="isEditableSession ? 'i-heroicons-check' : 'i-heroicons-pencil-square'" class="w-4 h-4 mr-1"/>
+          {{ isEditableSession ? 'Done' : 'Edit' }}
+        </UButton>
+      </div>
+    </div>
+
     <!-- Tab Navigation -->
     <div class="border-b border-gray-200 dark:border-gray-700">
-      <div class="flex items-center gap-1 px-1 py-2">
+      <div class="flex flex-col lg:flex-row lg:items-center gap-2 px-1 py-2">
         <!-- Tabs -->
         <div class="flex items-center gap-1 flex-1 overflow-x-auto">
           <button
@@ -20,6 +62,7 @@
 
             <!-- Dropdown menu for tab actions -->
             <UDropdownMenu
+                v-if="isEditableSession"
                 :items="getTabMenuItems(tab)"
                 :popper="{ placement: 'bottom-end' }"
             >
@@ -37,6 +80,7 @@
 
           <!-- Add Tab Button (just + icon) -->
           <button
+              v-if="isEditableSession"
               @click="showCreateTabModal = true"
               class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200 cursor-pointer border-b-2 border-transparent"
               title="Add new tab"
@@ -45,35 +89,28 @@
           </button>
         </div>
 
-        <!-- Toolbar inside tab area -->
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-          <div class="flex items-center gap-2">
-            <UInput v-model="dashboardName" class="w-72"/>
-            <UButton color="orange" variant="solid" :loading="saving" @click="save" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium cursor-pointer" title="Save dashboard changes">Save Dashboard</UButton>
-          </div>
-          <div class="flex items-center gap-2">
-            <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')" class="cursor-pointer" title="Desktop preview">
-              <Icon name="i-heroicons-computer-desktop" class="w-4 h-4"/>
-            </UButton>
-            <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')" class="cursor-pointer" title="Tablet preview">
-              <Icon name="i-heroicons-device-tablet" class="w-4 h-4"/>
-            </UButton>
-            <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')" class="cursor-pointer" title="Mobile preview">
-              <Icon name="i-heroicons-device-phone-mobile" class="w-4 h-4"/>
-            </UButton>
-            <UButton variant="outline" color="blue" size="xs" @click="autoLayout" class="hover:bg-blue-500 hover:text-white cursor-pointer" title="Automatically arrange charts">
-              <Icon name="i-heroicons-arrows-pointing-out" class="w-4 h-4 mr-1"/>
-              Auto Layout
-            </UButton>
-            <UButton variant="outline" color="blue" size="xs" @click="openPreview" class="hover:bg-blue-500 hover:text-white cursor-pointer" title="Preview dashboard">
-              <Icon name="i-heroicons-eye" class="w-4 h-4 mr-1"/>
-              Preview
-            </UButton>
-            <UButton variant="outline" color="red" size="xs" @click="downloadPDF" class="hover:bg-red-500 hover:text-white cursor-pointer" title="Download as PDF">
-              <Icon name="i-heroicons-document-arrow-down" class="w-4 h-4 mr-1"/>
-              Get PDF
-            </UButton>
-          </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')" class="cursor-pointer" title="Desktop preview">
+            <Icon name="i-heroicons-computer-desktop" class="w-4 h-4"/>
+          </UButton>
+          <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')" class="cursor-pointer" title="Tablet preview">
+            <Icon name="i-heroicons-device-tablet" class="w-4 h-4"/>
+          </UButton>
+          <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')" class="cursor-pointer" title="Mobile preview">
+            <Icon name="i-heroicons-device-phone-mobile" class="w-4 h-4"/>
+          </UButton>
+          <UButton
+              v-if="isEditableSession"
+              variant="outline"
+              color="blue"
+              size="xs"
+              @click="autoLayout"
+              class="hover:bg-blue-500 hover:text-white cursor-pointer"
+              title="Automatically arrange charts"
+          >
+            <Icon name="i-heroicons-arrows-pointing-out" class="w-4 h-4 mr-1"/>
+            Auto Layout
+          </UButton>
         </div>
       </div>
     </div>
@@ -379,12 +416,29 @@
       </template>
     </UModal>
 
+    <!-- Unsaved changes -->
+    <UModal v-model:open="showUnsavedModal">
+      <template #header>
+        <h3 class="text-lg font-semibold">Leave edit mode?</h3>
+      </template>
+      <template #body>
+        <p class="text-sm text-gray-700 dark:text-gray-300">You have unsaved changes. Save before viewing, or discard them.</p>
+        <div class="flex justify-end gap-2 mt-4">
+          <UButton variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="stayInEdit">Stay editing</UButton>
+          <UButton variant="outline" color="red" class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer" @click="discardChanges">Discard</UButton>
+          <UButton color="orange" class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" :loading="savingAndExiting" @click="saveAndExit">Save & Continue</UButton>
+        </div>
+      </template>
+    </UModal>
+
     <Dashboard
         :device="device"
         v-model:layout="gridLayout"
-        :grid-config="gridConfig"
+        :grid-config="effectiveGridConfig"
         :charts="currentTabCharts"
         :loading="loading"
+        :preview="!isEditableSession"
+        ref="dashboardRef"
         @edit-chart="editChart"
         @rename-chart="startRenameChart"
         @delete-chart="confirmDeleteChart"
@@ -393,14 +447,25 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+  alias: ['/dashboards/:id/edit']
+})
 
 const route = useRoute()
+const router = useRouter()
+const {userProfile, loadUserProfile} = useAuth()
 const id = computed(() => String(route.params.id))
 
-// Set page title
-useHead({
-  title: 'Edit Dashboard'
+const isEditMode = computed(() => route.path.endsWith('/edit'))
+const canEditDashboard = computed(() => {
+  const role = userProfile.value?.role
+  return role === 'ADMIN' || role === 'SUPERADMIN' || role === 'EDITOR'
 })
+const isEditableSession = computed(() => isEditMode.value && canEditDashboard.value)
+
+useHead(() => ({
+  title: isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'
+}))
 
 // Debug environment flag for development
 const { public: { debugEnv: runtimeDebugEnv } } = useRuntimeConfig()
@@ -408,20 +473,45 @@ const debugEnv = ref<boolean>(false)
 
 onMounted(() => {
   if (typeof window === 'undefined') return
-  // Initialize once; preserve existing global if already set
   if (!('__DEBUG_ENV__' in (window as any))) {
     ;(window as any).__DEBUG_ENV__ = runtimeDebugEnv === 'true'
   }
   debugEnv.value = (window as any).__DEBUG_ENV__ === true
 })
 
-const { getDashboardFull, updateDashboard, createDashboardReport } = useDashboardsService()
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!hasUnsavedChanges.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
+
+watch(
+    () => ({edit: isEditMode.value, role: userProfile.value?.role}),
+    ({edit, role}) => {
+      if (edit && role && !canEditDashboard.value) {
+        navigateTo(`/dashboards/${id.value}`)
+      }
+    }
+)
+
+const {getDashboardFull, updateDashboard} = useDashboardsService()
 const { listCharts, updateChart, deleteChart: deleteChartApi } = useChartsService()
 
 const dashboardName = ref('')
+const initialDashboardName = ref('')
 const tabs = ref<Array<{ id: string; name: string; position: number; charts: Array<{ chartId: number; name: string; position: any; state?: any; preloadedColumns?: any[]; preloadedRows?: any[] }> }>>([])
 const activeTabId = ref<string>('')
 const gridLayout = ref<any[]>([])
+const tabLayouts = reactive<Record<string, any[]>>({})
+const initialTabLayouts = ref<Record<string, any[]>>({})
 const loading = ref(true)
 
 // Modal states
@@ -431,6 +521,9 @@ const showAddChartModal = ref(false)
 const showCreateTabModal = ref(false)
 const showRenameTabModal = ref(false)
 const showDeleteTabModal = ref(false)
+const showUnsavedModal = ref(false)
+const savingAndExiting = ref(false)
+const pendingRoute = ref<any>(null)
 
 // Rename functionality
 const renamingChart = ref<string | null>(null)
@@ -461,34 +554,32 @@ const deletingTab = ref(false)
 // Debug panel state
 const debugPanelOpen = ref(false)
 const gridConfig = reactive({
-  // Basic layout properties
   colNum: 12,
   rowHeight: 30,
   maxRows: Infinity,
-  margin: [20, 20], // Increased margins for more spacing between blocks
-
-  // Behavior properties
+  margin: [20, 20],
   isDraggable: true,
   isResizable: true,
   isMirrored: false,
   isBounded: false,
-
-  // Layout properties
   autoSize: true,
   verticalCompact: true,
   restoreOnDrag: false,
   preventCollision: false,
-
-  // Performance properties
   useCssTransforms: true,
   useStyleCursor: true,
   transformScale: 1,
-
-  // Responsive properties
-  responsive: true, // Enable responsive layout
+  responsive: true,
   breakpoints: { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 },
   cols: { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }
 })
+
+const effectiveGridConfig = computed(() => ({
+  ...gridConfig,
+  isDraggable: gridConfig.isDraggable && isEditableSession.value,
+  isResizable: gridConfig.isResizable && isEditableSession.value,
+  useStyleCursor: gridConfig.useStyleCursor && isEditableSession.value
+}))
 
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 
@@ -498,68 +589,131 @@ const currentTabCharts = computed(() => {
   return currentTab?.charts || []
 })
 
+const hasUnsavedChanges = computed(() => {
+  if (!isEditableSession.value) return false
+  const layoutChanged = Object.keys(tabLayouts).some((tabId) =>
+      !areLayoutsEqual(tabLayouts[tabId] || [], initialTabLayouts.value[tabId] || [])
+  )
+  return dashboardName.value !== initialDashboardName.value || layoutChanged
+})
+
+const dashboardRef = ref<any>(null)
+
+async function captureDashboardThumbnail(): Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }> {
+  if (typeof window === 'undefined') return {}
+  const layout = gridLayout.value || []
+  // Dashboard component ref resolves to component instance; use $el for the DOM node
+  const container = (dashboardRef.value as any)?.$el ?? (dashboardRef.value as HTMLElement | null)
+  if (!container || typeof container.getBoundingClientRect !== 'function') return {}
+
+  const rect = container.getBoundingClientRect()
+  const baseWidth = rect.width ? Math.round(rect.width) : 1200
+  const baseHeight = rect.height ? Math.round(rect.height) : 800
+
+  // Use html-to-image for a real snapshot of the dashboard content
+  const {toPng} = await import('html-to-image')
+  const dataUrl = await toPng(container, {
+    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+    cacheBust: true,
+    backgroundColor: '#ffffff',
+    skipFonts: true
+  })
+
+  return {width: baseWidth, height: baseHeight, thumbnailBase64: dataUrl}
+}
+
+function cloneLayout(layout: any[] = []) {
+  return layout.map(item => ({...item}))
+}
+
+function areLayoutsEqual(a: any[] = [], b: any[] = []) {
+  if (a.length !== b.length) return false
+  const sortLayout = (layout: any[]) => [...layout].sort((x, y) => String(x.i).localeCompare(String(y.i)))
+  const sortedA = sortLayout(a)
+  const sortedB = sortLayout(b)
+  return sortedA.every((item, idx) => {
+    const match = sortedB[idx]
+    return !!match &&
+        item.x === match.x &&
+        item.y === match.y &&
+        item.w === match.w &&
+        item.h === match.h &&
+        String(item.i) === String(match.i)
+  })
+}
+
+function buildLayoutFromTab(tabId: string) {
+  const tab = tabs.value.find(t => t.id === tabId)
+  if (!tab) return []
+  return tab.charts.map(c => ({
+    x: c.position?.x ?? 0,
+    y: c.position?.y ?? 0,
+    w: c.position?.w ?? 4,
+    h: c.position?.h ?? 8,
+    i: String(c.chartId)
+  }))
+}
+
+function setLayoutsFromTabs(updateBaseline = true) {
+  if (updateBaseline) {
+    initialTabLayouts.value = {}
+  }
+  Object.keys(tabLayouts).forEach(key => delete tabLayouts[key])
+  tabs.value.forEach(tab => {
+    const layout = buildLayoutFromTab(tab.id)
+    tabLayouts[tab.id] = cloneLayout(layout)
+    if (updateBaseline) {
+      initialTabLayouts.value[tab.id] = cloneLayout(layout)
+    }
+  })
+  if (!activeTabId.value && tabs.value.length > 0) {
+    activeTabId.value = tabs.value[0].id
+  }
+  gridLayout.value = cloneLayout(tabLayouts[activeTabId.value] || [])
+  if (updateBaseline) {
+    initialDashboardName.value = dashboardName.value
+  }
+}
+
+watch(gridLayout, (layout) => {
+  if (!activeTabId.value) return
+  tabLayouts[activeTabId.value] = cloneLayout(layout || [])
+}, {deep: true})
+
 function setDevice(d: 'desktop' | 'tablet' | 'mobile') {
   device.value = d
 }
 
 function selectTab(tabId: string) {
   activeTabId.value = tabId
-  fromPositions()
+  const layout = tabLayouts[tabId] || buildLayoutFromTab(tabId)
+  tabLayouts[tabId] = cloneLayout(layout)
+  gridLayout.value = cloneLayout(layout)
 }
 
 function autoLayout() {
-  // Reset all block widths to a standard width and arrange sequentially left-to-right, top-to-bottom
   const colNum = gridConfig.colNum
-
-  // Sort items by their current y position to maintain some order, then reset positions
   const sortedItems = [...gridLayout.value].sort((a, b) => a.y - b.y || a.x - b.x)
-
   let currentX = 0
   let currentY = 0
   let maxHeightInRow = 0
 
   sortedItems.forEach((item) => {
-    // Set width to a reasonable default (6 columns for a balanced layout, but not exceeding grid width)
     const defaultWidth = Math.min(6, colNum)
-    item.w = Math.max(1, Math.min(defaultWidth, colNum)) // Ensure width is at least 1 and at most colNum
-
-    // Set height to a reasonable default if not set
+    item.w = Math.max(1, Math.min(defaultWidth, colNum))
     if (!item.h || item.h < 1) {
-      item.h = 8 // Default height
+      item.h = 8
     }
-
-    // Check if this item fits in current row
     if (currentX + item.w > colNum) {
-      // Move to next row
       currentX = 0
       currentY += maxHeightInRow
       maxHeightInRow = 0
     }
-
-    // Set position
     item.x = currentX
     item.y = currentY
-
-    // Track the maximum height in the current row
     maxHeightInRow = Math.max(maxHeightInRow, item.h)
-
-    // Move to next position
     currentX += item.w
   })
-}
-
-function fromPositions() {
-  gridLayout.value = currentTabCharts.value.map(c => ({
-    x: c.position?.x ?? 0,
-    y: c.position?.y ?? 0,
-    w: c.position?.w ?? 4,
-    h: c.position?.h ?? 8, // Default to 8 rows (240px) for auto-height behavior
-    i: String(c.chartId)
-  }))
-}
-
-function toPositions() {
-  return gridLayout.value.map((li: any) => ({ chartId: Number(li.i), position: { x: li.x, y: li.y, w: li.w, h: li.h } }))
 }
 
 function editChart(chartId: string) {
@@ -576,7 +730,6 @@ async function load() {
     const res = await getDashboardFull(id.value)
     dashboardName.value = res.name
 
-    // Transform tabs data
     tabs.value = (res.tabs || []).map((t: any) => ({
       id: t.id,
       name: t.name,
@@ -591,34 +744,90 @@ async function load() {
       }))
     }))
 
-    // Set active tab to first tab if available
-    if (tabs.value.length > 0 && !activeTabId.value) {
-      activeTabId.value = tabs.value[0].id
-    }
-
-    fromPositions()
+    setLayoutsFromTabs(true)
   } finally {
     loading.value = false
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadUserProfile()
+  await load()
+})
+
+onBeforeRouteLeave((to, from) => {
+  if (!hasUnsavedChanges.value) return
+  pendingRoute.value = to
+  showUnsavedModal.value = true
+  return false
+})
 
 const saving = ref(false)
 async function save() {
   saving.value = true
   try {
-    // For now, save just updates the dashboard name
-    // Tab layouts are saved individually when charts are moved
+    const snapshot = await captureDashboardThumbnail()
     await updateDashboard({
       id: id.value,
-      name: dashboardName.value
+      name: dashboardName.value,
+      width: snapshot.width,
+      height: snapshot.height,
+      thumbnailBase64: snapshot.thumbnailBase64
     })
+    initialDashboardName.value = dashboardName.value
+    Object.keys(tabLayouts).forEach(tabId => {
+      initialTabLayouts.value[tabId] = cloneLayout(tabLayouts[tabId] || [])
+    })
+    showUnsavedModal.value = false
   } finally {
     saving.value = false
   }
 }
 
+async function handleModeToggle() {
+  if (!canEditDashboard.value) return
+  pendingRoute.value = null
+  if (isEditableSession.value) {
+    if (hasUnsavedChanges.value) {
+      await save()
+    }
+    await navigateTo(`/dashboards/${id.value}`)
+    return
+  }
+  await navigateTo(`/dashboards/${id.value}/edit`)
+}
+
+function discardChanges() {
+  dashboardName.value = initialDashboardName.value
+  Object.keys(initialTabLayouts.value).forEach(tabId => {
+    tabLayouts[tabId] = cloneLayout(initialTabLayouts.value[tabId] || [])
+  })
+  gridLayout.value = cloneLayout(tabLayouts[activeTabId.value] || [])
+  showUnsavedModal.value = false
+  const target = pendingRoute.value
+  const destination = target ? target.fullPath : `/dashboards/${id.value}`
+  pendingRoute.value = null
+  navigateTo(destination)
+}
+
+async function saveAndExit() {
+  savingAndExiting.value = true
+  try {
+    await save()
+    const target = pendingRoute.value
+    const destination = target ? target.fullPath : `/dashboards/${id.value}`
+    pendingRoute.value = null
+    showUnsavedModal.value = false
+    await navigateTo(destination)
+  } finally {
+    savingAndExiting.value = false
+  }
+}
+
+function stayInEdit() {
+  showUnsavedModal.value = false
+  pendingRoute.value = null
+}
 
 // Chart operations
 async function startRenameChart(chartId: string) {
@@ -640,8 +849,7 @@ async function renameChart() {
       name: renameForm.newName
     })
 
-    // Update local state
-    const chart = charts.value.find(c => String(c.chartId) === renamingChart.value)
+    const chart = currentTabCharts.value.find(c => String(c.chartId) === renamingChart.value)
     if (chart) {
       chart.name = renameForm.newName
     }
@@ -670,13 +878,15 @@ async function deleteChart() {
   try {
     await deleteChartApi(Number(chartToDelete.value))
 
-    // Remove from current tab's charts
     const currentTab = tabs.value.find(t => t.id === activeTabId.value)
     if (currentTab) {
       const chartIndex = currentTab.charts.findIndex(c => String(c.chartId) === chartToDelete.value)
       if (chartIndex >= 0) {
         currentTab.charts.splice(chartIndex, 1)
-        fromPositions() // Update grid layout
+        const updatedLayout = buildLayoutFromTab(activeTabId.value)
+        tabLayouts[activeTabId.value] = cloneLayout(updatedLayout)
+        initialTabLayouts.value[activeTabId.value] = cloneLayout(updatedLayout)
+        gridLayout.value = cloneLayout(updatedLayout)
       }
     }
 
@@ -694,7 +904,6 @@ async function openAddChartModal() {
 
   try {
     const allCharts = await listCharts()
-    // Filter out charts that are already on this dashboard (across all tabs)
     const dashboardChartIds = new Set(
         tabs.value.flatMap(t => t.charts.map(c => c.chartId))
     )
@@ -706,14 +915,11 @@ async function openAddChartModal() {
 
 async function addChartToDashboard(chartId: number) {
   try {
-    // Find the chart details
     const chart = availableCharts.value.find(c => c.id === chartId)
     if (!chart) return
 
-    // Add to current tab with default position
     const newPosition = { x: 0, y: Math.max(...gridLayout.value.map(item => item.y + item.h), 0), w: 6, h: 8 }
 
-    // Use the new API endpoint for adding charts to tabs
     await $fetch(`/api/dashboard-tabs`, {
       method: 'POST',
       body: {
@@ -723,9 +929,7 @@ async function addChartToDashboard(chartId: number) {
       }
     })
 
-    // Add to local state and reload to get full data
     await load()
-
     showAddChartModal.value = false
   } catch (error) {
     console.error('Failed to add chart to dashboard:', error)
@@ -775,7 +979,6 @@ async function createTab() {
       }
     })
 
-    // Reload to get updated tabs
     await load()
 
     showCreateTabModal.value = false
@@ -800,7 +1003,6 @@ async function renameTab() {
       }
     })
 
-    // Update local state
     const tab = tabs.value.find(t => t.id === tabToRename.value)
     if (tab) {
       tab.name = renameTabForm.name.trim()
@@ -826,16 +1028,16 @@ async function deleteTab() {
       query: {id: tabToDelete.value}
     })
 
-    // Remove from local state
     const tabIndex = tabs.value.findIndex(t => t.id === tabToDelete.value)
     if (tabIndex >= 0) {
       tabs.value.splice(tabIndex, 1)
+      delete tabLayouts[tabToDelete.value]
+      delete initialTabLayouts.value[tabToDelete.value]
 
-      // If we deleted the active tab, switch to the first remaining tab
       if (activeTabId.value === tabToDelete.value && tabs.value.length > 0) {
         activeTabId.value = tabs.value[0].id
-        fromPositions()
       }
+      gridLayout.value = cloneLayout(tabLayouts[activeTabId.value] || buildLayoutFromTab(activeTabId.value))
     }
 
     showDeleteTabModal.value = false

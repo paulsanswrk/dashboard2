@@ -6,6 +6,9 @@ export type Dashboard = {
   is_public: boolean
   password?: string
   created_at: string
+    width?: number | null
+    height?: number | null
+    thumbnail_url?: string | null
 }
 
 export type DashboardReport = {
@@ -46,7 +49,14 @@ export function useDashboardsService() {
     })
   }
 
-  async function updateDashboard(payload: { id: string; name?: string; layout?: Array<{ chartId: number; position: any }> }): Promise<{ success: boolean }> {
+    async function updateDashboard(payload: {
+        id: string;
+        name?: string;
+        layout?: Array<{ chartId: number; position: any }>;
+        width?: number | null;
+        height?: number | null;
+        thumbnailBase64?: string | null
+    }): Promise<{ success: boolean }> {
     return await $fetch<{ success: boolean }>('/api/dashboards', {
       method: 'PUT',
       body: payload
