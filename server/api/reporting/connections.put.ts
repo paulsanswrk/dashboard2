@@ -1,20 +1,21 @@
-import { defineEventHandler, readBody, getQuery } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
-import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
-import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
-import { buildGraph, computePathsIndex, buildExitPayloads } from '../../utils/schemaGraph'
-import { findJoinPaths } from '../../utils/autoJoinAlgorithm'
+import {defineEventHandler, getQuery, readBody} from 'h3'
+import {supabaseAdmin} from '../supabase'
+import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
+import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
+import {buildExitPayloads, buildGraph, computePathsIndex} from '../../utils/schemaGraph'
+import {AuthHelper} from '../../utils/authHelper'
 
 // Update fields on an existing connection. Supports updating schema_json.
 export default defineEventHandler(async (event) => {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-
   const { id } = getQuery(event) as any
   const body = await readBody<any>(event)
   const connectionId = Number(id || body?.id)
   if (!connectionId) throw createError({ statusCode: 400, statusMessage: 'Missing id' })
+
+    const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
+        requireWrite: true,
+        columns: 'id, organization_id'
+    })
 
   const update: any = {}
   console.log(`[AUTO_JOIN] PUT request for connection ${connectionId} with body keys:`, Object.keys(body || {}))
@@ -305,11 +306,16 @@ export default defineEventHandler(async (event) => {
     console.log(`[AUTO_JOIN] Including schema_json in update for connection ${connectionId}`)
   }
 
-  const { error } = await supabaseAdmin
+    let updateQuery = supabaseAdmin
     .from('data_connections')
     .update(update)
     .eq('id', connectionId)
-    .eq('owner_id', user.id)
+
+    if (connection.organization_id) {
+        updateQuery = updateQuery.eq('organization_id', connection.organization_id)
+    }
+
+    const {error} = await updateQuery
 
   if (error) {
     console.error(`[AUTO_JOIN] Failed to update connection ${connectionId}:`, error)

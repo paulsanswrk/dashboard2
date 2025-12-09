@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   if (id) {
     const { data, error } = await supabaseAdmin
       .from('charts')
-        .select('id, name, description, owner_email, state_json, created_at, updated_at, owner_id, data_connection_id')
+        .select('id, name, description, owner_email, state_json, created_at, updated_at, owner_id, data_connection_id, width, height, thumbnail_url')
       .eq('id', id)
       .single()
     if (error) throw createError({ statusCode: 500, statusMessage: error.message })
@@ -39,13 +39,16 @@ export default defineEventHandler(async (event) => {
       ownerEmail: data.owner_email,
       state: flattened,
       createdAt: data.created_at,
-      updatedAt: data.updated_at
+        updatedAt: data.updated_at,
+        width: data.width,
+        height: data.height,
+        thumbnailUrl: data.thumbnail_url
     }
   }
 
   const { data, error } = await supabaseAdmin
     .from('charts')
-    .select('id, name, description, owner_email, created_at, updated_at')
+      .select('id, name, description, owner_email, created_at, updated_at, width, height, thumbnail_url')
     .eq('owner_email', ownerEmail)
     .order('updated_at', { ascending: false })
 
@@ -56,6 +59,9 @@ export default defineEventHandler(async (event) => {
     description: r.description,
     ownerEmail: r.owner_email,
     createdAt: r.created_at,
-    updatedAt: r.updated_at
+      updatedAt: r.updated_at,
+      width: r.width,
+      height: r.height,
+      thumbnailUrl: r.thumbnail_url
   }))
 })

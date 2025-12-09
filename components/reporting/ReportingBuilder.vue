@@ -59,7 +59,7 @@
       </div>
     </div>
 
-    <div v-if="useSql" class="mb-4 p-4 bg-gray-50 rounded-lg border">
+    <div v-if="useSql" class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
       <div class="flex items-center gap-3 mb-3">
         <label class="text-sm font-medium">Override SQL</label>
         <input type="checkbox" v-model="overrideSql" :disabled="loading" />
@@ -98,10 +98,13 @@
           <p class="text-sm text-gray-600">Loading chart data...</p>
         </div>
         <!-- Chart component -->
-        <component v-else :is="chartComponent" :key="chartType"
-                   :columns="columns" :rows="rows"
-                   :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
-                   :chart-type="chartType" :appearance="appearance" :loading="loading" />
+        <div v-else ref="previewAreaRef">
+          <component :is="chartComponent" :key="chartType"
+                     ref="chartComponentRef"
+                     :columns="columns" :rows="rows"
+                     :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
+                     :chart-type="chartType" :appearance="appearance" :loading="loading"/>
+        </div>
       </div>
     </div>
     <ChartsModal
@@ -112,6 +115,7 @@
       :sql-text="sqlText"
       :actual-executed-sql="actualExecutedSql"
       :chart-type="chartType"
+      :capture-chart-meta="captureChartMeta"
       @close="openReports=false"
       @load-chart="handleLoadChart"
     />
@@ -180,6 +184,9 @@ const chartTypes = [
   {value: 'treemap', label: 'Treemap', icon: 'i-heroicons-squares-plus'},
   {value: 'sankey', label: 'Sankey', icon: 'i-heroicons-arrows-right-left'}
 ]
+
+const chartComponentRef = ref<any>(null)
+const previewAreaRef = ref<HTMLElement | null>(null)
 
 // Zone configuration for different chart types
 type ZoneConfig = {
@@ -604,6 +611,24 @@ function backToDashboard() {
   navigateTo(`/dashboards/${props.dashboardId}`)
 }
 
+async function captureChartMeta(): Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }> {
+  if (typeof window === 'undefined') return {}
+  const rect = previewAreaRef.value?.getBoundingClientRect()
+  let width = rect && rect.width > 0 ? Math.round(rect.width) : undefined
+  let height = rect && rect.height > 0 ? Math.round(rect.height) : undefined
+  let thumbnailBase64: string | null | undefined
+
+  const component = chartComponentRef.value as any
+  if (component && typeof component.captureSnapshot === 'function') {
+    const snapshot = await component.captureSnapshot()
+    if (snapshot?.width) width = snapshot.width
+    if (snapshot?.height) height = snapshot.height
+    if (snapshot?.dataUrl) thumbnailBase64 = snapshot.dataUrl
+  }
+
+  return {width: width ?? null, height: height ?? null, thumbnailBase64: thumbnailBase64 ?? null}
+}
+
 async function saveExistingChart() {
   if (!props.editingChartId) return
 
@@ -629,12 +654,17 @@ async function saveExistingChart() {
       chartType: chartType.value
     }
 
+    const chartMeta = await captureChartMeta()
+
     // Update the existing chart
     const result = await $fetch<{ success: boolean }>('/api/reporting/charts', {
       method: 'PUT',
       body: {
         id: props.editingChartId,
-        state: reportState
+        state: reportState,
+        width: chartMeta.width,
+        height: chartMeta.height,
+        thumbnailBase64: chartMeta.thumbnailBase64
       }
     })
 
@@ -685,10 +715,15 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       chartType: chartType.value
     }
 
+    const chartMeta = await captureChartMeta()
+
     // Save the chart
     const chartResult = await createChart({
       name: data.saveAsName,
-      state: reportState
+      state: reportState,
+      width: chartMeta.width,
+      height: chartMeta.height,
+      thumbnailBase64: chartMeta.thumbnailBase64
     })
 
     if (!chartResult.success) {

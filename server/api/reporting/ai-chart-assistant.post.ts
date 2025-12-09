@@ -1,9 +1,8 @@
-import { defineEventHandler, readBody } from 'h3'
+import {defineEventHandler, readBody} from 'h3'
 import Anthropic from '@anthropic-ai/sdk'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
-import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
-import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
+import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
+import {AuthHelper} from '../../utils/authHelper'
 
 type RequestBody = {
   connectionId: number
@@ -16,24 +15,14 @@ type RequestBody = {
 }
 
 export default defineEventHandler(async (event) => {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-
   const body = await readBody<RequestBody>(event)
   if (!body?.connectionId || !body?.userPrompt) {
     throw createError({ statusCode: 400, statusMessage: 'Missing connectionId or userPrompt' })
   }
 
-  // Verify user owns the data connection
-  const { data: connectionData, error: connError } = await supabaseAdmin
-    .from('data_connections')
-    .select('owner_id, schema_json')
-    .eq('id', body.connectionId)
-    .single()
-
-  if (connError || !connectionData || connectionData.owner_id !== user.id) {
-    throw createError({ statusCode: 403, statusMessage: 'Access denied to connection' })
-  }
+    const connectionData = await AuthHelper.requireConnectionAccess(event, body.connectionId, {
+        columns: 'id, organization_id, schema_json'
+    })
 
   // Load schema: prefer provided schemaJson, then saved schema_json, otherwise live introspection
   let schemaJson: unknown = body.schemaJson || connectionData.schema_json

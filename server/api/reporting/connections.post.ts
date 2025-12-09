@@ -1,10 +1,15 @@
-import { defineEventHandler, readBody } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
+import {defineEventHandler, readBody} from 'h3'
+import {supabaseAdmin} from '../supabase'
+import {AuthHelper} from '../../utils/authHelper'
 
 export default defineEventHandler(async (event) => {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    const ctx = await AuthHelper.requireAuthContext(event)
+    if (ctx.role === 'VIEWER') {
+        throw createError({statusCode: 403, statusMessage: 'Only Admin/Editor can create connections'})
+    }
+    if (!ctx.organizationId) {
+        throw createError({statusCode: 400, statusMessage: 'Organization is required to create a connection'})
+    }
 
   const body = await readBody<any>(event)
 
@@ -19,8 +24,8 @@ export default defineEventHandler(async (event) => {
   const useSsh = !!body.useSshTunneling
 
   const record: any = {
-    owner_id: user.id,
-    organization_id: null,
+      owner_id: ctx.userId, // kept for history; not used for authorization
+      organization_id: ctx.organizationId,
     internal_name: String(body.internalName),
     database_name: String(body.databaseName),
     database_type: String(body.databaseType),
@@ -54,8 +59,8 @@ export default defineEventHandler(async (event) => {
   // Check if connection with same name already exists
   const { data: existingConnection, error: checkError } = await supabaseAdmin
     .from('data_connections')
-    .select('id, internal_name, host, port, database_name')
-    .eq('owner_id', user.id)
+      .select('id, internal_name, host, port, database_name, organization_id')
+      .eq('organization_id', ctx.organizationId)
     .eq('internal_name', record.internal_name)
     .single()
 
@@ -73,11 +78,28 @@ export default defineEventHandler(async (event) => {
     existingDatabase: existingConnection?.database_name
   })
 
-  const { data, error } = await supabaseAdmin
-    .from('data_connections')
-    .upsert(record, { onConflict: 'owner_id,internal_name' })
-    .select('id, internal_name, created_at')
-    .single()
+    let data
+    let error
+
+    if (isExistingConnection && existingConnection?.id) {
+        const updateResult = await supabaseAdmin
+            .from('data_connections')
+            .update(record)
+            .eq('id', existingConnection.id)
+            .eq('organization_id', ctx.organizationId)
+            .select('id, internal_name, created_at')
+            .single()
+        data = updateResult.data
+        error = updateResult.error
+    } else {
+        const insertResult = await supabaseAdmin
+            .from('data_connections')
+            .insert(record)
+            .select('id, internal_name, created_at')
+            .single()
+        data = insertResult.data
+        error = insertResult.error
+    }
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 

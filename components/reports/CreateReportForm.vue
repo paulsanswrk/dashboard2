@@ -712,6 +712,7 @@ const resetForm = () => {
       email_subject: '',
       email_message: '',
       scope: 'Dashboard',
+      content_id: '',
       time_frame: 'Last week',
       formats: [],
       interval: 'DAILY',

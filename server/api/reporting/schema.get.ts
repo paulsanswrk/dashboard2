@@ -1,28 +1,17 @@
-import { defineEventHandler, getQuery } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
-import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
-import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import {defineEventHandler, getQuery} from 'h3'
+import {supabaseAdmin} from '../supabase'
+import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
+import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
+import {AuthHelper} from '../../utils/authHelper'
 
 export default defineEventHandler(async (event) => {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-
   const { datasetId, connectionId } = getQuery(event) as any
   if (!datasetId || typeof datasetId !== 'string') return []
   if (!connectionId) return []
 
-  // Verify user owns the data connection
+    // Require org-aligned access to the data connection
   const connId = Number(connectionId)
-  const { data: connectionData, error: connError } = await supabaseAdmin
-    .from('data_connections')
-    .select('owner_id')
-    .eq('id', connId)
-    .single()
-
-  if (connError || !connectionData || connectionData.owner_id !== user.id) {
-    throw createError({ statusCode: 403, statusMessage: 'Access denied to connection' })
-  }
+    await AuthHelper.requireConnectionAccess(event, connId)
   // Prefer saved schema if present
   try {
     const { data: schemaData } = await supabaseAdmin

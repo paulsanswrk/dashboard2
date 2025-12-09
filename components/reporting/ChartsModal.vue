@@ -51,6 +51,7 @@ const props = defineProps<{
   sqlText: string
   actualExecutedSql: string
   chartType: string
+  captureChartMeta?: () => Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }>
 }>()
 const emit = defineEmits<{
   (e: 'close'): void
@@ -95,7 +96,14 @@ async function saveCurrent() {
     // Chart configuration
     chartType: props.chartType
   }
-  await createChart({ name: newName.value, state })
+  const chartMeta = props.captureChartMeta ? await props.captureChartMeta() : {}
+  await createChart({
+    name: newName.value,
+    state,
+    width: chartMeta.width,
+    height: chartMeta.height,
+    thumbnailBase64: chartMeta.thumbnailBase64
+  })
   newName.value = ''
   await refresh()
 }

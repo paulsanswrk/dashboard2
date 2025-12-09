@@ -17,30 +17,7 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
   const pending = ref(false)
   const fetchError = ref(null)
 
-  // Mock data for now - will be replaced with API calls
-  const users = ref([
-    { 
-      id: 1, 
-      name: 'John Smith', 
-      email: 'john@company.com', 
-      firstName: 'John',
-      lastName: 'Smith'
-    },
-    { 
-      id: 2, 
-      name: 'Sarah Johnson', 
-      email: 'sarah@company.com', 
-      firstName: 'Sarah',
-      lastName: 'Johnson'
-    },
-    { 
-      id: 3, 
-      name: 'Mike Chen', 
-      email: 'mike@company.com', 
-      firstName: 'Mike',
-      lastName: 'Chen'
-    }
-  ])
+    const users = ref([])
 
   const totalUsers = computed(() => users.value.length)
 

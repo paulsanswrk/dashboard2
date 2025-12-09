@@ -1,13 +1,9 @@
-import { defineEventHandler, readBody } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../supabase'
-import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
-import { findJoinPaths } from '../../utils/autoJoinAlgorithm'
+import {defineEventHandler, readBody} from 'h3'
+import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
+import {findJoinPaths} from '../../utils/autoJoinAlgorithm'
+import {AuthHelper} from '../../utils/authHelper'
 
 export default defineEventHandler(async (event) => {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-
   const { connectionId, tableNames } = await readBody(event) as {
     connectionId: number
     tableNames: string[]
@@ -20,16 +16,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid request: connectionId and tableNames are required' })
   }
 
-  // Verify user owns the data connection
-  const { data: connectionData, error: connError } = await supabaseAdmin
-    .from('data_connections')
-    .select('owner_id')
-    .eq('id', connectionId)
-    .single()
-
-  if (connError || !connectionData || connectionData.owner_id !== user.id) {
-    throw createError({ statusCode: 403, statusMessage: 'Access denied to connection' })
-  }
+    // Require org-aligned access to the data connection
+    await AuthHelper.requireConnectionAccess(event, connectionId)
 
   const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
 

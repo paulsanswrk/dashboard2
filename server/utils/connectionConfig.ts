@@ -1,18 +1,11 @@
-import { supabaseAdmin } from '../api/supabase'
-import type { MySqlConnectionConfig } from './mysqlClient'
-import { serverSupabaseUser } from '#supabase/server'
+import type {MySqlConnectionConfig} from './mysqlClient'
+import {AuthHelper} from './authHelper'
 
 export async function loadConnectionConfigFromSupabase(event: any, connectionId: number): Promise<MySqlConnectionConfig> {
-  const user = await serverSupabaseUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-
-  const { data, error } = await supabaseAdmin
-    .from('data_connections')
-    .select('*')
-    .eq('id', connectionId)
-    .eq('owner_id', user.id)
-    .single()
-  if (error) throw createError({ statusCode: 404, statusMessage: 'Connection not found' })
+    const data = await AuthHelper.requireConnectionAccess(event, connectionId, {
+        columns: `id, organization_id, host, port, username, password, database_name,
+              use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key`
+    })
 
   const cfg: MySqlConnectionConfig = {
     host: data.host,

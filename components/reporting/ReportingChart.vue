@@ -5,8 +5,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch, computed, nextTick } from 'vue'
-import type { Ref } from 'vue'
+import type {Ref} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import * as echarts from 'echarts'
 
 // Load ECharts - it's now a proper dependency instead of CDN loading
@@ -959,6 +959,29 @@ function renderChart() {
   })
 }
 
+async function captureSnapshot() {
+  if (typeof window === 'undefined') return null
+  if (!chartRef.value) return null
+
+  // Ensure chart is ready before capturing
+  if (!chartInstance) {
+    renderChart()
+    await nextTick()
+  }
+
+  if (!chartInstance) return null
+
+  const width = Math.round(chartInstance.getWidth())
+  const height = Math.round(chartInstance.getHeight())
+  const dataUrl = chartInstance.getDataURL({
+    type: 'png',
+    pixelRatio: 2,
+    backgroundColor: '#ffffff'
+  })
+
+  return {dataUrl, width, height}
+}
+
 onMounted(() => {
   renderChart()
 })
@@ -978,6 +1001,10 @@ function formatNumber(value: number, decimalPlaces: number, thousandsSeparator: 
   }
   return parts.join('.')
 }
+
+defineExpose({
+  captureSnapshot
+})
 </script>
 
 <style scoped>
