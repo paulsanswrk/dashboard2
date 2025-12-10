@@ -1,24 +1,47 @@
 <template>
   <div class="p-6">
     <div class="flex justify-end mb-4 gap-2">
-      <UButton
-        v-if="props.dashboardId"
-        color="gray"
-        class="hover:bg-gray-700 hover:text-white cursor-pointer"
-        @click="backToDashboard"
-      >
-        <Icon name="i-heroicons-arrow-left" class="w-4 h-4"/>
-        Back to Dashboard
-      </UButton>
-      <UButton
-          color="blue"
-          class="hover:bg-blue-700 hover:text-white cursor-pointer"
-        @click="props.editingChartId ? saveExistingChart() : openSelectBoard = true"
-        :disabled="loading"
-      >
-        <Icon name="i-heroicons-square-3-stack-3d" class="w-4 h-4"/>
-        {{ props.editingChartId ? 'Save Chart' : 'Save Chart to Dashboard' }}
-      </UButton>
+      <template v-if="fromDashboard">
+        <UButton
+            variant="outline"
+            color="gray"
+            class="hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+            @click="discardAndReturn"
+            :disabled="loading"
+        >
+          <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+          Discard
+        </UButton>
+        <UButton
+            color="orange"
+            class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+            @click="doneAndReturn"
+            :loading="loading"
+        >
+          <Icon name="i-heroicons-check" class="w-4 h-4"/>
+          Done
+        </UButton>
+      </template>
+      <template v-else>
+        <UButton
+            v-if="props.dashboardId"
+            color="gray"
+            class="hover:bg-gray-700 hover:text-white cursor-pointer"
+            @click="backToDashboard"
+        >
+          <Icon name="i-heroicons-arrow-left" class="w-4 h-4"/>
+          Back to Dashboard
+        </UButton>
+        <UButton
+            color="blue"
+            class="hover:bg-blue-700 hover:text-white cursor-pointer"
+            @click="props.editingChartId ? saveExistingChart() : openSelectBoard = true"
+            :disabled="loading"
+        >
+          <Icon name="i-heroicons-square-3-stack-3d" class="w-4 h-4"/>
+          {{ props.editingChartId ? 'Save Chart' : 'Save Chart to Dashboard' }}
+        </UButton>
+      </template>
     </div>
 
     <div class="flex items-center justify-between mb-4">
@@ -146,6 +169,8 @@ const props = defineProps<{
   editingChartId?: number | null
   dashboardId?: string | null
 }>()
+
+const fromDashboard = computed(() => !!props.dashboardId)
 
 // Emits
 const emit = defineEmits<{
@@ -611,6 +636,11 @@ function backToDashboard() {
   navigateTo(`/dashboards/${props.dashboardId}`)
 }
 
+function discardAndReturn() {
+  if (!props.dashboardId) return
+  navigateTo(`/dashboards/${props.dashboardId}/edit`)
+}
+
 async function captureChartMeta(): Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }> {
   if (typeof window === 'undefined') return {}
   const rect = previewAreaRef.value?.getBoundingClientRect()
@@ -629,11 +659,12 @@ async function captureChartMeta(): Promise<{ width?: number | null; height?: num
   return {width: width ?? null, height: height ?? null, thumbnailBase64: thumbnailBase64 ?? null}
 }
 
-async function saveExistingChart() {
-  if (!props.editingChartId) return
+async function saveExistingChart(): Promise<boolean> {
+  if (!props.editingChartId) return false
 
   try {
     loading.value = true
+    let wasSaved = false
 
     // Get current report state
     const reportState = {
@@ -669,6 +700,7 @@ async function saveExistingChart() {
     })
 
     if (result.success) {
+      wasSaved = true
       // Show success toast
       const toast = useToast()
       toast.add({
@@ -690,6 +722,8 @@ async function saveExistingChart() {
   } finally {
     loading.value = false
   }
+
+  return wasSaved
 }
 
 async function handleSaveToDashboard(data: { saveAsName: string; selectedDestination: string; selectedDashboardId?: string; selectedTabId?: string; newDashboardName?: string }) {
@@ -794,6 +828,98 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
     openSelectBoard.value = false
   } finally {
     loading.value = false
+  }
+}
+
+async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
+  if (!props.dashboardId) return false
+  try {
+    loading.value = true
+
+    const reportState = {
+      selectedDatasetId: selectedDatasetId.value,
+      dataConnectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId(),
+      xDimensions: xDimensions.value,
+      yMetrics: yMetrics.value,
+      filters: filters.value,
+      breakdowns: breakdowns.value,
+      excludeNullsInDimensions: excludeNullsInDimensions.value,
+      appearance: appearance.value,
+      // SQL configuration
+      useSql: useSql.value,
+      overrideSql: overrideSql.value,
+      sqlText: sqlText.value,
+      actualExecutedSql: actualExecutedSql.value,
+      // Chart configuration
+      chartType: chartType.value
+    }
+
+    const chartMeta = await captureChartMeta()
+
+    // Save the chart
+    const chartResult = await createChart({
+      name: 'Untitled Chart',
+      state: reportState,
+      width: chartMeta.width,
+      height: chartMeta.height,
+      thumbnailBase64: chartMeta.thumbnailBase64
+    })
+
+    if (!chartResult.success) {
+      throw new Error('Failed to save chart')
+    }
+
+    const position = {
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 4,
+      i: chartResult.chartId.toString()
+    }
+
+    await createDashboardReport({
+      dashboardId: props.dashboardId,
+      chartId: chartResult.chartId,
+      position
+    })
+
+    const toast = useToast()
+    toast.add({
+      title: 'Chart Saved Successfully',
+      description: 'Your chart has been added to the dashboard.',
+      color: 'green'
+    })
+
+    return true
+  } catch (error) {
+    console.error('Failed to save chart to dashboard:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Save Failed',
+      description: 'Failed to save chart to dashboard. Please try again.',
+      color: 'red'
+    })
+    return false
+  } finally {
+    loading.value = false
+  }
+}
+
+async function doneAndReturn() {
+  if (!props.dashboardId) return
+  const target = `/dashboards/${props.dashboardId}/edit`
+
+  if (props.editingChartId) {
+    const saved = await saveExistingChart()
+    if (saved) {
+      await navigateTo(target)
+    }
+    return
+  }
+
+  const savedNew = await saveNewChartDirectlyToDashboard()
+  if (savedNew) {
+    await navigateTo(target)
   }
 }
 

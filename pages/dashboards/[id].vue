@@ -111,6 +111,22 @@
             <Icon name="i-heroicons-arrows-pointing-out" class="w-4 h-4 mr-1"/>
             Auto Layout
           </UButton>
+          <UDropdownMenu
+              v-if="isEditableSession"
+              :items="addChartMenuItems"
+              :popper="{ placement: 'bottom-end' }"
+          >
+            <UButton
+                color="orange"
+                variant="solid"
+                size="xs"
+                class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer flex items-center gap-1"
+                title="Add chart"
+            >
+              <Icon name="i-heroicons-plus-circle" class="w-4 h-4"/>
+              Add Chart
+            </UButton>
+          </UDropdownMenu>
         </div>
       </div>
     </div>
@@ -331,33 +347,125 @@
     </UModal>
 
     <!-- Add Chart Modal -->
-    <UModal v-model:open="showAddChartModal" size="2xl">
+    <UModal v-model:open="showAddChartModal" size="5xl" class="max-w-6xl w-full">
       <template #header>
         <h3 class="text-lg font-semibold">Add Chart to Dashboard</h3>
       </template>
       <template #body>
         <div class="space-y-4">
-          <div v-if="availableCharts.length === 0" class="text-center py-8 text-gray-500">
+          <div v-if="loadingCharts || loadingDashboardsForGallery" class="flex items-center gap-2 text-gray-600">
+            <Icon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin"/>
+            <span>Loading charts...</span>
+          </div>
+          <div v-else-if="availableCharts.length === 0" class="text-center py-8 text-gray-500">
             <Icon name="i-heroicons-chart-bar" class="w-12 h-12 mx-auto mb-4 opacity-50"/>
             <p>No saved charts available</p>
             <p class="text-sm">Create charts in the Report Builder first</p>
           </div>
-          <div v-else class="max-h-96 overflow-y-auto">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <UCard
-                  v-for="chart in availableCharts"
-                  :key="chart.id"
-                  class="cursor-pointer hover:border-orange-300 transition-colors"
-                  @click="addChartToDashboard(chart.id)"
-              >
-                <div class="font-medium">{{ chart.name }}</div>
-                <div class="text-sm text-gray-500">{{ chart.description || 'No description' }}</div>
-                <div class="text-xs text-gray-400 mt-2">Type: {{ chart.state_json?.chartType || 'Unknown' }}</div>
-              </UCard>
+          <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-4 max-h-[30rem]">
+            <div class="lg:col-span-2 space-y-3 overflow-y-auto pr-1">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
+                  <Icon name="i-heroicons-rectangle-stack" class="w-5 h-5 text-orange-500"/>
+                  Chart Gallery
+                </div>
+                <div class="relative w-64">
+                  <UInput v-model="gallerySearch" placeholder="Search charts..." class="w-full pr-10" size="sm"/>
+                  <button
+                      v-if="gallerySearch"
+                      class="absolute inset-y-0 right-2 my-auto text-gray-400 hover:text-gray-600 cursor-pointer"
+                      @click="gallerySearch = ''"
+                  >
+                    <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+                  </button>
+                </div>
+              </div>
+              <div class="border rounded-md divide-y">
+                <div
+                    v-for="dash in filteredDashboardsWithUngrouped"
+                    :key="dash.id"
+                    class="px-3 py-2"
+                >
+                  <button
+                      class="w-full flex items-center justify-between text-left cursor-pointer hover:bg-gray-50 rounded-md px-2 py-1"
+                      @click="toggleGallerySection(dash.id)"
+                  >
+                    <div class="flex items-center gap-2">
+                      <Icon :name="isGallerySectionOpen(dash.id) ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-4 h-4 text-gray-500"/>
+                      <span class="font-medium text-gray-800">{{ dash.name }}</span>
+                      <span class="text-xs text-gray-500">({{ dash.charts.length }})</span>
+                    </div>
+                  </button>
+                  <div v-if="isGallerySectionOpen(dash.id)" class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div
+                        v-for="chart in dash.charts"
+                        :key="chart.chartId"
+                        class="border rounded-md p-2 cursor-pointer hover:border-orange-300 transition-colors flex gap-3"
+                        :class="selectedGalleryChartId === chart.chartId ? 'border-orange-400 bg-orange-50' : ''"
+                        @click="selectedGalleryChartId = chart.chartId"
+                    >
+                      <div class="w-20 flex-shrink-0">
+                        <div class="w-full h-14 bg-gray-100 rounded overflow-hidden flex items-center justify-center">
+                          <img
+                              v-if="availableChartById(chart.chartId)?.thumbnailUrl"
+                              :src="availableChartById(chart.chartId)?.thumbnailUrl"
+                              alt="thumb"
+                              class="w-full h-full object-cover"
+                          />
+                          <Icon v-else name="i-heroicons-chart-bar" class="w-5 h-5 text-gray-400"/>
+                        </div>
+                        <div class="text-[11px] text-gray-600 mt-1 truncate">{{ chart.name }}</div>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-medium truncate">{{ chart.name }}</div>
+                        <div class="text-xs text-gray-500 truncate">{{ availableChartById(chart.chartId)?.description || 'No description' }}</div>
+                      </div>
+                      <UButton
+                          size="xs"
+                          color="orange"
+                          variant="solid"
+                          class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+                          @click.stop="addChartToDashboard(chart.chartId)"
+                      >
+                        Add
+                      </UButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-3 border-l pl-3 hidden lg:block">
+              <div class="text-sm font-semibold uppercase tracking-wide text-gray-600">Preview</div>
+              <div v-if="selectedGalleryChart" class="space-y-2">
+                <div class="w-full h-40 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                  <img
+                      v-if="selectedGalleryChart.thumbnailUrl"
+                      :src="selectedGalleryChart.thumbnailUrl"
+                      alt="Chart preview"
+                      class="w-full h-full object-cover"
+                  />
+                  <Icon v-else name="i-heroicons-chart-bar" class="w-10 h-10 text-gray-400"/>
+                </div>
+                <div class="font-medium">{{ selectedGalleryChart.name }}</div>
+                <div class="text-sm text-gray-500">{{ selectedGalleryChart.description || 'No description' }}</div>
+                <div class="text-xs text-gray-400">Type: {{ selectedGalleryChart.state_json?.chartType || 'Unknown' }}</div>
+                <UButton
+                    color="orange"
+                    variant="solid"
+                    class="w-full bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+                    :disabled="!selectedGalleryChartId"
+                    @click="selectedGalleryChartId && addChartToDashboard(selectedGalleryChartId)"
+                >
+                  Add to this Dashboard
+                </UButton>
+              </div>
+              <div v-else class="text-sm text-gray-500">
+                Select a chart to preview.
+              </div>
             </div>
           </div>
           <div class="flex justify-end gap-2">
-            <UButton variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="showAddChartModal = false">Cancel</UButton>
+            <UButton variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="showAddChartModal = false">Close</UButton>
           </div>
         </div>
       </template>
@@ -502,7 +610,7 @@ watch(
     }
 )
 
-const {getDashboardFull, updateDashboard} = useDashboardsService()
+const {getDashboardFull, updateDashboard, listDashboards: listDashboardsLite} = useDashboardsService()
 const { listCharts, updateChart, deleteChart: deleteChartApi } = useChartsService()
 
 const dashboardName = ref('')
@@ -513,6 +621,7 @@ const gridLayout = ref<any[]>([])
 const tabLayouts = reactive<Record<string, any[]>>({})
 const initialTabLayouts = ref<Record<string, any[]>>({})
 const loading = ref(true)
+const suppressUnsavedCheckOnce = ref(false)
 
 // Modal states
 const showRenameModal = ref(false)
@@ -538,8 +647,13 @@ const chartToDeleteName = ref('')
 const deleting = ref(false)
 
 // Available charts for adding
-const availableCharts = ref<Array<{ id: number; name: string; description?: string; state_json: any }>>([])
+const availableCharts = ref<Array<{ id: number; name: string; description?: string; state_json: any; thumbnailUrl?: string | null }>>([])
 const loadingCharts = ref(false)
+const loadingDashboardsForGallery = ref(false)
+const dashboardsForGallery = ref<Array<{ id: string; name: string; charts: Array<{ chartId: number; name: string }> }>>([])
+const gallerySearch = ref('')
+const selectedGalleryChartId = ref<number | null>(null)
+const expandedGallerySections = reactive<Record<string, boolean>>({})
 
 // Tab operations
 const createTabForm = reactive({name: ''})
@@ -589,6 +703,25 @@ const currentTabCharts = computed(() => {
   return currentTab?.charts || []
 })
 
+function getDataConnectionIdFromState(state: any): number | null {
+  if (!state) return null
+  const fromRoot = state.dataConnectionId ?? state?.internal?.dataConnectionId
+  const parsed = fromRoot != null ? Number(fromRoot) : null
+  return parsed !== null && Number.isFinite(parsed) ? parsed : null
+}
+
+const preferredDataConnectionId = computed<number | null>(() => {
+  for (const tab of tabs.value) {
+    for (const chart of tab.charts || []) {
+      const connectionId = getDataConnectionIdFromState(chart.state)
+      if (connectionId != null) {
+        return connectionId
+      }
+    }
+  }
+  return null
+})
+
 const hasUnsavedChanges = computed(() => {
   if (!isEditableSession.value) return false
   const layoutChanged = Object.keys(tabLayouts).some((tabId) =>
@@ -631,13 +764,17 @@ function areLayoutsEqual(a: any[] = [], b: any[] = []) {
   const sortLayout = (layout: any[]) => [...layout].sort((x, y) => String(x.i).localeCompare(String(y.i)))
   const sortedA = sortLayout(a)
   const sortedB = sortLayout(b)
+  const toNum = (v: any) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : 0
+  }
   return sortedA.every((item, idx) => {
     const match = sortedB[idx]
     return !!match &&
-        item.x === match.x &&
-        item.y === match.y &&
-        item.w === match.w &&
-        item.h === match.h &&
+        toNum(item.x) === toNum(match.x) &&
+        toNum(item.y) === toNum(match.y) &&
+        toNum(item.w) === toNum(match.w) &&
+        toNum(item.h) === toNum(match.h) &&
         String(item.i) === String(match.i)
   })
 }
@@ -717,7 +854,16 @@ function autoLayout() {
 }
 
 function editChart(chartId: string) {
-  navigateTo(`/reporting/builder?chartId=${chartId}&dashboard_id=${id.value}`)
+  const chart = currentTabCharts.value.find(c => String(c.chartId) === chartId)
+  const connectionId = getDataConnectionIdFromState(chart?.state)
+  const params = new URLSearchParams({
+    chartId: chartId,
+    dashboard_id: id.value
+  })
+  if (connectionId != null) {
+    params.set('data_connection_id', String(connectionId))
+  }
+  navigateTo(`/reporting/builder?${params.toString()}`)
 }
 
 function openPreview() {
@@ -756,6 +902,10 @@ onMounted(async () => {
 })
 
 onBeforeRouteLeave((to, from) => {
+  if (suppressUnsavedCheckOnce.value) {
+    suppressUnsavedCheckOnce.value = false
+    return
+  }
   if (!hasUnsavedChanges.value) return
   pendingRoute.value = to
   showUnsavedModal.value = true
@@ -804,6 +954,7 @@ function discardChanges() {
   })
   gridLayout.value = cloneLayout(tabLayouts[activeTabId.value] || [])
   showUnsavedModal.value = false
+  suppressUnsavedCheckOnce.value = true
   const target = pendingRoute.value
   const destination = target ? target.fullPath : `/dashboards/${id.value}`
   pendingRoute.value = null
@@ -898,8 +1049,34 @@ async function deleteChart() {
   }
 }
 
+function startCreateNewChart() {
+  const params = new URLSearchParams({
+    dashboard_id: id.value
+  })
+  if (preferredDataConnectionId.value != null) {
+    params.set('data_connection_id', String(preferredDataConnectionId.value))
+  }
+  navigateTo(`/reporting/builder?${params.toString()}`)
+}
+
+const addChartMenuItems = computed(() => [[
+  {
+    label: 'Create New Chart',
+    icon: 'i-heroicons-sparkles',
+    class: 'cursor-pointer',
+    onClick: startCreateNewChart
+  },
+  {
+    label: 'Use Existing Chart',
+    icon: 'i-heroicons-folder-open',
+    class: 'cursor-pointer',
+    onClick: openAddChartModal
+  }
+]])
+
 async function openAddChartModal() {
   loadingCharts.value = true
+  loadingDashboardsForGallery.value = true
   showAddChartModal.value = true
 
   try {
@@ -908,8 +1085,26 @@ async function openAddChartModal() {
         tabs.value.flatMap(t => t.charts.map(c => c.chartId))
     )
     availableCharts.value = allCharts.filter(chart => !dashboardChartIds.has(chart.id))
+
+    // Load dashboards and map charts that are not yet on this dashboard
+    const dashboards = await listDashboardsLite()
+    const dashboardDetails = await Promise.all(dashboards.map(async (dash) => {
+      try {
+        const detail = await $fetch<{ charts: Array<{ chartId: number; name: string }> }>(`/api/dashboards/${dash.id}`)
+        return {
+          id: dash.id,
+          name: dash.name,
+          charts: (detail.charts || []).filter(c => availableCharts.value.some(ac => ac.id === c.chartId))
+        }
+      } catch (e) {
+        console.error('Failed to load dashboard charts for gallery', dash.id, e)
+        return {id: dash.id, name: dash.name, charts: []}
+      }
+    }))
+    dashboardsForGallery.value = dashboardDetails.filter(d => (d.charts || []).length > 0)
   } finally {
     loadingCharts.value = false
+    loadingDashboardsForGallery.value = false
   }
 }
 
@@ -918,12 +1113,18 @@ async function addChartToDashboard(chartId: number) {
     const chart = availableCharts.value.find(c => c.id === chartId)
     if (!chart) return
 
+    const targetTabId = activeTabId.value || tabs.value[0]?.id
+    if (!targetTabId) {
+      console.error('No active tab available for adding chart')
+      return
+    }
+
     const newPosition = { x: 0, y: Math.max(...gridLayout.value.map(item => item.y + item.h), 0), w: 6, h: 8 }
 
     await $fetch(`/api/dashboard-tabs`, {
       method: 'POST',
       body: {
-        tabId: activeTabId.value,
+        tabId: targetTabId,
         chartId: chartId,
         position: newPosition
       }
@@ -931,9 +1132,62 @@ async function addChartToDashboard(chartId: number) {
 
     await load()
     showAddChartModal.value = false
+    selectedGalleryChartId.value = null
   } catch (error) {
     console.error('Failed to add chart to dashboard:', error)
   }
+}
+
+const filteredDashboardsForGallery = computed(() => {
+  const term = gallerySearch.value.trim().toLowerCase()
+  if (!term) return dashboardsForGallery.value
+  return dashboardsForGallery.value
+      .map(d => ({
+        ...d,
+        charts: d.charts.filter(c => c.name.toLowerCase().includes(term))
+      }))
+      .filter(d => d.charts.length > 0)
+})
+
+const selectedGalleryChart = computed(() => {
+  if (selectedGalleryChartId.value == null) return null
+  return availableCharts.value.find(c => c.id === selectedGalleryChartId.value) || null
+})
+
+const filteredDashboardsWithUngrouped = computed(() => {
+  const groupedIds = new Set(dashboardsForGallery.value.flatMap(d => d.charts.map(c => c.chartId)))
+  const ungrouped = availableCharts.value.filter(c => !groupedIds.has(c.id))
+      .filter(c => {
+        const term = gallerySearch.value.trim().toLowerCase()
+        if (!term) return true
+        return c.name.toLowerCase().includes(term)
+      })
+
+  const base = filteredDashboardsForGallery.value
+  if (ungrouped.length === 0) return base
+
+  return [
+    ...base,
+    {
+      id: 'ungrouped',
+      name: 'Other Charts',
+      charts: ungrouped.map(c => ({chartId: c.id, name: c.name}))
+    }
+  ]
+})
+
+function toggleGallerySection(id: string) {
+  expandedGallerySections[id] = !expandedGallerySections[id]
+}
+
+function isGallerySectionOpen(id: string) {
+  // default to open
+  const val = expandedGallerySections[id]
+  return val === undefined ? true : val
+}
+
+function availableChartById(chartId: number) {
+  return availableCharts.value.find(c => c.id === chartId)
 }
 
 // Tab operations
