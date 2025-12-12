@@ -196,6 +196,14 @@ function renderChart() {
       ? props.appearance.palette
       : defaultColors).slice(0, cats.length)
 
+    const innerRadius = props.appearance?.pieInnerRadius ?? (type === 'doughnut' ? 45 : 0)
+    const outerRadius = props.appearance?.pieOuterRadius ?? (type === 'doughnut' ? 75 : 70)
+    const pieRadius = type === 'doughnut'
+        ? [`${innerRadius}%`, `${outerRadius}%`]
+        : `${outerRadius}%`
+    const labelPosition = props.appearance?.pieLabelPosition || 'outside'
+    const showLabels = props.appearance?.pieShowLabels ?? true
+
     const option = {
       title: {
         text: props.appearance?.chartTitle || '',
@@ -223,7 +231,7 @@ function renderChart() {
       series: [{
         name: props.appearance?.legendTitle || s.name,
         type: 'pie',
-        radius: type === 'doughnut' ? ['45%', '75%'] : '70%',
+        radius: pieRadius,
         center: ['50%', '45%'],
         data: Array.isArray(s.data) && s.data.length > 0 && typeof s.data[0] === 'object' && s.data[0].name
           ? s.data.map((item: any, idx: number) => ({
@@ -236,6 +244,19 @@ function renderChart() {
               value: s.data[idx] || 0,
               itemStyle: { color: palette[idx % palette.length] }
             })),
+        label: {
+          show: showLabels,
+          position: labelPosition,
+          formatter: (params: any) => {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            const value = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
+            return labelPosition === 'inside' ? `${params.name}\n${value}` : `${params.name}: ${value}`
+          }
+        },
+        labelLine: {
+          show: showLabels && labelPosition === 'outside'
+        },
         emphasis: {
           itemStyle: {
             shadowBlur: 10,

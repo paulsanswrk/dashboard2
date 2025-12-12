@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 400, statusMessage: 'Cannot delete the last tab in a dashboard'})
     }
 
-    // Delete the tab (cascade will handle dashboard_charts)
+    // Delete the tab (cascade will handle dashboard_widgets)
     const {error} = await supabaseAdmin
         .from('dashboard_tab')
         .delete()

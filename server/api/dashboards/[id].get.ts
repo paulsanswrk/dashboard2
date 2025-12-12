@@ -46,11 +46,13 @@ export default defineEventHandler(async (event) => {
 
     let links: any[] = []
     if (tabs && tabs.length > 0) {
-        // Get chart links for all tabs (no embedding to avoid ambiguous relationships)
+        // Get chart widgets for all tabs (no embedding to avoid ambiguous relationships)
         const tabIds = tabs.map((tab: any) => tab.id)
         const {data: linksData, error: linksError} = await supabaseAdmin
-            .from('dashboard_charts')
-            .select('chart_id, position, created_at')
+            .from('dashboard_widgets')
+            .select('id, chart_id, position, config_override, created_at')
+            .eq('type', 'chart')
+            .eq('dashboard_id', dashboard.id)
             .in('tab_id', tabIds)
             .order('created_at', {ascending: true})
 
@@ -81,9 +83,11 @@ export default defineEventHandler(async (event) => {
     charts: (links || []).map((it: any) => {
       const c = chartsById[it.chart_id]
       return {
+          widgetId: it.id,
         chartId: it.chart_id,
         name: c?.name ?? '',
         position: it.position,
+          configOverride: it.config_override ?? {},
         state: c?.state_json ?? null
       }
     })

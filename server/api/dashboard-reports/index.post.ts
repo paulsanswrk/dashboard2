@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-    const {dashboardId, chartId, position, tabId} = body || {}
+    const {dashboardId, chartId, position, tabId, configOverride} = body || {}
 
   if (!dashboardId || !chartId || !position) {
     throw createError({ statusCode: 400, statusMessage: 'Missing dashboardId, chartId, or position' })
@@ -85,11 +85,14 @@ export default defineEventHandler(async (event) => {
     }
 
   const { error } = await supabaseAdmin
-    .from('dashboard_charts')
+      .from('dashboard_widgets')
     .insert({
+        dashboard_id: dashboardId,
         tab_id: targetTabId,
+        type: 'chart',
       chart_id: chartId,
-      position: position
+        position: position,
+        config_override: configOverride ?? {}
     })
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })

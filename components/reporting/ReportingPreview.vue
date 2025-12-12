@@ -5,14 +5,30 @@
       <div v-if="!rows.length" class="text-gray-500">No data</div>
       <div v-else class="overflow-auto border rounded text-black">
         <table class="min-w-full">
-          <thead class="bg-gray-50">
+          <thead :style="headerStyle" :class="{'font-semibold': headerBold}">
             <tr>
-              <th v-for="col in columns" :key="col.key" class="text-left px-3 py-2 border-b">{{ col.label }}</th>
+              <th
+                  v-for="col in columns"
+                  :key="col.key"
+                  :class="headerCellClass"
+                  :style="cellStyle"
+              >
+                {{ col.label }}
+              </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, idx) in rows" :key="idx" class="odd:bg-white even:bg-gray-50">
-              <td v-for="col in columns" :key="col.key" class="px-3 py-2 border-b">
+          <tr
+              v-for="(row, idx) in rows"
+              :key="idx"
+              :class="rowClass(idx)"
+          >
+            <td
+                v-for="col in columns"
+                :key="col.key"
+                :class="cellClass"
+                :style="cellStyle"
+            >
                 {{ row[col.key] }}
               </td>
             </tr>
@@ -24,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 
 const previewRef = ref<HTMLElement | null>(null)
 
@@ -32,7 +48,44 @@ const props = defineProps<{
   loading: boolean
   rows: Array<Record<string, unknown>>
   columns: Array<{ key: string; label: string }>
+  appearance?: Record<string, any>
 }>()
+
+const appearance = computed(() => props.appearance || {})
+const headerBg = computed(() => appearance.value.tableHeaderBg || '#f8fafc')
+const headerBold = computed(() => appearance.value.tableHeaderBold ?? true)
+const striped = computed(() => appearance.value.tableStriped ?? true)
+const bordered = computed(() => appearance.value.tableBordered ?? true)
+const compact = computed(() => appearance.value.tableCompact ?? false)
+const rowPadding = computed(() => {
+  const pad = appearance.value.tableRowPadding
+  if (typeof pad === 'number' && pad > 0) return `${pad}px`
+  return compact.value ? '8px' : '12px'
+})
+
+const headerStyle = computed(() => ({
+  backgroundColor: headerBg.value
+}))
+
+const cellStyle = computed(() => ({
+  padding: `0 ${rowPadding.value}`,
+  height: `calc(${rowPadding.value} * 2)`
+}))
+
+const cellClass = computed(() => ({
+  'border-b': bordered.value,
+  'border-gray-200': bordered.value
+}))
+
+const headerCellClass = computed(() => ({
+  ...cellClass.value,
+  'text-left': true
+}))
+
+function rowClass(idx: number) {
+  if (!striped.value) return {}
+  return idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+}
 
 async function captureSnapshot() {
   if (typeof window === 'undefined') return null

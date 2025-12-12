@@ -11,11 +11,36 @@ export type Dashboard = {
     thumbnail_url?: string | null
 }
 
-export type DashboardReport = {
-  dashboard_id: string
-  chart_id: number
+export type DashboardWidget = {
+    widgetId: string
+    type: 'chart' | 'text' | 'image' | 'icon'
+    chartId?: number
   position: any
-  created_at: string
+    configOverride?: any
+    style?: any
+    name?: string
+    state?: any
+    data?: { columns: any[]; rows: any[]; meta?: any }
+}
+
+export type DashboardTab = {
+    id: string
+    name: string
+    position: number
+    style?: any
+    options?: any
+    widgets: DashboardWidget[]
+}
+
+export type DashboardFull = {
+    id: string
+    name: string
+    isPublic: boolean
+    createdAt: string
+    width?: number | null
+    height?: number | null
+    thumbnailUrl?: string | null
+    tabs: DashboardTab[]
 }
 
 export function useDashboardsService() {
@@ -27,13 +52,7 @@ export function useDashboardsService() {
     return await $fetch(`/api/dashboards/${id}`)
   }
 
-    async function getDashboardFull(id: string, context?: string): Promise<{
-        id: string;
-        name: string;
-        isPublic: boolean;
-        createdAt: string;
-        charts: Array<{ id: number; name: string; position: any; state?: any; data?: { columns: any[]; rows: any[]; meta?: any } }>
-    }> {
+    async function getDashboardFull(id: string, context?: string): Promise<DashboardFull> {
         const params = context ? {context} : {}
         return await $fetch(`/api/dashboards/${id}/full`, {params})
   }
@@ -52,7 +71,7 @@ export function useDashboardsService() {
     async function updateDashboard(payload: {
         id: string;
         name?: string;
-        layout?: Array<{ chartId: number; position: any }>;
+        layout?: Array<{ widgetId: string; position: any } | { chartId: number; position: any }>;
         width?: number | null;
         height?: number | null;
         thumbnailBase64?: string | null

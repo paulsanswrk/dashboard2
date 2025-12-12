@@ -397,60 +397,96 @@ async function getDashboardCharts(dashboardId: string, supabase: any): Promise<a
         return []
     }
 
-    // Then get all charts for these tabs
+    // Then get all chart widgets for these tabs
     const tabIds = tabs.map((tab: any) => tab.id)
-    const {data: charts, error: chartsError} = await supabase
-        .from('dashboard_charts')
-        .select(`
-      chart_id,
-      charts!dashboard_charts_report_id_fkey (
-        id,
-        name,
-        state_json,
-        data_connection_id
-      ),
-      tab_id,
-      dashboard_tab:tab_id (
-        name
-      )
-    `)
+    const {data: widgets, error: widgetsError} = await supabase
+        .from('dashboard_widgets')
+        .select('chart_id, tab_id')
+        .eq('dashboard_id', dashboardId)
+        .eq('type', 'chart')
         .in('tab_id', tabIds)
 
-    if (chartsError) {
-        console.error(`Error fetching dashboard charts for dashboard ${dashboardId}:`, chartsError)
-        throw new Error(`Failed to fetch dashboard charts: ${chartsError.message}`)
+    if (widgetsError) {
+        console.error(`Error fetching dashboard widgets for dashboard ${dashboardId}:`, widgetsError)
+        throw new Error(`Failed to fetch dashboard widgets: ${widgetsError.message}`)
     }
 
-    return charts || []
+    if (!widgets || widgets.length === 0) {
+        return []
+    }
+
+    const chartIds = Array.from(new Set(widgets.map((w: any) => w.chart_id)))
+    const {data: charts, error: chartsError} = await supabase
+        .from('charts')
+        .select('id, name, state_json, data_connection_id')
+        .in('id', chartIds)
+
+    if (chartsError) {
+        console.error(`Error fetching charts for dashboard ${dashboardId}:`, chartsError)
+        throw new Error(`Failed to fetch charts: ${chartsError.message}`)
+    }
+
+    const chartById = Object.fromEntries((charts || []).map((c: any) => [c.id, c]))
+    const tabById = Object.fromEntries(tabs.map((t: any) => [t.id, t]))
+
+    return widgets.map((w: any) => ({
+        chart_id: w.chart_id,
+        charts: chartById[w.chart_id],
+        tab_id: w.tab_id,
+        dashboard_tab: {name: tabById[w.tab_id]?.name || 'Unknown'}
+    }))
 }
 
 /**
  * Get charts for a specific tab
  */
 async function getTabCharts(tabId: string, supabase: any): Promise<any[]> {
-    const {data: charts, error} = await supabase
-        .from('dashboard_charts')
-        .select(`
-      chart_id,
-      charts:chart_id (
-        id,
-        name,
-        state_json,
-        data_connection_id
-      ),
-      tab_id,
-      dashboard_tab:tab_id (
-        name
-      )
-    `)
+    const {data: tab, error: tabError} = await supabase
+        .from('dashboard_tab')
+        .select('id, name, dashboard_id')
+        .eq('id', tabId)
+        .single()
+
+    if (tabError || !tab) {
+        console.error(`Error fetching tab ${tabId}:`, tabError)
+        throw new Error(`Failed to fetch tab: ${tabError?.message}`)
+    }
+
+    const {data: widgets, error} = await supabase
+        .from('dashboard_widgets')
+        .select('chart_id, tab_id')
         .eq('tab_id', tabId)
+        .eq('dashboard_id', tab.dashboard_id)
+        .eq('type', 'chart')
 
     if (error) {
         console.error(`Error fetching tab charts for tab ${tabId}:`, error)
         throw new Error(`Failed to fetch tab charts: ${error.message}`)
     }
 
-    return charts || []
+    if (!widgets || widgets.length === 0) {
+        return []
+    }
+
+    const chartIds = Array.from(new Set(widgets.map((w: any) => w.chart_id)))
+    const {data: charts, error: chartsError} = await supabase
+        .from('charts')
+        .select('id, name, state_json, data_connection_id')
+        .in('id', chartIds)
+
+    if (chartsError) {
+        console.error(`Error fetching charts for tab ${tabId}:`, chartsError)
+        throw new Error(`Failed to fetch charts: ${chartsError.message}`)
+    }
+
+    const chartById = Object.fromEntries((charts || []).map((c: any) => [c.id, c]))
+
+    return widgets.map((w: any) => ({
+        chart_id: w.chart_id,
+        charts: chartById[w.chart_id],
+        tab_id: w.tab_id,
+        dashboard_tab: {name: tab.name}
+    }))
 }
 
 /**

@@ -87,7 +87,7 @@ export default defineEventHandler(async (event) => {
         try {
             const {data: tabsData, error: tabsError} = await supabaseAdmin
                 .from('dashboard_tab')
-                .select('id, name, position')
+                .select('id, name, position, style, options')
                 .eq('dashboard_id', dashboard.id)
                 .order('position', {ascending: true})
 
@@ -101,30 +101,33 @@ export default defineEventHandler(async (event) => {
             throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard tabs'})
         }
 
-        // Load chart links for all tabs
-        let links: any[] = []
+        // Load widgets for all tabs
+        let widgets: any[] = []
         try {
             if (tabs.length > 0) {
                 const tabIds = tabs.map((t: any) => t.id)
-                const {data: linksData, error: linksError} = await supabaseAdmin
-                    .from('dashboard_charts')
-                    .select('tab_id, chart_id, position, created_at')
+                const {data: widgetsData, error: widgetsError} = await supabaseAdmin
+                    .from('dashboard_widgets')
+                    .select('id, tab_id, dashboard_id, type, chart_id, position, style, config_override, created_at')
+                    .eq('dashboard_id', dashboard.id)
                     .in('tab_id', tabIds)
                     .order('created_at', {ascending: true})
 
-                if (linksError) {
-                    throw createError({statusCode: 500, statusMessage: linksError.message})
+                if (widgetsError) {
+                    throw createError({statusCode: 500, statusMessage: widgetsError.message})
                 }
-                links = linksData || []
+                widgets = widgetsData || []
             }
         } catch (e: any) {
             if (e.statusCode) throw e
-            console.error('[full.get.ts] Error loading dashboard charts:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard charts'})
+            console.error('[full.get.ts] Error loading dashboard widgets:', e?.message || e)
+            throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard widgets'})
         }
 
         // Load charts
-        const chartIds: number[] = (links || []).map((l: any) => l.chart_id)
+        const chartIds: number[] = (widgets || [])
+            .filter((w: any) => w.type === 'chart' && w.chart_id != null)
+            .map((l: any) => l.chart_id)
         const chartsById: Record<number, any> = {}
         try {
             if (chartIds.length) {
@@ -183,18 +186,20 @@ export default defineEventHandler(async (event) => {
         }
 
         // Group links by tab
-        const linksByTab: Record<string, any[]> = {}
-        for (const link of links || []) {
-            if (!linksByTab[link.tab_id]) {
-                linksByTab[link.tab_id] = []
+        const widgetsByTab: Record<string, any[]> = {}
+        for (const widget of widgets || []) {
+            if (!widgetsByTab[widget.tab_id]) {
+                widgetsByTab[widget.tab_id] = []
             }
-            linksByTab[link.tab_id].push(link)
+            widgetsByTab[widget.tab_id].push(widget)
         }
 
         // Fetch external data for all charts in parallel (uses internal info server-side)
         const tabTasks = tabs.map(async (tab: any) => {
-            const tabLinks = linksByTab[tab.id] || []
-            const chartTasks = tabLinks.map(async (lnk: any) => {
+            const tabWidgets = widgetsByTab[tab.id] || []
+            const chartTasks = tabWidgets
+                .filter((lnk: any) => lnk.type === 'chart')
+                .map(async (lnk: any) => {
             try {
                 const chart = chartsById[lnk.chart_id]
                 if (!chart) {
@@ -271,8 +276,10 @@ export default defineEventHandler(async (event) => {
 
                 return {
                     id: lnk.chart_id,
+                    widgetId: lnk.id,
                     name: chart?.name || '',
                     position: lnk.position,
+                    configOverride: lnk.config_override || {},
                     state: responseState,
                     data: {columns, rows, meta}
                 }
@@ -281,8 +288,10 @@ export default defineEventHandler(async (event) => {
                 // Return error state instead of throwing to prevent Promise.all from failing
                 return {
                     id: lnk.chart_id,
+                    widgetId: lnk.id,
                     name: chartsById[lnk.chart_id]?.name || '',
                     position: lnk.position,
+                    configOverride: lnk.config_override || {},
                     state: {},
                     data: {columns: [], rows: [], meta: {error: e?.statusMessage || e?.message || 'chart_processing_failed'}}
                 }
@@ -291,11 +300,27 @@ export default defineEventHandler(async (event) => {
 
             const chartResults = await Promise.all(chartTasks)
 
+            const textResults = tabWidgets
+                .filter((w: any) => w.type === 'text')
+                .map((w: any) => ({
+                    id: w.chart_id || null,
+                    widgetId: w.id,
+                    type: 'text',
+                    position: w.position,
+                    style: w.style || {},
+                    configOverride: w.config_override || {}
+                }))
+
             return {
                 id: tab.id,
                 name: tab.name,
                 position: tab.position,
-                charts: chartResults
+                style: tab.style ?? {},
+                options: tab.options ?? {},
+                widgets: [
+                    ...chartResults.map((c) => ({...c, type: 'chart'})),
+                    ...textResults
+                ]
             }
         })
 

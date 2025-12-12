@@ -63,27 +63,35 @@ export default defineEventHandler(async (event) => {
 
       if (tabs && tabs.length > 0) {
           const tabIds = tabs.map((tab: any) => tab.id)
+          const {data: widgetLookup, error: lookupError} = await supabaseAdmin
+              .from('dashboard_widgets')
+              .select('id, tab_id, chart_id, type')
+              .eq('dashboard_id', id)
+              .in('tab_id', tabIds)
 
-          // Update positions for each item - need to find which tab each chart belongs to
+          if (lookupError) throw createError({statusCode: 500, statusMessage: lookupError.message})
+
           const updates = (layout as LayoutItem[]).map(async (li) => {
-              // Find which tab this chart belongs to
-              const {data: chartLink, error: linkError} = await supabaseAdmin
-                  .from('dashboard_charts')
-                  .select('tab_id')
-                  .eq('chart_id', li.chartId)
-                  .in('tab_id', tabIds)
-                  .single()
-
-              if (linkError || !chartLink) {
-                  console.warn(`Chart ${li.chartId} not found in dashboard ${id}, skipping position update`)
-                  return null
+              if ((li as any).widgetId) {
+                  return supabaseAdmin
+                      .from('dashboard_widgets')
+                      .update({position: li.position})
+                      .eq('id', (li as any).widgetId)
+                      .eq('dashboard_id', id)
               }
 
-              return supabaseAdmin
-                  .from('dashboard_charts')
-                  .update({position: li.position})
-                  .eq('tab_id', chartLink.tab_id)
-                  .eq('chart_id', li.chartId)
+              if (li.chartId != null) {
+                  const widget = (widgetLookup || []).find((w: any) => w.type === 'chart' && Number(w.chart_id) === Number(li.chartId))
+                  if (!widget) {
+                      console.warn(`Chart ${li.chartId} not found in dashboard ${id}, skipping position update`)
+                      return null
+                  }
+                  return supabaseAdmin
+                      .from('dashboard_widgets')
+                      .update({position: li.position})
+                      .eq('id', widget.id)
+              }
+              return null
           })
 
           const results = await Promise.all(updates)

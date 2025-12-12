@@ -27,15 +27,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import ReportingChart from './reporting/ReportingChart.vue'
 import ReportingPreview from './reporting/ReportingPreview.vue'
-import { useReportingService } from '../composables/useReportingService'
+import {useReportingService} from '../composables/useReportingService'
 
 const props = defineProps<{
   state: any
   preloadedColumns?: Array<{ key: string; label: string }>
   preloadedRows?: Array<Record<string, unknown>>
+  configOverride?: any
 }>()
 
 const { runPreview, runSql } = useReportingService()
@@ -45,11 +46,31 @@ const columns = ref<Array<{ key: string; label: string }>>([])
 const error = ref<string | null>(null)
 const loading = ref(true)
 
-const chartType = computed(() => props.state?.chartType || 'table')
-const appearance = computed(() => props.state?.appearance || {})
-const xDimensions = computed(() => props.state?.xDimensions || [])
-const yMetrics = computed(() => props.state?.yMetrics || [])
-const breakdowns = computed(() => props.state?.breakdowns || [])
+function mergeAppearance(base: any, override: any) {
+  return {
+    ...(base || {}),
+    ...(override || {}),
+    numberFormat: {
+      ...(base?.numberFormat || {}),
+      ...(override?.numberFormat || {})
+    }
+  }
+}
+
+function mergeState(state: any, override: any) {
+  if (!override) return state
+  const merged = {...(state || {}), ...(override || {})}
+  merged.appearance = mergeAppearance(state?.appearance, override?.appearance)
+  return merged
+}
+
+const effectiveState = computed(() => mergeState(props.state, props.configOverride))
+
+const chartType = computed(() => effectiveState.value?.chartType || 'table')
+const appearance = computed(() => effectiveState.value?.appearance || {})
+const xDimensions = computed(() => effectiveState.value?.xDimensions || [])
+const yMetrics = computed(() => effectiveState.value?.yMetrics || [])
+const breakdowns = computed(() => effectiveState.value?.breakdowns || [])
 
 const chartComponent = computed(() =>
   chartType.value === 'table' ? ReportingPreview : ReportingChart
@@ -65,9 +86,11 @@ async function loadData() {
       loading.value = false
       return
     }
-    if (props.state?.useSql) {
-      const sql = props.state?.actualExecutedSql || props.state?.sqlText || ''
-      const connectionId = props.state?.dataConnectionId ?? null
+    const state = effectiveState.value || {}
+
+    if (state.useSql) {
+      const sql = state.actualExecutedSql || state.sqlText || ''
+      const connectionId = state.dataConnectionId ?? null
       if (!sql) { error.value = 'Missing SQL for chart'; loading.value = false; return }
       const res = await runSql(sql, undefined, connectionId)
       rows.value = res.rows
@@ -76,16 +99,16 @@ async function loadData() {
       return
     }
 
-    const datasetId = props.state?.selectedDatasetId
-    const connectionId = props.state?.dataConnectionId ?? null
+    const datasetId = state.selectedDatasetId
+    const connectionId = state.dataConnectionId ?? null
     if (!datasetId) { error.value = 'Missing dataset for chart'; loading.value = false; return }
     const res = await runPreview({
       datasetId,
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
-      filters: props.state?.filters || [],
+      filters: state.filters || [],
       breakdowns: breakdowns.value,
-      joins: props.state?.joins || [],
+      joins: state.joins || [],
       limit: 100,
       connectionId
     })

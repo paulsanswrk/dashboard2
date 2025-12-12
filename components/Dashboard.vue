@@ -48,31 +48,50 @@
             @layout-updated="onLayoutUpdated"
         >
           <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
-            <UCard class="h-full w-full" :ui="{
-              header: { base: 'bg-white dark:bg-gray-800', padding: 'sm:p-1 p-1' },
-              body: { padding: 'sm:p-1 p-1' }
-            }">
-              <template #header>
-                <div class="flex items-center justify-between">
-                  <div class="font-medium text-center flex-1">{{ findChartName(item.i) }}</div>
-                  <UDropdownMenu v-if="!preview" :items="getChartMenuItems(item.i)" :popper="{ placement: 'bottom-end' }">
-                    <UButton
-                        variant="ghost"
-                        size="xs"
-                        color="gray"
-                        square
-                        class="cursor-pointer"
-                        title="Chart options"
-                    >
-                      <Icon name="i-heroicons-ellipsis-vertical" class="w-4 h-4"/>
-                    </UButton>
-                  </UDropdownMenu>
+            <template v-if="findWidget(item.i)?.type === 'chart'">
+              <UCard
+                  :class="['h-full w-full cursor-pointer transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i)}]"
+                  :ui="{ body: { padding: 'sm:p-2 p-2' } }"
+                  @click="handleSelectText(item.i)"
+              >
+                <div class="mb-2">
+                  <input
+                      :value="findChartName(item.i)"
+                      class="w-full !bg-transparent text-sm font-semibold px-0 py-0 focus:outline-none focus:ring-0 focus:border-transparent"
+                      :readonly="preview"
+                      @focus.stop="handleSelectText(item.i)"
+                      @input="onChartNameInput(item.i, $event)"
+                  />
                 </div>
-              </template>
-              <div class="h-full">
-                <DashboardChartRenderer :state="findChartState(item.i)" :preloaded-columns="findChartColumns(item.i)" :preloaded-rows="findChartRows(item.i)"/>
+                <div class="h-full">
+                  <DashboardChartRenderer
+                      :state="findChartState(item.i)"
+                      :config-override="findConfigOverride(item.i)"
+                      :preloaded-columns="findChartColumns(item.i)"
+                      :preloaded-rows="findChartRows(item.i)"
+                  />
+                </div>
+              </UCard>
+            </template>
+            <template v-else-if="findWidget(item.i)?.type === 'text'">
+              <div
+                  class="h-full w-full relative border border-gray-200 dark:border-gray-700 rounded-md p-2 cursor-pointer"
+                  :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
+                  @click="handleSelectText(item.i)"
+              >
+                <DashboardTextWidget
+                    :style-props="findWidgetStyle(item.i)"
+                    class="h-full w-full"
+                    :readonly="preview"
+                    @update:content="handleUpdateTextContent(item.i, $event)"
+                />
               </div>
-            </UCard>
+            </template>
+            <template v-else>
+              <div class="h-full flex items-center justify-center text-sm text-gray-500">
+                Unsupported widget
+              </div>
+            </template>
           </GridItem>
         </GridLayout>
       </ClientOnly>
@@ -81,13 +100,17 @@
 </template>
 
 <script setup lang="ts">
-interface Chart {
-  chartId: number
-  name: string
+interface Widget {
+  widgetId: string
+  type: 'chart' | 'text' | 'image' | 'icon'
+  chartId?: number
+  name?: string
   position: any
   state?: any
   preloadedColumns?: any[]
   preloadedRows?: any[]
+  style?: any
+  configOverride?: any
 }
 
 interface GridConfig {
@@ -115,9 +138,10 @@ interface Props {
   device: 'desktop' | 'tablet' | 'mobile'
   layout: any[]
   gridConfig: GridConfig
-  charts: Chart[]
+  widgets: Widget[]
   loading: boolean
   preview?: boolean
+  selectedTextId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -129,6 +153,11 @@ const emit = defineEmits<{
   'edit-chart': [chartId: string]
   'rename-chart': [chartId: string]
   'delete-chart': [chartId: string]
+  'edit-text': [widgetId: string]
+  'delete-widget': [widgetId: string]
+  'select-text': [widgetId: string]
+  'update-text-content': [widgetId: string, content: string]
+  'rename-chart-inline': [widgetId: string, name: string]
 }>()
 
 const previewWidth = computed(() => {
@@ -145,36 +174,69 @@ const leftOverlayWidth = computed(() => {
   return `calc((100% - ${previewWidth.value}px) / 2)`
 })
 
-function findChartName(i: string) {
-  const c = props.charts.find(c => String(c.chartId) === i)
-  return c?.name || 'Chart'
+function findWidget(i: string): Widget | undefined {
+  return props.widgets.find((w) => String(w.widgetId) === i)
 }
 
-function findChartState(i: string) {
-  const c = props.charts.find(c => String(c.chartId) === i)
-  return c?.state || {}
+const findChartName = (i: string) => findWidget(i)?.name || 'Chart'
+const findChartState = (i: string) => findWidget(i)?.state || {}
+const findChartColumns = (i: string) => findWidget(i)?.preloadedColumns || undefined
+const findChartRows = (i: string) => findWidget(i)?.preloadedRows || undefined
+const findWidgetStyle = (i: string) => findWidget(i)?.style || {}
+const findConfigOverride = (i: string) => findWidget(i)?.configOverride || {}
+
+function isSelected(widgetId: string) {
+  return props.selectedTextId != null && props.selectedTextId === widgetId
 }
 
-function findChartColumns(i: string) {
-  const c = props.charts.find(c => String(c.chartId) === i)
-  return c?.preloadedColumns || undefined
+function handleEditChart(widgetId: string) {
+  const widget = findWidget(widgetId)
+  if (widget?.chartId != null) {
+    emit('edit-chart', String(widget.chartId))
+  }
 }
 
-function findChartRows(i: string) {
-  const c = props.charts.find(c => String(c.chartId) === i)
-  return c?.preloadedRows || undefined
+function handleRenameChart(widgetId: string) {
+  const widget = findWidget(widgetId)
+  if (widget?.chartId != null) {
+    emit('rename-chart', String(widget.chartId))
+  }
 }
 
-function handleEditChart(chartId: string) {
-  emit('edit-chart', chartId)
+function handleDeleteChart(widgetId: string) {
+  const widget = findWidget(widgetId)
+  if (widget?.chartId != null) {
+    emit('delete-chart', String(widget.chartId))
+  }
 }
 
-function handleRenameChart(chartId: string) {
-  emit('rename-chart', chartId)
+function handleEditText(widgetId: string) {
+  emit('edit-text', widgetId)
 }
 
-function handleDeleteChart(chartId: string) {
-  emit('delete-chart', chartId)
+function handleDeleteWidget(widgetId: string) {
+  emit('delete-widget', widgetId)
+}
+
+function handleSelectText(widgetId: string) {
+  emit('select-text', widgetId)
+}
+
+function handleUpdateTextContent(widgetId: string, content: string) {
+  emit('update-text-content', widgetId, content)
+}
+
+function onChartNameInput(widgetId: string, e: Event) {
+  const value = (e.target as HTMLInputElement).value
+  emit('rename-chart-inline', widgetId, value)
+}
+
+function getMenuItems(widgetId: string) {
+  const widget = findWidget(widgetId)
+  if (!widget) return []
+  if (widget.type === 'chart') return getChartMenuItems(widgetId)
+  if (widget.type === 'text') return getTextMenuItems(widgetId)
+  return getTextMenuItems(widgetId)
 }
 
 
@@ -201,6 +263,23 @@ function getChartMenuItems(chartId: string) {
   ]
 }
 
+function getTextMenuItems(widgetId: string) {
+  return [
+    [{
+      label: 'Edit Text',
+      icon: 'i-heroicons-pencil-square',
+      class: 'cursor-pointer',
+      onClick: () => handleEditText(widgetId),
+    }],
+    [{
+      label: 'Delete',
+      icon: 'i-heroicons-trash',
+      class: 'cursor-pointer',
+      onClick: () => handleDeleteWidget(widgetId)
+    }]
+  ]
+}
+
 function onLayoutUpdated(newLayout: any[]) {
   emit('update:layout', newLayout)
 }
@@ -212,7 +291,7 @@ function onLayoutUpdated(newLayout: any[]) {
 }
 
 :deep(.vue-grid-item) {
-  min-height: 200px !important; /* Force min-height for grid items */
+  min-height: 60px !important; /* Allow smaller widgets (esp. text) */
 }
 
 :deep(.vue-resizable-handle) {

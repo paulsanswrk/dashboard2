@@ -1,19 +1,10 @@
 <template>
-  <div class="p-4 lg:p-6 space-y-4">
+  <div class="min-h-screen flex flex-col p-4 lg:p-6">
+    <div class="space-y-4 flex-1 flex flex-col overflow-hidden">
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <div class="flex items-center gap-3 flex-1">
         <template v-if="isEditableSession">
           <UInput v-model="dashboardName" class="w-72"/>
-          <UButton
-              color="orange"
-              variant="solid"
-              :loading="saving"
-              @click="save"
-              class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md font-medium cursor-pointer"
-              title="Save dashboard changes"
-          >
-            Save Dashboard
-          </UButton>
         </template>
         <template v-else>
           <h1 class="text-xl lg:text-2xl font-semibold truncate">{{ dashboardName }}</h1>
@@ -111,6 +102,18 @@
             <Icon name="i-heroicons-arrows-pointing-out" class="w-4 h-4 mr-1"/>
             Auto Layout
           </UButton>
+          <UButton
+              v-if="isEditableSession"
+              color="orange"
+              variant="solid"
+              size="xs"
+              class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer flex items-center gap-1"
+              @click="addTextBlock"
+              title="Add text"
+          >
+            <Icon name="i-heroicons-plus" class="w-4 h-4"/>
+            Add Text
+          </UButton>
           <UDropdownMenu
               v-if="isEditableSession"
               :items="addChartMenuItems"
@@ -127,6 +130,17 @@
               Add Chart
             </UButton>
           </UDropdownMenu>
+          <UButton
+              v-if="isEditableSession && sidebarCollapsed"
+              size="xs"
+              variant="outline"
+              class="cursor-pointer"
+              @click="sidebarCollapsed = false"
+              title="Show Options"
+          >
+            <Icon name="i-heroicons-adjustments-horizontal" class="w-4 h-4 mr-1"/>
+            Show Options
+          </UButton>
         </div>
       </div>
     </div>
@@ -524,33 +538,59 @@
       </template>
     </UModal>
 
-    <!-- Unsaved changes -->
-    <UModal v-model:open="showUnsavedModal">
-      <template #header>
-        <h3 class="text-lg font-semibold">Leave edit mode?</h3>
-      </template>
-      <template #body>
-        <p class="text-sm text-gray-700 dark:text-gray-300">You have unsaved changes. Save before viewing, or discard them.</p>
-        <div class="flex justify-end gap-2 mt-4">
-          <UButton variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="stayInEdit">Stay editing</UButton>
-          <UButton variant="outline" color="red" class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer" @click="discardChanges">Discard</UButton>
-          <UButton color="orange" class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" :loading="savingAndExiting" @click="saveAndExit">Save & Continue</UButton>
-        </div>
-      </template>
-    </UModal>
 
-    <Dashboard
-        :device="device"
-        v-model:layout="gridLayout"
-        :grid-config="effectiveGridConfig"
-        :charts="currentTabCharts"
-        :loading="loading"
-        :preview="!isEditableSession"
-        ref="dashboardRef"
-        @edit-chart="editChart"
-        @rename-chart="startRenameChart"
-        @delete-chart="confirmDeleteChart"
-    />
+      <div class="flex gap-4 items-stretch flex-1 min-h-0">
+        <div class="flex-1 min-w-0 h-full">
+          <div class="h-full overflow-auto pr-1">
+            <Dashboard
+                :device="device"
+                v-model:layout="gridLayout"
+                :grid-config="effectiveGridConfig"
+                :widgets="currentTabWidgets"
+                :loading="loading"
+                :preview="!isEditableSession"
+                :selected-text-id="selectedWidgetId"
+                ref="dashboardRef"
+                @edit-chart="editChart"
+                @rename-chart="startRenameChart"
+                @delete-chart="confirmDeleteChart"
+                @edit-text="startEditText"
+                @delete-widget="handleDeleteWidget"
+                @select-text="selectWidget"
+                @update-text-content="updateTextContent"
+                @rename-chart-inline="renameChartInline"
+            />
+          </div>
+        </div>
+        <WidgetOptionsSidebar
+            v-if="isEditableSession && !sidebarCollapsed"
+            :selected-widget="selectedWidget"
+            :text-form="textForm"
+            :font-family-items="fontFamilyItems"
+            :chart-appearance="selectedChartAppearance"
+            :readonly="!isEditableSession"
+            @update-text-form="updateTextForm"
+            @update-text-content="updateTextContentInline"
+            @delete-widget="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
+            @edit-chart="selectedWidget && selectedWidget.chartId ? editChart(String(selectedWidget.chartId)) : null"
+            @rename-chart="(name)=> selectedWidget && renameChartInline(selectedWidget.widgetId, name)"
+            @delete-chart="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
+            @update-chart-appearance="updateChartAppearance"
+        >
+          <template #collapse>
+            <UButton size="xs" variant="ghost" class="cursor-pointer" @click="sidebarCollapsed = true">
+              <Icon name="i-heroicons-chevron-right" class="w-4 h-4"/>
+            </UButton>
+          </template>
+        </WidgetOptionsSidebar>
+      </div>
+      <div v-if="isEditableSession && sidebarCollapsed" class="flex justify-end mt-2">
+        <UButton size="sm" variant="outline" class="cursor-pointer" @click="sidebarCollapsed = false">
+          <Icon name="i-heroicons-chevron-left" class="w-4 h-4 mr-1"/>
+          Show Text Options
+        </UButton>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -587,19 +627,6 @@ onMounted(() => {
   debugEnv.value = (window as any).__DEBUG_ENV__ === true
 })
 
-function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!hasUnsavedChanges.value) return
-  event.preventDefault()
-  event.returnValue = ''
-}
-
-onMounted(() => {
-  window.addEventListener('beforeunload', handleBeforeUnload)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', handleBeforeUnload)
-})
 
 watch(
     () => ({edit: isEditMode.value, role: userProfile.value?.role}),
@@ -615,13 +642,28 @@ const { listCharts, updateChart, deleteChart: deleteChartApi } = useChartsServic
 
 const dashboardName = ref('')
 const initialDashboardName = ref('')
-const tabs = ref<Array<{ id: string; name: string; position: number; charts: Array<{ chartId: number; name: string; position: any; state?: any; preloadedColumns?: any[]; preloadedRows?: any[] }> }>>([])
+const tabs = ref<Array<{
+  id: string;
+  name: string;
+  position: number;
+  widgets: Array<{
+    widgetId: string;
+    type: 'chart' | 'text' | 'image' | 'icon';
+    chartId?: number;
+    name?: string;
+    position: any;
+    state?: any;
+    preloadedColumns?: any[];
+    preloadedRows?: any[];
+    style?: any;
+    configOverride?: any;
+  }>
+}>>([])
 const activeTabId = ref<string>('')
 const gridLayout = ref<any[]>([])
 const tabLayouts = reactive<Record<string, any[]>>({})
 const initialTabLayouts = ref<Record<string, any[]>>({})
 const loading = ref(true)
-const suppressUnsavedCheckOnce = ref(false)
 
 // Modal states
 const showRenameModal = ref(false)
@@ -630,9 +672,44 @@ const showAddChartModal = ref(false)
 const showCreateTabModal = ref(false)
 const showRenameTabModal = ref(false)
 const showDeleteTabModal = ref(false)
-const showUnsavedModal = ref(false)
-const savingAndExiting = ref(false)
 const pendingRoute = ref<any>(null)
+
+// Text widget editor
+const selectedTextWidgetId = ref<string | null>(null)
+const selectedWidgetId = selectedTextWidgetId
+const sidebarCollapsed = ref(false)
+const renameChartTimers: Record<number, ReturnType<typeof setTimeout>> = {}
+const saveChartOverrideTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+let saveDashboardNameTimer: ReturnType<typeof setTimeout> | null = null
+let saveLayoutTimer: ReturnType<typeof setTimeout> | null = null
+const textForm = reactive({
+  content: 'Add your text',
+  fontFamily: 'Proxima Nova, Inter, sans-serif',
+  fontSize: 14,
+  lineHeight: 18,
+  color: '#111827',
+  background: '#ffffff',
+  padding: 10,
+  shape: 'square',
+  shadow: 'none',
+  align: 'left',
+  bold: false,
+  italic: false,
+  underline: false,
+  borderRadius: 6,
+})
+
+const fontFamilyItems = [
+  {label: 'Proxima Nova', value: 'Proxima Nova, Inter, sans-serif'},
+  {label: 'Inter', value: 'Inter, sans-serif'},
+  {label: 'Roboto', value: 'Roboto, sans-serif'},
+  {label: 'Open Sans', value: '"Open Sans", sans-serif'},
+  {label: 'Lato', value: 'Lato, sans-serif'},
+  {label: 'Montserrat', value: 'Montserrat, sans-serif'},
+  {label: 'Arial', value: 'Arial, sans-serif'},
+  {label: 'Times New Roman', value: '"Times New Roman", serif'},
+  {label: 'Georgia', value: 'Georgia, serif'},
+]
 
 // Rename functionality
 const renamingChart = ref<string | null>(null)
@@ -697,11 +774,13 @@ const effectiveGridConfig = computed(() => ({
 
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 
-// Computed property for current tab charts
-const currentTabCharts = computed(() => {
+// Computed property for current tab widgets/charts
+const currentTabWidgets = computed(() => {
   const currentTab = tabs.value.find(t => t.id === activeTabId.value)
-  return currentTab?.charts || []
+  return currentTab?.widgets || []
 })
+
+const currentTabCharts = computed(() => currentTabWidgets.value.filter(w => w.type === 'chart'))
 
 function getDataConnectionIdFromState(state: any): number | null {
   if (!state) return null
@@ -712,8 +791,9 @@ function getDataConnectionIdFromState(state: any): number | null {
 
 const preferredDataConnectionId = computed<number | null>(() => {
   for (const tab of tabs.value) {
-    for (const chart of tab.charts || []) {
-      const connectionId = getDataConnectionIdFromState(chart.state)
+    for (const widget of tab.widgets || []) {
+      if (widget.type !== 'chart') continue
+      const connectionId = getDataConnectionIdFromState(widget.state)
       if (connectionId != null) {
         return connectionId
       }
@@ -722,15 +802,19 @@ const preferredDataConnectionId = computed<number | null>(() => {
   return null
 })
 
-const hasUnsavedChanges = computed(() => {
-  if (!isEditableSession.value) return false
-  const layoutChanged = Object.keys(tabLayouts).some((tabId) =>
-      !areLayoutsEqual(tabLayouts[tabId] || [], initialTabLayouts.value[tabId] || [])
-  )
-  return dashboardName.value !== initialDashboardName.value || layoutChanged
-})
 
 const dashboardRef = ref<any>(null)
+watch([isEditableSession, currentTabWidgets, activeTabId], () => {
+  if (!isEditableSession.value) {
+    selectedTextWidgetId.value = null
+    return
+  }
+  if (selectedTextWidgetId.value && currentTabWidgets.value.some(w => w.widgetId === selectedTextWidgetId.value)) {
+    return
+  }
+  const firstText = currentTabWidgets.value.find(w => w.type === 'text')
+  selectedTextWidgetId.value = firstText?.widgetId || null
+})
 
 async function captureDashboardThumbnail(): Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }> {
   if (typeof window === 'undefined') return {}
@@ -759,6 +843,25 @@ function cloneLayout(layout: any[] = []) {
   return layout.map(item => ({...item}))
 }
 
+function getDefaultTextStyle() {
+  return {
+    content: 'Add your text',
+    fontFamily: 'Proxima Nova, Inter, sans-serif',
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#111827',
+    background: '#ffffff',
+    padding: 16,
+    shape: 'square',
+    shadow: 'none',
+    align: 'left',
+    bold: false,
+    italic: false,
+    underline: false,
+    borderRadius: 6,
+  }
+}
+
 function areLayoutsEqual(a: any[] = [], b: any[] = []) {
   if (a.length !== b.length) return false
   const sortLayout = (layout: any[]) => [...layout].sort((x, y) => String(x.i).localeCompare(String(y.i)))
@@ -782,12 +885,12 @@ function areLayoutsEqual(a: any[] = [], b: any[] = []) {
 function buildLayoutFromTab(tabId: string) {
   const tab = tabs.value.find(t => t.id === tabId)
   if (!tab) return []
-  return tab.charts.map(c => ({
-    x: c.position?.x ?? 0,
-    y: c.position?.y ?? 0,
-    w: c.position?.w ?? 4,
-    h: c.position?.h ?? 8,
-    i: String(c.chartId)
+  return tab.widgets.map(w => ({
+    x: w.position?.x ?? 0,
+    y: w.position?.y ?? 0,
+    w: w.position?.w ?? 4,
+    h: w.position?.h ?? 8,
+    i: String(w.widgetId)
   }))
 }
 
@@ -815,6 +918,32 @@ function setLayoutsFromTabs(updateBaseline = true) {
 watch(gridLayout, (layout) => {
   if (!activeTabId.value) return
   tabLayouts[activeTabId.value] = cloneLayout(layout || [])
+}, {deep: true})
+
+// Auto-save layout changes
+watch(tabLayouts, (layouts) => {
+  if (!isEditableSession.value) return
+  if (saveLayoutTimer) clearTimeout(saveLayoutTimer)
+  saveLayoutTimer = setTimeout(async () => {
+    try {
+      const layoutPayload = Object.values(layouts).flatMap((layoutArr) =>
+          (layoutArr || []).map((item) => ({
+            widgetId: String(item.i),
+            position: {x: item.x, y: item.y, w: item.w, h: item.h}
+          }))
+      )
+      await updateDashboard({
+        id: id.value,
+        layout: layoutPayload
+      })
+      // Update initial layouts to reflect saved state
+      Object.keys(layouts).forEach(tabId => {
+        initialTabLayouts.value[tabId] = cloneLayout(layouts[tabId] || [])
+      })
+    } catch (error) {
+      console.error('Failed to save layout:', error)
+    }
+  }, 500)
 }, {deep: true})
 
 function setDevice(d: 'desktop' | 'tablet' | 'mobile') {
@@ -880,13 +1009,17 @@ async function load() {
       id: t.id,
       name: t.name,
       position: t.position,
-      charts: (t.charts || []).map((c: any) => ({
-        chartId: c.id,
-        name: c.name,
-        position: c.position,
-        state: c.state,
-        preloadedColumns: c.data?.columns,
-        preloadedRows: c.data?.rows
+      widgets: (t.widgets || []).map((w: any) => ({
+        widgetId: w.widgetId || w.id,
+        type: w.type,
+        chartId: w.type === 'chart' ? w.id ?? w.chartId : undefined,
+        name: w.type === 'chart' ? w.name : (w.style?.content || 'Text'),
+        position: w.position,
+        state: w.type === 'chart' ? w.state : undefined,
+        preloadedColumns: w.type === 'chart' ? w.data?.columns : undefined,
+        preloadedRows: w.type === 'chart' ? w.data?.rows : undefined,
+        style: w.style || {},
+        configOverride: w.configOverride || {}
       }))
     }))
 
@@ -902,24 +1035,25 @@ onMounted(async () => {
 })
 
 onBeforeRouteLeave((to, from) => {
-  if (suppressUnsavedCheckOnce.value) {
-    suppressUnsavedCheckOnce.value = false
-    return
-  }
-  if (!hasUnsavedChanges.value) return
-  pendingRoute.value = to
-  showUnsavedModal.value = true
-  return false
+  // No longer need to check for unsaved changes since we auto-save
+  return true
 })
 
 const saving = ref(false)
 async function save() {
   saving.value = true
   try {
+    const layoutPayload = Object.values(tabLayouts).flatMap((layoutArr) =>
+        (layoutArr || []).map((item) => ({
+          widgetId: String(item.i),
+          position: {x: item.x, y: item.y, w: item.w, h: item.h}
+        }))
+    )
     const snapshot = await captureDashboardThumbnail()
     await updateDashboard({
       id: id.value,
       name: dashboardName.value,
+      layout: layoutPayload,
       width: snapshot.width,
       height: snapshot.height,
       thumbnailBase64: snapshot.thumbnailBase64
@@ -928,7 +1062,6 @@ async function save() {
     Object.keys(tabLayouts).forEach(tabId => {
       initialTabLayouts.value[tabId] = cloneLayout(tabLayouts[tabId] || [])
     })
-    showUnsavedModal.value = false
   } finally {
     saving.value = false
   }
@@ -938,47 +1071,12 @@ async function handleModeToggle() {
   if (!canEditDashboard.value) return
   pendingRoute.value = null
   if (isEditableSession.value) {
-    if (hasUnsavedChanges.value) {
-      await save()
-    }
     await navigateTo(`/dashboards/${id.value}`)
     return
   }
   await navigateTo(`/dashboards/${id.value}/edit`)
 }
 
-function discardChanges() {
-  dashboardName.value = initialDashboardName.value
-  Object.keys(initialTabLayouts.value).forEach(tabId => {
-    tabLayouts[tabId] = cloneLayout(initialTabLayouts.value[tabId] || [])
-  })
-  gridLayout.value = cloneLayout(tabLayouts[activeTabId.value] || [])
-  showUnsavedModal.value = false
-  suppressUnsavedCheckOnce.value = true
-  const target = pendingRoute.value
-  const destination = target ? target.fullPath : `/dashboards/${id.value}`
-  pendingRoute.value = null
-  navigateTo(destination)
-}
-
-async function saveAndExit() {
-  savingAndExiting.value = true
-  try {
-    await save()
-    const target = pendingRoute.value
-    const destination = target ? target.fullPath : `/dashboards/${id.value}`
-    pendingRoute.value = null
-    showUnsavedModal.value = false
-    await navigateTo(destination)
-  } finally {
-    savingAndExiting.value = false
-  }
-}
-
-function stayInEdit() {
-  showUnsavedModal.value = false
-  pendingRoute.value = null
-}
 
 // Chart operations
 async function startRenameChart(chartId: string) {
@@ -1031,9 +1129,9 @@ async function deleteChart() {
 
     const currentTab = tabs.value.find(t => t.id === activeTabId.value)
     if (currentTab) {
-      const chartIndex = currentTab.charts.findIndex(c => String(c.chartId) === chartToDelete.value)
-      if (chartIndex >= 0) {
-        currentTab.charts.splice(chartIndex, 1)
+      const widgetIndex = currentTab.widgets.findIndex(w => w.type === 'chart' && String(w.chartId) === chartToDelete.value)
+      if (widgetIndex >= 0) {
+        currentTab.widgets.splice(widgetIndex, 1)
         const updatedLayout = buildLayoutFromTab(activeTabId.value)
         tabLayouts[activeTabId.value] = cloneLayout(updatedLayout)
         initialTabLayouts.value[activeTabId.value] = cloneLayout(updatedLayout)
@@ -1047,6 +1145,234 @@ async function deleteChart() {
   } finally {
     deleting.value = false
   }
+}
+
+function startEditText(widgetId: string) {
+  const widget = currentTabWidgets.value.find(w => w.widgetId === widgetId)
+  if (!widget) return
+  const style = {...getDefaultTextStyle(), ...(widget.style || {})}
+  Object.assign(textForm, style)
+  selectedTextWidgetId.value = widgetId
+}
+
+function updateTextContent(widgetId: string, content: string) {
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+  const widget = tab.widgets.find(w => w.widgetId === widgetId)
+  if (widget) {
+    widget.style = {...(widget.style || {}), content}
+    if (selectedTextWidgetId.value === widgetId) {
+      textForm.content = content
+    }
+  }
+  if (saveTextTimer) clearTimeout(saveTextTimer)
+  saveTextTimer = setTimeout(() => {
+    selectedTextWidgetId.value = widgetId
+    persistTextWidget().catch((err) => console.error('Failed to persist text widget', err))
+  }, 200)
+}
+
+async function renameChartInline(widgetId: string, name: string) {
+  const widget = tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === widgetId)
+  if (!widget || widget.type !== 'chart' || widget.chartId == null) return
+  widget.name = name
+  const chartId = Number(widget.chartId)
+  if (!Number.isFinite(chartId)) return
+  if (renameChartTimers[chartId]) clearTimeout(renameChartTimers[chartId])
+  renameChartTimers[chartId] = setTimeout(async () => {
+    try {
+      await updateChart({id: chartId, name})
+    } catch (e) {
+      console.error('Failed to rename chart inline', e)
+    }
+  }, 300)
+}
+
+let saveTextTimer: ReturnType<typeof setTimeout> | null = null
+watch(textForm, (val) => {
+  if (!selectedTextWidgetId.value || !isEditableSession.value) return
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+  const widget = tab.widgets.find(w => w.widgetId === selectedTextWidgetId.value)
+  if (widget) {
+    widget.style = {...val}
+    widget.name = widget.style.content || widget.name
+  }
+  if (saveTextTimer) clearTimeout(saveTextTimer)
+  saveTextTimer = setTimeout(() => {
+    persistTextWidget().catch((err) => console.error('Failed to persist text widget', err))
+  }, 200)
+}, {deep: true})
+
+// Auto-save dashboard name changes
+watch(dashboardName, (newName) => {
+  if (!isEditableSession.value || !newName.trim()) return
+  if (saveDashboardNameTimer) clearTimeout(saveDashboardNameTimer)
+  saveDashboardNameTimer = setTimeout(async () => {
+    try {
+      await updateDashboard({
+        id: id.value,
+        name: newName.trim()
+      })
+      initialDashboardName.value = newName.trim()
+    } catch (error) {
+      console.error('Failed to save dashboard name:', error)
+    }
+  }, 500)
+})
+
+async function persistTextWidget() {
+  if (!selectedTextWidgetId.value) return
+  try {
+    await $fetch('/api/dashboard-widgets', {
+      method: 'PUT',
+      body: {
+        widgetId: selectedTextWidgetId.value,
+        style: {...textForm}
+      }
+    })
+
+    // Update local state
+    for (const tab of tabs.value) {
+      const widget = tab.widgets.find(w => w.widgetId === selectedTextWidgetId.value)
+      if (widget) {
+        widget.style = {...textForm}
+        widget.name = widget.style.content || widget.name
+        break
+      }
+    }
+  } catch (error) {
+    console.error('Failed to save text widget', error)
+  }
+}
+
+async function addTextBlock() {
+  const targetTabId = activeTabId.value || tabs.value[0]?.id
+  if (!targetTabId) return
+
+  const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
+  const nextY = currentLayout.length ? Math.max(...currentLayout.map(item => item.y + item.h)) : 0
+  const newPosition = {x: 0, y: nextY, w: 6, h: 2}
+  const baseStyle = getDefaultTextStyle()
+
+  try {
+    const res = await $fetch<{ success: boolean; widgetId: string }>('/api/dashboard-widgets', {
+      method: 'POST',
+      body: {
+        tabId: targetTabId,
+        type: 'text',
+        position: newPosition,
+        style: baseStyle
+      }
+    })
+    await load()
+    if (res?.widgetId) {
+      startEditText(res.widgetId)
+    }
+  } catch (error) {
+    console.error('Failed to add text widget', error)
+  }
+}
+
+async function handleDeleteWidget(widgetId: string) {
+  try {
+    await $fetch('/api/dashboard-widgets', {
+      method: 'DELETE',
+      query: {id: widgetId}
+    })
+    const tab = tabs.value.find(t => t.id === activeTabId.value)
+    if (tab) {
+      const idx = tab.widgets.findIndex(w => w.widgetId === widgetId)
+      if (idx >= 0) {
+        tab.widgets.splice(idx, 1)
+        tabLayouts[activeTabId.value] = cloneLayout(buildLayoutFromTab(activeTabId.value))
+        gridLayout.value = cloneLayout(tabLayouts[activeTabId.value])
+        initialTabLayouts.value[activeTabId.value] = cloneLayout(tabLayouts[activeTabId.value])
+      }
+    }
+    if (selectedTextWidgetId.value === widgetId) {
+      selectedTextWidgetId.value = null
+    }
+  } catch (error) {
+    console.error('Failed to delete widget', error)
+  }
+}
+
+function selectTextWidget(widgetId: string) {
+  startEditText(widgetId)
+}
+
+const selectedWidget = computed(() => {
+  if (!selectedWidgetId.value) return null
+  return tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === selectedWidgetId.value) || null
+})
+
+function mergeAppearance(base: any, override: any) {
+  return {
+    ...(base || {}),
+    ...(override || {}),
+    numberFormat: {
+      ...(base?.numberFormat || {}),
+      ...(override?.numberFormat || {})
+    }
+  }
+}
+
+const selectedChartAppearance = computed(() => {
+  if (!selectedWidget.value || selectedWidget.value.type !== 'chart') return null
+  const base = selectedWidget.value.state?.appearance || {}
+  const override = selectedWidget.value.configOverride?.appearance || {}
+  return mergeAppearance(base, override)
+})
+
+function selectWidget(widgetId: string) {
+  const widget = tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === widgetId)
+  if (!widget) return
+  selectedWidgetId.value = widgetId
+  if (widget.type === 'text') {
+    startEditText(widgetId)
+  }
+}
+
+function updateTextForm(partial: Record<string, any>) {
+  Object.assign(textForm, partial)
+}
+
+function updateTextContentInline(content: string) {
+  if (!selectedWidgetId.value) return
+  updateTextContent(selectedWidgetId.value, content)
+}
+
+function updateChartAppearance(partial: Record<string, any>) {
+  const widget = selectedWidget.value
+  if (!widget || widget.type !== 'chart') return
+  if (!isEditableSession.value) return
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+  const targetWidget = tab.widgets.find(w => w.widgetId === widget.widgetId)
+  if (!targetWidget) return
+
+  const currentOverride = targetWidget.configOverride || {}
+  const nextAppearance = mergeAppearance(currentOverride.appearance || {}, partial)
+  targetWidget.configOverride = {...currentOverride, appearance: nextAppearance}
+
+  // debounce persist
+  if (saveChartOverrideTimers[widget.widgetId]) {
+    clearTimeout(saveChartOverrideTimers[widget.widgetId]!)
+  }
+  saveChartOverrideTimers[widget.widgetId] = setTimeout(async () => {
+    try {
+      await $fetch('/api/dashboard-widgets', {
+        method: 'PUT',
+        body: {
+          widgetId: widget.widgetId,
+          configOverride: targetWidget.configOverride
+        }
+      })
+    } catch (error) {
+      console.error('Failed to save chart overrides', error)
+    }
+  }, 250)
 }
 
 function startCreateNewChart() {
@@ -1082,7 +1408,7 @@ async function openAddChartModal() {
   try {
     const allCharts = await listCharts()
     const dashboardChartIds = new Set(
-        tabs.value.flatMap(t => t.charts.map(c => c.chartId))
+        tabs.value.flatMap(t => t.widgets.filter(w => w.type === 'chart').map(c => c.chartId))
     )
     availableCharts.value = allCharts.filter(chart => !dashboardChartIds.has(chart.id))
 
@@ -1390,7 +1716,7 @@ async function downloadPDF() {
 :deep(.vue-grid-layout) { min-height: 300px; }
 
 :deep(.vue-grid-item) {
-  min-height: 200px !important; /* Force min-height for grid items */
+  //min-height: 200px !important; /* Force min-height for grid items */
 }
 
 :deep(.vue-resizable-handle) {
@@ -1402,6 +1728,15 @@ async function downloadPDF() {
   resize: both;
   min-height: 60px;
   max-height: 400px;
+}
+
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 
 </style>

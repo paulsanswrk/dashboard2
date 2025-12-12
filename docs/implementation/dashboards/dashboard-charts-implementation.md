@@ -11,6 +11,7 @@ This document outlines the implementation of multi-tab dashboard charts function
 - **Dashboard Thumbnails**: Dashboards capture PNG thumbnails on save (client-side snapshot) and store width/height
 - **Tab Management**: Create, rename, and delete dashboard tabs with full CRUD operations
 - **Vue Grid Layout Integration**: Charts are positioned using Vue Grid Layout for responsive dashboard layouts
+- **Auto-saving**: Dashboard changes (name, layout, widget properties) are automatically saved with debouncing
 - **Complete State Preservation**: All chart state (SQL, filters, appearance, chart type) is preserved
 - **Flexible Reporting**: Generate reports for entire dashboards or specific tabs
 
@@ -61,22 +62,32 @@ CREATE TABLE public.charts (
 - `thumbnail_url`: Public URL to PNG stored in the `chart-thumbnails` bucket (PNG-only, generated client-side)
 - `owner_id`: Links to Supabase auth.users for ownership verification
 
-#### `dashboard_charts` Table (Junction Table - Modified)
+#### `dashboard_widgets` Table (Unified widgets)
 ```sql
-CREATE TABLE public.dashboard_charts (
-    tab_id UUID NOT NULL REFERENCES public.dashboard_tab(id) ON DELETE CASCADE,
-    chart_id bigint NOT NULL REFERENCES public.charts(id) ON DELETE CASCADE,
+CREATE TABLE public.dashboard_widgets (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    dashboard_id uuid NOT NULL REFERENCES public.dashboards(id) ON DELETE CASCADE,
+    tab_id uuid NOT NULL REFERENCES public.dashboard_tab(id) ON DELETE CASCADE,
+    type text NOT NULL CHECK (type IN ('chart','text','image','icon')),
+    chart_id bigint REFERENCES public.charts(id) ON DELETE CASCADE,
     position jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    PRIMARY KEY (tab_id, chart_id)
+    style jsonb NOT NULL DEFAULT '{}'::jsonb,
+    config_override jsonb NOT NULL DEFAULT '{}'::jsonb,
+    z_index integer NOT NULL DEFAULT 0,
+    is_locked boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
 );
 ```
 
 **Key Fields:**
 
-- `tab_id`: Reference to the dashboard tab containing this chart
-- `position`: JSON object containing Vue Grid Layout position data (x, y, width, height, etc.)
-- Composite primary key ensures each chart appears only once per tab
+- `type`: widget flavor (`chart`, `text`, `image`, `icon`)
+- `chart_id`: set when `type='chart'`
+- `position`: Vue Grid Layout position data `{x,y,w,h,minW?,minH?}`
+- `style`: widget-specific style payload (e.g., text formatting)
+- `config_override`: per-instance overrides (charts)
+- `z_index`, `is_locked`: layering and lock state
 
 #### `reports` Table (Modified)
 
@@ -231,16 +242,17 @@ Lists user dashboards with Create/Edit/Delete actions.
 
 #### `pages/dashboards/[id].vue` (Enhanced)
 
-Multi-tab dashboard editor with integrated toolbar. Features:
+Multi-tab dashboard editor with integrated toolbar and unified widgets. Highlights:
 
-- **Tab Navigation**: Outlined tab headers with active state indication (orange border-bottom)
-- **Tab Management**: Create, rename, delete tabs with dropdown menus
-- **Toolbar Integration**: Save Dashboard, device preview toggles, Auto Layout, Preview, Get PDF buttons within tab area
-- **Chart Management**: Add charts to specific tabs, drag-and-drop positioning
-- **Vue Grid Layout**: Responsive chart positioning with device-specific layouts
-- Uses `ClientOnly` and client-only plugins to avoid SSR DOM access
-- Loads data via `GET /api/dashboards/[id]/full` and renders tab-organized charts
-- Captures dashboard PNG thumbnail via `html-to-image` on save, stores width/height + `thumbnail_url` in `dashboard-thumbnails`
+- **Unified widgets**: Charts and text blocks share the same grid via `dashboard_widgets`.
+- **Sidebar**: `WidgetOptionsSidebar` swaps panels by widget type (text/chart); per-widget menus removed.
+- **Text blocks**: Inline editable content; sidebar controls (font, size, padding, colors, shape, shadow, alignment); compact defaults (h=2).
+- **Chart blocks**: Inline title editing (debounced save); actions handled in the sidebar.
+- **Grid**: Vue Grid Layout; reduced min item height for compact widgets; drag/resize only in edit mode.
+- **Tab Management**: Create, rename, delete tabs; outlined navigation.
+- **Auto-saving**: Dashboard name changes and widget layout changes are automatically saved with 500ms debouncing.
+- **Toolbar**: Edit/Done toggle, device previews, Auto Layout, Add Chart, Add Text, Show Options (sidebar toggle).
+- **Thumbnails**: Captured with `html-to-image` on save (width/height/thumbnail_url persisted).
 
 #### `DashboardChartRenderer.vue` (New)
 Renders saved chart state without builder controls. Props:
@@ -280,6 +292,20 @@ Renders saved chart state without builder controls. Props:
 2. Server loads dashboard (including width/height/thumbnail), all tabs, chart links, and charts from Supabase.
 3. For each chart with SQL state across all tabs, server runs external queries in parallel using the saved `dataConnectionId` (LIMIT enforced; destructive statements blocked).
 4. Server returns a single payload with dashboard info, tabs array, and chart data organized by tab.
+
+### Auto-Saving Process
+
+- **Dashboard Name Changes**: Debounced with 500ms delay, automatically saves via `PUT /api/dashboards` with name parameter.
+- **Layout Changes**: Debounced with 500ms delay, automatically saves via `PUT /api/dashboards` with layout parameter containing widget positions.
+- **Text Widget Changes**: Debounced with 200ms delay, saves via `PUT /api/dashboard-widgets`.
+- **Chart Appearance Changes**: Debounced with 250ms delay, saves via `PUT /api/dashboard-widgets`.
+- **Chart Renames**: Debounced with 300ms delay, saves via `PUT /api/reporting/charts`.
+
+### Edit/View Mode Toggle
+
+- **Edit Mode**: Enabled when accessing `/dashboards/[id]/edit`, shows editing toolbar and allows widget manipulation.
+- **View Mode**: Default mode at `/dashboards/[id]`, read-only display of dashboard.
+- **Mode Switching**: "Edit"/"Done" button toggles between modes without saving operations.
 
 ## 📊 Chart State Structure
 
@@ -357,8 +383,9 @@ Full-load specifics:
 - **JSON Storage**: Efficient storage of complex chart configurations
 - **Connection Pooling**: Database connection management for concurrent users
 - **Caching Strategy**: Potential for caching frequently accessed charts
- - **Parallel Server Fetch**: The full-load endpoint executes external SQL for all charts concurrently to reduce TTFB.
- - **SSR Safety**: Grid layout is registered in a client-only plugin and rendered inside `ClientOnly` to avoid accessing `document` during SSR.
+- **Debounced Auto-saving**: Changes are automatically saved with 200-500ms debouncing to reduce server load while maintaining responsiveness
+- **Parallel Server Fetch**: The full-load endpoint executes external SQL for all charts concurrently to reduce TTFB.
+- **SSR Safety**: Grid layout is registered in a client-only plugin and rendered inside `ClientOnly` to avoid accessing `document` during SSR.
 
 ## 🧪 Testing Coverage
 
@@ -369,6 +396,9 @@ Full-load specifics:
 - ✅ SQL query preservation and execution
 - ✅ Chart type and appearance restoration
 - ✅ Error handling for invalid operations
+- ✅ Auto-saving for dashboard name changes (500ms debounce)
+- ✅ Auto-saving for widget layout changes (500ms debounce)
+- ✅ Edit/View mode toggle without manual saving
 
 ### Edge Cases Handled:
 - Missing database connections
@@ -380,5 +410,6 @@ Full-load specifics:
 ---
 
 **Implementation Date**: October 29, 2025
+**Auto-saving Enhancement**: December 12, 2025
 **Status**: ✅ Complete and Ready for Production
 **Migration Status**: Comprehensive migration applied, cleanup migration pending

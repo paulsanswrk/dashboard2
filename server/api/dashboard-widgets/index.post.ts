@@ -5,6 +5,8 @@ import {supabaseAdmin} from '../supabase'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
+const SUPPORTED_TYPES = ['chart', 'text', 'image', 'icon']
+
 export default defineEventHandler(async (event) => {
     const user = await serverSupabaseUser(event)
     if (!user) {
@@ -12,10 +14,14 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event)
-    const {tabId, chartId, position, configOverride} = body || {}
+    const {tabId, type, position, chartId, style, configOverride} = body || {}
 
-    if (!tabId || !chartId || !position) {
-        throw createError({statusCode: 400, statusMessage: 'Missing tabId, chartId, or position'})
+    if (!tabId || !type || !position) {
+        throw createError({statusCode: 400, statusMessage: 'Missing tabId, type, or position'})
+    }
+
+    if (!SUPPORTED_TYPES.includes(type)) {
+        throw createError({statusCode: 400, statusMessage: 'Unsupported widget type'})
     }
 
     const {data: profile, error: profileError} = await supabaseAdmin
@@ -28,14 +34,13 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
     }
 
-    // Verify the tab belongs to a dashboard in the user's organization
     const {data: tab, error: tabError} = await supabaseAdmin
         .from('dashboard_tab')
         .select(`
-      id,
-      dashboard_id,
-      dashboards!inner(organization_id)
-    `)
+          id,
+          dashboard_id,
+          dashboards!inner(organization_id)
+        `)
         .eq('id', tabId)
         .single()
 
@@ -43,33 +48,42 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 403, statusMessage: 'Tab not found or access denied'})
     }
 
-    // Check dashboard org access
     if (tab.dashboards.organization_id !== profile.organization_id) {
         throw createError({statusCode: 403, statusMessage: 'Dashboard access denied'})
     }
 
-    // Verify the chart exists (dashboard-level permissions handle visibility)
-    const {data: chart, error: chartError} = await supabaseAdmin
-        .from('charts')
-        .select('id')
-        .eq('id', chartId)
-        .single()
-
-    if (chartError || !chart) {
-        throw createError({statusCode: 403, statusMessage: 'Chart not found or access denied'})
+    if (type === 'chart') {
+        const {data: chart, error: chartError} = await supabaseAdmin
+            .from('charts')
+            .select('id')
+            .eq('id', chartId)
+            .single()
+        if (chartError || !chart) {
+            throw createError({statusCode: 403, statusMessage: 'Chart not found or access denied'})
+        }
     }
 
-    const {error} = await supabaseAdmin
+    const insertPayload: any = {
+        dashboard_id: tab.dashboard_id,
+        tab_id: tabId,
+        type,
+        position,
+        style: style ?? {},
+        config_override: configOverride ?? {}
+    }
+
+    if (type === 'chart') {
+        insertPayload.chart_id = chartId
+    }
+
+    const {data: inserted, error} = await supabaseAdmin
         .from('dashboard_widgets')
-        .insert({
-            dashboard_id: tab.dashboard_id,
-            tab_id: tabId,
-            type: 'chart',
-            chart_id: chartId,
-            position: position,
-            config_override: configOverride ?? {}
-        })
+        .insert(insertPayload)
+        .select('id')
+        .single()
 
     if (error) throw createError({statusCode: 500, statusMessage: error.message})
-    return {success: true}
+
+    return {success: true, widgetId: inserted?.id}
 })
+

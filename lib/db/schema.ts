@@ -129,22 +129,33 @@ export const dashboardTabs = pgTable('dashboard_tab', {
     dashboardId: uuid('dashboard_id').notNull().references(() => dashboards.id, {onDelete: 'cascade'}),
     name: text('name').notNull(),
     position: integer('position').default(0).notNull(),
+    style: jsonb('style').notNull().default(sql`'{}'::jsonb`),
+    options: jsonb('options').notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
 }, (table) => [
     index('idx_dashboard_tab_dashboard_id').on(table.dashboardId),
     index('idx_dashboard_tab_position').on(table.dashboardId, table.position),
 ])
 
-// Dashboard charts junction table
-export const dashboardCharts = pgTable('dashboard_charts', {
-    chartId: bigserial('chart_id', {mode: 'number'}).notNull().references(() => charts.id, {onDelete: 'cascade'}),
-    position: jsonb('position').notNull(),
-    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
+// Unified dashboard widgets (charts, text, images, icons)
+export const dashboardWidgets = pgTable('dashboard_widgets', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dashboardId: uuid('dashboard_id').notNull().references(() => dashboards.id, {onDelete: 'cascade'}),
     tabId: uuid('tab_id').notNull().references(() => dashboardTabs.id, {onDelete: 'cascade'}),
+    type: text('type', {enum: ['chart', 'text', 'image', 'icon']}).notNull(),
+    chartId: bigint('chart_id', {mode: 'number'}).references(() => charts.id, {onDelete: 'cascade'}),
+    position: jsonb('position').notNull(),
+    style: jsonb('style').notNull().default(sql`'{}'::jsonb`),
     configOverride: jsonb('config_override').notNull().default(sql`'{}'::jsonb`),
+    zIndex: integer('z_index').notNull().default(0),
+    isLocked: boolean('is_locked').notNull().default(false),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow().notNull(),
 }, (table) => [
-    index('idx_dashboard_charts_chart_id').on(table.chartId),
-    index('idx_dashboard_charts_tab_id').on(table.tabId),
+    index('dashboard_widgets_tab_idx').on(table.tabId),
+    index('dashboard_widgets_dashboard_idx').on(table.dashboardId),
+    index('dashboard_widgets_type_idx').on(table.type),
+    index('dashboard_widgets_chart_idx').on(table.chartId).where(sql`${table.type} = 'chart'`),
 ])
 
 // Reports table
@@ -299,22 +310,26 @@ export const dashboardTabsRelations = relations(dashboardTabs, ({one, many}) => 
         fields: [dashboardTabs.dashboardId],
         references: [dashboards.id],
     }),
-    charts: many(dashboardCharts),
+    widgets: many(dashboardWidgets),
 }))
 
-export const dashboardChartsRelations = relations(dashboardCharts, ({one}) => ({
+export const dashboardWidgetsRelations = relations(dashboardWidgets, ({one}) => ({
     tab: one(dashboardTabs, {
-        fields: [dashboardCharts.tabId],
+        fields: [dashboardWidgets.tabId],
         references: [dashboardTabs.id],
     }),
+    dashboard: one(dashboards, {
+        fields: [dashboardWidgets.dashboardId],
+        references: [dashboards.id],
+    }),
     chart: one(charts, {
-        fields: [dashboardCharts.chartId],
+        fields: [dashboardWidgets.chartId],
         references: [charts.id],
     }),
 }))
 
 export const chartsRelations = relations(charts, ({many, one}) => ({
-    dashboardCharts: many(dashboardCharts),
+    dashboardWidgets: many(dashboardWidgets),
     dataConnection: one(dataConnections, {
         fields: [charts.dataConnectionId],
         references: [dataConnections.id],
