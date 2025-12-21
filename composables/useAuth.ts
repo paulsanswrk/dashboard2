@@ -208,9 +208,15 @@ export const useAuth = () => {
           organization:organizations(*)
         `)
         .eq('user_id', user.value.id)
-        .single()
+          .maybeSingle()
 
       if (profileError) throw profileError
+
+        if (!data) {
+            console.warn('User profile not found:', user.value.id)
+            userProfile.value = null
+            return null
+        }
 
       // Transform database fields to frontend format
       const transformedProfile = {

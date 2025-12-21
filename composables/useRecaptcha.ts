@@ -2,7 +2,7 @@
 export const useRecaptcha = () => {
     const {$recaptcha} = useNuxtApp()
 
-    // Execute reCAPTCHA and return the token
+    // Execute reCAPTCHA with action and return the token
     const executeRecaptcha = async (action: string = 'submit'): Promise<string | null> => {
         try {
             if (!$recaptcha) {
@@ -10,13 +10,16 @@ export const useRecaptcha = () => {
                 return null
             }
 
-            const token = await $recaptcha.getResponse()
+            const token = await $recaptcha.execute(action)
             return token
         } catch (error) {
             console.error('reCAPTCHA execution failed:', error)
             return null
         }
     }
+
+    // Alias for backwards compatibility
+    const execute = executeRecaptcha
 
     // Get reCAPTCHA instance
     const getRecaptchaInstance = () => {
@@ -25,6 +28,7 @@ export const useRecaptcha = () => {
 
     return {
         executeRecaptcha,
+        execute,
         getRecaptchaInstance
     }
 }

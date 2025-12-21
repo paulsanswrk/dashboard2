@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
         const {data, error: magicLinkError} = await supabaseUser.auth.signInWithOtp({
             email,
             options: {
-                emailRedirectTo: `${getServerURL(event)}/auth/callback`
+                emailRedirectTo: `${getRequestURL(event).origin}/auth/callback`
             }
         })
 

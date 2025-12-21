@@ -4,7 +4,7 @@ import {createError} from 'h3'
 export const verifyRecaptcha = async (token: string, action?: string): Promise<boolean> => {
     const config = useRuntimeConfig()
 
-    if (!config.recaptchaSecretKey) {
+    if (!config.private.recaptchaSecretKey) {
         console.warn('reCAPTCHA secret key not configured')
         return true // Allow in development if not configured
     }
@@ -20,7 +20,7 @@ export const verifyRecaptcha = async (token: string, action?: string): Promise<b
         const response = await $fetch('https://www.google.com/recaptcha/api/siteverify', {
             method: 'POST',
             body: new URLSearchParams({
-                secret: config.recaptchaSecretKey,
+                secret: config.private.recaptchaSecretKey,
                 response: token
             })
         })
@@ -30,17 +30,23 @@ export const verifyRecaptcha = async (token: string, action?: string): Promise<b
             return false
         }
 
-        // Check score for v3 (should be > 0.5 typically)
-        if (response.score !== undefined && response.score < 0.5) {
-            console.warn('reCAPTCHA score too low:', response.score)
-            return false
-        }
+        // Determine if this is v2 or v3 based on response structure
+        const isV3 = response.score !== undefined && response.action !== undefined
 
-        // Check action if provided
-        if (action && response.action !== action) {
-            console.warn('reCAPTCHA action mismatch:', response.action, 'expected:', action)
-            return false
+        if (isV3) {
+            // Check score for v3 (should be > 0.5 typically)
+            if (response.score < 0.5) {
+                console.warn('reCAPTCHA score too low:', response.score)
+                return false
+            }
+
+            // Check action if provided
+            if (action && response.action !== action) {
+                console.warn('reCAPTCHA action mismatch:', response.action, 'expected:', action)
+                return false
+            }
         }
+        // For v2, we only check success (score/action not available)
 
         return true
     } catch (error) {

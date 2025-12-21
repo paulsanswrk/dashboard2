@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
 
         // Send password reset email via Supabase Auth
         const {error} = await supabaseUser.auth.resetPasswordForEmail(email, {
-            redirectTo: `${getServerURL(event)}/auth/callback`
+            redirectTo: `${getRequestURL(event).origin}/auth/callback`
         })
 
         if (error) {

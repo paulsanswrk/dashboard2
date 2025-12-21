@@ -94,7 +94,7 @@ const isMagicLinkError = computed(() => {
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
 const route = useRoute()
-const { createUserProfile } = useAuth()
+const {createUserProfile, loadUserProfile, userProfile} = useAuth()
 
 // Helper function to parse URL fragment parameters (for magic links)
 const parseUrlFragment = () => {
@@ -137,11 +137,6 @@ const handleMagicLinkAuth = async (fragmentParams) => {
     })
 
     // Validate that this is actually a magic link
-    if (fragmentParams.type !== 'magiclink') {
-      console.log('🔐 [STEP 2] Not a magic link, type:', fragmentParams.type)
-      return false
-    }
-
     if (!fragmentParams.accessToken) {
       console.log('❌ [STEP 2] No access token in magic link')
       throw new Error('Invalid magic link: missing access token')
@@ -277,7 +272,9 @@ const handleAuthCallback = async () => {
     // Check for magic link tokens in URL fragment
     const fragmentParams = parseUrlFragment()
 
-    if (fragmentParams && fragmentParams.type === 'magiclink') {
+    const hasImplicitToken = fragmentParams && fragmentParams.accessToken
+
+    if (hasImplicitToken) {
       console.log('🔐 [CALLBACK] Magic link detected, processing authentication...')
 
       // Try to authenticate with magic link tokens
@@ -285,12 +282,54 @@ const handleAuthCallback = async () => {
 
       if (magicLinkSuccess) {
         isMagicLinkAuth.value = true
+
+        // Check if this is a signup that requires profile creation
+        const currentUser = user.value
+        const fragmentType = fragmentParams.type
+
+        if (currentUser && fragmentType === 'signup') {
+          const userMetadata = currentUser.user_metadata
+
+          if (userMetadata && userMetadata.isSignUp) {
+            console.log('🔐 [CALLBACK] Magic link signup detected, creating profile...')
+            loadingMessage.value = 'Creating your profile...'
+
+            try {
+              // Create profile for magic link signup
+              await createUserProfile(currentUser, {
+                firstName: userMetadata.firstName,
+                lastName: userMetadata.lastName,
+                role: userMetadata.role || 'EDITOR',
+                organizationName: userMetadata.organizationName
+              })
+
+              // Load the newly created profile
+              await loadUserProfile()
+
+              if (!userProfile.value) {
+                console.warn('⚠️ [CALLBACK] Profile created but not loaded, will retry on redirect')
+              } else {
+                console.log('✅ [CALLBACK] Profile created successfully!')
+              }
+
+              successMessage.value = 'Account Created Successfully!'
+              successDescription.value = 'Your account has been created and you are now signed in. Welcome to Optiqo!'
+            } catch (profileError) {
+              console.error('❌ [CALLBACK] Profile creation error:', profileError)
+              error.value = profileError.message || 'We could not complete your profile setup. Please try again or contact support.'
+              isLoading.value = false
+              return
+            }
+          }
+        }
+
         isSuccess.value = true
 
         // Clean up the URL fragment after successful authentication
         if (typeof window !== 'undefined') {
+          const currentState = window.history.state
           console.log('🔐 [CALLBACK] Cleaning up URL tokens...')
-          window.history.replaceState(null, null, window.location.pathname)
+          window.history.replaceState(currentState, '', window.location.pathname)
         }
 
         // Auto-redirect to dashboard after 3 seconds
@@ -447,14 +486,22 @@ const handleAuthCallback = async () => {
             organizationName: userMetadata.organizationName
           })
 
+          await loadUserProfile()
+
+          if (!userProfile.value) {
+            throw new Error('Your account was verified, but your profile could not be initialized. Please try again or contact support.')
+          }
+
           console.log('✅ Profile created successfully!')
           successMessage.value = 'Account Created Successfully!'
           successDescription.value = 'Your account has been created and you are now signed in. Welcome to Optiqo!'
         } catch (profileError) {
           console.error('❌ Profile creation error:', profileError)
-          // Continue anyway - profile creation is not critical for basic functionality
-          successMessage.value = 'Authentication Complete!'
-          successDescription.value = 'You have been successfully authenticated.'
+          error.value =
+              profileError.message ||
+              'We could not complete your profile setup. Please try again or contact support.'
+          isLoading.value = false
+          return
         }
       }
 

@@ -106,8 +106,8 @@
 
           <!-- Terms and Conditions -->
           <div class="pt-4">
-            <UCheckbox v-model="form.acceptTerms" :error="errors.acceptTerms" label="Accept Terms and Conditions" class="text-black dark:text-white">
-              <span class="text-sm text-gray-700 dark:text-gray-300">
+            <UCheckbox v-model="form.acceptTerms" :error="errors.acceptTerms" label="Accept Terms and Conditions" class="text-black dark:text-white cursor-pointer">
+              <span class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 I agree to the 
                 <a href="#" class="text-primary hover:text-primary-600">Terms of Service</a>
                 and 
@@ -143,10 +143,11 @@
                     </template>
                   </p>
                   <div class="flex justify-center">
-                    <UButton 
-                      @click="goToSignIn"
-                      color="green"
-                      size="sm"
+                    <UButton
+                        @click="goToSignIn"
+                        size="sm"
+                        variant="outline"
+                        class="cursor-pointer hover:bg-gray-800"
                     >
                       Continue to Sign In
                     </UButton>
@@ -160,7 +161,7 @@
             v-if="!showEmailConfirmationMessage"
             type="submit"
             :loading="loading"
-            class="w-full text-white border-0 hover:opacity-90 transition-opacity flex items-center justify-center"
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity flex items-center justify-center cursor-pointer"
             style="background-color: #F28C28;"
             size="lg"
           >

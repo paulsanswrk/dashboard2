@@ -68,7 +68,8 @@ export const publicRoutes = [
   '/signup',
   '/forgot-password',
     '/reset-password',
-    '/dashboards/preview'
+    '/dashboards/preview',
+    '/auth/callback'
 ]
 
 // Check if route is public
