@@ -11,7 +11,8 @@ export default defineNuxtConfig({
         '@nuxt/ui',
         '@vueuse/nuxt',
         '@nuxt/icon',
-        '@nuxtjs/supabase'
+        '@nuxtjs/supabase',
+        'nuxt-recaptcha'
     ],
 
 
@@ -21,11 +22,17 @@ export default defineNuxtConfig({
             login: '/login',
             callback: '/auth/callback',
             exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password',
-                '/auth/callback', '/render/**']
+                '/auth/callback', '/render/**', '/dashboards/preview/**']
         },
         // Explicitly set the URL and key
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_ANON_KEY,
+    },
+
+    // reCAPTCHA Configuration
+    recaptcha: {
+        siteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY,
+        version: 'v3'
     },
 
     // Runtime Config for environment variables
@@ -37,6 +44,9 @@ export default defineNuxtConfig({
             debugEnv: process.env.DEBUG_ENV || 'false',
         },
         supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        private: {
+            recaptchaSecretKey: process.env.RECAPTCHA_SECRET_KEY
+        }
     },
 
     // UI Configuration

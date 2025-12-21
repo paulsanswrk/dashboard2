@@ -53,7 +53,7 @@
                 <div class="flex gap-2">
                   <USelect
                     v-model="selectedExample"
-                    :options="connectionExamples.map(ex => ({ label: ex.description, value: ex.filename }))"
+                    :items="connectionExamples.map(ex => ({ label: ex.description, value: ex.filename }))"
                     placeholder="Select a connection example..."
                     :loading="loadingExamples"
                     @update:model-value="loadConnectionExample"
@@ -83,65 +83,73 @@
                   placeholder="insta800.net" 
                   v-model="form.internalName"
                   :error="errors.internalName"
+                  class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Database Name" required class="text-gray-900 dark:text-white">
-                <UInput 
-                  placeholder="datapine_insider" 
+                <UInput
+                    placeholder="datapine_insider"
                   v-model="form.databaseName"
                   :error="errors.databaseName"
+                    class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Database Type" required class="text-gray-900 dark:text-white">
-                <USelect 
+                <USelect
                   v-model="form.databaseType"
                   :options="databaseTypes"
                   placeholder="Select Database Type"
                   :error="errors.databaseType"
+                  class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Host / IP" required class="text-gray-900 dark:text-white">
-                <UInput 
-                  placeholder="reporting.insta800.net" 
+                <UInput
+                    placeholder="reporting.insta800.net"
                   v-model="form.host"
                   :error="errors.host"
+                    class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Username" required class="text-gray-900 dark:text-white">
-                <UInput 
-                  placeholder="insta800" 
+                <UInput
+                    placeholder="insta800"
                   v-model="form.username"
                   :error="errors.username"
+                    class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Password" required class="text-gray-900 dark:text-white">
-                <UInput 
-                  type="password" 
-                  placeholder="Enter Password" 
+                <UInput
+                    type="password"
+                    placeholder="Enter Password"
                   v-model="form.password"
                   :error="errors.password"
+                    class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Database Port" required class="text-gray-900 dark:text-white">
-                <UInput 
-                  placeholder="3306" 
+                <UInput
+                    placeholder="3306"
                   v-model="form.port"
                   :error="errors.port"
+                    class="w-full"
                 />
               </UFormField>
 
               <UFormField label="Server Time" required class="text-gray-900 dark:text-white">
-                <USelect 
+                <USelect
                   v-model="form.serverTime"
                   :options="timeZones"
                   placeholder="Select Time Zone"
                   :error="errors.serverTime"
+                  class="w-full"
                 />
               </UFormField>
             </div>
@@ -172,43 +180,47 @@
 
                 <div v-if="form.useSshTunneling" class="space-y-3">
                   <UFormField label="SSH Port" class="text-gray-900 dark:text-white">
-                    <UInput 
-                      placeholder="22" 
+                    <UInput
+                        placeholder="22"
                       v-model="form.sshPort"
+                        class="w-full"
                     />
                   </UFormField>
 
                   <UFormField label="SSH User" class="text-gray-900 dark:text-white">
-                    <UInput 
-                      placeholder="Enter SSH User Name" 
+                    <UInput
+                        placeholder="Enter SSH User Name"
                       v-model="form.sshUser"
+                        class="w-full"
                     />
                   </UFormField>
 
                   <UFormField label="SSH Host" class="text-gray-900 dark:text-white">
-                    <UInput 
-                      placeholder="Enter SSH Host Address" 
+                    <UInput
+                        placeholder="Enter SSH Host Address"
                       v-model="form.sshHost"
+                        class="w-full"
                     />
                   </UFormField>
 
                   <UFormField label="SSH Password" v-if="form.sshAuthMethod === 'password'" class="text-gray-900 dark:text-white">
-                    <UInput 
-                      type="password" 
-                      placeholder="Enter SSH Password" 
+                    <UInput
+                        type="password"
+                        placeholder="Enter SSH Password"
                       v-model="form.sshPassword"
+                        class="w-full"
                     />
                   </UFormField>
 
                   <UFormField label="SSH Private Key" v-if="form.sshAuthMethod === 'public-key'" class="text-gray-900 dark:text-white">
-                    <UTextarea 
+                    <UTextarea
                       placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAFwAAAAdzc2gtcn
 NhAAAAAwEAAQAAAQEA1234567890abcdef...
 -----END OPENSSH PRIVATE KEY-----"
                       v-model="form.sshPrivateKey"
                       :rows="8"
-                      class="font-mono text-xs"
+                      class="w-full font-mono text-xs"
                     />
                     <template #help>
                       <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -282,22 +294,6 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
             </div>
           </div>
 
-          <!-- Step 2: Data Schema Selection -->
-          <div v-if="createdConnectionId" class="mt-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Select tables and fields for reporting</h3>
-            <div v-if="!datasetsLoaded" class="text-sm text-gray-600">Load your tables by clicking "Load Schema"</div>
-            <div class="flex gap-2 mb-3">
-              <UButton variant="outline" @click="loadDatasets" :loading="loadingDatasets">Load Schema</UButton>
-              <UButton color="green" :disabled="!schemaSelectionCount" @click="saveSchemaSelection" :loading="savingSchema">Save Selection</UButton>
-            </div>
-            <SchemaSelector 
-              v-if="datasetsLoaded"
-              :tables="datasets"
-              :columns-by-table="columnsByTable"
-              @save="onSchemaSave"
-            />
-            <p v-if="schemaSelectionCount" class="text-xs text-gray-600 dark:text-gray-300 mt-2">{{ schemaSelectionCount }} fields selected.</p>
-          </div>
 
           <!-- Navigation Buttons -->
           <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
@@ -329,12 +325,10 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
               <UButton
                 v-else
                 @click="finishWizard"
-                :disabled="!schemaSelectionCount || savingSchema"
-                :loading="savingSchema"
                 class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white cursor-pointer"
                 color="green"
               >
-                Continue to Builder
+                Select Tables & Fields
               </UButton>
             </div>
           </div>
@@ -345,7 +339,6 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
 </template>
 
 <script setup>
-import SchemaSelector from '../components/reporting/SchemaSelector.vue'
 const steps = ref([
   { step: 1, label: 'Integration', active: true, completed: false },
   { step: 2, label: 'Data Schema', active: false, completed: false },
@@ -386,7 +379,6 @@ const validationErrors = ref([])
 const isTestingConnection = ref(false)
 const connectionTestResult = ref(null)
 const saving = ref(false)
-const savingSchema = ref(false)
 
 const databaseTypes = [
   { label: 'MySQL', value: 'mysql' }
@@ -571,7 +563,8 @@ const validateForm = async () => {
     try {
       const existingConnections = await $fetch('/api/reporting/connections')
       const duplicateConnection = existingConnections.find(c =>
-        c.internal_name?.toLowerCase() === form.value.internalName.trim().toLowerCase()
+          c.internal_name?.toLowerCase() === form.value.internalName.trim().toLowerCase() &&
+          c.id !== createdConnectionId.value // Exclude current connection when editing
       )
 
       if (duplicateConnection) {
@@ -857,78 +850,12 @@ const nextStep = async () => {
   }
 }
 
-// Step 2 state
-const datasets = ref([])
-const datasetsLoaded = ref(false)
-const loadingDatasets = ref(false)
-const schemaSelection = ref(null)
-const schemaSelectionCount = computed(() => {
-  const sel = schemaSelection.value
-  if (!sel || !sel.tables) return 0
-  return sel.tables.reduce((acc, t) => acc + ((t.columns && t.columns.length) || 0), 0)
-})
-
-async function loadDatasets() {
-  loadingDatasets.value = true
-  try {
-    if (!createdConnectionId.value) return
-    datasets.value = await $fetch('/api/reporting/datasets', { params: { connectionId: createdConnectionId.value } })
-    // Preload columns for all datasets in parallel
-    const results = await Promise.all(
-      (datasets.value || []).map((t) => $fetch('/api/reporting/schema', { params: { datasetId: t.id, connectionId: createdConnectionId.value } }))
-    )
-    const map = {}
-    ;(datasets.value || []).forEach((t, idx) => { map[t.id] = results[idx] || [] })
-    columnsByTable.value = map
-    datasetsLoaded.value = true
-  } finally {
-    loadingDatasets.value = false
-  }
-}
-
-function onSchemaSave(payload) {
-  schemaSelection.value = payload
-}
 
 const createdConnectionId = ref(null)
 
-async function saveSchemaSelection() {
-  if (!createdConnectionId.value || !schemaSelection.value) {
-    console.log('[FRONTEND_AUTO_JOIN] Cannot save schema - missing connection ID or schema selection')
-    return
-  }
-
-  console.log('[FRONTEND_AUTO_JOIN] Saving schema selection:', {
-    connectionId: createdConnectionId.value,
-    tableCount: schemaSelection.value.tables?.length || 0,
-    totalColumns: schemaSelection.value.tables?.reduce((acc, t) => acc + ((t.columns && t.columns.length) || 0), 0) || 0,
-    tables: schemaSelection.value.tables?.map(t => t.tableName) || []
-  })
-
-  savingSchema.value = true
-  try {
-    const response = await $fetch('/api/reporting/connections', {
-      method: 'PUT',
-      params: { id: createdConnectionId.value },
-      body: { schema: schemaSelection.value }
-    })
-    console.log('[FRONTEND_AUTO_JOIN] Schema save response:', response)
-    console.log('[FRONTEND_AUTO_JOIN] Schema saved successfully - auto_join_info should now be computed on backend')
-  } catch (error) {
-    console.error('[FRONTEND_AUTO_JOIN] Failed to save schema:', error)
-  } finally {
-    savingSchema.value = false
-  }
-}
-
 async function finishWizard() {
   if (!createdConnectionId.value) return
-  if (schemaSelection.value) {
-    await saveSchemaSelection()
-  }
-  navigateTo(`/reporting/builder?data_connection_id=${createdConnectionId.value}`)
+  navigateTo(`/schema-editor?id=${createdConnectionId.value}`)
 }
 
-// Holds preloaded columns for all tables
-const columnsByTable = ref({})
 </script>

@@ -3,6 +3,10 @@ import {defineEventHandler, readBody} from 'h3'
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../supabase'
 import {uploadDashboardThumbnail} from '../../utils/chartThumbnails'
+import {checkDashboardPermission, checkEditPermission} from '../../utils/permissions'
+import {db} from '../../../lib/db'
+import {dashboards} from '../../../lib/db/schema'
+import {eq} from 'drizzle-orm'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -18,27 +22,32 @@ export default defineEventHandler(async (event) => {
     const {id, name, layout, width, height, thumbnailBase64} = body || {}
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing dashboard id' })
 
-    const {data: profile, error: profileError} = await supabaseAdmin
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-    if (profileError || !profile?.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    // Check if user has edit permission for this dashboard
+    const hasPermission = await checkDashboardPermission(id, user.id)
+    if (!hasPermission) {
+        throw createError({statusCode: 403, statusMessage: 'Access denied to dashboard'})
     }
 
-    // Verify org ownership
-  const { data: dashboard, error: dashError } = await supabaseAdmin
-    .from('dashboards')
-    .select('id')
-    .eq('id', id)
-      .eq('organization_id', profile.organization_id)
-    .single()
+    // For edit operations, we need to check if user has edit access (not just read)
+    // Only creators and users with explicit edit access can modify dashboards
+    const dashboard = await db
+        .select({
+            creator: dashboards.creator
+        })
+        .from(dashboards)
+        .where(eq(dashboards.id, id))
+        .limit(1)
+        .then(rows => rows[0])
 
-  if (dashError || !dashboard) {
+    if (!dashboard) {
     throw createError({ statusCode: 404, statusMessage: 'Dashboard not found' })
   }
+
+    // Check if user has edit access (creator or explicit edit permission)
+    const hasEditPermission = dashboard.creator === user.id || await checkEditPermission(id, user.id)
+    if (!hasEditPermission) {
+        throw createError({statusCode: 403, statusMessage: 'Edit access required'})
+    }
 
     if (name != null || width != null || height != null || thumbnailBase64) {
     const { error } = await supabaseAdmin

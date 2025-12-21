@@ -86,6 +86,9 @@ const success = ref(false)
 // Auth composable
 const { resetPassword } = useAuth()
 
+// reCAPTCHA composable
+const {execute} = useRecaptcha()
+
 // Form validation
 const validateForm = () => {
   errors.value = {}
@@ -102,17 +105,23 @@ const validateForm = () => {
 // Handle form submission
 const handleResetPassword = async () => {
   if (!validateForm()) return
-  
+
   try {
     loading.value = true
     error.value = null
     success.value = false
-    
-    // Send password reset email using Supabase
-    await resetPassword(form.value.email)
-    
+
+    // Execute reCAPTCHA
+    const recaptchaToken = await execute('reset_password')
+    if (!recaptchaToken) {
+      throw new Error('reCAPTCHA verification failed. Please try again.')
+    }
+
+    // Send password reset email using server API
+    await resetPassword(form.value.email, recaptchaToken)
+
     success.value = true
-    
+
   } catch (err) {
     error.value = err.message || 'Failed to send reset email'
   } finally {

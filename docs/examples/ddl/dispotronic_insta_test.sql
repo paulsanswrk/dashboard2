@@ -1,3 +1,6 @@
+create database dispotronic_insta_test;
+use dispotronic_insta_test;
+
 create table audits
 (
     AuditID   int auto_increment

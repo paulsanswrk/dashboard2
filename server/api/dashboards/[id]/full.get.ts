@@ -13,9 +13,10 @@ export default defineEventHandler(async (event) => {
         const id = event.context.params?.id as string
         if (!id) throw createError({statusCode: 400, statusMessage: 'Missing dashboard id'})
 
-        // Check for render context token
+        // Check for render context token and password
         const query = getQuery(event)
         const contextToken = query.context as string | undefined
+        const providedPassword = query.password as string | undefined
         const isRenderContext = contextToken ? validateRenderContext(contextToken) : false
 
         // Load dashboard first
@@ -23,7 +24,7 @@ export default defineEventHandler(async (event) => {
         try {
             const {data, error: dashError} = await supabaseAdmin
                 .from('dashboards')
-                .select('id, name, organization_id, creator, is_public, created_at, width, height, thumbnail_url')
+                .select('id, name, organization_id, creator, is_public, password, created_at, width, height, thumbnail_url')
                 .eq('id', id)
                 .single()
 
@@ -31,6 +32,7 @@ export default defineEventHandler(async (event) => {
                 throw createError({statusCode: 404, statusMessage: 'Dashboard not found'})
             }
             dashboard = data
+            console.log('Dashboard loaded:', {id: dashboard.id, isPublic: dashboard.is_public, hasPassword: !!dashboard.password})
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error loading dashboard:', e?.message || e)
@@ -336,6 +338,7 @@ export default defineEventHandler(async (event) => {
             id: dashboard.id,
             name: dashboard.name,
             isPublic: dashboard.is_public,
+            password: !!dashboard.password, // Return boolean indicating if password is set
             createdAt: dashboard.created_at,
             width: dashboard.width,
             height: dashboard.height,

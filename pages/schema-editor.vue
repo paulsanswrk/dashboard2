@@ -8,9 +8,9 @@
 
         <div class="space-y-4">
           <div class="flex items-center gap-2">
-            <UButton variant="outline" @click="goBack">Back</UButton>
+            <UButton variant="outline" @click="goBack" class="cursor-pointer">Back</UButton>
             <div class="flex-1" />
-            <UButton color="green" :disabled="!allSchemasLoaded" :loading="saving" @click="saveAndContinue">Save and Continue</UButton>
+            <UButton variant="outline" :disabled="!allSchemasLoaded" :loading="saving" @click="saveAndContinue" class="cursor-pointer">Save and Continue</UButton>
           </div>
 
           <!-- Progress indicators -->

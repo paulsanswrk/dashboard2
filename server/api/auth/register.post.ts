@@ -1,10 +1,11 @@
 import { supabaseAdmin } from '../supabase'
 import { capitalizeRole } from '../../utils/roleUtils'
+import {requireRecaptcha} from '../../utils/recaptchaUtils'
 
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { email, password, firstName, lastName, role = 'EDITOR', organizationName } = body
+      const {email, password, firstName, lastName, role = 'EDITOR', organizationName, recaptchaToken} = body
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {
@@ -13,6 +14,11 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Missing required fields: email, password, firstName, lastName'
       })
     }
+
+      // Verify reCAPTCHA if token provided
+      if (recaptchaToken) {
+          await requireRecaptcha(recaptchaToken, 'signup')
+      }
 
     // Capitalize and validate role
     let capitalizedRole: string

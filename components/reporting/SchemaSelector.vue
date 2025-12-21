@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="border rounded-md">
-        <div class="px-3 py-2 font-medium bg-gray-50 dark:bg-dark-light text-gray-900 dark:text-white flex items-center justify-between">
+        <div class="px-3 py-2 font-medium dark:bg-dark-light text-gray-900 dark:text-white flex items-center justify-between">
           <span>List of tables</span>
           <div class="flex items-center gap-2 text-sm">
             <UCheckbox :model-value="allSelected" @update:model-value="toggleAll" />
@@ -26,7 +26,7 @@
       </div>
 
       <div class="border rounded-md">
-        <div class="px-3 py-2 font-medium bg-gray-50 dark:bg-dark-light text-gray-900 dark:text-white">List of fields</div>
+        <div class="px-3 py-2 font-medium  text-gray-900 dark:text-white">List of fields</div>
         <div class="p-2 max-h-72 overflow-auto" v-if="expanded">
           <div class="text-sm mb-2 text-gray-600 dark:text-gray-300">{{ expanded }}</div>
           <ul class="space-y-1">

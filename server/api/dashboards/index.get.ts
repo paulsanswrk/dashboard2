@@ -1,7 +1,10 @@
 import {defineEventHandler} from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
-import {supabaseAdmin} from '../supabase'
+import {db} from '../../../lib/db'
+import {dashboards, dashboardAccess, profiles} from '../../../lib/db/schema'
+import {eq, and, or, inArray} from 'drizzle-orm'
+import {checkDashboardPermission} from '../../utils/permissions'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -11,35 +14,56 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-    const {data: profile, error: profileError} = await supabaseAdmin
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
+    // Get user profile
+    const profile = await db
+        .select()
+        .from(profiles)
+        .where(eq(profiles.userId, user.id))
+        .limit(1)
+        .then(rows => rows[0])
 
-    if (profileError || !profile?.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    if (!profile) {
+        throw createError({statusCode: 403, statusMessage: 'User profile not found'})
     }
 
-  const { data, error } = await supabaseAdmin
-    .from('dashboards')
-      .select('id, name, organization_id, creator, is_public, created_at, width, height, thumbnail_url')
-      .eq('organization_id', profile.organization_id)
-    .order('created_at', { ascending: false })
+    // Get all dashboards in user's organization first
+    const orgDashboards = await db
+        .select({
+            id: dashboards.id,
+            name: dashboards.name,
+            organizationId: dashboards.organizationId,
+            creator: dashboards.creator,
+            isPublic: dashboards.isPublic,
+            createdAt: dashboards.createdAt,
+            width: dashboards.width,
+            height: dashboards.height,
+            thumbnailUrl: dashboards.thumbnailUrl
+        })
+        .from(dashboards)
+        .where(eq(dashboards.organizationId, profile.organizationId))
 
-  if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+    // Filter dashboards based on permissions
+    const accessibleDashboards = []
+    for (const dashboard of orgDashboards) {
+        const hasPermission = await checkDashboardPermission(dashboard.id, user.id)
+        if (hasPermission) {
+            accessibleDashboards.push({
+                id: dashboard.id,
+                name: dashboard.name,
+                organization_id: dashboard.organizationId,
+                creator: dashboard.creator,
+                is_public: dashboard.isPublic,
+                created_at: dashboard.createdAt,
+                width: dashboard.width,
+                height: dashboard.height,
+                thumbnail_url: dashboard.thumbnailUrl
+            })
+        }
+    }
 
-  return (data || []).map((d: any) => ({
-    id: d.id,
-    name: d.name,
-      organization_id: d.organization_id,
-      creator: d.creator,
-    is_public: d.is_public,
-      created_at: d.created_at,
-      width: d.width,
-      height: d.height,
-      thumbnail_url: d.thumbnail_url
-  }))
+    return accessibleDashboards.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
 })
 
 

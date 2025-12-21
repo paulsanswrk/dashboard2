@@ -244,6 +244,9 @@ const showEmailConfirmationMessage = ref(false)
 // Auth composable
 const { signUp, signUpWithMagicLink, loading, error } = useAuth()
 
+// reCAPTCHA composable
+const {execute} = useRecaptcha()
+
 // Magic link state
 const magicLinkMode = ref(false)
 
@@ -336,20 +339,26 @@ const handleSignUp = async () => {
   if (!magicLinkMode.value) {
     showPasswordErrors.value = true
   }
-  
+
   // Check basic form validation first
   if (!validateForm()) {
     return
   }
-  
+
   // Check password validation only for password mode
   if (!magicLinkMode.value && (passwordValidationErrors.value.length > 0 || passwordConfirmError.value)) {
     return
   }
-  
+
   try {
+    // Execute reCAPTCHA
+    const recaptchaToken = await execute('signup')
+    if (!recaptchaToken) {
+      throw new Error('reCAPTCHA verification failed. Please try again.')
+    }
+
     let result
-    
+
     if (magicLinkMode.value) {
       // Magic link signup
       result = await signUpWithMagicLink(
@@ -357,9 +366,10 @@ const handleSignUp = async () => {
         form.value.firstName,
         form.value.lastName,
         'EDITOR', // New users are assigned EDITOR role
-        form.value.organizationName || undefined
+          form.value.organizationName || undefined,
+          recaptchaToken
       )
-      
+
       if (result.success) {
         // Show magic link confirmation message
         showEmailConfirmationMessage.value = true
@@ -372,9 +382,10 @@ const handleSignUp = async () => {
         form.value.firstName,
         form.value.lastName,
         'EDITOR', // New users are assigned EDITOR role
-        form.value.organizationName || undefined
+          form.value.organizationName || undefined,
+          recaptchaToken
       )
-      
+
       if (result.success) {
         if (result.requiresEmailConfirmation) {
           // Show email confirmation message with continue button

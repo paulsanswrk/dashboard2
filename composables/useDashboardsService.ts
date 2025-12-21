@@ -36,6 +36,7 @@ export type DashboardFull = {
     id: string
     name: string
     isPublic: boolean
+    password?: boolean // Boolean indicating if password is set
     createdAt: string
     width?: number | null
     height?: number | null
@@ -55,7 +56,15 @@ export function useDashboardsService() {
     async function getDashboardFull(id: string, context?: string): Promise<DashboardFull> {
         const params = context ? {context} : {}
         return await $fetch(`/api/dashboards/${id}/full`, {params})
-  }
+    }
+
+    async function getDashboardPreview(id: string, authToken?: string): Promise<DashboardFull & { requiresPassword?: boolean }> {
+        const params: any = {}
+        if (authToken) {
+            params.authToken = authToken
+        }
+        return await $fetch(`/api/dashboards/${id}/preview`, {params})
+    }
 
   async function createDashboard(payload: {
     name: string
@@ -106,5 +115,5 @@ export function useDashboardsService() {
     })
   }
 
-  return { listDashboards, getDashboard, getDashboardFull, createDashboard, updateDashboard, deleteDashboard, createDashboardReport }
+    return {listDashboards, getDashboard, getDashboardFull, getDashboardPreview, createDashboard, updateDashboard, deleteDashboard, createDashboardReport}
 }

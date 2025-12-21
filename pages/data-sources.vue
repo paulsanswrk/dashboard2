@@ -2,7 +2,7 @@
   <div class="p-6">
     <div class="mb-6">
       <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <UButton color="orange" @click="navigateTo('/integration-wizard')" class="w-fit">
+        <UButton color="orange" @click="navigateTo('/integration-wizard')" class="w-fit cursor-pointer hover:bg-orange-600 ">
           <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
           add data source
         </UButton>

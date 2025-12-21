@@ -1,53 +1,25 @@
-import { createClient } from '@supabase/supabase-js'
+// @ts-ignore Nuxt Supabase helper available at runtime
+import {serverSupabaseUser} from '#supabase/server'
+import {db} from '~/lib/db'
+import {organizations, profiles, viewers, dashboards} from '~/lib/db/schema'
+import {eq, sql} from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   try {
-    // Get environment variables
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: 'Missing Supabase configuration'
-      })
+      const user = await serverSupabaseUser(event)
+      if (!user) {
+          throw createError({statusCode: 401, statusMessage: 'Unauthorized'})
     }
 
-    // Create Supabase client with service role (bypasses RLS)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+      // Get user profile to check role and permissions
+      const userProfile = await db
+          .select()
+          .from(profiles)
+          .where(eq(profiles.userId, user.id))
+          .limit(1)
+          .then(rows => rows[0])
 
-    // Get the authorization header
-    const authorization = getHeader(event, 'authorization')
-    if (!authorization) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Authorization header required'
-      })
-    }
-
-    // Extract token from "Bearer <token>"
-    const token = authorization.replace('Bearer ', '')
-    
-    // Verify the token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
-    if (authError || !user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Invalid or expired token'
-      })
-    }
-
-    const userId = user.id
-
-    // Get user profile to check role
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('role, organization_id')
-      .eq('user_id', userId)
-      .single()
-
-    if (profileError) {
+      if (!userProfile) {
       throw createError({
         statusCode: 404,
         statusMessage: 'User profile not found'
@@ -63,78 +35,87 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Build the query to get organization
-    let query = supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', organizationId)
-
-    // If user is not admin, only allow access to their organization
-    if (profileData.role !== 'ADMIN') {
-      query = query.eq('id', profileData.organization_id)
-    }
-
-    const { data: organization, error } = await query.single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        throw createError({
-          statusCode: 404,
-          statusMessage: 'Organization not found'
-        })
+      // Check if user can access this organization
+      if (userProfile.role !== 'SUPERADMIN' && userProfile.organizationId !== organizationId) {
+          throw createError({
+              statusCode: 403,
+              statusMessage: 'Access denied to this organization'
+          })
       }
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Failed to fetch organization: ${error.message}`
-      })
-    }
 
-    // Get user counts for the organization
-    const { count: profileCount } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', organization.id)
+      // Get organization
+      const organization = await db
+          .select()
+          .from(organizations)
+          .where(eq(organizations.id, organizationId))
+          .limit(1)
+          .then(rows => rows[0])
 
-    const { count: viewerCount } = await supabase
-      .from('viewers')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', organization.id)
+      if (!organization) {
+          throw createError({
+              statusCode: 404,
+              statusMessage: 'Organization not found'
+          })
+      }
 
-    // Get dashboards count for the organization (dashboards created by users in this organization)
-    const { count: dashboardsCount } = await supabase
-      .from('dashboards')
-      .select('*', { count: 'exact', head: true })
-      .in('owner_id', 
-        await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('organization_id', organization.id)
-          .then(({ data }) => data?.map(p => p.user_id) || [])
-      )
+      // Get counts using SQL aggregation
+      const [counts] = await db
+          .select({
+              profileCount: sql<number>`count(distinct
+              ${profiles.userId}
+              )`,
+              viewerCount: sql<number>`count(distinct
+              ${viewers.userId}
+              )`,
+              dashboardCount: sql<number>`count(distinct
+              ${dashboards.id}
+              )`
+          })
+          .from(organizations)
+          .leftJoin(profiles, eq(organizations.id, profiles.organizationId))
+          .leftJoin(viewers, eq(organizations.id, viewers.organizationId))
+          .leftJoin(dashboards, eq(organizations.id, dashboards.organizationId))
+          .where(eq(organizations.id, organizationId))
+          .groupBy(organizations.id)
 
-    // Get actual users and viewers data
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('user_id, first_name, last_name, role, created_at')
-      .eq('organization_id', organization.id)
-      .order('created_at', { ascending: false })
+      // Get organization profiles (users)
+      const orgProfiles = await db
+          .select({
+              userId: profiles.userId,
+              firstName: profiles.firstName,
+              lastName: profiles.lastName,
+              role: profiles.role,
+              createdAt: profiles.createdAt
+          })
+          .from(profiles)
+          .where(eq(profiles.organizationId, organizationId))
+          .orderBy(profiles.createdAt)
 
-    const { data: viewers } = await supabase
-      .from('viewers')
-      .select('user_id, first_name, last_name, viewer_type, group_name, created_at')
-      .eq('organization_id', organization.id)
-      .order('created_at', { ascending: false })
+      // Get organization viewers
+      const orgViewers = await db
+          .select({
+              userId: viewers.userId,
+              firstName: viewers.firstName,
+              lastName: viewers.lastName,
+              viewerType: viewers.viewerType,
+              groupName: viewers.groupName,
+              createdAt: viewers.createdAt
+          })
+          .from(viewers)
+          .where(eq(viewers.organizationId, organizationId))
+          .orderBy(viewers.createdAt)
 
+      // Build response
     const organizationWithCounts = {
       ...organization,
-      user_count: (profileCount || 0) + (viewerCount || 0),
-      profile_count: profileCount || 0,
-      viewer_count: viewerCount || 0,
-      dashboards_count: dashboardsCount || 0,
-      licenses: organization.viewer_count || 0, // Add licenses field from database viewer_count
-      status: 'active', // Set all organizations as active as requested
-      profiles: profiles || [],
-      viewers: viewers || []
+        user_count: (counts?.profileCount || 0) + (counts?.viewerCount || 0),
+        profile_count: counts?.profileCount || 0,
+        viewer_count: counts?.viewerCount || 0,
+        dashboards_count: counts?.dashboardCount || 0,
+        licenses: organization.viewerCount || 0,
+        status: 'active',
+        profiles: orgProfiles || [],
+        viewers: orgViewers || []
     }
 
     return {

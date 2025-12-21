@@ -78,7 +78,7 @@
           <UButton
             type="submit"
             :loading="loading"
-            class="w-full text-white border-0 hover:opacity-90 transition-opacity text-center block cursor-pointer"
+            class="w-full text-white border-0 hover:opacity-90 transition-opacity text-center block cursor-pointer justify-center"
             style="background-color: #F28C28;"
             size="lg"
           >
@@ -210,6 +210,9 @@ const successMessage = ref('')
 // Auth composable
 const { signIn, signInWithMagicLink, loading, error } = useAuth()
 
+// reCAPTCHA composable
+const {execute} = useRecaptcha()
+
 // Check for success messages from query params
 const route = useRoute()
 if (route.query.message === 'password-updated') {
@@ -228,20 +231,40 @@ if (route.query.mode === 'magic-link') {
 const handleSignIn = async () => {
   try {
     console.log('🚀 Login page: Starting login process')
-    const result = await signIn(form.value.email, form.value.password)
+
+    // Execute reCAPTCHA
+    const recaptchaToken = await execute('login')
+    if (!recaptchaToken) {
+      throw new Error('reCAPTCHA verification failed. Please try again.')
+    }
+
+    const result = await signIn(form.value.email, form.value.password, recaptchaToken)
     console.log('✅ Login page: Login successful, result:', result)
-    
+
     if (result.success) {
       // Wait for user profile to load to check role
-      const { redirectToDashboard } = useAuth()
-      
-      // Give a small delay to ensure profile loading completes
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
+      const {redirectToDashboard, userProfile, loadUserProfile} = useAuth()
+
+      // Give the user state time to update after login
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Try to load profile manually first
+      await loadUserProfile()
+
+      // Wait for profile to be loaded (with timeout)
+      let attempts = 0
+      while (!userProfile.value && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+        attempts++
+      }
+
+      if (!userProfile.value) {
+        error.value = 'Failed to load user profile. Please try logging in again.'
+        return
+      }
+
       // Use centralized redirect logic
-      console.log('🔄 Login page: Redirecting based on user role...')
       await redirectToDashboard()
-      console.log('✅ Login page: Redirect completed')
     }
   } catch (err) {
     // Error is handled by the composable
@@ -253,9 +276,16 @@ const handleSignIn = async () => {
 const handleMagicLinkSignIn = async () => {
   try {
     console.log('🔗 Login page: Starting magic link process')
-    const result = await signInWithMagicLink(magicLinkEmail.value)
+
+    // Execute reCAPTCHA
+    const recaptchaToken = await execute('magic_link')
+    if (!recaptchaToken) {
+      throw new Error('reCAPTCHA verification failed. Please try again.')
+    }
+
+    const result = await signInWithMagicLink(magicLinkEmail.value, recaptchaToken)
     console.log('✅ Login page: Magic link sent, result:', result)
-    
+
     if (result.success) {
       successMessage.value = result.message
     }

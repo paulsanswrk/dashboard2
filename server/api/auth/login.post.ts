@@ -1,10 +1,11 @@
 import { supabaseUser } from '../supabase'
 import { setCookie } from 'h3'
+import {requireRecaptcha} from '../../utils/recaptchaUtils'
 
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { email, password } = body
+      const {email, password, recaptchaToken} = body
 
     console.log('🔐 Login attempt for email:', email)
 
@@ -15,6 +16,11 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Email and password are required'
       })
     }
+
+      // Verify reCAPTCHA if token provided
+      if (recaptchaToken) {
+          await requireRecaptcha(recaptchaToken, 'login')
+      }
 
     // Authenticate user with Supabase Auth
     const { data: authData, error: authError } = await supabaseUser.auth.signInWithPassword({

@@ -63,41 +63,51 @@
         </div>
       </UCard>
 
-      <!-- Recent Activity -->
-      <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-        <template #header>
-          <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">Recent Activity</h3>
-        </template>
-        
-        <div class="space-y-4">
-          <div v-for="activity in recentActivities" :key="activity.id" class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center">
-              <Icon :name="activity.icon" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
-            </div>
-            <div class="flex-1">
-              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activity.action }}</p>
-              <p class="text-xs text-gray-600 dark:text-gray-300">{{ activity.time }}</p>
-            </div>
-          </div>
-        </div>
-      </UCard>
     </div>
 
     <!-- Quick Actions Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- My Data Sources -->
-      <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+      <!-- My Data Sources (Admin only) -->
+      <UCard v-if="isAdmin" class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
         <div class="p-4">
-          <h3 class="font-medium mb-2 text-gray-900 dark:text-white">My Data Sources</h3>
-          <div class="space-y-2">
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/data-sources')">
-              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
-              Connect New Source
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-medium text-gray-900 dark:text-white">My Data Sources</h3>
+            <UButton
+                size="sm"
+                color="orange"
+                class="bg-orange-500 hover:bg-orange-600 cursor-pointer text-white dark:text-black"
+                @click="navigateTo('/integration-wizard')"
+            >
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+              New
             </UButton>
-            <div class="space-y-1">
-              <div v-for="source in myDataSources" :key="source.id" class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600">
+          </div>
+          <div class="space-y-2">
+            <div v-if="loadingDataSources" class="flex justify-center py-4">
+              <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-400"/>
+            </div>
+            <div v-else-if="myDataSources.length === 0" class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+              No data sources yet. Connect your first one!
+            </div>
+            <div v-else class="space-y-1">
+              <div
+                  v-for="source in myDataSources.slice(0, 5)"
+                  :key="source.id"
+                  class="flex items-center gap-2 p-2 rounded bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 cursor-pointer transition-colors"
+                  @click="navigateTo(`/reporting/builder?data_connection_id=${source.id}`)"
+              >
                 <Icon :name="source.icon" class="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 <span class="text-sm text-gray-700 dark:text-gray-200">{{ source.name }}</span>
+              </div>
+              <div v-if="myDataSources.length > 5" class="text-center pt-2">
+                <UButton
+                    variant="link"
+                    size="xs"
+                    class="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+                    @click="navigateTo('/data-sources')"
+                >
+                  View all {{ myDataSources.length }} data sources
+                </UButton>
               </div>
             </div>
           </div>
@@ -107,11 +117,43 @@
       <!-- My Dashboards -->
       <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
         <div class="p-4">
-          <h3 class="font-medium mb-2 text-gray-900 dark:text-white">My Dashboards</h3>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-medium text-gray-900 dark:text-white">My Dashboards</h3>
+            <UButton
+                size="sm"
+                color="orange"
+                class="bg-orange-500 hover:bg-orange-600 cursor-pointer text-white dark:text-black"
+                @click="navigateTo('/dashboards')"
+            >
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+              New
+            </UButton>
+          </div>
           <div class="space-y-2">
-            <div class="space-y-1">
-              <div v-for="dashboard in myDashboards" :key="dashboard.id" class="p-2 rounded text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
+            <div v-if="loadingDashboards" class="flex justify-center py-4">
+              <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-400"/>
+            </div>
+            <div v-else-if="myDashboards.length === 0" class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+              No dashboards yet. Create your first one!
+            </div>
+            <div v-else class="space-y-1">
+              <div
+                  v-for="dashboard in myDashboards.slice(0, 5)"
+                  :key="dashboard.id"
+                  class="p-2 rounded text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500 cursor-pointer transition-colors"
+                  @click="navigateTo(`/dashboards/${dashboard.id}`)"
+              >
                 {{ dashboard.name }}
+              </div>
+              <div v-if="myDashboards.length > 5" class="text-center pt-2">
+                <UButton
+                    variant="link"
+                    size="xs"
+                    class="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+                    @click="navigateTo('/dashboards')"
+                >
+                  View all {{ myDashboards.length }} dashboards
+                </UButton>
               </div>
             </div>
           </div>
@@ -119,24 +161,48 @@
       </UCard>
 
 
-      <!-- Alarms & Reports -->
+      <!-- My Reports -->
       <UCard class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
         <div class="p-4">
-          <h3 class="font-medium mb-2 text-gray-900 dark:text-white">Alarms +</h3>
-          <div class="space-y-2">
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">
-              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-2"/>
-              New Alert
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-medium text-gray-900 dark:text-white">My Reports</h3>
+            <UButton
+                size="sm"
+                color="orange"
+                class="bg-orange-500 hover:bg-orange-600 cursor-pointer text-white dark:text-black"
+                @click="navigateTo('/reports/create')"
+            >
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+              New
             </UButton>
-            <div class="p-2 rounded bg-gray-100 dark:bg-gray-600">
-              <span class="text-sm text-gray-700 dark:text-gray-200">Demo larm</span>
-            </div>
           </div>
-          <div class="mt-4">
-            <h4 class="text-sm font-medium mb-2 text-gray-900 dark:text-white">Reports +</h4>
-            <UButton size="sm" class="w-full bg-green-600 hover:bg-green-700 text-white">
-              Create report
-            </UButton>
+          <div class="space-y-2">
+            <div v-if="loadingReports" class="flex justify-center py-4">
+              <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin text-gray-400"/>
+            </div>
+            <div v-else-if="myReports.length === 0" class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+              No reports yet. Create your first one!
+            </div>
+            <div v-else class="space-y-1">
+              <div
+                  v-for="report in myReports.slice(0, 5)"
+                  :key="report.id"
+                  class="p-2 rounded text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-500 cursor-pointer transition-colors"
+                  @click="navigateTo(`/reports/edit/${report.id}`)"
+              >
+                {{ report.name }}
+              </div>
+              <div v-if="myReports.length > 5" class="text-center pt-2">
+                <UButton
+                    variant="link"
+                    size="xs"
+                    class="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+                    @click="navigateTo('/reports')"
+                >
+                  View all {{ myReports.length }} reports
+                </UButton>
+              </div>
+            </div>
           </div>
         </div>
       </UCard>
@@ -146,7 +212,10 @@
 
 <script setup>
 // Authentication
-const { userProfile } = useAuth()
+const {userProfile, isAdmin} = useAuth()
+
+// Dashboard service
+const {listDashboards} = useDashboardsService()
 
 // Get organization from user profile
 const organization = computed(() => userProfile.value?.organization)
@@ -169,18 +238,102 @@ const recentActivities = ref([
 ])
 
 // My data sources
-const myDataSources = ref([
-  {id: 1, name: 'Sales Database', icon: 'i-heroicons-circle-stack'},
-  {id: 2, name: 'Analytics API', icon: 'i-heroicons-cloud'},
-  {id: 3, name: 'CSV Upload', icon: 'i-heroicons-document'}
-])
+const myDataSources = ref([])
+const loadingDataSources = ref(true)
 
 // My dashboards
-const myDashboards = ref([
-  { id: 1, name: 'Sales Overview' },
-  { id: 2, name: 'Marketing Metrics' },
-  { id: 3, name: 'Customer Analytics' }
-])
+const myDashboards = ref([])
+const loadingDashboards = ref(true)
+
+// My reports
+const myReports = ref([])
+const loadingReports = ref(true)
+
+// Load dashboards
+async function loadDashboards() {
+  loadingDashboards.value = true
+  try {
+    myDashboards.value = await listDashboards()
+  } catch (error) {
+    console.error('Failed to load dashboards:', error)
+    myDashboards.value = []
+  } finally {
+    loadingDashboards.value = false
+  }
+}
+
+// Load reports
+async function loadReports() {
+  console.log('Loading reports...')
+  loadingReports.value = true
+  try {
+    const data = await $fetch('/api/reports')
+    console.log('Reports loaded:', data)
+    myReports.value = data
+  } catch (error) {
+    console.error('Failed to load reports:', error)
+    myReports.value = []
+  } finally {
+    console.log('Setting loadingReports to false')
+    loadingReports.value = false
+  }
+}
+
+// Helper function to get connection icon based on database type
+const getConnectionIcon = (databaseType) => {
+  const iconMap = {
+    postgresql: 'i-heroicons-circle-stack',
+    mysql: 'i-heroicons-circle-stack',
+    mongodb: 'i-heroicons-circle-stack',
+    sqlite: 'i-heroicons-circle-stack',
+    snowflake: 'i-heroicons-cloud',
+    bigquery: 'i-heroicons-cloud',
+    redshift: 'i-heroicons-cloud',
+    csv: 'i-heroicons-document',
+    excel: 'i-heroicons-document'
+  }
+  return iconMap[databaseType?.toLowerCase()] || 'i-heroicons-circle-stack'
+}
+
+// Load data sources
+async function loadDataSources() {
+  console.log('Loading data sources...')
+  loadingDataSources.value = true
+  try {
+    const data = await $fetch('/api/reporting/connections')
+    console.log('Data sources loaded:', data)
+    myDataSources.value = data.map(connection => ({
+      id: connection.id,
+      name: connection.internal_name,
+      icon: getConnectionIcon(connection.database_type)
+    }))
+    console.log('Mapped data sources:', myDataSources.value)
+  } catch (error) {
+    console.error('Failed to load data sources:', error)
+    myDataSources.value = []
+  } finally {
+    console.log('Setting loadingDataSources to false')
+    loadingDataSources.value = false
+  }
+}
+
+// Load data on mount
+onMounted(() => {
+  console.log('onMounted - isAdmin:', isAdmin.value)
+  loadDashboards()
+  loadReports()
+  if (isAdmin.value) {
+    loadDataSources()
+  }
+})
+
+// Watch for admin status changes and load data sources when user becomes admin
+watch(isAdmin, (newIsAdmin) => {
+  console.log('isAdmin changed to:', newIsAdmin)
+  if (newIsAdmin && myDataSources.value.length === 0) {
+    loadDataSources()
+  }
+})
 
 // Page meta
 definePageMeta({

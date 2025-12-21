@@ -20,6 +20,17 @@
           Get PDF
         </UButton>
         <UButton
+            variant="outline"
+            color="green"
+            size="sm"
+            class="hover:bg-green-500 hover:text-white cursor-pointer"
+            @click="openShareModal"
+            title="Share dashboard"
+        >
+          <Icon name="i-heroicons-share" class="w-4 h-4 mr-1"/>
+          Share
+        </UButton>
+        <UButton
             v-if="canEditDashboard"
             :color="isEditableSession ? 'gray' : 'orange'"
             variant="solid"
@@ -538,6 +549,13 @@
       </template>
     </UModal>
 
+      <!-- Share Dashboard Modal -->
+      <ShareDashboardModal
+          v-model:open="showShareModal"
+          :dashboard-id="id"
+          :dashboard-name="dashboardName"
+      />
+
 
       <div class="flex gap-4 items-stretch flex-1 min-h-0">
         <div class="flex-1 min-w-0 h-full">
@@ -744,6 +762,9 @@ const deletingTab = ref(false)
 
 // Debug panel state
 const debugPanelOpen = ref(false)
+
+// Share modal state
+const showShareModal = ref(false)
 const gridConfig = reactive({
   colNum: 12,
   rowHeight: 30,
@@ -1709,6 +1730,10 @@ async function downloadPDF() {
     console.error('Failed to download PDF:', error)
     alert('Failed to generate PDF. Check console for details.')
   }
+}
+
+function openShareModal() {
+  showShareModal.value = true
 }
 </script>
 

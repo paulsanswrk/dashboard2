@@ -2,6 +2,7 @@ import {defineEventHandler, getQuery} from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../supabase'
+import {checkEditPermission} from '../../utils/permissions'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -18,22 +19,10 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 400, statusMessage: 'Missing widget ID'})
     }
 
-    const {data: profile, error: profileError} = await supabaseAdmin
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-    if (profileError || !profile?.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
-    }
-
+    // Get widget and dashboard info
     const {data: widget, error: widgetError} = await supabaseAdmin
         .from('dashboard_widgets')
-        .select(`
-          id,
-          dashboards!inner(organization_id)
-        `)
+        .select('id, dashboard_id')
         .eq('id', widgetId)
         .single()
 
@@ -41,8 +30,10 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 404, statusMessage: 'Widget not found'})
     }
 
-    if (widget.dashboards.organization_id !== profile.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Dashboard access denied'})
+    // Check if user has edit permission for the dashboard
+    const hasEditPermission = await checkEditPermission(widget.dashboard_id, user.id)
+    if (!hasEditPermission) {
+        throw createError({statusCode: 403, statusMessage: 'Edit permission required for dashboard'})
     }
 
     const {error} = await supabaseAdmin

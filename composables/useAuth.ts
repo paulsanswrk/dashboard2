@@ -62,51 +62,31 @@ export const useAuth = () => {
   }
 
   // Sign up with organization
-  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string) => {
+    const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            firstName,
-            lastName,
-            role,
-            organizationName
-          }
+        // Call server-side API for registration with reCAPTCHA verification
+        const response = await $fetch('/api/auth/register', {
+            method: 'POST',
+            body: {
+                email,
+                password,
+                firstName,
+                lastName,
+                role,
+                organizationName,
+                recaptchaToken
         }
       })
 
-      if (signUpError) throw signUpError
-
-      // Create profile for the user
-      if (data.user) {
-        try {
-          await createUserProfile(data.user, { firstName, lastName, role, organizationName })
-          console.log('Profile created successfully for user:', data.user.id)
-        } catch (profileError) {
-          console.error('Profile creation error during signup:', profileError)
-          // Continue anyway - profile creation is not critical for basic functionality
-        }
-      }
-
-      if (data.user && !data.session) {
-        setMessage('Please check your email for verification link', 'success')
+        if (response.success) {
+            setMessage('Account created successfully! Please check your email for verification.', 'success')
         return { success: true, requiresEmailConfirmation: true }
+        } else {
+            throw new Error(response.error || 'Registration failed')
       }
-
-      // If user has a session, they're immediately authenticated
-      if (data.user && data.session) {
-        setMessage('Account created successfully!', 'success')
-        return { success: true, requiresEmailConfirmation: false }
-      }
-
-      // Fallback case
-      setMessage('Account created successfully!', 'success')
-      return { success: true, requiresEmailConfirmation: true }
     } catch (err: any) {
       setMessage(err.message || 'Registration failed', 'error')
       return { success: false, error: err.message }
@@ -116,26 +96,40 @@ export const useAuth = () => {
   }
 
   // Sign in
-  const signIn = async (email: string, password: string) => {
+    const signIn = async (email: string, password: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔐 Client: Starting login for email:', email)
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
+        // Call server-side API for authentication with reCAPTCHA verification
+        const response = await $fetch('/api/auth/login', {
+            method: 'POST',
+            body: {
+                email,
+                password,
+                recaptchaToken
+            }
       })
 
-      if (signInError) throw signInError
+        if (response.success) {
+            setMessage('Login successful!', 'success')
 
-      console.log('✅ Client: Login successful:', data.user?.id)
-      setMessage('Login successful!', 'success')
-      
-      return { 
-        user: data.user,
-        success: true
+            // Set the client-side session using tokens from server response
+            if (response.session?.access_token && response.session?.refresh_token) {
+                await supabase.auth.setSession({
+                    access_token: response.session.access_token,
+                    refresh_token: response.session.refresh_token
+                })
+            }
+
+            return {
+                user: response.user,
+                success: true
+            }
+        } else {
+            throw new Error(response.error || 'Login failed')
       }
     } catch (err: any) {
       console.log('❌ Client: Login error:', err)
@@ -247,7 +241,7 @@ export const useAuth = () => {
       userProfile.value = null
       return
     }
-    
+
     try {
       const profile = await getUserProfile()
       userProfile.value = profile
@@ -461,26 +455,32 @@ export const useAuth = () => {
   }
 
   // Reset password
-  const resetPassword = async (email: string) => {
+    const resetPassword = async (email: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔑 [STEP 1] Starting password reset for email:', email)
-      console.log('📧 [STEP 1] Calling resetPasswordForEmail()...')
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`
+        // Call server-side API for password reset with reCAPTCHA verification
+        const response = await $fetch('/api/auth/reset-password', {
+            method: 'POST',
+            body: {
+                email,
+                recaptchaToken
+            }
       })
 
-      if (error) throw error
+        if (response.success) {
+            console.log('✅ [STEP 1] Password reset email sent successfully')
+            setMessage(response.message || 'Password reset email sent! Check your email for instructions.', 'success')
 
-      console.log('✅ [STEP 1] Password reset email sent successfully')
-      setMessage('Password reset email sent! Check your email for instructions.', 'success')
-
-      return {
-        success: true,
-        message: 'Password reset email sent! Check your email for instructions.'
+            return {
+                success: true,
+                message: response.message || 'Password reset email sent! Check your email for instructions.'
+            }
+        } else {
+            throw new Error(response.error || 'Failed to send password reset email')
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Password reset error:', err)
@@ -492,29 +492,32 @@ export const useAuth = () => {
   }
 
   // Sign in with magic link
-  const signInWithMagicLink = async (email: string) => {
+    const signInWithMagicLink = async (email: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔗 [STEP 1] Starting magic link sign in for email:', email)
-      console.log('📧 [STEP 1] Calling signInWithOtp()...')
 
-      const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+        // Call server-side API for magic link with reCAPTCHA verification
+        const response = await $fetch('/api/auth/magic-link', {
+            method: 'POST',
+            body: {
+                email,
+                recaptchaToken
         }
       })
 
-      if (magicLinkError) throw magicLinkError
+        if (response.success) {
+            console.log('✅ [STEP 1] Magic link sent successfully')
+            setMessage(response.message || 'Magic link sent! Please check your email and click the link to sign in.', 'success')
 
-      console.log('✅ [STEP 1] Magic link sent successfully')
-      setMessage('Magic link sent! Please check your email and click the link to sign in.', 'success')
-
-      return {
-        success: true,
-        message: 'Magic link sent! Please check your email and click the link to sign in.'
+            return {
+                success: true,
+                message: response.message || 'Magic link sent! Please check your email and click the link to sign in.'
+            }
+        } else {
+            throw new Error(response.error || 'Failed to send magic link')
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Magic link error:', err)
@@ -526,36 +529,36 @@ export const useAuth = () => {
   }
 
   // Sign up with magic link (for new users)
-  const signUpWithMagicLink = async (email: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string) => {
+    const signUpWithMagicLink = async (email: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔗 [STEP 1] Starting magic link sign up for email:', email)
-      console.log('📧 [STEP 1] Calling signInWithOtp() with signup data...')
 
-      const { data, error: magicLinkError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: {
-            firstName,
-            lastName,
-            role,
-            organizationName,
-            isSignUp: true
-          }
+        // Call server-side API for magic link registration with reCAPTCHA verification
+        const response = await $fetch('/api/auth/magic-link-signup', {
+            method: 'POST',
+            body: {
+                email,
+                firstName,
+                lastName,
+                role,
+                organizationName,
+                recaptchaToken
         }
       })
 
-      if (magicLinkError) throw magicLinkError
+        if (response.success) {
+            console.log('✅ [STEP 1] Magic link sent successfully for sign up')
+            setMessage(response.message || 'Magic link sent! Please check your email and click the link to complete your registration.', 'success')
 
-      console.log('✅ [STEP 1] Magic link sent successfully for sign up')
-      setMessage('Magic link sent! Please check your email and click the link to complete your registration.', 'success')
-
-      return {
-        success: true,
-        message: 'Magic link sent! Please check your email and click the link to complete your registration.'
+            return {
+                success: true,
+                message: response.message || 'Magic link sent! Please check your email and click the link to complete your registration.'
+            }
+        } else {
+            throw new Error(response.error || 'Failed to send magic link')
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Magic link sign up error:', err)

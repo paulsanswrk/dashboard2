@@ -2,6 +2,7 @@ import {defineEventHandler} from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../supabase'
+import {checkDashboardPermission} from '../../utils/permissions'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -14,22 +15,17 @@ export default defineEventHandler(async (event) => {
   const id = event.context.params?.id as string
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing dashboard id' })
 
-    const {data: profile, error: profileError} = await supabaseAdmin
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-    if (profileError || !profile?.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
+    // Check if user has permission to access this dashboard
+    const hasPermission = await checkDashboardPermission(id, user.id)
+    if (!hasPermission) {
+        throw createError({statusCode: 403, statusMessage: 'Access denied to dashboard'})
     }
 
-    // Verify org access and get dashboard
+    // Get dashboard data
   const { data: dashboard, error: dashError } = await supabaseAdmin
     .from('dashboards')
       .select('id, name, organization_id, creator, is_public, created_at, width, height, thumbnail_url')
     .eq('id', id)
-      .eq('organization_id', profile.organization_id)
     .single()
 
   if (dashError || !dashboard) {

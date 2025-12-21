@@ -2,6 +2,7 @@ import {defineEventHandler, readBody} from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../supabase'
+import {checkEditPermission} from '../../utils/permissions'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -18,34 +19,21 @@ export default defineEventHandler(async (event) => {
         throw createError({statusCode: 400, statusMessage: 'Missing tabId, chartId, or position'})
     }
 
-    const {data: profile, error: profileError} = await supabaseAdmin
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .single()
-
-    if (profileError || !profile?.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Organization not found for user'})
-    }
-
-    // Verify the tab belongs to a dashboard in the user's organization
+    // Get dashboard ID from tab
     const {data: tab, error: tabError} = await supabaseAdmin
         .from('dashboard_tab')
-        .select(`
-      id,
-      dashboard_id,
-      dashboards!inner(organization_id)
-    `)
+        .select('dashboard_id')
         .eq('id', tabId)
         .single()
 
     if (tabError || !tab) {
-        throw createError({statusCode: 403, statusMessage: 'Tab not found or access denied'})
+        throw createError({statusCode: 404, statusMessage: 'Tab not found'})
     }
 
-    // Check dashboard org access
-    if (tab.dashboards.organization_id !== profile.organization_id) {
-        throw createError({statusCode: 403, statusMessage: 'Dashboard access denied'})
+    // Check if user has edit permission for the dashboard
+    const hasEditPermission = await checkEditPermission(tab.dashboard_id, user.id)
+    if (!hasEditPermission) {
+        throw createError({statusCode: 403, statusMessage: 'Edit permission required for dashboard'})
     }
 
     // Verify the chart exists (dashboard-level permissions handle visibility)
