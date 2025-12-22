@@ -6,14 +6,20 @@ import {AuthHelper} from '../../utils/authHelper'
 
 type ReportField = { fieldId: string; name?: string; label?: string; type?: string; isNumeric?: boolean; table?: string }
 type MetricRef = ReportField & { aggregation?: string }
-type DimensionRef = ReportField
-type FilterRef = { field: ReportField; operator: string; value: any }
-
+type DimensionRef = ReportField & {
+    sort?: 'asc' | 'desc'
+    dateInterval?: string
+    filterValues?: string[]
+    filterMode?: 'include' | 'exclude'
+    dateRangeStart?: string
+    dateRangeEnd?: string
+    dateRangeType?: 'static' | 'dynamic'
+    dynamicRange?: string
+}
 type PreviewRequest = {
   datasetId: string
   xDimensions: DimensionRef[]
   yMetrics: MetricRef[]
-  filters: FilterRef[]
   breakdowns: DimensionRef[]
   joins?: Array<{ joinType: 'inner' | 'left'; sourceTable: string; targetTable: string; columnPairs: Array<{ sourceColumn: string; targetColumn: string }> }>
   limit?: number
@@ -27,6 +33,25 @@ function isSafeIdentifier(name: string | undefined): name is string {
 
 function wrapId(id: string) {
   return `\`${id}\``
+}
+
+function getDynamicDateRangeExpr(fieldExpr: string, range: string): string | null {
+    switch (range) {
+        case 'last_7_days':
+            return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+        case 'last_30_days':
+            return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        case 'last_90_days':
+            return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 90 DAY)`
+        case 'this_month':
+            return `${fieldExpr} >= DATE_FORMAT(NOW(), '%Y-%m-01')`
+        case 'this_quarter':
+            return `${fieldExpr} >= MAKEDATE(YEAR(NOW()), 1) + INTERVAL QUARTER(NOW())*3-3 MONTH`
+        case 'this_year':
+            return `${fieldExpr} >= DATE_FORMAT(NOW(), '%Y-01-01')`
+        default:
+            return null
+    }
 }
 
 export default defineEventHandler(async (event) => {
@@ -91,39 +116,37 @@ export default defineEventHandler(async (event) => {
       columns.push({ key: 'count', label: 'Count' })
     }
 
-    // WHERE from filters (basic operators)
+      // WHERE from dimension/metric filters
     const whereParts: string[] = []
     const params: any[] = []
-    for (const f of body.filters || []) {
-      const fieldExpr = qualify(f?.field)
+
+      // Dimension filters (Value list and Date range)
+      for (const d of dims) {
+          const fieldExpr = qualify(d)
       if (!fieldExpr) continue
-      const op = (f.operator || 'equals').toLowerCase()
-      if (op === 'equals') {
-        whereParts.push(`${fieldExpr} = ?`)
-        params.push(f.value)
-      } else if (op === 'contains') {
-        whereParts.push(`${fieldExpr} LIKE ?`)
-        params.push(`%${f.value}%`)
-      } else if (op === 'in') {
-        const arr = String(f.value || '')
-          .split(',')
-          .map(v => v.trim())
-          .filter(Boolean)
-        if (arr.length) {
-          whereParts.push(`${fieldExpr} IN (${arr.map(() => '?').join(',')})`)
-          params.push(...arr)
+
+          // Value list filters
+          if (d.filterValues && d.filterValues.length > 0) {
+              const mode = d.filterMode === 'exclude' ? 'NOT IN' : 'IN'
+              whereParts.push(`${fieldExpr} ${mode} (${d.filterValues.map(() => '?').join(',')})`)
+              params.push(...d.filterValues)
+          }
+
+          // Date range filters
+          if (d.dateRangeType === 'static') {
+              if (d.dateRangeStart) {
+                  whereParts.push(`${fieldExpr} >= ?`)
+                  params.push(d.dateRangeStart)
         }
-      } else if (op === 'between') {
-        const start = (f.value || {}).start
-        const end = (f.value || {}).end
-        if (start != null && end != null) {
-          whereParts.push(`${fieldExpr} BETWEEN ? AND ?`)
-          params.push(start, end)
+              if (d.dateRangeEnd) {
+                  whereParts.push(`${fieldExpr} <= ?`)
+                  params.push(d.dateRangeEnd)
         }
-      } else if (op === 'is_null') {
-        whereParts.push(`${fieldExpr} IS NULL`)
-      } else if (op === 'not_null') {
-        whereParts.push(`${fieldExpr} IS NOT NULL`)
+          } else if (d.dateRangeType === 'dynamic' && d.dynamicRange) {
+              const rangeExpr = getDynamicDateRangeExpr(fieldExpr, d.dynamicRange)
+              if (rangeExpr) {
+                  whereParts.push(rangeExpr)
+              }
       }
     }
 
@@ -150,11 +173,6 @@ export default defineEventHandler(async (event) => {
     for (const m of metrics) {
       if (m.table && isSafeIdentifier(m.table)) {
         allTables.add(m.table)
-      }
-    }
-    for (const f of body.filters || []) {
-      if (f.field?.table && isSafeIdentifier(f.field.table)) {
-        allTables.add(f.field.table)
       }
     }
 
@@ -290,6 +308,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+      // Build ORDER BY from dimensions with sort specified
+      const orderByParts: string[] = []
+      for (const d of dims) {
+          if (d.sort && (d.sort === 'asc' || d.sort === 'desc')) {
+              const field = qualify(d)
+              if (field) {
+                  orderByParts.push(`${field} ${d.sort.toUpperCase()}`)
+              }
+          }
+      }
+
     const sql = [
       'SELECT',
       selectParts.join(', '),
@@ -299,6 +328,7 @@ export default defineEventHandler(async (event) => {
       ...crossJoinClauses,
       whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '',
       groupByParts.length ? 'GROUP BY ' + groupByParts.join(', ') : '',
+        orderByParts.length ? 'ORDER BY ' + orderByParts.join(', ') : '',
       'LIMIT ' + limit
     ].filter(Boolean).join(' ')
 

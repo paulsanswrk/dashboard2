@@ -20,10 +20,13 @@
         <li
           v-for="f in filteredFields"
           :key="f.fieldId"
-          class="select-text"
+          class="draggable-field"
+          draggable="true"
+          @dragstart="onDragStart($event, f)"
+          @selectstart.prevent
         >
-          <div class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white text-neutral-900 border border-neutral-200 shadow-sm">
-            <div class="w-4 h-4 text-neutral-400 cursor-move" draggable="true" @dragstart="onDragStart(f)">
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white text-neutral-900 border border-neutral-200 shadow-sm cursor-grab active:cursor-grabbing">
+            <div class="w-4 h-4 text-neutral-400">
               <Icon name="i-heroicons-bars-3" class="w-4 h-4"/>
             </div>
             <div class="w-5 h-5 rounded bg-neutral-100 flex items-center justify-center text-[11px] font-semibold">
@@ -68,8 +71,8 @@ function isNumeric(type?: string) {
   ].some(k => t.includes(k))
 }
 
-function onDragStart(field: ReportField) {
-  const dt = (event as DragEvent).dataTransfer
+function onDragStart(event: DragEvent, field: ReportField) {
+  const dt = event.dataTransfer
   if (!dt) return
   const payload = { ...field, table: props.datasetName || field.table }
   dt.setData('application/json', JSON.stringify({ type: 'field', field: payload }))
@@ -78,6 +81,16 @@ function onDragStart(field: ReportField) {
 </script>
 
 <style scoped>
+.draggable-field {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.draggable-field:active {
+  cursor: grabbing;
+}
 </style>
 
 

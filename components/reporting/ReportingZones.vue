@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-2">
+  <div class="space-y-2 relative">
+    <!-- X Dimensions Zone -->
     <div v-if="zoneConfig.showXDimensions" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
@@ -12,18 +13,23 @@
           <li
             v-for="(d, i) in xDimensions"
             :key="d.fieldId"
-            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
             draggable="true"
             @dragstart="onDragItemStart('x', i)"
             @dragover.prevent
             @drop="onDragItemDrop('x', i)"
+            @click="openPopup('x', i, $event)"
             data-zone-item="x"
           >
             <div class="pr-6">
               <div class="text-sm">{{ d.label || d.name }}</div>
-              <div v-if="d.table" class="text-xs text-neutral-300">{{ d.table }}</div>
+              <div class="text-xs text-neutral-300">
+                <template v-if="d.table">{{ d.table }}</template>
+                <template v-if="d.dateInterval"><span v-if="d.table"> • </span>{{ d.dateInterval }}</template>
+                <template v-if="d.sort"><span v-if="d.table || d.dateInterval"> • </span>{{ d.sort }}</template>
+              </div>
             </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('x', i)" aria-label="Remove" data-remove>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click.stop="remove('x', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
@@ -34,6 +40,7 @@
       </template>
     </div>
 
+    <!-- Y Metrics Zone -->
     <div v-if="zoneConfig.showYMetrics" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
@@ -46,21 +53,22 @@
           <li
             v-for="(m, i) in yMetrics"
             :key="m.fieldId"
-            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
             draggable="true"
             @dragstart="onDragItemStart('y', i)"
             @dragover.prevent
             @drop="onDragItemDrop('y', i)"
+            @click="openPopup('y', i, $event)"
             data-zone-item="y"
           >
             <div class="pr-6">
               <div class="text-sm">{{ m.label || m.name }}</div>
               <div class="text-xs text-neutral-300">
                 <template v-if="m.table">{{ m.table }}</template>
-                <template v-if="m.aggregation"> <span v-if="m.table"> • </span>{{ (m.aggregation || '').toLowerCase() }}</template>
+                <template v-if="m.aggregation"><span v-if="m.table"> • </span>{{ formatAggregation(m.aggregation) }}</template>
               </div>
             </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('y', i)" aria-label="Remove" data-remove>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click.stop="remove('y', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
@@ -71,6 +79,7 @@
       </template>
     </div>
 
+    <!-- Breakdowns Zone -->
     <div v-if="zoneConfig.showBreakdowns" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('breakdowns')">
       <div class="flex items-center justify-between mb-1">
         <span class="font-medium flex items-center gap-2">
@@ -83,18 +92,23 @@
           <li
             v-for="(b, i) in breakdowns"
             :key="b.fieldId"
-            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
             draggable="true"
             @dragstart="onDragItemStart('breakdowns', i)"
             @dragover.prevent
             @drop="onDragItemDrop('breakdowns', i)"
+            @click="openPopup('breakdowns', i, $event)"
             data-zone-item="breakdowns"
           >
             <div class="pr-6">
               <div class="text-sm">{{ b.label || b.name }}</div>
-              <div v-if="b.table" class="text-xs text-neutral-300">{{ b.table }}</div>
+              <div class="text-xs text-neutral-300">
+                <template v-if="b.table">{{ b.table }}</template>
+                <template v-if="b.dateInterval"><span v-if="b.table"> • </span>{{ b.dateInterval }}</template>
+                <template v-if="b.sort"><span v-if="b.table || b.dateInterval"> • </span>{{ b.sort }}</template>
+              </div>
             </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click="remove('breakdowns', i)" aria-label="Remove" data-remove>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click.stop="remove('breakdowns', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
@@ -104,12 +118,24 @@
         <div class="text-neutral-400 text-sm">Drag a field here</div>
       </template>
     </div>
+
+    <!-- Field Options Popup -->
+    <ReportingFieldOptionsPopup
+        :visible="popupVisible"
+        :field="activeField"
+        :zone="activeZone"
+        :position="popupPosition"
+        :connection-id="connectionId"
+        @apply="onPopupApply"
+        @cancel="closePopup"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useReportState, type ReportField } from '../../composables/useReportState'
+import {useReportState, type ReportField, type MetricRef, type DimensionRef} from '../../composables/useReportState'
+import ReportingFieldOptionsPopup from './ReportingFieldOptionsPopup.vue'
 
 type ZoneConfig = {
   showXDimensions: boolean
@@ -120,11 +146,18 @@ type ZoneConfig = {
   breakdownLabel?: string
 }
 
+type ZoneType = 'x' | 'y' | 'breakdowns'
+
 const props = defineProps<{
   zoneConfig?: ZoneConfig
+  connectionId?: number | null
 }>()
 
-const { xDimensions, yMetrics, breakdowns, addToZone, removeFromZone, moveInZone, syncUrlNow } = useReportState()
+const emit = defineEmits<{
+  (e: 'field-updated'): void
+}>()
+
+const {xDimensions, yMetrics, breakdowns, addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow} = useReportState()
 
 // Default zone config if none provided
 const zoneConfig = computed(() => props.zoneConfig || {
@@ -136,9 +169,71 @@ const zoneConfig = computed(() => props.zoneConfig || {
   breakdownLabel: 'Breakdown'
 })
 
-const dragging = ref<{ zone: 'x' | 'y' | 'breakdowns'; from: number } | null>(null)
+// Drag state
+const dragging = ref<{ zone: ZoneType; from: number } | null>(null)
 
-function onDrop(zone: 'x' | 'y' | 'breakdowns') {
+// Popup state
+const popupVisible = ref(false)
+const activeField = ref<ReportField | MetricRef | DimensionRef | null>(null)
+const activeZone = ref<ZoneType>('x')
+const activeIndex = ref(0)
+const popupPosition = ref({x: 0, y: 0})
+
+function openPopup(zone: ZoneType, index: number, event: MouseEvent) {
+  // Get the clicked element's position relative to viewport
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+
+  // Position popup below the field chip, aligned to left edge
+  // Use fixed positioning relative to viewport
+  popupPosition.value = {
+    x: rect.left,
+    y: rect.bottom + 4
+  }
+
+  // Set active field based on zone
+  if (zone === 'x') {
+    activeField.value = xDimensions.value[index] ?? null
+  } else if (zone === 'y') {
+    activeField.value = yMetrics.value[index] ?? null
+  } else {
+    activeField.value = breakdowns.value[index] ?? null
+  }
+
+  activeZone.value = zone
+  activeIndex.value = index
+  popupVisible.value = true
+}
+
+function closePopup() {
+  popupVisible.value = false
+  activeField.value = null
+}
+
+function onPopupApply(updates: Partial<MetricRef & DimensionRef>) {
+  updateFieldInZone(activeZone.value, activeIndex.value, updates)
+  syncUrlNow()
+  closePopup()
+  // Emit event so parent can trigger refresh
+  emit('field-updated')
+}
+
+function formatAggregation(agg: string | undefined): string {
+  if (!agg) return ''
+  const map: Record<string, string> = {
+    'SUM': 'sum',
+    'COUNT': 'count',
+    'AVG': 'avg',
+    'MIN': 'min',
+    'MAX': 'max',
+    'MEDIAN': 'median',
+    'VARIANCE': 'variance',
+    'DIST_COUNT': 'distinct'
+  }
+  return map[agg] || agg.toLowerCase()
+}
+
+function onDrop(zone: ZoneType) {
   const dt = (event as DragEvent).dataTransfer
   if (!dt) return
   const str = dt.getData('application/json')
@@ -154,16 +249,16 @@ function onDrop(zone: 'x' | 'y' | 'breakdowns') {
   } catch {}
 }
 
-function remove(zone: 'x' | 'y' | 'breakdowns', index: number) {
+function remove(zone: ZoneType, index: number) {
   removeFromZone(zone, index)
   syncUrlNow()
 }
 
-function onDragItemStart(zone: 'x' | 'y' | 'breakdowns', index: number) {
+function onDragItemStart(zone: ZoneType, index: number) {
   dragging.value = { zone, from: index }
 }
 
-function onDragItemDrop(zone: 'x' | 'y' | 'breakdowns', to: number) {
+function onDragItemDrop(zone: ZoneType, to: number) {
   const d = dragging.value
   if (!d) return
   if (d.zone !== zone) return
@@ -173,7 +268,7 @@ function onDragItemDrop(zone: 'x' | 'y' | 'breakdowns', to: number) {
   syncUrlNow()
 }
 
-function onListDrop(zone: 'x' | 'y' | 'breakdowns') {
+function onListDrop(zone: ZoneType) {
   const d = dragging.value
   if (!d) return
   if (d.zone !== zone) return
@@ -183,9 +278,22 @@ function onListDrop(zone: 'x' | 'y' | 'breakdowns') {
   dragging.value = null
   syncUrlNow()
 }
+
+// Close popup when clicking outside
+if (typeof window !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    if (popupVisible.value) {
+      const target = e.target as HTMLElement
+      if (!target.closest('.field-options-popup') && !target.closest('[data-zone-item]')) {
+        closePopup()
+      }
+    }
+  })
+}
 </script>
 
 <style scoped>
 </style>
+
 
 

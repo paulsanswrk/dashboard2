@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-3">
+  <div class="space-y-3 hidden">
     <h3 class="font-medium">Joins</h3>
     <div v-if="!relationships.length" class="text-sm text-gray-500">No relationships detected for this table.</div>
 

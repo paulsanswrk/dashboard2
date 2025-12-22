@@ -65,6 +65,7 @@ body {
   overflow: hidden;
   position: relative;
   min-height: 0;
+    min-width: 120px;
   display: flex;
   flex-direction: column;
   flex: 1;

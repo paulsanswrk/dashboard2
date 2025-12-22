@@ -118,11 +118,8 @@
                     </button>
 
                     <div v-if="expandedDatasetId === ds.id" class="p-3 bg-transparent">
-                      <div v-if="schemaLoading" class="flex items-center gap-2 text-sm text-neutral-500">
-                        <Icon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
-                        <span>Loading columns...</span>
-                      </div>
-                      <ReportingSchemaPanel v-else-if="schema.length && selectedDatasetId === ds.id" :fields="schema" :dataset-name="ds.name" />
+                      <ReportingSchemaPanel v-if="columnsByDataset[ds.id]?.length" :fields="columnsByDataset[ds.id]" :dataset-name="ds.name"/>
+                      <div v-else class="text-sm text-neutral-500">No columns available</div>
                     </div>
                   </div>
                 </template>
@@ -138,10 +135,10 @@
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
               <h3 class="font-medium text-white">Zones</h3>
               <ClientOnly>
-                <ReportingZones :zone-config="zoneConfig" />
+                <ReportingZones :zone-config="zoneConfig" :connection-id="connectionId" @field-updated="onFieldUpdated"/>
               </ClientOnly>
               <div>
-                <ReportingFilters v-if="showFilters" :schema="schema" :disabled="false" />
+                <ReportingFilters :disabled="false"/>
               </div>
               <div v-if="relationships.length" class="mt-4">
                 <ReportingJoinsImplicit :relationships="relationships" :server-error="previewError" :server-warnings="previewWarnings" />
@@ -196,7 +193,6 @@ import ReportingLayout from '../../components/reporting/ReportingLayout.vue'
 import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
-import ReportingFilters from '../../components/reporting/ReportingFilters.vue'
 import ReportingAppearancePanel from '../../components/reporting/ReportingAppearancePanel.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
 import {useReportingService} from '../../composables/useReportingService'
@@ -213,7 +209,7 @@ const connections = ref<Array<{ id: number; internal_name: string }>>([])
 const connectionId = ref<number | null>(null)
 const editingChartId = ref<number | null>(null)
 const dashboardId = ref<string | null>(null)
-const { selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, filters, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql } = useReportState()
+const {selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql} = useReportState()
 const reportingBuilderRef = ref<any>(null)
 
 // Zone configuration based on chart type (we'll get this from the builder or use a default)
@@ -229,10 +225,6 @@ const zoneConfig = computed(() => {
   }
 })
 
-// Show Filters only when there are fields in Zones and a connection is selected
-const hasZoneFields = computed(() => (xDimensions.value.length + yMetrics.value.length + breakdowns.value.length) > 0)
-const showFilters = computed(() => Boolean(connectionId.value) && hasZoneFields.value)
-
 // Preview meta propagated from ReportingBuilder to display in Joins panel
 const previewError = ref<string | null>(null)
 const previewWarnings = ref<string[]>([])
@@ -247,8 +239,20 @@ const datasetsLoading = ref(false)
 const schemaLoading = ref(false)
 const expandedDatasetId = ref<string | null>(null)
 
+// Preloaded columns cache: populated when connection is selected
+const columnsByDataset = ref<Record<string, any[]>>({})
+
 // Sidebar visibility (collapsed by default)
 const sidebarVisible = ref(false)
+
+// Handler for when a field is updated in the zones
+function onFieldUpdated() {
+  // Trigger preview refresh when field options are applied
+  const builder = reportingBuilderRef.value as any
+  if (builder?.onTestPreview) {
+    builder.onTestPreview()
+  }
+}
 
 // AI mode toggle
 const aiModeEnabled = ref(true)
@@ -326,8 +330,8 @@ function handleResize(event: MouseEvent) {
   let newLeftProportion = leftProportion + deltaProportion
   let newRightProportion = rightProportion - deltaProportion
 
-  // Constrain proportions (minimum 20% each)
-  const minProportion = 0.2
+  // Constrain proportions (minimum 15% each for flexible resizing on smaller displays)
+  const minProportion = 0.15
   if (newLeftProportion < minProportion) {
     newLeftProportion = minProportion
     newRightProportion = 1 - minProportion
@@ -382,7 +386,12 @@ watch(selectedDatasetId, async (id) => {
   if (id) {
     schemaLoading.value = true
     try {
-      schema.value = await getSchema(id)
+      // Use cached columns if available, otherwise fetch
+      if (columnsByDataset.value[id]?.length) {
+        schema.value = columnsByDataset.value[id]
+      } else {
+        schema.value = await getSchema(id)
+      }
       relationships.value = await getRelationships(id)
     } catch (error) {
       console.error('Failed to load schema or relationships:', error)
@@ -405,18 +414,51 @@ watch(selectedIdState, (id) => {
   }
 })
 
-watch(connectionId, (id) => {
+watch(connectionId, async (id) => {
   setSelectedConnectionId(id ?? null)
   // persist to URL
   const url = new URL(window.location.href)
   if (id) url.searchParams.set('data_connection_id', String(id))
   else url.searchParams.delete('data_connection_id')
   window.history.replaceState({}, '', url.toString())
-  // reload datasets for this connection
+  // reload datasets and preload full schema for this connection
   datasetsLoading.value = true
   expandedDatasetId.value = null
   schema.value = []
-  listDatasetsQuery().then((rows) => { datasets.value = rows as any }).finally(() => { datasetsLoading.value = false })
+  columnsByDataset.value = {}
+
+  if (!id) {
+    datasets.value = []
+    datasetsLoading.value = false
+    return
+  }
+
+  try {
+    // Fetch full schema (tables + columns) in one request
+    const fullSchema = await $fetch<{ tables: Array<{ tableId: string; tableName: string; columns: any[] }> }>('/api/reporting/full-schema', {
+      params: {connectionId: id}
+    })
+
+    // Populate datasets from full schema
+    datasets.value = (fullSchema.tables || []).map(t => ({
+      id: t.tableId,
+      name: t.tableName,
+      label: t.tableName
+    }))
+
+    // Cache columns by table
+    const columnsMap: Record<string, any[]> = {}
+    for (const t of fullSchema.tables || []) {
+      columnsMap[t.tableId] = t.columns || []
+    }
+    columnsByDataset.value = columnsMap
+  } catch (error) {
+    console.error('Failed to load full schema:', error)
+    // Fallback to old method
+    datasets.value = await listDatasetsQuery() as any
+  } finally {
+    datasetsLoading.value = false
+  }
 })
 
 // Load chart from saved state

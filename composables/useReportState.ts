@@ -9,9 +9,22 @@ export type ReportField = {
   table?: string
 }
 
-export type MetricRef = ReportField & { aggregation?: string }
-export type DimensionRef = ReportField & { sort?: 'asc' | 'desc' }
-export type FilterRef = { field: ReportField; operator: string; value: any }
+export type MetricRef = ReportField & {
+    aggregation?: 'SUM' | 'COUNT' | 'AVG' | 'MIN' | 'MAX' | 'MEDIAN' | 'VARIANCE' | 'DIST_COUNT' | string
+    isNumeric?: boolean
+}
+export type DimensionRef = ReportField & {
+    sort?: 'asc' | 'desc'
+    dateInterval?: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'quarters' | 'years' | 'day_of_week' | 'month_of_year'
+    // Filter values for text/numeric fields
+    filterValues?: string[]
+    filterMode?: 'include' | 'exclude'
+    // Date range filter for date fields
+    dateRangeStart?: string
+    dateRangeEnd?: string
+    dateRangeType?: 'static' | 'dynamic'
+    dynamicRange?: 'last_7_days' | 'last_30_days' | 'last_90_days' | 'this_month' | 'this_quarter' | 'this_year'
+}
 export type JoinRef = {
   constraintName: string
   sourceTable: string
@@ -24,7 +37,6 @@ type ReportState = {
   selectedDatasetId: string | null
   xDimensions: DimensionRef[]
   yMetrics: MetricRef[]
-  filters: FilterRef[]
   breakdowns: DimensionRef[]
   excludeNullsInDimensions?: boolean
   appearance?: {
@@ -75,7 +87,6 @@ function decodeState(encoded: string | null): ReportState | null {
 const selectedDatasetIdRef = ref<string | null>(null)
 const xDimensionsRef = ref<DimensionRef[]>([])
 const yMetricsRef = ref<MetricRef[]>([])
-const filtersRef = ref<FilterRef[]>([])
 const breakdownsRef = ref<DimensionRef[]>([])
 const excludeNullsInDimensionsRef = ref<boolean>(false)
 const appearanceRef = ref<ReportState['appearance']>({
@@ -105,7 +116,6 @@ function snapshot(): Snapshot {
     selectedDatasetId: selectedDatasetIdRef.value,
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
-    filters: filtersRef.value,
     breakdowns: breakdownsRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
     appearance: appearanceRef.value,
@@ -136,7 +146,6 @@ function applySnapshot(s: Snapshot) {
   selectedDatasetIdRef.value = s.selectedDatasetId
   xDimensionsRef.value = s.xDimensions || []
   yMetricsRef.value = s.yMetrics || []
-  filtersRef.value = s.filters || []
   breakdownsRef.value = s.breakdowns || []
   excludeNullsInDimensionsRef.value = !!s.excludeNullsInDimensions
   appearanceRef.value = s.appearance || {}
@@ -147,7 +156,8 @@ function undo() {
   if (!canUndo()) return
   historyIndex -= 1
   isNavigatingHistory = true
-  applySnapshot(historyStack[historyIndex])
+    const s = historyStack[historyIndex]
+    if (s) applySnapshot(s)
   isNavigatingHistory = false
 }
 
@@ -155,7 +165,8 @@ function redo() {
   if (!canRedo()) return
   historyIndex += 1
   isNavigatingHistory = true
-  applySnapshot(historyStack[historyIndex])
+    const s = historyStack[historyIndex]
+    if (s) applySnapshot(s)
   isNavigatingHistory = false
 }
 
@@ -169,9 +180,6 @@ export function useReportState() {
     selectedDatasetIdRef.value = initial.selectedDatasetId
     xDimensionsRef.value = initial.xDimensions || []
     yMetricsRef.value = initial.yMetrics || []
-    filtersRef.value = initial.filters || []
-    breakdownsRef.value = initial.breakdowns || []
-    excludeNullsInDimensionsRef.value = !!initial.excludeNullsInDimensions
     pushHistory(false)
   }
 
@@ -179,7 +187,6 @@ export function useReportState() {
     selectedDatasetId: selectedDatasetIdRef.value,
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
-    filters: filtersRef.value,
     breakdowns: breakdownsRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
     appearance: appearanceRef.value,
@@ -227,23 +234,42 @@ export function useReportState() {
     selectedDatasetIdRef.value = id
   }
 
-  function addToZone(zone: 'x' | 'y' | 'filters' | 'breakdowns', item: ReportField) {
+    function addToZone(zone: 'x' | 'y' | 'breakdowns', item: ReportField) {
     if (zone === 'x') xDimensionsRef.value.push({ ...item })
     else if (zone === 'y') yMetricsRef.value.push({ ...item })
     else if (zone === 'breakdowns') breakdownsRef.value.push({ ...item })
   }
 
-  function removeFromZone(zone: 'x' | 'y' | 'filters' | 'breakdowns', index: number) {
+    function removeFromZone(zone: 'x' | 'y' | 'breakdowns', index: number) {
     if (zone === 'x') xDimensionsRef.value.splice(index, 1)
     else if (zone === 'y') yMetricsRef.value.splice(index, 1)
     else if (zone === 'breakdowns') breakdownsRef.value.splice(index, 1)
   }
 
-  function moveInZone(zone: 'x' | 'y' | 'filters' | 'breakdowns', from: number, to: number) {
-    const arr = zone === 'x' ? xDimensionsRef.value : zone === 'y' ? yMetricsRef.value : breakdownsRef.value
-    if (from < 0 || to < 0 || from >= arr.length || to >= arr.length) return
-    const [it] = arr.splice(from, 1)
-    arr.splice(to, 0, it)
+    function moveInZone(zone: 'x' | 'y' | 'breakdowns', from: number, to: number) {
+        if (zone === 'x') {
+            const arr = xDimensionsRef.value
+            const [it] = arr.splice(from, 1)
+            if (it) arr.splice(to, 0, it)
+        } else if (zone === 'y') {
+            const arr = yMetricsRef.value
+            const [it] = arr.splice(from, 1)
+            if (it) arr.splice(to, 0, it)
+        } else if (zone === 'breakdowns') {
+            const arr = breakdownsRef.value
+            const [it] = arr.splice(from, 1)
+            if (it) arr.splice(to, 0, it)
+        }
+    }
+
+    function updateFieldInZone(zone: 'x' | 'y' | 'breakdowns', index: number, updates: Partial<MetricRef & DimensionRef>) {
+        if (zone === 'x' && xDimensionsRef.value[index]) {
+            xDimensionsRef.value[index] = {...xDimensionsRef.value[index], ...updates}
+        } else if (zone === 'y' && yMetricsRef.value[index]) {
+            yMetricsRef.value[index] = {...yMetricsRef.value[index], ...updates}
+        } else if (zone === 'breakdowns' && breakdownsRef.value[index]) {
+            breakdownsRef.value[index] = {...breakdownsRef.value[index], ...updates}
+        }
   }
 
   return {
@@ -251,7 +277,6 @@ export function useReportState() {
     selectedDatasetId: selectedDatasetIdRef,
     xDimensions: xDimensionsRef,
     yMetrics: yMetricsRef,
-    filters: filtersRef,
     breakdowns: breakdownsRef,
     excludeNullsInDimensions: excludeNullsInDimensionsRef,
     appearance: appearanceRef,
@@ -261,6 +286,7 @@ export function useReportState() {
     addToZone,
     removeFromZone,
     moveInZone,
+      updateFieldInZone,
     syncUrlNow,
     // history
     undo,

@@ -65,7 +65,7 @@ const emit = defineEmits<{
 }>()
 
 const { listReports, getReport, createReport, deleteReport } = useReportsService()
-const { selectedDatasetId, xDimensions, yMetrics, filters, breakdowns, excludeNullsInDimensions, appearance, syncUrlNow } = useReportState()
+const {selectedDatasetId, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, syncUrlNow} = useReportState()
 
 const reports = ref<Array<{ id: number; name: string; updatedAt?: string }>>([])
 const newName = ref('')
@@ -83,7 +83,6 @@ async function saveCurrent() {
     dataConnectionId: props.dataConnectionId,
     xDimensions: xDimensions.value,
     yMetrics: yMetrics.value,
-    filters: filters.value,
     breakdowns: breakdowns.value,
     excludeNullsInDimensions: excludeNullsInDimensions.value,
     appearance: appearance.value,
@@ -108,7 +107,6 @@ async function load(id: number) {
   selectedDatasetId.value = s.selectedDatasetId || null
   xDimensions.value = s.xDimensions || []
   yMetrics.value = s.yMetrics || []
-  filters.value = s.filters || []
   breakdowns.value = s.breakdowns || []
   excludeNullsInDimensions.value = !!s.excludeNullsInDimensions
   appearance.value = s.appearance || {}

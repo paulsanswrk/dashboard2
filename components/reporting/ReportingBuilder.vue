@@ -116,9 +116,13 @@
           <div v-for="(w, i) in serverWarnings" :key="i">{{ w }}</div>
         </div>
         <!-- Loading state -->
-        <div v-if="loading" class="flex flex-col items-center justify-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+        <div v-if="loading" class="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
           <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500 mb-3"/>
-          <p class="text-sm text-gray-600">Loading chart data...</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">Loading chart data...</p>
+        </div>
+        <!-- Onboarding guide (shown when no data is loaded) -->
+        <div v-else-if="showOnboardingGuide" class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
+          <ReportingOnboardingGuide :chart-type="chartType"/>
         </div>
         <!-- Chart component -->
         <div v-else ref="previewAreaRef">
@@ -156,6 +160,7 @@ import {format} from 'sql-formatter'
 import ReportingChart from './ReportingChart.vue'
 import ChartsModal from './ChartsModal.vue'
 import ReportingPreview from './ReportingPreview.vue'
+import ReportingOnboardingGuide from './ReportingOnboardingGuide.vue'
 import SelectBoardModal from '../SelectBoardModal.vue'
 import {useReportingService} from '../../composables/useReportingService'
 import {useReportState} from '../../composables/useReportState'
@@ -179,7 +184,7 @@ const emit = defineEmits<{
 }>()
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
-const { xDimensions, yMetrics, filters, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions } = useReportState()
+const {xDimensions, yMetrics, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
 const loading = ref(false)
@@ -189,6 +194,17 @@ const serverError = ref<string | null>(null)
 const serverWarnings = ref<string[]>([])
 const chartType = ref<'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'>('table')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
+
+// Show onboarding guide when no data is loaded and no zones are populated
+const showOnboardingGuide = computed(() => {
+  // Don't show if we have rows
+  if (rows.value.length > 0) return false
+  // Don't show if loading
+  if (loading.value) return false
+  // Show if no zones are populated
+  const hasZoneData = xDimensions.value.length > 0 || yMetrics.value.length > 0 || breakdowns.value.length > 0
+  return !hasZoneData
+})
 const openReports = ref(false)
 const openSelectBoard = ref(false)
 const useSql = ref(false)
@@ -356,19 +372,35 @@ const sqlGenerated = computed(() => {
   if (!selectParts.length) selectParts.push('COUNT(*) AS `count`')
   const whereParts: string[] = []
   const addWhere = (clause: string) => { if (clause) whereParts.push(clause) }
-  filters.value.forEach((f: any) => {
-    const field = qualify(f?.field)
-    if (!field) return
-    const op = (f.operator || 'equals').toLowerCase()
-    if (op === 'equals') addWhere(`${field} = ?`)
-    else if (op === 'contains') addWhere(`${field} LIKE ?`)
-    else if (op === 'in') {
-      const parts = String(f.value || '').split(',').map((s) => s.trim()).filter(Boolean)
-      if (parts.length) addWhere(`${field} IN (${parts.map(() => '?').join(',')})`)
-    } else if (op === 'between') addWhere(`${field} BETWEEN ? AND ?`)
-    else if (op === 'is_null') addWhere(`${field} IS NULL`)
-    else if (op === 'not_null') addWhere(`${field} IS NOT NULL`)
+
+      // WHERE from dimension/metric filters
+  ;[...xDimensions.value, ...breakdowns.value].forEach((d: any) => {
+    const fieldExpr = qualify(d)
+    if (!fieldExpr) return
+
+    // Value list filters
+    if (d.filterValues && d.filterValues.length > 0) {
+      const mode = d.filterMode === 'exclude' ? 'NOT IN' : 'IN'
+      addWhere(`${fieldExpr} ${mode} (${d.filterValues.map(() => '?').join(',')})`)
+    }
+
+    // Date range filters
+    if (d.dateRangeType === 'static') {
+      if (d.dateRangeStart) addWhere(`${fieldExpr} >= ?`)
+      if (d.dateRangeEnd) addWhere(`${fieldExpr} <= ?`)
+    } else if (d.dateRangeType === 'dynamic' && d.dynamicRange) {
+      // Dynamic range logic would go here if we were generating it client-side as well
+    }
   })
+
+  // Exclude nulls logic
+  if (excludeNullsInDimensions.value) {
+    ;[...xDimensions.value, ...breakdowns.value].forEach((d: any) => {
+      const fieldExpr = qualify(d)
+      if (fieldExpr) addWhere(`${fieldExpr} IS NOT NULL`)
+    })
+  }
+
   const joinClauses: string[] = []
   const includedTables = new Set<string>([selectedDatasetId.value])
   const includedLower = new Set<string>([String(selectedDatasetId.value).toLowerCase()])
@@ -476,7 +508,6 @@ async function onTestPreview() {
       datasetId,
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
-      filters: filters.value,
       breakdowns: breakdowns.value,
       joins: joins.value as any,
       limit: 100,
@@ -508,7 +539,7 @@ const canAutoPreview = computed(() => {
 
   return false
 })
-watch([selectedDatasetId, xDimensions, yMetrics, filters, breakdowns, joins], async () => {
+watch([selectedDatasetId, xDimensions, yMetrics, breakdowns, joins], async () => {
   if (!canAutoPreview.value) return
   if (useSql.value) return
   await onTestPreview()
@@ -589,7 +620,6 @@ function handleLoadChartState(state: {
   selectedDatasetId: string | null
   xDimensions: any[]
   yMetrics: any[]
-  filters: any[]
   breakdowns: any[]
   excludeNullsInDimensions: boolean
   appearance: any
@@ -610,7 +640,6 @@ function handleLoadChartState(state: {
   // Set the report state values directly
   xDimensions.value = state.xDimensions || []
   yMetrics.value = state.yMetrics || []
-  filters.value = state.filters || []
   breakdowns.value = state.breakdowns || []
   excludeNullsInDimensions.value = state.excludeNullsInDimensions || false
   appearance.value = state.appearance || {}
@@ -672,7 +701,6 @@ async function saveExistingChart(): Promise<boolean> {
       dataConnectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId(),
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
-      filters: filters.value,
       breakdowns: breakdowns.value,
       excludeNullsInDimensions: excludeNullsInDimensions.value,
       appearance: appearance.value,
@@ -736,7 +764,6 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       dataConnectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId(),
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
-      filters: filters.value,
       breakdowns: breakdowns.value,
       excludeNullsInDimensions: excludeNullsInDimensions.value,
       appearance: appearance.value,
@@ -841,7 +868,6 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
       dataConnectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId(),
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
-      filters: filters.value,
       breakdowns: breakdowns.value,
       excludeNullsInDimensions: excludeNullsInDimensions.value,
       appearance: appearance.value,
@@ -981,7 +1007,8 @@ function getCurrentState() {
 defineExpose({
   applySqlAndChartType,
   getCurrentState,
-  handleLoadChartState
+  handleLoadChartState,
+  onTestPreview
 })
 
 </script>
