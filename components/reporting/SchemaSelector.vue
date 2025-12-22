@@ -33,7 +33,7 @@
             <li v-for="c in columnsForExpanded" :key="c.fieldId" class="flex items-center gap-2">
               <UCheckbox :model-value="!!selected[expanded]?.columns?.[c.fieldId]" @update:model-value="(v) => toggleColumn(expanded, c, v)" />
               <span class="flex-1 truncate">{{ c.label || c.name }}</span>
-              <UBadge size="xs" variant="soft">{{ c.type }}</UBadge>
+              <UBadge size="xs" variant="soft" color="neutral">{{ c.type }}</UBadge>
             </li>
           </ul>
         </div>
@@ -47,7 +47,7 @@
   </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import {computed, ref, watch} from 'vue'
 
 type TableRow = { id: string; name: string; label?: string }
 type ColumnRow = { fieldId: string; name: string; label?: string; type: string; isNumeric?: boolean }

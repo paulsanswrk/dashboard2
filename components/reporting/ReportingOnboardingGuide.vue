@@ -56,8 +56,9 @@ const FunnelIllustration = defineAsyncComponent(() => import('./illustrations/Fu
 const ScatterIllustration = defineAsyncComponent(() => import('./illustrations/ScatterIllustration.vue'))
 const TreemapIllustration = defineAsyncComponent(() => import('./illustrations/TreemapIllustration.vue'))
 const SankeyIllustration = defineAsyncComponent(() => import('./illustrations/SankeyIllustration.vue'))
+const PivotIllustration = defineAsyncComponent(() => import('./illustrations/PivotIllustration.vue'))
 
-type ChartType = 'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'
+type ChartType = 'table' | 'bar' | 'column' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey' | 'kpi' | 'pivot' | 'stacked' | 'radar' | 'boxplot' | 'bubble' | 'waterfall' | 'number' | 'wordcloud'
 
 interface Step {
   fieldType: string  // "value field" or "category field"
@@ -84,9 +85,19 @@ const chartSteps = computed((): Record<ChartType, Step[]> => ({
     {fieldType: 'category field', action: 'to create a pivot table', zone: 'Rows', isOptional: true}
   ],
   bar: [
+    {fieldType: 'value field', action: 'to define bar lengths', zone: 'Values'},
+    {fieldType: 'category field', action: 'to define categories', zone: 'Categories'},
+    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Series', isOptional: true}
+  ],
+  column: [
     {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y (Values)'},
     {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X (Categories)'},
     {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Series', isOptional: true}
+  ],
+  stacked: [
+    {fieldType: 'value field', action: 'to define stacked values', zone: 'Y (Values)'},
+    {fieldType: 'category field', action: 'to define categories', zone: 'X (Categories)'},
+    {fieldType: 'category field', action: 'to create stacks', zone: 'Series'}
   ],
   line: [
     {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y (Values)'},
@@ -130,6 +141,39 @@ const chartSteps = computed((): Record<ChartType, Step[]> => ({
     {fieldType: 'category field', action: 'to define flow sources', zone: 'Sources'},
     {fieldType: 'category field', action: 'to define flow targets', zone: 'Targets'},
     {fieldType: 'value field', action: 'to define flow widths', zone: 'Values', isOptional: true}
+  ],
+  kpi: [
+    {fieldType: 'value field', action: 'to display as a big number', zone: 'Value'}
+  ],
+  pivot: [
+    {fieldType: 'value field', action: 'to aggregate in cells', zone: 'Values'},
+    {fieldType: 'category field', action: 'to define columns', zone: 'Columns'},
+    {fieldType: 'category field', action: 'to define rows', zone: 'Rows'}
+  ],
+  number: [
+    {fieldType: 'value field', action: 'to display as a big number', zone: 'Value'}
+  ],
+  radar: [
+    {fieldType: 'value field', action: 'to define dimension values', zone: 'Values'},
+    {fieldType: 'category field', action: 'to define dimensions', zone: 'Dimensions'},
+    {fieldType: 'category field', action: 'to compare multiple series', zone: 'Series', isOptional: true}
+  ],
+  boxplot: [
+    {fieldType: 'value field', action: 'to calculate statistics', zone: 'Values'},
+    {fieldType: 'category field', action: 'to group data', zone: 'Category'}
+  ],
+  bubble: [
+    {fieldType: 'value field', action: 'to define X values', zone: 'X Values'},
+    {fieldType: 'value field', action: 'to define Y values', zone: 'Y Values'},
+    {fieldType: 'value field', action: 'to define bubble sizes', zone: 'Size'}
+  ],
+  waterfall: [
+    {fieldType: 'value field', action: 'to define values', zone: 'Values'},
+    {fieldType: 'category field', action: 'to define categories', zone: 'Categories'}
+  ],
+  wordcloud: [
+    {fieldType: 'category field', action: 'to define words', zone: 'Words'},
+    {fieldType: 'value field', action: 'to set word sizes', zone: 'Size Values'}
   ]
 }))
 
@@ -141,8 +185,11 @@ const illustrationComponent = computed(() => {
     case 'table':
       return TableIllustration
     case 'bar':
+    case 'column':
     case 'line':
     case 'area':
+    case 'stacked':
+    case 'waterfall':
       return BarLineIllustration
     case 'pie':
     case 'donut':
@@ -152,11 +199,22 @@ const illustrationComponent = computed(() => {
     case 'gauge':
       return GaugeIllustration
     case 'scatter':
+    case 'bubble':
+    case 'boxplot':
       return ScatterIllustration
     case 'treemap':
       return TreemapIllustration
     case 'sankey':
       return SankeyIllustration
+    case 'kpi':
+    case 'number':
+      return KpiIllustration
+    case 'pivot':
+      return PivotIllustration
+    case 'radar':
+      return GaugeIllustration  // Use gauge for radar as closest match
+    case 'wordcloud':
+      return PieIllustration  // Use pie for wordcloud as visual approximation
     default:
       return BarLineIllustration
   }
@@ -165,7 +223,9 @@ const illustrationComponent = computed(() => {
 // Helper text based on chart type
 const helperTexts: Record<ChartType, string> = {
   table: 'Drag fields from the left panel to create tables and pivot tables.',
-  bar: 'Drag fields to visualize data as vertical bars grouped by categories.',
+  bar: 'Drag fields to visualize data as horizontal bars.',
+  column: 'Drag fields to visualize data as vertical columns.',
+  stacked: 'Drag fields to create stacked bar or column charts.',
   line: 'Drag fields to show trends over time or categories.',
   area: 'Drag fields to show cumulative totals over categories.',
   pie: 'Drag fields to show proportions of a whole.',
@@ -175,7 +235,15 @@ const helperTexts: Record<ChartType, string> = {
   map: 'Drag fields to color regions on a map based on values.',
   scatter: 'Drag value fields to plot data points on X-Y axes.',
   treemap: 'Drag fields to show hierarchical data as nested rectangles.',
-  sankey: 'Drag fields to show flow relationships between entities.'
+  sankey: 'Drag fields to show flow relationships between entities.',
+  kpi: 'Drag a single value field to display as a prominent number.',
+  pivot: 'Drag fields to create a cross-tabulation heatmap table.',
+  number: 'Drag a single value field to display as a big number.',
+  radar: 'Drag fields to compare multiple dimensions on a spider web.',
+  boxplot: 'Drag fields to show statistical distribution of values.',
+  bubble: 'Drag fields to plot bubbles with X, Y, and size values.',
+  waterfall: 'Drag fields to show cumulative increases and decreases.',
+  wordcloud: 'Drag category and value fields to create a word cloud.'
 }
 
 const helperText = computed(() => helperTexts[props.chartType] || helperTexts.bar)

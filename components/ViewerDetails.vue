@@ -9,31 +9,33 @@
         <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
       </button>
     </div>
-    <UCard>
+    <UCard class="max-w-md">
       <div class="p-4 lg:p-6 space-y-4">
         <UFormField label="First Name">
-          <UInput v-model="selectedViewer.firstName" />
+          <UInput v-model="selectedViewer.firstName" class="w-full"/>
         </UFormField>
 
         <UFormField label="Last Name">
-          <UInput v-model="selectedViewer.lastName" />
+          <UInput v-model="selectedViewer.lastName" class="w-full"/>
         </UFormField>
 
         <UFormField label="Email">
-          <UInput v-model="selectedViewer.email" disabled />
+          <UInput v-model="selectedViewer.email" disabled class="w-full"/>
         </UFormField>
 
         <UFormField label="Viewer Type">
           <USelect 
             v-model="selectedViewer.type"
-            :options="viewerTypeOptions"
+            :items="viewerTypeOptions"
+            class="w-full"
           />
         </UFormField>
 
         <UFormField label="Group">
           <USelect 
             v-model="selectedViewer.group"
-            :options="groupOptions"
+            :items="groupOptions"
+            class="w-full"
           />
         </UFormField>
         
@@ -46,7 +48,7 @@
             <span v-if="loading" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
             Save Changes
           </button>
-          <UButton color="red" variant="outline" @click="$emit('confirmDeleteViewer')" :disabled="loading" class="w-full sm:w-auto">
+          <UButton color="red" variant="outline" @click="$emit('confirmDeleteViewer')" :disabled="loading" class="w-full sm:w-auto hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer">
             Delete Viewer
           </UButton>
         </div>

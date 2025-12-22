@@ -22,8 +22,9 @@
           <UFormField label="Language">
             <USelect
                 v-model="newViewer.language"
-                :options="languageOptions"
+                :items="languageOptions"
                 placeholder="English"
+                class="w-full"
             />
           </UFormField>
         </div>
@@ -31,17 +32,19 @@
         <UFormField label="Viewer Type" required>
           <USelect
               v-model="newViewer.type"
-              :options="viewerTypeOptions"
+              :items="viewerTypeOptions"
               placeholder="Select type"
               required
+              class="w-full"
           />
         </UFormField>
 
         <UFormField label="Groups">
           <USelect
               v-model="newViewer.group"
-              :options="groupOptions"
+              :items="groupOptions"
               placeholder="Select group"
+              class="w-full"
           />
         </UFormField>
 

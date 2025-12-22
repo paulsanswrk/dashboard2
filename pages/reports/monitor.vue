@@ -14,7 +14,7 @@
         <div class="flex gap-2">
           <USelect
             v-model="statusFilter"
-            :options="statusFilterOptions"
+            :items="statusFilterOptions"
             placeholder="Filter by status"
             class="w-48"
           />

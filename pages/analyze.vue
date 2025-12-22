@@ -156,8 +156,9 @@
           <h4 class="text-sm font-medium mb-2">Chart Type</h4>
           <USelect 
             v-model="selectedChartType"
-            :options="chartTypes"
+            :items="chartTypes"
             placeholder="Select chart type"
+            class="w-full"
           />
         </div>
       </div>

@@ -77,7 +77,7 @@
                   {{ formatDate(org.created_at) }}
                 </td>
                 <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
-                  <UBadge :color="org.status === 'active' ? 'green' : 'gray'" variant="soft">
+                  <UBadge :color="org.status === 'active' ? 'success' : 'neutral'" variant="soft">
                     {{ org.status || 'Active' }}
                   </UBadge>
                 </td>

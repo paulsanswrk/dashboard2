@@ -55,7 +55,7 @@
         {{ viewer.name || 'No name' }}
       </div>
       <div class="col-span-2">
-        <UBadge v-if="viewer.type" :color="viewer.type === 'Admin' ? 'red' : 'blue'" size="xs">
+        <UBadge v-if="viewer.type" :color="viewer.type === 'Admin' ? 'error' : 'info'" variant="soft" size="sm">
           {{ viewer.type }}
         </UBadge>
       </div>

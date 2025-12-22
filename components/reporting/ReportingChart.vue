@@ -9,6 +9,9 @@ import type {Ref} from 'vue'
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import * as echarts from 'echarts'
 
+// Word cloud extension will be loaded dynamically on client-side
+let wordcloudLoaded = false
+
 // Load ECharts - it's now a proper dependency instead of CDN loading
 let chartInstance: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
@@ -17,22 +20,81 @@ type Column = { key: string; label: string }
 type ReportField = { fieldId: string; name?: string; label?: string }
 
 const props = defineProps<{
-  chartType: 'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'
+  chartType: 'table' | 'bar' | 'column' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey' | 'kpi' | 'pivot' | 'stacked' | 'radar' | 'boxplot' | 'bubble' | 'waterfall' | 'number' | 'wordcloud'
   columns: Column[]
   rows: Array<Record<string, unknown>>
   xDimensions: ReportField[]
   breakdowns: ReportField[]
   yMetrics: ReportField[]
   appearance?: {
+    // General
+    fontFamily?: string
     chartTitle?: string
-    xAxisLabel?: string
-    yAxisLabel?: string
+
+    // Labels
+    showLabels?: boolean
+    showLabelsPercent?: boolean
+    labelsInside?: boolean
+    labelFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+
+    // Legend
+    showLegend?: boolean
+    legendPosition?: 'top' | 'bottom' | 'left' | 'right'
     legendTitle?: string
+    legendFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+
+    // Background
+    backgroundColor?: string
+    backgroundTransparent?: boolean
+
+    // X Axis
+    xAxis?: {
+      showTitle?: boolean
+      title?: string
+      titleFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+      showLabels?: boolean
+      labelFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+      allowTextWrap?: boolean
+      showLine?: boolean
+      lineColor?: string
+      lineWidth?: number
+    }
+    xAxisLabel?: string  // Legacy
+
+    // Y Axis
+    yAxis?: {
+      showTitle?: boolean
+      title?: string
+      titleFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+      showLabels?: boolean
+      labelFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+      numberFormat?: {
+        type?: 'auto' | 'number' | 'percentage' | 'currency' | 'custom'
+        prefix?: string
+        suffix?: string
+        separator?: 'comma' | 'space' | 'none'
+        decimalPlaces?: number | 'auto'
+      }
+      scale?: {
+        min?: number | null
+        max?: number | null
+        interval?: number | null
+      }
+    }
+    yAxisLabel?: string  // Legacy
+
+    // Pie/Donut specific
+    showAsDonut?: boolean
+    pieInnerRadius?: number
+    pieOuterRadius?: number
+    pieLabelPosition?: string
+    pieShowLabels?: boolean
+
+    // Existing
     numberFormat?: { decimalPlaces?: number; thousandsSeparator?: boolean }
     dateFormat?: string
     palette?: string[]
     stacked?: boolean
-    legendPosition?: 'top' | 'bottom' | 'left' | 'right'
   }
 }>()
 
@@ -860,11 +922,558 @@ function renderChart() {
     return
   }
 
+  if (type === 'kpi') {
+    const value = Number(kpiValue.value) || 0
+    const label = kpiLabel.value
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    // Create a simple KPI display using ECharts graphic elements
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center',
+        top: '5%',
+        textStyle: {
+          fontFamily: props.appearance?.fontFamily || 'Arial',
+          fontSize: 16
+        }
+      },
+      graphic: [
+        {
+          type: 'group',
+          left: 'center',
+          top: 'middle',
+          children: [
+            {
+              type: 'text',
+              style: {
+                text: (() => {
+                  const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+                  const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+                  const prefix = props.appearance?.yAxis?.numberFormat?.prefix || ''
+                  const suffix = props.appearance?.yAxis?.numberFormat?.suffix || ''
+                  return `${prefix}${formatNumber(value, dp, ts)}${suffix}`
+                })(),
+                fill: palette[0] || '#3366CC',
+                font: 'bold 72px Arial',
+                textAlign: 'center',
+                textVerticalAlign: 'middle'
+              }
+            },
+            {
+              type: 'text',
+              top: 50,
+              style: {
+                text: label,
+                fill: '#666',
+                font: '18px Arial',
+                textAlign: 'center',
+                textVerticalAlign: 'top'
+              }
+            }
+          ]
+        }
+      ]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  if (type === 'pivot') {
+    // Pivot table - render as a cross-tabulation table using ECharts
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const breakdownKey = props.breakdowns?.[0]?.fieldId
+    const metricAliasesValue = metricAliases.value
+    const firstMetric = metricAliasesValue[0]
+
+    if (!firstMetric || props.rows.length === 0) {
+      // Show empty state message
+      const option = {
+        backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+        title: {
+          text: 'Pivot Table',
+          subtext: 'Add columns, rows, and values to create a pivot table',
+          left: 'center',
+          top: 'middle',
+          textStyle: {
+            fontSize: 20
+          },
+          subtextStyle: {
+            fontSize: 14,
+            color: '#666'
+          }
+        }
+      }
+      chartInstance.setOption(option)
+      return
+    }
+
+    // Build pivot data structure
+    const colValues = new Set<string>()
+    const rowValues = new Set<string>()
+    const pivotData = new Map<string, Map<string, number>>()
+
+    props.rows.forEach((row) => {
+      const colVal = xKey ? String(row[xKey] || 'Total') : 'Total'
+      const rowVal = breakdownKey ? String(row[breakdownKey] || 'Total') : 'Total'
+      const metricVal = Number(row[firstMetric]) || 0
+
+      colValues.add(colVal)
+      rowValues.add(rowVal)
+
+      if (!pivotData.has(rowVal)) {
+        pivotData.set(rowVal, new Map())
+      }
+      const rowMap = pivotData.get(rowVal)!
+      rowMap.set(colVal, (rowMap.get(colVal) || 0) + metricVal)
+    })
+
+    const colArray = Array.from(colValues)
+    const rowArray = Array.from(rowValues)
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    // Create heatmap-style pivot visualization
+    const heatmapData: [number, number, number][] = []
+    let maxVal = 0
+
+    rowArray.forEach((rowVal, rowIdx) => {
+      const rowMap = pivotData.get(rowVal)
+      colArray.forEach((colVal, colIdx) => {
+        const value = rowMap?.get(colVal) || 0
+        heatmapData.push([colIdx, rowIdx, value])
+        maxVal = Math.max(maxVal, value)
+      })
+    })
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      tooltip: {
+        position: 'top',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const value = formatNumber(params.data[2], dp, ts)
+          return `${rowArray[params.data[1]]} / ${colArray[params.data[0]]}: ${value}`
+        }
+      },
+      grid: {
+        left: '15%',
+        right: '10%',
+        top: '10%',
+        bottom: '15%'
+      },
+      xAxis: {
+        type: 'category',
+        data: colArray,
+        splitArea: {
+          show: true
+        },
+        axisLabel: {
+          rotate: colArray.length > 5 ? 45 : 0
+        }
+      },
+      yAxis: {
+        type: 'category',
+        data: rowArray,
+        splitArea: {
+          show: true
+        }
+      },
+      visualMap: {
+        min: 0,
+        max: maxVal || 100,
+        calculable: true,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: '0%',
+        inRange: {
+          color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695']
+        }
+      },
+      series: [{
+        name: 'Pivot',
+        type: 'heatmap',
+        data: heatmapData,
+        label: {
+          show: true,
+          formatter: (params: any) => {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            return formatNumber(params.data[2], dp, ts)
+          }
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Number chart - similar to KPI but may have different styling
+  if (type === 'number') {
+    const value = Number(kpiValue.value) || 0
+    const label = kpiLabel.value
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center',
+        top: '5%'
+      },
+      graphic: [
+        {
+          type: 'group',
+          left: 'center',
+          top: 'middle',
+          children: [
+            {
+              type: 'text',
+              style: {
+                text: (() => {
+                  const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+                  const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+                  const prefix = props.appearance?.yAxis?.numberFormat?.prefix || ''
+                  const suffix = props.appearance?.yAxis?.numberFormat?.suffix || ''
+                  return `${prefix}${formatNumber(value, dp, ts)}${suffix}`
+                })(),
+                fill: palette[0] || '#3366CC',
+                font: 'bold 64px Arial',
+                textAlign: 'center',
+                textVerticalAlign: 'middle'
+              }
+            },
+            {
+              type: 'text',
+              top: 45,
+              style: {
+                text: label,
+                fill: '#666',
+                font: '16px Arial',
+                textAlign: 'center',
+                textVerticalAlign: 'top'
+              }
+            }
+          ]
+        }
+      ]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Radar/Spider Web chart
+  if (type === 'radar') {
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    // Get dimension labels for radar indicators
+    const indicators = cats.map(cat => ({name: String(cat), max: 100}))
+
+    // Update max values based on actual data
+    series.forEach(s => {
+      s.data.forEach((val, idx) => {
+        if (typeof val === 'number' && val > (indicators[idx]?.max || 0)) {
+          indicators[idx].max = Math.ceil(val * 1.2) // Add 20% headroom
+        }
+      })
+    })
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      legend: {
+        show: props.appearance?.showLegend ?? true,
+        data: series.map(s => s.name),
+        bottom: 10
+      },
+      radar: {
+        indicator: indicators,
+        shape: 'polygon'
+      },
+      series: [{
+        type: 'radar',
+        data: series.map((s, idx) => ({
+          value: s.data,
+          name: s.name,
+          areaStyle: {opacity: 0.3},
+          lineStyle: {color: palette[idx % palette.length]},
+          itemStyle: {color: palette[idx % palette.length]}
+        }))
+      }]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Bubble chart - scatter with dynamic symbol sizes
+  if (type === 'bubble') {
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    // Bubble chart expects 3 values: x, y, size
+    const bubbleData: [number, number, number][] = []
+    const sizeKey = props.breakdowns?.[0]?.fieldId
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = metricAliases.value[0]
+
+    props.rows.forEach(row => {
+      const x = xKey ? Number(row[xKey]) || 0 : 0
+      const y = yKey ? Number(row[yKey]) || 0 : 0
+      const size = sizeKey ? Number(row[sizeKey]) || 10 : 10
+      bubbleData.push([x, y, size])
+    })
+
+    const maxSize = Math.max(...bubbleData.map(d => d[2]), 1)
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      xAxis: {type: 'value', scale: true},
+      yAxis: {type: 'value', scale: true},
+      series: [{
+        type: 'scatter',
+        data: bubbleData,
+        symbolSize: (data: number[]) => Math.max(10, (data[2] / maxSize) * 50),
+        itemStyle: {color: palette[0]},
+        emphasis: {
+          focus: 'series',
+          itemStyle: {shadowBlur: 10}
+        }
+      }]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Box Plot chart
+  if (type === 'boxplot') {
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    // Group data by category
+    const boxplotData: number[][] = []
+    const categoryMap = new Map<string, number[]>()
+
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = metricAliases.value[0]
+
+    props.rows.forEach(row => {
+      const cat = xKey ? String(row[xKey] || 'Unknown') : 'Data'
+      const val = yKey ? Number(row[yKey]) || 0 : 0
+      if (!categoryMap.has(cat)) {
+        categoryMap.set(cat, [])
+      }
+      categoryMap.get(cat)!.push(val)
+    })
+
+    const categories: string[] = []
+    categoryMap.forEach((values, cat) => {
+      categories.push(cat)
+      values.sort((a, b) => a - b)
+      const min = values[0] || 0
+      const max = values[values.length - 1] || 0
+      const q1 = values[Math.floor(values.length * 0.25)] || 0
+      const median = values[Math.floor(values.length * 0.5)] || 0
+      const q3 = values[Math.floor(values.length * 0.75)] || 0
+      boxplotData.push([min, q1, median, q3, max])
+    })
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      xAxis: {type: 'category', data: categories},
+      yAxis: {type: 'value'},
+      series: [{
+        type: 'boxplot',
+        data: boxplotData,
+        itemStyle: {color: palette[0], borderColor: palette[1] || '#333'}
+      }]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Waterfall chart (simulated with stacked bar)
+  if (type === 'waterfall') {
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    const values: number[] = []
+    const transparentValues: number[] = []
+    let runningTotal = 0
+
+    series[0]?.data.forEach((val, idx) => {
+      const numVal = Number(val) || 0
+      if (numVal >= 0) {
+        transparentValues.push(runningTotal)
+        values.push(numVal)
+      } else {
+        transparentValues.push(runningTotal + numVal)
+        values.push(Math.abs(numVal))
+      }
+      runningTotal += numVal
+    })
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      xAxis: {type: 'category', data: cats},
+      yAxis: {type: 'value'},
+      series: [
+        {
+          type: 'bar',
+          stack: 'waterfall',
+          itemStyle: {opacity: 0},
+          data: transparentValues
+        },
+        {
+          type: 'bar',
+          stack: 'waterfall',
+          data: values.map((val, idx) => ({
+            value: val,
+            itemStyle: {
+              color: (series[0]?.data[idx] as number) >= 0 ? (palette[0] || '#22c55e') : (palette[1] || '#ef4444')
+            }
+          })),
+          label: {
+            show: true,
+            position: 'top',
+            formatter: (params: any) => formatNumber(series[0]?.data[params.dataIndex] as number, 0, true)
+          }
+        }
+      ]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Word Cloud chart
+  if (type === 'wordcloud') {
+    const palette = (props.appearance?.palette && props.appearance.palette.length
+        ? props.appearance.palette
+        : defaultColors)
+
+    // Build word cloud data from categories and values
+    const wordcloudData: { name: string; value: number }[] = []
+    const xKey = props.xDimensions?.[0]?.fieldId
+    const yKey = metricAliases.value[0]
+
+    if (xKey && yKey) {
+      props.rows.forEach(row => {
+        const name = String(row[xKey] || '')
+        const value = Number(row[yKey]) || 1
+        if (name) {
+          wordcloudData.push({name, value})
+        }
+      })
+    } else {
+      // Fallback: use categories with uniform values
+      cats.forEach((cat, idx) => {
+        const val = series[0]?.data[idx]
+        wordcloudData.push({
+          name: String(cat),
+          value: typeof val === 'number' ? val : 10
+        })
+      })
+    }
+
+    const option = {
+      backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+      title: {
+        text: props.appearance?.chartTitle || '',
+        show: !!props.appearance?.chartTitle,
+        left: 'center'
+      },
+      series: [{
+        type: 'wordCloud',
+        shape: 'circle',
+        left: 'center',
+        top: 'center',
+        width: '80%',
+        height: '80%',
+        rotationRange: [-45, 45],
+        rotationStep: 15,
+        sizeRange: [14, 60],
+        gridSize: 8,
+        drawOutOfBound: false,
+        textStyle: {
+          fontFamily: props.appearance?.fontFamily || 'Arial',
+          color: () => palette[Math.floor(Math.random() * palette.length)]
+        },
+        emphasis: {
+          textStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(0, 0, 0, 0.3)'
+          }
+        },
+        data: wordcloudData
+      }]
+    }
+
+    chartInstance.setOption(option)
+    return
+  }
+
+  // Handle stacked chart type - force stacking
+  if (type === 'stacked') {
+    // Will use the default bar/line rendering below but with stacking enabled
+  }
+
   const palette = (props.appearance?.palette && props.appearance.palette.length
     ? props.appearance.palette
     : defaultColors)
 
   // Determine chart type for stacking logic
+  // 'bar' is now horizontal, 'column' is vertical
+  const isHorizontalBar = type === 'bar'
   const currentChartType = type === 'line' || type === 'area' ? 'line' : 'bar'
 
   // Create series data for ECharts
@@ -906,12 +1515,30 @@ function renderChart() {
     }
   })
 
-  const option = {
+  // Get font settings helper
+  const getFontStyle = (font?: { color?: string; size?: number; bold?: boolean; italic?: boolean }) => ({
+    color: font?.color || '#333',
+    fontSize: font?.size || 12,
+    fontWeight: font?.bold ? 'bold' : 'normal' as any,
+    fontStyle: font?.italic ? 'italic' : 'normal' as any
+  })
+
+  // Axis and legend settings from new appearance
+  const xAxisSettings = props.appearance?.xAxis || {}
+  const yAxisSettings = props.appearance?.yAxis || {}
+  const showLegend = props.appearance?.showLegend ?? true
+  const legendFont = getFontStyle(props.appearance?.legendFont)
+
+  const option: any = {
+    backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
     title: {
       text: props.appearance?.chartTitle || '',
-      show: !!props.appearance?.chartTitle
+      show: !!props.appearance?.chartTitle,
+      textStyle: {
+        fontFamily: props.appearance?.fontFamily || 'Arial'
+      }
     },
-        tooltip: {
+    tooltip: {
       trigger: 'axis',
       axisPointer: {
         type: 'cross'
@@ -919,52 +1546,110 @@ function renderChart() {
       formatter: (params: any) => {
         let result = ''
         params.forEach((param: any) => {
-              const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
-              const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
-          const value = typeof param.value === 'number' ? formatNumber(param.value, dp, ts) : param.value
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const prefix = props.appearance?.yAxis?.numberFormat?.prefix || ''
+          const suffix = props.appearance?.yAxis?.numberFormat?.suffix || ''
+          const value = typeof param.value === 'number' ? `${prefix}${formatNumber(param.value, dp, ts)}${suffix}` : param.value
           result += `${param.seriesName}: ${value}<br/>`
         })
         return result
       }
     },
     legend: {
-      show: true,
+      show: showLegend,
       data: series.map(s => s.name),
-      top: props.appearance?.legendPosition === 'bottom' ? 'bottom' : 'top'
+      top: props.appearance?.legendPosition === 'bottom' ? 'bottom' :
+          props.appearance?.legendPosition === 'left' || props.appearance?.legendPosition === 'right' ? 'middle' : 'top',
+      left: props.appearance?.legendPosition === 'left' ? 'left' :
+          props.appearance?.legendPosition === 'right' ? 'right' : 'center',
+      orient: props.appearance?.legendPosition === 'left' || props.appearance?.legendPosition === 'right' ? 'vertical' : 'horizontal',
+      textStyle: legendFont
     },
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: props.appearance?.legendPosition === 'bottom' ? '5%' : '10%',
-      top: '10%',
+      left: props.appearance?.legendPosition === 'left' ? '15%' : '3%',
+      right: props.appearance?.legendPosition === 'right' ? '15%' : '4%',
+      bottom: props.appearance?.legendPosition === 'bottom' ? '15%' : '10%',
+      top: '15%',
       containLabel: true
     },
     xAxis: {
       type: 'category',
       boundaryGap: currentChartType === 'bar',
       data: cats,
-      name: props.appearance?.xAxisLabel || '',
+      name: xAxisSettings.showTitle !== false ? (xAxisSettings.title || props.appearance?.xAxisLabel || '') : '',
       nameLocation: 'middle',
-      nameGap: 30
+      nameGap: 30,
+      nameTextStyle: getFontStyle(xAxisSettings.titleFont),
+      axisLabel: {
+        show: xAxisSettings.showLabels !== false,
+        ...getFontStyle(xAxisSettings.labelFont),
+        rotate: 0
+      },
+      axisLine: {
+        show: xAxisSettings.showLine !== false,
+        lineStyle: {
+          color: xAxisSettings.lineColor || '#333',
+          width: xAxisSettings.lineWidth || 1
+        }
+      }
     },
     yAxis: {
       type: 'value',
-      name: props.appearance?.yAxisLabel || '',
+      name: yAxisSettings.showTitle !== false ? (yAxisSettings.title || props.appearance?.yAxisLabel || '') : '',
       nameLocation: 'middle',
-      nameGap: 40,
-      min: 0
+      nameGap: 50,
+      nameTextStyle: getFontStyle(yAxisSettings.titleFont),
+      min: yAxisSettings.scale?.min ?? 0,
+      max: yAxisSettings.scale?.max ?? undefined,
+      interval: yAxisSettings.scale?.interval ?? undefined,
+      axisLabel: {
+        show: yAxisSettings.showLabels !== false,
+        ...getFontStyle(yAxisSettings.labelFont),
+        formatter: (value: number) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const prefix = props.appearance?.yAxis?.numberFormat?.prefix || ''
+          const suffix = props.appearance?.yAxis?.numberFormat?.suffix || ''
+          return `${prefix}${formatNumber(value, dp, ts)}${suffix}`
+        }
+      }
     },
     series: seriesConfig
   }
 
-  // Handle stacking if needed
-  if (props.appearance?.stacked) {
-    option.xAxis.boundaryGap = currentChartType !== 'bar'
-    seriesConfig.forEach((series: any, idx: number) => {
-      if (idx > 0) {
-        series.stack = 'total'
+  // Add data labels if enabled
+  if (props.appearance?.showLabels) {
+    const labelFont = getFontStyle(props.appearance?.labelFont)
+    seriesConfig.forEach((s: any) => {
+      s.label = {
+        show: true,
+        position: props.appearance?.labelsInside ? 'inside' : 'top',
+        ...labelFont,
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const prefix = props.appearance?.yAxis?.numberFormat?.prefix || ''
+          const suffix = props.appearance?.yAxis?.numberFormat?.suffix || ''
+          return `${prefix}${formatNumber(params.value, dp, ts)}${suffix}`
+        }
       }
     })
+  }
+
+  // Handle stacking if needed (either via appearance or stacked chart type)
+  if (props.appearance?.stacked || type === 'stacked') {
+    option.xAxis.boundaryGap = currentChartType !== 'bar'
+    seriesConfig.forEach((series: any, idx: number) => {
+      series.stack = 'total'  // All series stack together
+    })
+  }
+
+  // Handle horizontal bar chart - swap x and y axes
+  if (isHorizontalBar) {
+    const tempAxis = option.xAxis
+    option.xAxis = {...option.yAxis, type: 'value'}
+    option.yAxis = {...tempAxis, type: 'category', data: cats}
   }
 
   chartInstance.setOption(option)
@@ -1003,7 +1688,16 @@ async function captureSnapshot() {
   return {dataUrl, width, height}
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Load echarts-wordcloud dynamically on client-side only
+  if (!wordcloudLoaded) {
+    try {
+      await import('echarts-wordcloud')
+      wordcloudLoaded = true
+    } catch (e) {
+      console.warn('Failed to load echarts-wordcloud:', e)
+    }
+  }
   renderChart()
 })
 

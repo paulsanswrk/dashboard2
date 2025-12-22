@@ -103,7 +103,7 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Status
                 </label>
-                <UBadge :color="organization.status === 'active' ? 'green' : 'gray'" variant="soft">
+                <UBadge :color="organization.status === 'active' ? 'success' : 'neutral'" variant="soft">
                   {{ organization.status || 'Active' }}
                 </UBadge>
               </div>
@@ -332,8 +332,9 @@
             <UFormField label="Role">
               <USelect
                   v-model="userForm.role"
-                :options="userRoleOptions"
+                  :items="userRoleOptions"
                 placeholder="Select role"
+                  class="w-full"
               />
             </UFormField>
 

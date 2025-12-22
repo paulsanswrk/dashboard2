@@ -181,6 +181,7 @@ const fromDashboard = computed(() => !!props.dashboardId)
 const emit = defineEmits<{
   'toggle-sidebar': []
   'preview-meta': [{ error: string | null; warnings: string[] }]
+  'chart-type-change': [chartType: string]
 }>()
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
@@ -192,7 +193,7 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
 const serverError = ref<string | null>(null)
 const serverWarnings = ref<string[]>([])
-const chartType = ref<'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey'>('table')
+const chartType = ref<'table' | 'bar' | 'column' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey' | 'kpi' | 'pivot' | 'stacked' | 'radar' | 'boxplot' | 'bubble' | 'waterfall' | 'number' | 'wordcloud'>('table')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 
 // Show onboarding guide when no data is loaded and no zones are populated
@@ -214,16 +215,26 @@ const actualExecutedSql = ref('')
 
 const chartTypes = [
   {value: 'table', label: 'Table', icon: 'i-heroicons-table-cells'},
+  {value: 'number', label: 'Number', icon: 'i-heroicons-hashtag'},
+  {value: 'column', label: 'Column', icon: 'i-heroicons-chart-bar'},
   {value: 'bar', label: 'Bar', icon: 'i-heroicons-chart-bar'},
+  {value: 'stacked', label: 'Stacked', icon: 'i-heroicons-chart-bar-square'},
   {value: 'line', label: 'Line', icon: 'i-heroicons-chart-bar'},
   {value: 'area', label: 'Area', icon: 'i-heroicons-chart-bar'},
   {value: 'pie', label: 'Pie', icon: 'i-heroicons-chart-pie'},
   {value: 'donut', label: 'Donut', icon: 'i-heroicons-circle-stack'},
   {value: 'funnel', label: 'Funnel', icon: 'i-heroicons-rectangle-stack'},
   {value: 'gauge', label: 'Gauge', icon: 'i-heroicons-clock'},
+  {value: 'kpi', label: 'KPI', icon: 'i-heroicons-presentation-chart-bar'},
+  {value: 'radar', label: 'Radar', icon: 'i-heroicons-globe-alt'},
   {value: 'scatter', label: 'Scatter', icon: 'i-heroicons-squares-2x2'},
+  {value: 'bubble', label: 'Bubble', icon: 'i-heroicons-ellipsis-horizontal-circle'},
+  {value: 'boxplot', label: 'Box Plot', icon: 'i-heroicons-bars-3'},
+  {value: 'waterfall', label: 'Waterfall', icon: 'i-heroicons-bars-arrow-down'},
   {value: 'treemap', label: 'Treemap', icon: 'i-heroicons-squares-plus'},
-  {value: 'sankey', label: 'Sankey', icon: 'i-heroicons-arrows-right-left'}
+  {value: 'sankey', label: 'Sankey', icon: 'i-heroicons-arrows-right-left'},
+  {value: 'pivot', label: 'Pivot', icon: 'i-heroicons-view-columns'},
+  {value: 'wordcloud', label: 'Word Cloud', icon: 'i-heroicons-cloud'}
 ]
 
 const chartComponentRef = ref<any>(null)
@@ -316,6 +327,81 @@ const zoneConfig = computed((): ZoneConfig => {
         showBreakdowns: false,
         xLabel: 'Sources',
         yLabel: 'Targets'
+      }
+    case 'kpi':
+      return {
+        showXDimensions: false,
+        showYMetrics: true,
+        showBreakdowns: false,
+        yLabel: 'Value'
+      }
+    case 'pivot':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'Columns',
+        yLabel: 'Values',
+        breakdownLabel: 'Rows'
+      }
+    case 'column':
+    case 'stacked':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'X (Categories)',
+        yLabel: 'Y (Values)',
+        breakdownLabel: 'Series'
+      }
+    case 'number':
+      return {
+        showXDimensions: false,
+        showYMetrics: true,
+        showBreakdowns: false,
+        yLabel: 'Value'
+      }
+    case 'radar':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'Dimensions',
+        yLabel: 'Values',
+        breakdownLabel: 'Series'
+      }
+    case 'bubble':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: true,
+        xLabel: 'X Values',
+        yLabel: 'Y Values',
+        breakdownLabel: 'Size'
+      }
+    case 'boxplot':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Category',
+        yLabel: 'Values'
+      }
+    case 'waterfall':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Categories',
+        yLabel: 'Values'
+      }
+    case 'wordcloud':
+      return {
+        showXDimensions: true,
+        showYMetrics: true,
+        showBreakdowns: false,
+        xLabel: 'Words',
+        yLabel: 'Size Values'
       }
     default:
       return {
@@ -544,6 +630,11 @@ watch([selectedDatasetId, xDimensions, yMetrics, breakdowns, joins], async () =>
   if (useSql.value) return
   await onTestPreview()
 }, { deep: true })
+
+// Emit chartType changes for parent components
+watch(chartType, (newType) => {
+  emit('chart-type-change', newType)
+}, {immediate: true})
 
 // Initial preview on mount if we have sufficient parameters
 onMounted(() => {

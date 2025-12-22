@@ -36,11 +36,11 @@
             <div class="flex flex-col gap-2">
               <!-- Show debug badges only when in debug mode -->
               <div v-if="debugMode" class="flex items-center gap-2">
-                <UBadge color="orange" variant="soft" size="sm">
+                <UBadge color="warning" variant="soft" size="sm">
                   <Icon name="i-heroicons-bug-ant" class="w-3 h-3 mr-1"/>
                   Debug Mode
                 </UBadge>
-                <UBadge v-if="debugConfigLoaded" color="green" variant="soft" size="sm">
+                <UBadge v-if="debugConfigLoaded" color="success" variant="soft" size="sm">
                   Auto-filled
                 </UBadge>
               </div>
@@ -99,7 +99,7 @@
               <UFormField label="Database Type" required class="text-gray-900 dark:text-white">
                 <USelect
                   v-model="form.databaseType"
-                  :options="databaseTypes"
+                  :items="databaseTypes"
                   placeholder="Select Database Type"
                   :error="errors.databaseType"
                   class="w-full"
@@ -146,7 +146,7 @@
               <UFormField label="Server Time" required class="text-gray-900 dark:text-white">
                 <USelect
                   v-model="form.serverTime"
-                  :options="timeZones"
+                  :items="timeZones"
                   placeholder="Select Time Zone"
                   :error="errors.serverTime"
                   class="w-full"

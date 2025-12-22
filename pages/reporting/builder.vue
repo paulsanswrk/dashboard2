@@ -160,6 +160,7 @@
             :dashboard-id="dashboardId"
             @toggle-sidebar="sidebarVisible = !sidebarVisible"
             @preview-meta="onPreviewMeta"
+            @chart-type-change="currentChartType = $event"
           />
         </ClientOnly>
       </div>
@@ -175,8 +176,8 @@
           <Icon name="i-heroicons-x-mark" class="w-5 h-5 text-gray-500 hover:text-gray-700"/>
         </button>
 
-        <h2 class="font-medium mb-2 pr-8">Appearance</h2>
-        <ReportingAppearancePanel />
+        <h2 class="font-medium mb-2 pr-8">Chart Config</h2>
+        <ChartConfigEditor :chart-type="currentChartType"/>
       </div>
     </template>
   </ReportingLayout>
@@ -193,7 +194,7 @@ import ReportingLayout from '../../components/reporting/ReportingLayout.vue'
 import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
-import ReportingAppearancePanel from '../../components/reporting/ReportingAppearancePanel.vue'
+import ChartConfigEditor from '../../components/reporting/ChartConfigEditor.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
 import {useReportingService} from '../../composables/useReportingService'
 import {useChartsService} from '../../composables/useChartsService'
@@ -211,6 +212,7 @@ const editingChartId = ref<number | null>(null)
 const dashboardId = ref<string | null>(null)
 const {selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql} = useReportState()
 const reportingBuilderRef = ref<any>(null)
+const currentChartType = ref<string>('bar')
 
 // Zone configuration based on chart type (we'll get this from the builder or use a default)
 const zoneConfig = computed(() => {

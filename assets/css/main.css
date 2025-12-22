@@ -21,23 +21,27 @@ body {
 
 /* Text selection colors for better visibility */
 ::selection {
-    background-color: rgba(249, 115, 22, 0.8); /* Orange-500 with good opacity */
+    background-color: rgba(249, 115, 22, 0.8);
+    /* Orange-500 with good opacity */
     color: #ffffff;
 }
 
 ::-moz-selection {
-    background-color: rgba(249, 115, 22, 0.8); /* Orange-500 with good opacity */
+    background-color: rgba(249, 115, 22, 0.8);
+    /* Orange-500 with good opacity */
     color: #ffffff;
 }
 
 /* Ensure selection is visible in dark theme areas */
 .dark ::selection {
-    background-color: rgba(249, 115, 22, 0.9); /* More opaque for dark backgrounds */
+    background-color: rgba(249, 115, 22, 0.9);
+    /* More opaque for dark backgrounds */
     color: #ffffff;
 }
 
 .dark ::-moz-selection {
-    background-color: rgba(249, 115, 22, 0.9); /* More opaque for dark backgrounds */
+    background-color: rgba(249, 115, 22, 0.9);
+    /* More opaque for dark backgrounds */
     color: #ffffff;
 }
 
@@ -56,43 +60,48 @@ body {
 
 /* Resizable columns styles */
 .resizable-columns {
-  display: flex;
-  height: 100%;
-  position: relative;
+    display: flex;
+    height: 100%;
+    position: relative;
 }
 
 .resizable-column {
-  overflow: hidden;
-  position: relative;
-  min-height: 0;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
     min-width: 120px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  transition: flex-basis 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    transition: flex-basis 0.2s ease;
 }
 
 .resize-handle {
-  background: rgba(255, 255, 255, 0.1);
-  width: 4px;
-  cursor: col-resize;
-  transition: background 0.2s;
-  border-radius: 2px;
-  position: relative;
-  z-index: 10;
-  flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.1);
+    width: 4px;
+    cursor: col-resize;
+    transition: background 0.2s;
+    border-radius: 2px;
+    position: relative;
+    z-index: 10;
+    flex-shrink: 0;
 }
 
 .resize-handle:hover {
-  background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .resize-handle:active {
-  background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.5);
 }
 
 /* Header typography using Barlow font */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -226,7 +235,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .sidebar-item.active {
     @apply text-white;
-    background-color: #f97316; /* Orange-500 for light mode */
+    background-color: #f97316;
+    /* Orange-500 for light mode */
 }
 
 /* Sidebar text improvements */
@@ -265,7 +275,8 @@ h1, h2, h3, h4, h5, h6 {
 /* Top bar styles - light mode with lighter orange */
 .topbar {
     @apply text-white px-6 py-3;
-    background-color: #f97316; /* Orange-500 for light mode */
+    background-color: #f97316;
+    /* Orange-500 for light mode */
 }
 
 /* Card styles - updated with custom RGB colors */
@@ -495,7 +506,8 @@ footer {
 
 .dark .sidebar-item.active {
     @apply text-white;
-    background-color: #c2410c; /* Orange-700 for dark mode */
+    background-color: #c2410c;
+    /* Orange-700 for dark mode */
 }
 
 .dark .sidebar .text-neutral-400 {
@@ -509,7 +521,7 @@ footer {
 /* Dark theme top bar - use darker orange */
 .dark .topbar {
     @apply text-white;
-    background-color: #912a00; 
+    background-color: #912a00;
 }
 
 /* Dark theme chart placeholders */
@@ -546,7 +558,22 @@ footer {
 }
 
 /* Allow text selection on all elements */
-body, main, div, span, p, h1, h2, h3, h4, h5, h6, a, button, input, textarea, select {
+body,
+main,
+div,
+span,
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+a,
+button,
+input,
+textarea,
+select {
     -webkit-user-select: text;
     -moz-user-select: text;
     -ms-user-select: text;
@@ -573,7 +600,8 @@ body, main, div, span, p, h1, h2, h3, h4, h5, h6, a, button, input, textarea, se
 /* Dark theme green button hover states */
 .dark .bg-green-600:hover,
 .dark .bg-green-700:hover {
-    background-color: rgb(20 85 45) !important; /* Slightly darker for hover */
+    background-color: rgb(20 85 45) !important;
+    /* Slightly darker for hover */
 }
 
 /* Dark theme success message backgrounds */
@@ -810,11 +838,13 @@ button[class*="border"]:not([class*="border-0"]) {
 
 /* Fix for buttons with variant="outline" */
 button[class*="border-gray"]:hover {
-    border-color: rgb(156 163 175); /* gray-400 */
+    border-color: rgb(156 163 175);
+    /* gray-400 */
 }
 
 .dark button[class*="border-gray"]:hover {
-    border-color: rgb(107 114 128); /* gray-500 */
+    border-color: rgb(107 114 128);
+    /* gray-500 */
 }
 
 /* Ensure proper button backgrounds on hover */
@@ -872,7 +902,8 @@ button[style*="background-color:#F28C28"] {
 
 button[style*="background-color: #F28C28"]:hover,
 button[style*="background-color:#F28C28"]:hover {
-    background-color: #ea580c !important; /* orange-600 */
+    background-color: #ea580c !important;
+    /* orange-600 */
     opacity: 0.9;
 }
 
@@ -895,7 +926,8 @@ button.rounded-md.text-sm.border-red-600:not(:disabled):not([disabled]):not([ari
 button.font-medium.rounded-md.border-red-300:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 button.font-medium.rounded-md.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
     /* Ensure text color is visible and border is present */
-    color: rgb(185 28 28); /* red-700 */
+    color: rgb(185 28 28);
+    /* red-700 */
     border-width: 1px;
     border-style: solid;
     transition: all 0.15s ease-in-out;
@@ -905,7 +937,8 @@ button.font-medium.rounded-md.border-red-600:not(:disabled):not([disabled]):not(
 .dark button.rounded-md.text-sm.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 .dark button.font-medium.rounded-md.border-red-300:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 .dark button.font-medium.rounded-md.border-red-600:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
-    color: rgb(248 113 113); /* red-400 */
+    color: rgb(248 113 113);
+    /* red-400 */
 }
 
 /* Red outline button hover states */
@@ -913,23 +946,28 @@ button.rounded-md.text-sm.border-red-300:hover:not(:disabled):not([disabled]):no
 button.rounded-md.text-sm.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 button.font-medium.rounded-md.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 button.font-medium.rounded-md.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
-    background-color: rgb(254 242 242); /* red-50 */
-    border-color: rgb(248 113 113); /* red-400 */
+    background-color: rgb(254 242 242);
+    /* red-50 */
+    border-color: rgb(248 113 113);
+    /* red-400 */
 }
 
 .dark button.rounded-md.text-sm.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 .dark button.rounded-md.text-sm.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 .dark button.font-medium.rounded-md.border-red-300:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]),
 .dark button.font-medium.rounded-md.border-red-600:hover:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
-    background-color: rgb(127 29 29 / 0.2); /* red-900/20 */
-    border-color: rgb(239 68 68); /* red-500 */
+    background-color: rgb(127 29 29 / 0.2);
+    /* red-900/20 */
+    border-color: rgb(239 68 68);
+    /* red-500 */
 }
 
 /* Small size buttons - ensure proper padding */
 button[class*="text-xs"],
 button[class*="px-2"],
 button[class*="px-1.5"] {
-    min-height: 1.75rem; /* Ensure minimum height for small buttons */
+    min-height: 1.75rem;
+    /* Ensure minimum height for small buttons */
 }
 
 /* Medium size buttons */
@@ -957,7 +995,8 @@ input[type="number"] {
 /* Checkbox styling improvements */
 input[type="checkbox"] {
     @apply w-4 h-4 rounded border-gray-300 dark:border-gray-600;
-    accent-color: #f97316; /* orange-500 */
+    accent-color: #f97316;
+    /* orange-500 */
 }
 
 input[type="checkbox"]:checked {
@@ -997,4 +1036,162 @@ input[placeholder*="Type to search"] {
 /* Ensure buttons maintain their appearance */
 button:not([class*="bg-transparent"]):not([class*="bg-none"]) {
     background-clip: padding-box;
+}
+
+/* ============================================
+   FORM ELEMENTS STYLING - Cursor and Hover
+   ============================================ */
+
+/* All buttons should have cursor:pointer */
+button:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
+    cursor: pointer;
+}
+
+/* Buttons should change background on hover */
+button:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover {
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+/* UButton hover states */
+button[class*="UButton"]:not(:disabled):hover,
+[class*="u-button"]:not(:disabled):hover {
+    filter: brightness(0.95);
+}
+
+/* Specific button variant hover backgrounds */
+button.bg-green-500:hover,
+button.bg-green-600:hover {
+    @apply bg-green-600;
+}
+
+button.bg-orange-500:hover,
+button.bg-orange-600:hover {
+    @apply bg-orange-600;
+}
+
+button.bg-blue-500:hover,
+button.bg-blue-600:hover {
+    @apply bg-blue-600;
+}
+
+button.bg-red-500:hover,
+button.bg-red-600:hover {
+    @apply bg-red-600;
+}
+
+/* Outline button hover states */
+button[class*="variant"][class*="outline"]:hover,
+button[class*="border-"]:not([class*="bg-"]):hover {
+    @apply bg-gray-100 dark:bg-gray-700;
+}
+
+/* Nuxt UI UButton outline hover states - by color */
+/* Red outline buttons */
+button[data-color="red"][data-variant="outline"]:hover,
+button.border-red-300:hover,
+button.border-red-500:hover,
+button.border-red-600:hover {
+    @apply bg-red-50 dark:bg-red-900/20;
+}
+
+/* Green outline buttons */
+button[data-color="green"][data-variant="outline"]:hover,
+button.border-green-300:hover,
+button.border-green-500:hover,
+button.border-green-600:hover {
+    @apply bg-green-50 dark:bg-green-900/20;
+}
+
+/* Blue outline buttons */
+button[data-color="blue"][data-variant="outline"]:hover,
+button.border-blue-300:hover,
+button.border-blue-500:hover,
+button.border-blue-600:hover {
+    @apply bg-blue-50 dark:bg-blue-900/20;
+}
+
+/* Orange outline buttons */
+button[data-color="orange"][data-variant="outline"]:hover,
+button.border-orange-300:hover,
+button.border-orange-500:hover,
+button.border-orange-600:hover {
+    @apply bg-orange-50 dark:bg-orange-900/20;
+}
+
+/* Gray outline buttons */
+button[data-color="gray"][data-variant="outline"]:hover,
+button.border-gray-300:hover,
+button.border-gray-500:hover,
+button.border-gray-600:hover {
+    @apply bg-gray-100 dark:bg-gray-700;
+}
+
+/* Form max-width for better appearance on wide screens */
+.form-container,
+form:not([class*="w-full"]):not([class*="max-w-"]) {
+    max-width: 32rem;
+    /* 512px / max-w-lg */
+}
+
+/* UCard containing forms should have reasonable max-width */
+.form-card {
+    max-width: 28rem;
+    /* max-w-md */
+}
+
+/* Checkbox with label cursor:pointer */
+input[type="checkbox"],
+input[type="checkbox"] + label,
+input[type="checkbox"] ~ label,
+label:has(input[type="checkbox"]),
+[class*="UCheckbox"],
+[class*="u-checkbox"] {
+    cursor: pointer;
+}
+
+/* Radio buttons with label cursor:pointer */
+input[type="radio"],
+input[type="radio"] + label,
+input[type="radio"] ~ label,
+label:has(input[type="radio"]),
+[class*="URadio"],
+[class*="u-radio"] {
+    cursor: pointer;
+}
+
+/* Clickable form labels */
+label[for]:not([class*="disabled"]) {
+    cursor: pointer;
+}
+
+/* Toggle/Switch cursor:pointer */
+[class*="UToggle"],
+[class*="u-toggle"],
+[role="switch"] {
+    cursor: pointer;
+}
+
+/* Full-width form elements */
+.w-full input,
+.w-full select,
+.w-full textarea,
+input.w-full,
+select.w-full,
+textarea.w-full {
+    width: 100% !important;
+}
+
+/* Ensure Nuxt UI form components take full width when w-full is applied */
+.w-full input,
+.w-full select,
+.w-full textarea,
+.w-full button {
+    width: 100%;
+}
+
+/* Nuxt UI Select full width - using simpler selectors */
+select.w-full,
+.w-full > div,
+.w-full > button {
+    width: 100%;
 }
