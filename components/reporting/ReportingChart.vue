@@ -105,6 +105,11 @@ const emit = defineEmits<{
 
 const chartRef: Ref<HTMLDivElement | null> = ref(null)
 
+// Theme detection for chart text colors
+const {isDark} = useTheme()
+const labelColor = computed(() => isDark.value ? '#ffffff' : '#333333')
+const axisLabelColor = computed(() => isDark.value ? '#cccccc' : '#666666')
+
 const defaultColors = [
   '#3366CC', '#DC3912', '#FF9900', '#109618', '#990099',
   '#3B3EAC', '#0099C6', '#DD4477', '#66AA00', '#B82E2E',
@@ -312,6 +317,9 @@ function renderChart() {
         label: {
           show: showLabels,
           position: labelPosition,
+          color: labelColor.value,
+          textBorderColor: 'transparent',
+          textBorderWidth: 0,
           formatter: (params: any) => {
             const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
             const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
@@ -1725,7 +1733,7 @@ onMounted(async () => {
   renderChart()
 })
 
-watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance], () => {
+watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance, isDark.value], () => {
   renderChart()
 }, { deep: true })
 

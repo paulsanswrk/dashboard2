@@ -155,12 +155,16 @@ const accountMenuItems = computed(() => {
       [{
         label: themeLabel.value,
         icon: themeIcon.value,
-        action: 'toggleTheme'
+        onClick() {
+          toggleTheme()
+        }
       }],
       [{
         label: 'Sign Out',
         icon: 'i-heroicons-arrow-right-on-rectangle',
-        click: () => handleSignOutClick()
+        onClick() {
+          handleSignOut()
+        }
       }]
   )
 
