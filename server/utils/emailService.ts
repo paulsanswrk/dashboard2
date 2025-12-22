@@ -57,12 +57,44 @@ export async function sendReportEmail(data: ReportEmailData): Promise<EmailSendR
         })
 
         // Prepare attachments for SendGrid
-        const sendGridAttachments = attachments.map(attachment => ({
-            content: attachment.content.toString('base64'),
-            filename: attachment.filename,
-            type: attachment.contentType,
-            disposition: 'attachment'
-        }))
+        const sendGridAttachments = attachments.map(attachment => {
+            let content = attachment.content
+
+            // Fix for bug where attachment content is comma-separated ASCII values instead of binary data
+            if (typeof content === 'string' && /^\d+(,\d+)*$/.test(content.substring(0, 50))) {
+                console.error(`BUG DETECTED: Attachment content is comma-separated numbers instead of binary data! Converting back to buffer.`, {
+                    filename: attachment.filename,
+                    contentPreview: content.substring(0, 100)
+                })
+                // Convert comma-separated numbers back to buffer
+                const byteArray = content.split(',').map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 255)
+                content = Buffer.from(byteArray)
+            }
+
+            // Ensure content is a Buffer
+            if (!Buffer.isBuffer(content)) {
+                console.warn(`Attachment content is not a Buffer, converting:`, {
+                    filename: attachment.filename,
+                    contentType: typeof content,
+                    isBuffer: Buffer.isBuffer(content)
+                })
+                if (typeof content === 'string') {
+                    content = Buffer.from(content, 'utf8')
+                } else if (Array.isArray(content)) {
+                    content = Buffer.from(content)
+                } else {
+                    console.error(`Cannot convert attachment content to Buffer:`, { filename: attachment.filename, contentType: typeof content })
+                    content = Buffer.from('Error: Invalid attachment content', 'utf8')
+                }
+            }
+
+            return {
+                content: content.toString('base64'),
+                filename: attachment.filename,
+                type: attachment.contentType,
+                disposition: 'attachment'
+            }
+        })
 
         const msg = {
             to: to.length === 1 ? to[0] : to, // SendGrid handles single recipient differently

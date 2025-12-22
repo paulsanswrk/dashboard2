@@ -201,11 +201,38 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
 
         await page.close()
 
+        // Ensure PDF is a proper Buffer
+        let pdfBuffer = pdf
+        if (!Buffer.isBuffer(pdfBuffer)) {
+            console.error(`PDF generation returned non-Buffer type:`, {
+                type: typeof pdfBuffer,
+                constructor: pdfBuffer?.constructor?.name,
+                length: pdfBuffer?.length
+            })
+            if (typeof pdfBuffer === 'string') {
+                pdfBuffer = Buffer.from(pdfBuffer, 'utf8')
+            } else if (Array.isArray(pdfBuffer)) {
+                pdfBuffer = Buffer.from(pdfBuffer)
+            } else {
+                throw new Error('PDF generation returned invalid data type')
+            }
+        }
+
+        // Validate PDF header
+        if (pdfBuffer.length < 4 || !pdfBuffer.slice(0, 4).equals(Buffer.from('%PDF', 'ascii'))) {
+            console.error(`Invalid PDF generated:`, {
+                length: pdfBuffer.length,
+                firstBytes: pdfBuffer.slice(0, 10),
+                firstBytesHex: pdfBuffer.slice(0, 10).toString('hex')
+            })
+            throw new Error('Generated PDF does not have valid PDF header')
+        }
+
         const filename = `${report.report_title.replace(/[^a-z0-9]/gi, '_')}.pdf`
 
         return {
             filename,
-            content: pdf,
+            content: pdfBuffer,
             contentType: 'application/pdf'
         }
 
