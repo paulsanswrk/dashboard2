@@ -1232,10 +1232,8 @@ textarea.w-full {
     width: 100%;
 }
 
-/* Nuxt UI Select full width - using simpler selectors */
-select.w-full,
-.w-full > div,
-.w-full > button {
+/* Nuxt UI Select full width - only target select elements specifically */
+select.w-full {
     width: 100%;
 }
 

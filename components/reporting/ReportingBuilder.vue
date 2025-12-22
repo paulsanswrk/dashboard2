@@ -213,6 +213,7 @@ const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelected
 const {xDimensions, yMetrics, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
+const toast = useToast()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
@@ -836,9 +837,9 @@ async function captureChartMeta(): Promise<{ width?: number | null; height?: num
 async function saveExistingChart(): Promise<boolean> {
   if (!props.editingChartId) return false
 
+  let wasSaved = false
   try {
     loading.value = true
-    let wasSaved = false
 
     // Get current report state
     const reportState = {
@@ -875,7 +876,6 @@ async function saveExistingChart(): Promise<boolean> {
     if (result.success) {
       wasSaved = true
       // Show success toast
-      const toast = useToast()
       toast.add({
         title: 'Chart Saved Successfully',
         description: 'Your chart has been updated.',
@@ -886,7 +886,6 @@ async function saveExistingChart(): Promise<boolean> {
     }
   } catch (error) {
     console.error('Failed to save chart:', error)
-    const toast = useToast()
     toast.add({
       title: 'Save Failed',
       description: 'Failed to save chart. Please try again.',
@@ -977,7 +976,6 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
     })
 
     // Show success message BEFORE closing modal
-    const toast = useToast()
     toast.add({
       title: 'Chart Saved Successfully',
       description: successMessage,
@@ -989,7 +987,6 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
 
   } catch (error) {
     console.error('Failed to save chart to dashboard:', error)
-    const toast = useToast()
     toast.add({
       title: 'Save Failed',
       description: 'Failed to save chart to dashboard. Please try again.',
@@ -1054,7 +1051,6 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
       position
     })
 
-    const toast = useToast()
     toast.add({
       title: 'Chart Saved Successfully',
       description: 'Your chart has been added to the dashboard.',
@@ -1064,7 +1060,6 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
     return true
   } catch (error) {
     console.error('Failed to save chart to dashboard:', error)
-    const toast = useToast()
     toast.add({
       title: 'Save Failed',
       description: 'Failed to save chart to dashboard. Please try again.',

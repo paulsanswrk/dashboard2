@@ -1,7 +1,7 @@
 <template>
   <div class="chart-config-editor">
     <!-- Tab Navigation -->
-    <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+    <div class="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700 mb-4 pb-1">
       <button
           v-for="tab in availableTabs"
           :key="tab.id"
@@ -435,98 +435,199 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, reactive, ref, watch} from 'vue'
+import {computed, nextTick, onMounted, reactive, ref, watch} from 'vue'
 import ChartConfigColorPicker from './ChartConfigColorPicker.vue'
 import ChartConfigFontSettings from './ChartConfigFontSettings.vue'
 import ChartConfigNumberFormat from './ChartConfigNumberFormat.vue'
 import {useReportState} from '../../composables/useReportState'
 
-// Props
+// Props - supports both Report Builder (global state) and Dashboard (external state) modes
 const props = defineProps<{
   chartType: string
+  // External mode props (for Dashboard use)
+  externalAppearance?: Record<string, any>
+  useExternalState?: boolean
 }>()
 
-// Get appearance from report state
-const {appearance} = useReportState()
+// Emit for external mode updates
+const emit = defineEmits<{
+  'update:appearance': [value: Record<string, any>]
+}>()
+
+// Get appearance from report state (for Report Builder mode)
+const {appearance: globalAppearance} = useReportState()
+
+// Determine which appearance source to use
+const isExternalMode = computed(() => props.useExternalState === true)
+
+// Internal appearance ref for Dashboard (external) mode only
+const localAppearanceForDashboard = ref<Record<string, any>>({})
+
+// Flags to prevent recursive updates (only used in Dashboard mode)
+let isReceivingFromParent = false
+let isEmittingToParent = false
+
+// In Dashboard mode: sync from external props when they change
+watch(
+    () => props.externalAppearance,
+    (source) => {
+      if (!isExternalMode.value) return
+      // Don't sync if we just emitted this change ourselves
+      if (isEmittingToParent) return
+
+      if (source) {
+        isReceivingFromParent = true
+        localAppearanceForDashboard.value = JSON.parse(JSON.stringify(source))
+        // Use nextTick to ensure the flag is reset after Vue's reactivity batch
+        nextTick(() => {
+          isReceivingFromParent = false
+        })
+      }
+    },
+    {immediate: true, deep: true}
+)
+
+// In Dashboard mode: emit changes when local appearance changes
+watch(localAppearanceForDashboard, (newVal) => {
+  if (!isExternalMode.value) return
+  // Don't emit if this change came from the parent
+  if (isReceivingFromParent) return
+
+  isEmittingToParent = true
+  emit('update:appearance', {...newVal})
+  // Use nextTick to ensure the flag is reset after Vue's reactivity batch
+  nextTick(() => {
+    isEmittingToParent = false
+  })
+}, {deep: true})
+
+// The appearance ref that the template uses - switches between modes
+const appearance = computed(() => {
+  if (isExternalMode.value) {
+    return localAppearanceForDashboard.value
+  }
+  return globalAppearance.value || {}
+})
+
+// For direct property modifications in the template, we need a way to update
+// Create localAppearance alias for template compatibility
+const localAppearance = computed({
+  get: () => {
+    if (isExternalMode.value) {
+      return localAppearanceForDashboard.value
+    }
+    return globalAppearance.value || {}
+  },
+  set: (val) => {
+    if (isExternalMode.value) {
+      localAppearanceForDashboard.value = val
+    } else if (globalAppearance.value !== undefined) {
+      Object.assign(globalAppearance.value, val)
+    }
+  }
+})
 
 // Initialize appearance with defaults if not set
 onMounted(() => {
-  if (!appearance.value) {
-    appearance.value = {}
+  const target = isExternalMode.value ? localAppearanceForDashboard : globalAppearance
+  if (!target.value) {
+    target.value = {}
   }
-  if (!appearance.value.xAxis) appearance.value.xAxis = {}
-  if (!appearance.value.yAxis) appearance.value.yAxis = {}
-  if (!appearance.value.table) appearance.value.table = {}
-  if (!appearance.value.yAxis.numberFormat) appearance.value.yAxis.numberFormat = {}
-  if (!appearance.value.yAxis.scale) appearance.value.yAxis.scale = {}
+  if (!target.value.xAxis) target.value.xAxis = {}
+  if (!target.value.yAxis) target.value.yAxis = {}
+  if (!target.value.table) target.value.table = {}
+  if (!target.value.yAxis?.numberFormat) target.value.yAxis.numberFormat = {}
+  if (!target.value.yAxis?.scale) target.value.yAxis.scale = {}
 })
 
 // Ensure default appearance object exists
 const safeAppearance = computed(() => appearance.value || {})
 
 // Create reactive references to nested objects
-// These getters ensure the nested object exists and return the actual reactive reference
+// Helper to get the target appearance object based on mode
+function getTargetAppearance() {
+  if (isExternalMode.value) {
+    return localAppearanceForDashboard.value
+  }
+  return globalAppearance.value
+}
+
 const xAxis = computed({
   get: () => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.xAxis) appearance.value.xAxis = {}
-    return appearance.value.xAxis
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.xAxis) target.xAxis = {}
+    return target.xAxis
   },
   set: (val) => {
-    if (!appearance.value) appearance.value = {}
-    appearance.value.xAxis = val
+    const target = getTargetAppearance()
+    if (!target) return
+    target.xAxis = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
   }
 })
 
 const yAxis = computed({
   get: () => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.yAxis) appearance.value.yAxis = {}
-    return appearance.value.yAxis
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.yAxis) target.yAxis = {}
+    return target.yAxis
   },
   set: (val) => {
-    if (!appearance.value) appearance.value = {}
-    appearance.value.yAxis = val
+    const target = getTargetAppearance()
+    if (!target) return
+    target.yAxis = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
   }
 })
 
 const yAxisNumberFormat = computed({
   get: () => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.yAxis) appearance.value.yAxis = {}
-    if (!appearance.value.yAxis.numberFormat) appearance.value.yAxis.numberFormat = {}
-    return appearance.value.yAxis.numberFormat
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.yAxis) target.yAxis = {}
+    if (!target.yAxis.numberFormat) target.yAxis.numberFormat = {}
+    return target.yAxis.numberFormat
   },
   set: (val) => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.yAxis) appearance.value.yAxis = {}
-    appearance.value.yAxis.numberFormat = val
+    const target = getTargetAppearance()
+    if (!target) return
+    if (!target.yAxis) target.yAxis = {}
+    target.yAxis.numberFormat = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
   }
 })
 
 const yAxisScale = computed({
   get: () => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.yAxis) appearance.value.yAxis = {}
-    if (!appearance.value.yAxis.scale) appearance.value.yAxis.scale = {}
-    return appearance.value.yAxis.scale
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.yAxis) target.yAxis = {}
+    if (!target.yAxis.scale) target.yAxis.scale = {}
+    return target.yAxis.scale
   },
   set: (val) => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.yAxis) appearance.value.yAxis = {}
-    appearance.value.yAxis.scale = val
+    const target = getTargetAppearance()
+    if (!target) return
+    if (!target.yAxis) target.yAxis = {}
+    target.yAxis.scale = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
   }
 })
 
 const tableSettings = computed({
   get: () => {
-    if (!appearance.value) appearance.value = {}
-    if (!appearance.value.table) appearance.value.table = {}
-    return appearance.value.table
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.table) target.table = {}
+    return target.table
   },
   set: (val) => {
-    if (!appearance.value) appearance.value = {}
-    appearance.value.table = val
+    const target = getTargetAppearance()
+    if (!target) return
+    target.table = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
   }
 })
 
@@ -680,9 +781,10 @@ const ToggleSwitch = defineComponent({
     return () => h('button', {
       type: 'button',
       class: [
-        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+        'relative inline-flex h-5 shrink-0 items-center rounded-full transition-colors cursor-pointer',
         props.modelValue ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
       ],
+      style: {width: '36px', minWidth: '36px', maxWidth: '36px'},
       onClick: () => emit('update:modelValue', !props.modelValue)
     }, [
       h('span', {
