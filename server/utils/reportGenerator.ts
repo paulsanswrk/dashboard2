@@ -170,11 +170,24 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
 
         await page.goto(renderUrl, {
             waitUntil: 'networkidle0',
-            timeout: 30000
+            timeout: 60000
         })
 
-        // Wait for content to load
-        await new Promise(resolve => setTimeout(resolve, 5000))
+        // Wait for Vue to load data and set render-status to 'ready'
+        try {
+            await page.waitForFunction(
+                () => {
+                    const el = document.querySelector('[data-render-status]')
+                    return el && el.getAttribute('data-render-status') === 'ready'
+                },
+                {timeout: 30000}
+            )
+        } catch (e) {
+            console.warn('Timeout waiting for render-status, proceeding with current content')
+        }
+
+        // Additional wait for charts to render after data is loaded
+        await new Promise(resolve => setTimeout(resolve, 2000))
 
         // Get the actual body height
         const bodyHeight = await page.evaluate(() => {

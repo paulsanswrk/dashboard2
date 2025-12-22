@@ -1,12 +1,14 @@
 <template>
-  <Dashboard
-      device="desktop"
-      :layout="gridLayout"
-      :grid-config="gridConfig"
-      :charts="charts"
-      :loading="loading"
-      :preview="true"
-  />
+  <div :data-render-status="renderStatus">
+    <Dashboard
+        device="desktop"
+        :layout="gridLayout"
+        :grid-config="gridConfig"
+        :charts="charts"
+        :loading="loading"
+        :preview="true"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -27,6 +29,9 @@ const {getDashboardFull} = useDashboardsService()
 const charts = ref<Array<{ chartId: number; name: string; position: any; state?: any; preloadedColumns?: any[]; preloadedRows?: any[] }>>([])
 const gridLayout = ref<any[]>([])
 const loading = ref(true)
+
+// Render status for PDF generation to wait on
+const renderStatus = computed(() => loading.value ? 'loading' : 'ready')
 
 // Grid configuration for render (read-only)
 const gridConfig = reactive({
