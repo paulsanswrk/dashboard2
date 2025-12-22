@@ -11,9 +11,7 @@
       <UButton color="orange" variant="solid" class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" size="xs" @click="$emit('edit')" :disabled="readonly">
         Edit Chart
       </UButton>
-      <UButton color="red" variant="outline" size="xs" class="cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30" @click="$emit('delete')" :disabled="readonly">
-        Delete
-      </UButton>
+
     </div>
 
     <!-- Chart Config Editor -->

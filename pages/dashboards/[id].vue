@@ -699,6 +699,11 @@ const sidebarCollapsed = ref(false)
 const renameChartTimers: Record<number, ReturnType<typeof setTimeout>> = {}
 const saveChartOverrideTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 let saveDashboardNameTimer: ReturnType<typeof setTimeout> | null = null
+
+// Helper to check if a widget ID is temporary (pending server creation)
+function isTempWidgetId(widgetId: string | null | undefined): boolean {
+  return widgetId?.startsWith('temp-') ?? false
+}
 let saveLayoutTimer: ReturnType<typeof setTimeout> | null = null
 const textForm = reactive({
   content: 'Add your text',
@@ -948,10 +953,13 @@ watch(tabLayouts, (layouts) => {
   saveLayoutTimer = setTimeout(async () => {
     try {
       const layoutPayload = Object.values(layouts).flatMap((layoutArr) =>
-          (layoutArr || []).map((item) => ({
-            widgetId: String(item.i),
-            position: {x: item.x, y: item.y, w: item.w, h: item.h}
-          }))
+          (layoutArr || [])
+              // Skip widgets with temporary IDs (not yet persisted to server)
+              .filter((item) => !isTempWidgetId(String(item.i)))
+              .map((item) => ({
+                widgetId: String(item.i),
+                position: {x: item.x, y: item.y, w: item.w, h: item.h}
+              }))
       )
       await updateDashboard({
         id: id.value,
@@ -1244,6 +1252,8 @@ watch(dashboardName, (newName) => {
 
 async function persistTextWidget() {
   if (!selectedTextWidgetId.value) return
+  // Skip persisting if widget has a temporary ID (not yet created on server)
+  if (isTempWidgetId(selectedTextWidgetId.value)) return
   try {
     await $fetch('/api/dashboard-widgets', {
       method: 'PUT',
@@ -1276,6 +1286,31 @@ async function addTextBlock() {
   const newPosition = {x: 0, y: nextY, w: 6, h: 2}
   const baseStyle = getDefaultTextStyle()
 
+  // Generate a temporary widget ID for immediate UI update
+  const tempWidgetId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  // Create the widget object for local state
+  const newWidget = {
+    widgetId: tempWidgetId,
+    type: 'text' as const,
+    name: baseStyle.content,
+    position: newPosition,
+    style: baseStyle
+  }
+
+  // Add to local state immediately (no waiting for API)
+  const tab = tabs.value.find(t => t.id === targetTabId)
+  if (tab) {
+    tab.widgets.push(newWidget)
+    // Update layout
+    tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+    gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+  }
+
+  // Select the widget for editing immediately
+  startEditText(tempWidgetId)
+
+  // Persist to server in background
   try {
     const res = await $fetch<{ success: boolean; widgetId: string }>('/api/dashboard-widgets', {
       method: 'POST',
@@ -1286,12 +1321,36 @@ async function addTextBlock() {
         style: baseStyle
       }
     })
-    await load()
-    if (res?.widgetId) {
-      startEditText(res.widgetId)
+
+    // Update the temporary widget ID with the real one from the server
+    if (res?.widgetId && tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets[widgetIndex].widgetId = res.widgetId
+        // Update layout with the new widget ID
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+        initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        // Update selected widget ID if it was the temp one
+        if (selectedTextWidgetId.value === tempWidgetId) {
+          selectedTextWidgetId.value = res.widgetId
+        }
+      }
     }
   } catch (error) {
-    console.error('Failed to add text widget', error)
+    console.error('Failed to persist text widget to server', error)
+    // Optionally remove the widget from local state on failure
+    if (tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets.splice(widgetIndex, 1)
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+      }
+    }
+    if (selectedTextWidgetId.value === tempWidgetId) {
+      selectedTextWidgetId.value = null
+    }
   }
 }
 

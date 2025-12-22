@@ -1215,22 +1215,22 @@ label[for]:not([class*="disabled"]) {
 }
 
 /* Full-width form elements */
-.w-full input,
+/*.w-full input,
 .w-full select,
 .w-full textarea,
 input.w-full,
 select.w-full,
 textarea.w-full {
     width: 100% !important;
-}
+}*/
 
 /* Ensure Nuxt UI form components take full width when w-full is applied */
-.w-full input,
+/*.w-full input,
 .w-full select,
 .w-full textarea,
 .w-full button {
     width: 100%;
-}
+}*/
 
 /* Nuxt UI Select full width - only target select elements specifically */
 select.w-full {

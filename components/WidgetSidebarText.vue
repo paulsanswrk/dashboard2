@@ -44,41 +44,54 @@
       </div>
     </div>
     <div class="flex items-center gap-2">
-      <UButton
-          size="sm"
-          :variant="localForm.bold ? 'solid' : 'outline'"
-          color="orange"
-          class="cursor-pointer"
+      <button
+          type="button"
+          class="relative inline-flex items-center justify-center px-1 py-1 text-xs font-semibold ring-1 ring-inset focus:z-10 rounded-md w-[30px]"
+          :class="localForm.bold ? 'bg-orange-500 text-white ring-orange-500' : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'"
           @click="localForm.bold = !localForm.bold"
-      >B
-      </UButton>
-      <UButton
-          size="sm"
-          :variant="localForm.italic ? 'solid' : 'outline'"
-          color="orange"
-          class="cursor-pointer"
+      >
+        <span class="font-bold">B</span>
+      </button>
+      <button
+          type="button"
+          class="relative inline-flex items-center justify-center px-1 py-1 text-xs font-semibold ring-1 ring-inset focus:z-10 rounded-md w-[30px]"
+          :class="localForm.italic ? 'bg-orange-500 text-white ring-orange-500' : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'"
           @click="localForm.italic = !localForm.italic"
-      >I
-      </UButton>
-      <UButton
-          size="sm"
-          :variant="localForm.underline ? 'solid' : 'outline'"
-          color="orange"
-          class="cursor-pointer"
+      >
+        <span class="italic">I</span>
+      </button>
+      <button
+          type="button"
+          class="relative inline-flex items-center justify-center px-1 py-1 text-xs font-semibold ring-1 ring-inset focus:z-10 rounded-md w-[30px]"
+          :class="localForm.underline ? 'bg-orange-500 text-white ring-orange-500' : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'"
           @click="localForm.underline = !localForm.underline"
-      >U
-      </UButton>
-      <div class="ml-auto flex gap-1">
-        <UButton size="sm" :variant="localForm.align==='left'?'solid':'outline'" color="gray" class="cursor-pointer" @click="localForm.align='left'">
-          <Icon name="i-heroicons-bars-3-bottom-left-20-solid" class="w-4 h-4"/>
-        </UButton>
-        <UButton size="sm" :variant="localForm.align==='center'?'solid':'outline'" color="gray" class="cursor-pointer" @click="localForm.align='center'">
-          <Icon name="i-heroicons-bars-3-20-solid" class="w-4 h-4"/>
-        </UButton>
-        <UButton size="sm" :variant="localForm.align==='right'?'solid':'outline'" color="gray" class="cursor-pointer" @click="localForm.align='right'">
-          <Icon name="i-heroicons-bars-3-bottom-right-20-solid" class="w-4 h-4"/>
-        </UButton>
-      </div>
+      >
+        <span class="underline">U</span>
+      </button>
+      <button
+          type="button"
+          class="relative inline-flex items-center justify-center px-1 py-1 text-xs font-semibold ring-1 ring-inset focus:z-10 rounded-md w-[30px]"
+          :class="localForm.align==='left' ? 'bg-gray-600 text-white ring-gray-600' : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'"
+          @click="localForm.align='left'"
+      >
+        <Icon name="i-heroicons-bars-3-bottom-left-20-solid" class="w-4 h-4"/>
+      </button>
+      <button
+          type="button"
+          class="relative inline-flex items-center justify-center px-1 py-1 text-xs font-semibold ring-1 ring-inset focus:z-10 rounded-md w-[30px]"
+          :class="localForm.align==='center' ? 'bg-gray-600 text-white ring-gray-600' : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'"
+          @click="localForm.align='center'"
+      >
+        <Icon name="i-heroicons-bars-3-20-solid" class="w-4 h-4"/>
+      </button>
+      <button
+          type="button"
+          class="relative inline-flex items-center justify-center px-1 py-1 text-xs font-semibold ring-1 ring-inset focus:z-10 rounded-md w-[30px]"
+          :class="localForm.align==='right' ? 'bg-gray-600 text-white ring-gray-600' : 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'"
+          @click="localForm.align='right'"
+      >
+        <Icon name="i-heroicons-bars-3-bottom-right-20-solid" class="w-4 h-4"/>
+      </button>
     </div>
     <div class="grid grid-cols-2 gap-2">
       <div>
@@ -95,7 +108,7 @@
             :portal="true"
             :popper="{ strategy: 'fixed' }"
             :ui="{ content: 'z-[120]' }"
-            class="mt-1"
+            class="mt-1 w-full"
         />
       </div>
       <div>
@@ -112,16 +125,11 @@
             :portal="true"
             :popper="{ strategy: 'fixed' }"
             :ui="{ content: 'z-[120]' }"
-            class="mt-1"
+            class="mt-1 w-full"
         />
       </div>
     </div>
-    <div class="flex justify-between items-center pt-2 text-xs text-gray-400">
-      <span>Changes save automatically</span>
-      <UButton size="xs" color="red" variant="outline" class="cursor-pointer" @click="confirmDelete">
-        Delete
-      </UButton>
-    </div>
+
   </div>
 </template>
 
@@ -152,13 +160,6 @@ function emitContent() {
   emit('update-text-content', localForm.content || '')
 }
 
-function confirmDelete() {
-  const shouldDelete = typeof window !== 'undefined'
-      ? window.confirm('Delete this text block? This action cannot be undone.')
-      : true
-  if (shouldDelete) {
-    emit('delete-widget')
-  }
-}
+
 </script>
 

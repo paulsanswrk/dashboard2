@@ -16,14 +16,14 @@
         </div>
 
         <!-- Tab Navigation -->
-        <div class="border-b border-gray-200 dark:border-gray-700">
-          <nav class="flex space-x-8">
+        <div class="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          <nav class="flex gap-6 min-w-max px-1">
             <button
                 v-for="tab in tabs"
                 :key="tab.key"
                 @click="activeTab = tab.key"
                 :class="[
-                'py-2 px-1 border-b-2 font-medium text-sm cursor-pointer transition-colors duration-200',
+                '!w-auto !flex-none py-2 px-1 border-b-2 font-medium text-sm cursor-pointer transition-colors duration-200 whitespace-nowrap',
                 activeTab === tab.key
                   ? 'border-orange-500 text-orange-600 dark:text-orange-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
@@ -78,17 +78,12 @@
                   <span class="text-sm text-gray-500">
                     {{ user.hasAccess ? 'Can access' : 'No access' }}
                   </span>
-                  <div
-                      class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer"
-                      :class="user.hasAccess ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'"
-                      @click="user.role !== 'ADMIN' && toggleUserAccess(user)"
-                  >
-                    <button
-                        type="button"
-                        class="inline-block h-4 w-4 transform rounded-full bg-white transition pointer-events-none"
-                        :class="{ 'translate-x-6': user.hasAccess }"
-                    ></button>
-                  </div>
+                  <USwitch
+                      :model-value="user.hasAccess"
+                      @update:model-value="user.role !== 'ADMIN' && toggleUserAccess(user)"
+                      class="data-[state=checked]:!bg-orange-500"
+                      :disabled="user.role === 'ADMIN'"
+                  />
                   <span class="text-xs text-gray-400 w-12">
                     {{ user.role === 'ADMIN' ? 'Always' : '' }}
                   </span>
@@ -148,17 +143,11 @@
             <div class="space-y-4">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium">Public Access</span>
-                <div
-                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 cursor-pointer"
-                    :class="isPublic ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'"
-                    @click="togglePublicAccess"
-                >
-                  <button
-                      type="button"
-                      class="inline-block h-4 w-4 transform rounded-full bg-white transition pointer-events-none"
-                      :class="{ 'translate-x-6': isPublic }"
-                  ></button>
-                </div>
+                <USwitch
+                    v-model="isPublic"
+                    @change="updatePublicAccess"
+                    class="data-[state=checked]:!bg-orange-500"
+                />
               </div>
 
               <div v-if="isPublic" class="space-y-4">
@@ -224,7 +213,7 @@
 
         <!-- Footer -->
         <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <UButton variant="outline" @click="closeModal">
+          <UButton variant="outline" @click="closeModal" class="!w-auto">
             Close
           </UButton>
         </div>
@@ -480,10 +469,6 @@ async function removeViewerAccess(viewer: any) {
   }
 }
 
-function togglePublicAccess() {
-  isPublic.value = !isPublic.value
-  updatePublicAccess()
-}
 
 async function updatePublicAccess() {
   try {
