@@ -202,20 +202,32 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
         await page.close()
 
         // Ensure PDF is a proper Buffer
-        let pdfBuffer = pdf
-        if (!Buffer.isBuffer(pdfBuffer)) {
-            console.error(`PDF generation returned non-Buffer type:`, {
-                type: typeof pdfBuffer,
-                constructor: pdfBuffer?.constructor?.name,
-                length: pdfBuffer?.length
+        // Puppeteer may return Uint8Array in serverless environments (despite type declarations)
+        // We use 'unknown' type to handle the runtime mismatch
+        const pdfResult = pdf as unknown
+        let pdfBuffer: Buffer
+        if (Buffer.isBuffer(pdfResult)) {
+            pdfBuffer = pdfResult
+        } else if (pdfResult instanceof Uint8Array) {
+            // Convert Uint8Array to Buffer (common in serverless/Vercel)
+            pdfBuffer = Buffer.from(pdfResult)
+        } else if (ArrayBuffer.isView(pdfResult)) {
+            // Handle any typed array view
+            pdfBuffer = Buffer.from(pdfResult.buffer, pdfResult.byteOffset, pdfResult.byteLength)
+        } else if (pdfResult instanceof ArrayBuffer) {
+            // Handle raw ArrayBuffer
+            pdfBuffer = Buffer.from(pdfResult)
+        } else if (typeof pdfResult === 'string') {
+            pdfBuffer = Buffer.from(pdfResult, 'utf8')
+        } else if (Array.isArray(pdfResult)) {
+            pdfBuffer = Buffer.from(pdfResult)
+        } else {
+            console.error(`PDF generation returned unexpected type:`, {
+                type: typeof pdfResult,
+                constructor: (pdfResult as any)?.constructor?.name,
+                length: (pdfResult as any)?.length
             })
-            if (typeof pdfBuffer === 'string') {
-                pdfBuffer = Buffer.from(pdfBuffer, 'utf8')
-            } else if (Array.isArray(pdfBuffer)) {
-                pdfBuffer = Buffer.from(pdfBuffer)
-            } else {
-                throw new Error('PDF generation returned invalid data type')
-            }
+            throw new Error('PDF generation returned invalid data type')
         }
 
         // Validate PDF header

@@ -18,8 +18,8 @@
               <span class="text-sm font-medium" :class="aiModeEnabled ? 'text-green-400' : 'text-white'">AI Mode</span>
             </label>
           </div>
-          <!-- Connection Selector for AI Mode -->
-          <div v-if="aiModeEnabled">
+          <!-- Connection Selector (always visible) -->
+          <div>
             <label class="block text-xs text-neutral-400 mb-1">Data Connection</label>
             <select
               v-model="connectionId"

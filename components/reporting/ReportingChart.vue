@@ -1259,26 +1259,53 @@ function renderChart() {
     return
   }
 
-  // Bubble chart - scatter with dynamic symbol sizes
+  // Bubble chart - scatter with categorical X-axis and dynamic symbol sizes
   if (type === 'bubble') {
     const palette = (props.appearance?.palette && props.appearance.palette.length
         ? props.appearance.palette
         : defaultColors)
 
-    // Bubble chart expects 3 values: x, y, size
-    const bubbleData: [number, number, number][] = []
-    const sizeKey = props.breakdowns?.[0]?.fieldId
+    // Bubble chart: X dimension (category), Y metric (value), Size (from breakdowns or second metric)
     const xKey = props.xDimensions?.[0]?.fieldId
     const yKey = metricAliases.value[0]
+    const sizeKey = props.breakdowns?.[0]?.fieldId || metricAliases.value[1]
 
-    props.rows.forEach(row => {
-      const x = xKey ? Number(row[xKey]) || 0 : 0
+    // Build bubble data with category, y value, and size
+    const categories: string[] = []
+    const bubbleData: { value: [number, number, number], name: string }[] = []
+
+    props.rows.forEach((row, idx) => {
+      const category = xKey ? String(row[xKey] || 'Unknown') : `Item ${idx + 1}`
       const y = yKey ? Number(row[yKey]) || 0 : 0
       const size = sizeKey ? Number(row[sizeKey]) || 10 : 10
-      bubbleData.push([x, y, size])
+
+      let catIndex = categories.indexOf(category)
+      if (catIndex === -1) {
+        categories.push(category)
+        catIndex = categories.length - 1
+      }
+
+      bubbleData.push({
+        value: [catIndex, y, size],
+        name: category
+      })
     })
 
-    const maxSize = Math.max(...bubbleData.map(d => d[2]), 1)
+    if (bubbleData.length === 0) {
+      chartInstance.setOption({
+        backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
+        title: {
+          text: 'No data available',
+          left: 'center',
+          top: 'middle'
+        }
+      })
+      return
+    }
+
+    // Calculate symbol sizes based on the size values
+    const maxSize = Math.max(...bubbleData.map(d => d.value[2]), 1)
+    const minSize = Math.min(...bubbleData.map(d => d.value[2]), 1)
 
     const option = {
       backgroundColor: props.appearance?.backgroundTransparent ? 'transparent' : (props.appearance?.backgroundColor || 'transparent'),
@@ -1287,21 +1314,77 @@ function renderChart() {
         show: !!props.appearance?.chartTitle,
         left: 'center'
       },
-      xAxis: {type: 'value', scale: true},
-      yAxis: {type: 'value', scale: true},
+      tooltip: {
+        trigger: 'item',
+        confine: true,
+        appendToBody: true,
+        renderMode: 'html',
+        formatter: (params: any) => {
+          const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+          const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+          const yValue = formatNumber(params.data.value[1], dp, ts)
+          const sizeValue = formatNumber(params.data.value[2], dp, ts)
+          return `<div style="padding: 5px 10px;">${params.data.name}<br/>${yKey || 'value'}: ${yValue}<br/>${sizeKey || 'size'}: ${sizeValue}</div>`
+        }
+      },
+      grid: {
+        left: '10%',
+        right: '10%',
+        top: '10%',
+        bottom: '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: categories,
+        axisLabel: {
+          rotate: categories.length > 10 ? 45 : 0,
+          interval: 0
+        },
+        boundaryGap: true
+      },
+      yAxis: {
+        type: 'value',
+        scale: true,
+        axisLabel: {
+          formatter: (value: number) => {
+            const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
+            const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
+            return formatNumber(value, dp, ts)
+          }
+        }
+      },
       series: [{
         type: 'scatter',
         data: bubbleData,
-        symbolSize: (data: number[]) => Math.max(10, (data[2] / maxSize) * 50),
-        itemStyle: {color: palette[0]},
+        symbolSize: (data: number[]) => {
+          // Scale bubble size between 20 and 80 pixels based on value
+          const normalized = (data[2] - minSize) / (maxSize - minSize || 1)
+          return 20 + normalized * 60
+        },
+        itemStyle: {
+          color: palette[0],
+          opacity: 0.7
+        },
         emphasis: {
           focus: 'series',
-          itemStyle: {shadowBlur: 10}
+          itemStyle: {
+            shadowBlur: 10,
+            opacity: 1
+          }
         }
       }]
     }
 
     chartInstance.setOption(option)
+
+    // Add click handler for drill
+    chartInstance.on('click', (params: any) => {
+      if (params.componentType === 'series') {
+        emit('drill', {xValue: params.data.name, seriesName: 'bubble', datasetIndex: 0, index: params.dataIndex})
+      }
+    })
+    
     return
   }
 

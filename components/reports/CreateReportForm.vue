@@ -156,12 +156,11 @@
                 <UButton
                   v-for="format in formatOptions"
                   :key="format.value"
-                  color="neutral"
+                  :color="selectedFormats.includes(format.value) ? 'orange' : 'neutral'"
                   :variant="selectedFormats.includes(format.value) ? 'solid' : 'outline'"
                   :ui="selectedFormats.includes(format.value)
-                    ? { base: 'cursor-pointer hover:bg-orange-600 transition-colors' }
-                    : { base: 'cursor-pointer text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors' }"
-
+                    ? { base: 'cursor-pointer bg-orange-500 text-white hover:bg-orange-600 shadow-sm ring-2 ring-orange-500/30 transition-all' }
+                    : { base: 'cursor-pointer text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-all' }"
                   size="sm"
                   @click="toggleFormat(format.value)"
                 >
