@@ -505,7 +505,12 @@ async function loadConnectionConfigForReport(connectionId: number, reportUserId:
             throw new Error('Connection not found')
         }
 
-        if (data.owner_id !== reportUserId) {
+        // Use the proper permission check that handles:
+        // - Direct ownership
+        // - Organization-based access (admins in same org)
+        // - Members of the same organization as the connection
+        const hasPermission = await checkConnectionPermission(connectionId, reportUserId)
+        if (!hasPermission) {
             throw new Error('Access to connection denied')
         }
 

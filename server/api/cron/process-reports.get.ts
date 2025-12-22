@@ -126,8 +126,8 @@ export default defineEventHandler(async (event) => {
         )
       `)
             .eq('delivery_status', 'PENDING')
-            // .gte('scheduled_for', fiveMinutesAgo.toISO())
-            // .lte('scheduled_for', fiveMinutesFromNow.toISO())
+            .gte('scheduled_for', fiveMinutesAgo.toISO())
+            .lte('scheduled_for', fiveMinutesFromNow.toISO())
             .order('scheduled_for', {ascending: true})
 
         if (queueError) {

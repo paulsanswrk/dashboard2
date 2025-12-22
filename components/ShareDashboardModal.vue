@@ -249,7 +249,7 @@ const isOpen = computed({
 const activeTab = ref('users')
 const tabs = [
   { key: 'users', label: 'Users' },
-  { key: 'viewers', label: 'Viewers' },
+  // { key: 'viewers', label: 'Viewers' }, // Temporarily hidden
   { key: 'public', label: 'Public URL' }
 ]
 
@@ -274,21 +274,26 @@ const publicUrl = ref('')
 const viewerOptions = computed(() => {
   const options = []
 
-  // Individual viewers
-  organizationViewers.value.forEach(viewer => {
-    options.push({
-      id: `viewer-${viewer.userId}`,
-      label: `${viewer.firstName} ${viewer.lastName} (${viewer.viewerType || 'Viewer'})`,
-      value: viewer.userId,
-      email: viewer.email,
-      type: 'viewer'
-    })
-  })
+  // Get IDs of viewers who already have access
+  const viewerIdsWithAccess = new Set(dashboardViewers.value.map(v => v.id))
 
-  // Viewer groups (if they exist)
+  // Individual viewers (exclude those who already have access)
+  organizationViewers.value
+      .filter(viewer => !viewerIdsWithAccess.has(viewer.userId))
+      .forEach(viewer => {
+        options.push({
+          id: `viewer-${viewer.userId}`,
+          label: `${viewer.firstName} ${viewer.lastName} (${viewer.viewerType || 'Viewer'})`,
+          value: viewer.userId,
+          email: viewer.email,
+          type: 'viewer'
+        })
+      })
+
+  // Viewer groups (if they exist) - only include groups with remaining members
   const groups = {}
   organizationViewers.value.forEach(viewer => {
-    if (viewer.groupName) {
+    if (viewer.groupName && !viewerIdsWithAccess.has(viewer.userId)) {
       if (!groups[viewer.groupName]) {
         groups[viewer.groupName] = []
       }
