@@ -4,7 +4,7 @@
         device="desktop"
         :layout="gridLayout"
         :grid-config="gridConfig"
-        :charts="charts"
+        :widgets="widgets"
         :loading="loading"
         :preview="true"
     />
@@ -26,7 +26,20 @@ useHead({
 
 const {getDashboardFull} = useDashboardsService()
 
-const charts = ref<Array<{ chartId: number; name: string; position: any; state?: any; preloadedColumns?: any[]; preloadedRows?: any[] }>>([])
+interface Widget {
+  widgetId: string
+  type: 'chart' | 'text' | 'image' | 'icon'
+  chartId?: number
+  name?: string
+  position: any
+  state?: any
+  preloadedColumns?: any[]
+  preloadedRows?: any[]
+  style?: any
+  configOverride?: any
+}
+
+const widgets = ref<Widget[]>([])
 const gridLayout = ref<any[]>([])
 const loading = ref(true)
 
@@ -39,7 +52,7 @@ const gridConfig = reactive({
   colNum: 12,
   rowHeight: 30,
   maxRows: Infinity,
-  margin: [20, 20],
+  margin: [20, 20] as [number, number],
 
   // Behavior properties (disabled for render)
   isDraggable: false,
@@ -65,12 +78,12 @@ const gridConfig = reactive({
 })
 
 function fromPositions() {
-  gridLayout.value = charts.value.map(c => ({
-    x: c.position?.x ?? 0,
-    y: c.position?.y ?? 0,
-    w: c.position?.w ?? 4,
-    h: c.position?.h ?? 8,
-    i: String(c.chartId)
+  gridLayout.value = widgets.value.map(w => ({
+    x: w.position?.x ?? 0,
+    y: w.position?.y ?? 0,
+    w: w.position?.w ?? 4,
+    h: w.position?.h ?? 8,
+    i: String(w.widgetId)
   }))
 }
 
@@ -81,22 +94,27 @@ async function load() {
     const contextToken = route.query.context as string | undefined
     const res = await getDashboardFull(id.value, contextToken)
 
-    // Flatten charts from all tabs
-    const allCharts: any[] = []
+    // Flatten all widgets from all tabs
+    const allWidgets: Widget[] = []
     for (const tab of res.tabs || []) {
-      for (const chart of tab.charts || []) {
-        allCharts.push(chart)
+      for (const widget of (tab.widgets || [])) {
+        // Map API response to Widget interface
+        allWidgets.push({
+          widgetId: String(widget.widgetId),
+          type: widget.type as 'chart' | 'text',
+          chartId: widget.id,
+          name: widget.name || '',
+          position: widget.position,
+          state: widget.state,
+          preloadedColumns: widget.data?.columns,
+          preloadedRows: widget.data?.rows,
+          style: widget.style,
+          configOverride: widget.configOverride
+        })
       }
     }
 
-    charts.value = allCharts.map((c: any) => ({
-      chartId: c.id,
-      name: c.name,
-      position: c.position,
-      state: c.state,
-      preloadedColumns: c.data?.columns,
-      preloadedRows: c.data?.rows
-    }))
+    widgets.value = allWidgets
     fromPositions()
   } finally {
     loading.value = false
