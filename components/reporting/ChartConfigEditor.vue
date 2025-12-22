@@ -465,8 +465,13 @@ onMounted(() => {
 const safeAppearance = computed(() => appearance.value || {})
 
 // Create reactive references to nested objects
+// These getters ensure the nested object exists and return the actual reactive reference
 const xAxis = computed({
-  get: () => safeAppearance.value.xAxis || {},
+  get: () => {
+    if (!appearance.value) appearance.value = {}
+    if (!appearance.value.xAxis) appearance.value.xAxis = {}
+    return appearance.value.xAxis
+  },
   set: (val) => {
     if (!appearance.value) appearance.value = {}
     appearance.value.xAxis = val
@@ -474,31 +479,53 @@ const xAxis = computed({
 })
 
 const yAxis = computed({
-  get: () => appearance.value.yAxis || {},
+  get: () => {
+    if (!appearance.value) appearance.value = {}
+    if (!appearance.value.yAxis) appearance.value.yAxis = {}
+    return appearance.value.yAxis
+  },
   set: (val) => {
+    if (!appearance.value) appearance.value = {}
     appearance.value.yAxis = val
   }
 })
 
 const yAxisNumberFormat = computed({
-  get: () => appearance.value.yAxis?.numberFormat || {},
+  get: () => {
+    if (!appearance.value) appearance.value = {}
+    if (!appearance.value.yAxis) appearance.value.yAxis = {}
+    if (!appearance.value.yAxis.numberFormat) appearance.value.yAxis.numberFormat = {}
+    return appearance.value.yAxis.numberFormat
+  },
   set: (val) => {
+    if (!appearance.value) appearance.value = {}
     if (!appearance.value.yAxis) appearance.value.yAxis = {}
     appearance.value.yAxis.numberFormat = val
   }
 })
 
 const yAxisScale = computed({
-  get: () => appearance.value.yAxis?.scale || {},
+  get: () => {
+    if (!appearance.value) appearance.value = {}
+    if (!appearance.value.yAxis) appearance.value.yAxis = {}
+    if (!appearance.value.yAxis.scale) appearance.value.yAxis.scale = {}
+    return appearance.value.yAxis.scale
+  },
   set: (val) => {
+    if (!appearance.value) appearance.value = {}
     if (!appearance.value.yAxis) appearance.value.yAxis = {}
     appearance.value.yAxis.scale = val
   }
 })
 
 const tableSettings = computed({
-  get: () => appearance.value.table || {},
+  get: () => {
+    if (!appearance.value) appearance.value = {}
+    if (!appearance.value.table) appearance.value.table = {}
+    return appearance.value.table
+  },
   set: (val) => {
+    if (!appearance.value) appearance.value = {}
     appearance.value.table = val
   }
 })

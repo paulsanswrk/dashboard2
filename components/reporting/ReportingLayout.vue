@@ -8,14 +8,14 @@
     <main class="overflow-auto">
       <slot name="center" />
     </main>
-    <aside v-if="showRightSidebar" class="border-l bg-white overflow-auto">
+    <aside v-if="showRightSidebar" class="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-dark overflow-auto">
       <slot name="right" />
     </aside>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, computed } from 'vue'
+import {computed, nextTick, onMounted, ref} from 'vue'
 
 // Props
 const props = defineProps<{

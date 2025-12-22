@@ -549,6 +549,49 @@ footer {
     @apply bg-neutral-800 border-neutral-700;
 }
 
+/* Dark theme for Chart Config Editor sidebar */
+.dark .chart-config-editor input,
+.dark .chart-config-editor select,
+.dark .chart-config-editor textarea {
+    background-color: #1f2937 !important;
+    /* gray-800 */
+    border-color: #4b5563 !important;
+    /* gray-600 */
+    color: #ffffff !important;
+}
+
+.dark .chart-config-editor input::placeholder {
+    color: #9ca3af !important;
+    /* gray-400 */
+}
+
+/* ConfigSection content area */
+.dark .chart-config-editor .border.rounded {
+    border-color: #374151 !important;
+    /* gray-700 */
+}
+
+.dark .chart-config-editor .bg-white {
+    background-color: #111827 !important;
+    /* gray-900 */
+}
+
+.dark .chart-config-editor .bg-gray-50 {
+    background-color: #1f2937 !important;
+    /* gray-800 */
+}
+
+/* Right sidebar in reporting layout */
+.dark .resizable-layout > aside:last-child {
+    background-color: var(--color-dark) !important;
+}
+
+/* Ensure sidebar content has proper dark styling */
+.dark .resizable-layout > aside:last-child .bg-white {
+    background-color: #111827 !important;
+    /* gray-900 */
+}
+
 /* Ensure text selection is enabled globally */
 * {
     -webkit-user-select: text;
@@ -1194,4 +1237,17 @@ select.w-full,
 .w-full > div,
 .w-full > button {
     width: 100%;
+}
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
 }

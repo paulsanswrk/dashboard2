@@ -139,10 +139,6 @@
               <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4 mr-2"/>
               Account Settings
             </UButton>
-            <UButton variant="ghost" size="sm" class="w-full justify-start text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" @click="navigateTo('/billing')">
-              <Icon name="i-heroicons-credit-card" class="w-4 h-4 mr-2"/>
-              Billing
-            </UButton>
           </div>
         </div>
       </UCard>

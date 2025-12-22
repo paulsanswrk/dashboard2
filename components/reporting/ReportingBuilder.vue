@@ -99,15 +99,40 @@
       <div>
         <h3 class="font-medium mb-2">Preview</h3>
         <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
-                    :disabled="loading"
-                    class="flex flex-col items-center justify-center w-16 h-16 rounded border disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    :class="chartType === t.value ? 'border-primary bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'">
-              <Icon :name="t.icon" class="w-6 h-6" />
-              <span class="text-xs mt-1">{{ t.label }}</span>
-            </button>
+          <!-- Left Arrow -->
+          <button
+              @click="scrollChartTypes('left')"
+              class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              :disabled="!canScrollLeft"
+          >
+            <Icon name="i-heroicons-chevron-left" class="w-5 h-5"/>
+          </button>
+
+          <!-- Scrollable Chart Types Container -->
+          <div
+              ref="chartTypesContainerRef"
+              class="flex-1 mx-2 overflow-x-auto scrollbar-hide"
+              @scroll="updateScrollState"
+          >
+            <div class="flex items-center gap-2">
+              <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
+                      :disabled="loading"
+                      class="flex flex-col items-center justify-center w-16 h-16 flex-shrink-0 rounded border disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                      :class="chartType === t.value ? 'border-primary bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'">
+                <Icon :name="t.icon" class="w-6 h-6"/>
+                <span class="text-xs mt-1">{{ t.label }}</span>
+              </button>
+            </div>
           </div>
+
+          <!-- Right Arrow -->
+          <button
+              @click="scrollChartTypes('right')"
+              class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              :disabled="!canScrollRight"
+          >
+            <Icon name="i-heroicons-chevron-right" class="w-5 h-5"/>
+          </button>
         </div>
         <div v-if="serverError" class="mb-3 p-2 border border-red-300 bg-red-50 text-red-700 text-sm rounded">
           {{ serverError }}
@@ -239,6 +264,35 @@ const chartTypes = [
 
 const chartComponentRef = ref<any>(null)
 const previewAreaRef = ref<HTMLElement | null>(null)
+const chartTypesContainerRef = ref<HTMLElement | null>(null)
+
+// Chart types scroller state
+const canScrollLeft = ref(false)
+const canScrollRight = ref(true)
+
+const updateScrollState = () => {
+  const container = chartTypesContainerRef.value
+  if (!container) return
+  canScrollLeft.value = container.scrollLeft > 0
+  canScrollRight.value = container.scrollLeft < container.scrollWidth - container.clientWidth - 1
+}
+
+const scrollChartTypes = (direction: 'left' | 'right') => {
+  const container = chartTypesContainerRef.value
+  if (!container) return
+  const scrollAmount = 200 // Scroll by 3 chart type buttons approximately
+  container.scrollBy({
+    left: direction === 'left' ? -scrollAmount : scrollAmount,
+    behavior: 'smooth'
+  })
+  // Update state after scroll animation
+  setTimeout(updateScrollState, 300)
+}
+
+// Initialize scroll state on mount
+onMounted(() => {
+  setTimeout(updateScrollState, 100)
+})
 
 // Zone configuration for different chart types
 type ZoneConfig = {

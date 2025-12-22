@@ -167,13 +167,13 @@
     </template>
 
     <template #right>
-      <div class="p-4 space-y-4 relative">
+      <div class="p-4 space-y-4 relative text-gray-900 dark:text-white">
         <!-- Close button in top right corner -->
         <button
           @click="sidebarVisible = !sidebarVisible"
-          class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          <Icon name="i-heroicons-x-mark" class="w-5 h-5 text-gray-500 hover:text-gray-700"/>
+          <Icon name="i-heroicons-x-mark" class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"/>
         </button>
 
         <h2 class="font-medium mb-2 pr-8">Chart Config</h2>

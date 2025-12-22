@@ -105,15 +105,19 @@
           </div>
 
           <!-- Terms and Conditions -->
-          <div class="pt-4">
-            <UCheckbox v-model="form.acceptTerms" :error="errors.acceptTerms" label="Accept Terms and Conditions" class="text-black dark:text-white cursor-pointer">
-              <span class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                I agree to the 
-                <a href="#" class="text-primary hover:text-primary-600">Terms of Service</a>
-                and 
-                <a href="#" class="text-primary hover:text-primary-600">Privacy Policy</a>
-              </span>
-            </UCheckbox>
+          <div class="pt-4 flex items-start">
+            <UCheckbox
+                v-model="form.acceptTerms"
+                :error="errors.acceptTerms"
+                class="text-black dark:text-white cursor-pointer mt-0.5"
+                :ui="{ base: 'w-4 h-4 min-w-4' }"
+            />
+            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none" @click="form.acceptTerms = !form.acceptTerms">
+              I agree to the 
+              <a href="#" class="text-primary hover:text-primary-600" @click.stop>Terms of Service</a>
+              and 
+              <a href="#" class="text-primary hover:text-primary-600" @click.stop>Privacy Policy</a>
+            </span>
           </div>
 
           <UAlert
