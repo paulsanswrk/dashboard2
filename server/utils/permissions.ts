@@ -1,7 +1,7 @@
 import {supabaseAdmin} from '../api/supabase'
 import {db} from '../../lib/db'
-import {dashboards, profiles, dashboardAccess, viewers} from '../../lib/db/schema'
-import {eq, and, or} from 'drizzle-orm'
+import {dashboardAccess, dashboards, profiles, viewers} from '../../lib/db/schema'
+import {and, eq} from 'drizzle-orm'
 
 /**
  * Check if a user has permission to use a specific data connection
@@ -135,22 +135,17 @@ export async function checkDashboardPermission(dashboardId: string, userId?: str
             return true
         }
 
-        // 3. Check explicit access via dashboard_access table
+        // 3. Check explicit access via dashboard_access table (user or group only)
+        // Note: target_type='org' is NOT checked here because:
+        // - Admins already have access via the role check above
+        // - Editors/Viewers need explicit sharing per requirements
         const accessRecord = await db
             .select()
             .from(dashboardAccess)
             .where(and(
                 eq(dashboardAccess.dashboardId, dashboardId),
-                or(
-                    and(
-                        eq(dashboardAccess.targetType, 'user'),
-                        eq(dashboardAccess.targetUserId, userId)
-                    ),
-                    and(
-                        eq(dashboardAccess.targetType, 'org'),
-                        eq(dashboardAccess.targetOrgId, userProfile?.organizationId)
-                    )
-                )
+                eq(dashboardAccess.targetType, 'user'),
+                eq(dashboardAccess.targetUserId, userId)
             ))
             .limit(1)
             .then(rows => rows[0])
@@ -237,23 +232,18 @@ export async function checkEditPermission(dashboardId: string, userId: string): 
             return true
         }
 
-        // Check explicit edit access via dashboard_access table
+        // Check explicit edit access via dashboard_access table (user only)
+        // Note: target_type='org' is NOT checked here because:
+        // - Admins already have edit access via the role check above
+        // - Editors/Viewers need explicit sharing per requirements
         const editAccessRecord = await db
             .select()
             .from(dashboardAccess)
             .where(and(
                 eq(dashboardAccess.dashboardId, dashboardId),
                 eq(dashboardAccess.accessLevel, 'edit'),
-                or(
-                    and(
-                        eq(dashboardAccess.targetType, 'user'),
-                        eq(dashboardAccess.targetUserId, userId)
-                    ),
-                    and(
-                        eq(dashboardAccess.targetType, 'org'),
-                        eq(dashboardAccess.targetOrgId, userProfile?.organizationId)
-                    )
-                )
+                eq(dashboardAccess.targetType, 'user'),
+                eq(dashboardAccess.targetUserId, userId)
             ))
             .limit(1)
             .then(rows => rows[0])

@@ -35,6 +35,27 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Report title is required' })
   }
 
+    // Map frontend time frame labels to database values
+    const mapTimeFrame = (frontendValue: string): string => {
+        const timeFrameMap: Record<string, string> = {
+            'As On Dashboard': 'As On Dashboard',
+            'Last week': 'Last 7 Days',
+            'Last month': 'Last 30 Days',
+            'Last quarter': 'Last Quarter',
+            // Keep exact matches for backward compatibility
+            'Last 7 Days': 'Last 7 Days',
+            'Last 30 Days': 'Last 30 Days'
+        }
+        return timeFrameMap[frontendValue] || 'As On Dashboard' // Default fallback
+    }
+
+    const mappedTimeFrame = mapTimeFrame(time_frame)
+
+    const validTimeFrames = ['As On Dashboard', 'Last 7 Days', 'Last 30 Days', 'Last Quarter']
+    if (!validTimeFrames.includes(mappedTimeFrame)) {
+        throw createError({statusCode: 400, statusMessage: `Invalid time_frame. Must be one of: ${validTimeFrames.join(', ')}`})
+    }
+
   if (!Array.isArray(recipients) || recipients.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'At least one recipient is required' })
   }
@@ -98,7 +119,7 @@ export default defineEventHandler(async (event) => {
         scope,
         dashboard_id: scope === 'Dashboard' ? dashboard_id : null,
           tab_id: scope === 'Single Tab' ? tab_id : null,
-        time_frame,
+          time_frame: mappedTimeFrame,
         formats,
         interval,
         send_time,
