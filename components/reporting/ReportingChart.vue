@@ -273,11 +273,14 @@ function renderChart() {
       },
       tooltip: {
         trigger: 'item',
+        confine: true,
+        appendToBody: true,
+        renderMode: 'html',
         formatter: (params: any) => {
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const value = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
-          return `${params.name}: ${value}`
+          return `<div style="padding: 5px 10px;">${params.name}: ${value}</div>`
         }
       },
       legend: {
@@ -561,11 +564,14 @@ function renderChart() {
       },
       tooltip: {
         trigger: 'item',
+        confine: true,
+        appendToBody: true,
+        renderMode: 'html',
         formatter: (params: any) => {
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
-          return `${params.name}: ${formattedValue}`
+          return `<div style="padding: 5px 10px;">${params.name}: ${formattedValue}</div>`
         }
       },
       legend: {
@@ -755,11 +761,15 @@ function renderChart() {
       },
       tooltip: {
         trigger: 'item',
+        confine: true,
+        position: 'top',
+        renderMode: 'html',
+        appendToBody: true,
         formatter: (params: any) => {
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
-          return `${params.name}: ${formattedValue}`
+          return `<div style="padding: 5px 10px;">${params.name}: ${formattedValue}</div>`
         }
       },
       series: [{
@@ -866,14 +876,17 @@ function renderChart() {
       },
       tooltip: {
         trigger: 'item',
+        confine: true,
+        appendToBody: true,
+        renderMode: 'html',
         formatter: (params: any) => {
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const formattedValue = typeof params.value === 'number' ? formatNumber(params.value, dp, ts) : params.value
           if (params.dataType === 'node') {
-            return `${params.name}`
+            return `<div style="padding: 5px 10px;">${params.name}</div>`
           } else {
-            return `${params.data.source} → ${params.data.target}: ${formattedValue}`
+            return `<div style="padding: 5px 10px;">${params.data.source} → ${params.data.target}: ${formattedValue}</div>`
           }
         }
       },
@@ -1061,11 +1074,14 @@ function renderChart() {
       },
       tooltip: {
         position: 'top',
+        confine: true,
+        appendToBody: true,
+        renderMode: 'html',
         formatter: (params: any) => {
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const value = formatNumber(params.data[2], dp, ts)
-          return `${rowArray[params.data[1]]} / ${colArray[params.data[0]]}: ${value}`
+          return `<div style="padding: 5px 10px;">${rowArray[params.data[1]]} / ${colArray[params.data[0]]}: ${value}</div>`
         }
       },
       grid: {
@@ -1540,11 +1556,18 @@ function renderChart() {
     },
     tooltip: {
       trigger: 'axis',
+      confine: true,
+      appendToBody: true,
+      renderMode: 'html',
       axisPointer: {
-        type: 'cross'
+        type: 'line',
+        lineStyle: {
+          color: '#999',
+          type: 'dashed'
+        }
       },
       formatter: (params: any) => {
-        let result = ''
+        let result = '<div style="padding: 5px 10px;">'
         params.forEach((param: any) => {
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
@@ -1553,6 +1576,7 @@ function renderChart() {
           const value = typeof param.value === 'number' ? `${prefix}${formatNumber(param.value, dp, ts)}${suffix}` : param.value
           result += `${param.seriesName}: ${value}<br/>`
         })
+        result += '</div>'
         return result
       }
     },

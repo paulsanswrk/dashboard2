@@ -51,7 +51,7 @@
             <label class="text-xs text-gray-600 dark:text-gray-400">Show labels</label>
             <ToggleSwitch v-model="appearance.showLabels"/>
           </div>
-          <div class="flex items-center justify-between">
+          <div v-if="false" class="flex items-center justify-between">
             <label class="text-xs text-gray-600 dark:text-gray-400">Show labels (%)</label>
             <ToggleSwitch v-model="appearance.showLabelsPercent"/>
           </div>
