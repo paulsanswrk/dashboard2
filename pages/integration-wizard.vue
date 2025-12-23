@@ -84,6 +84,7 @@
                   v-model="form.internalName"
                   :error="errors.internalName"
                   class="w-full"
+                  @focus="focusedField = 'internalName'"
                 />
               </UFormField>
 
@@ -93,6 +94,7 @@
                   v-model="form.databaseName"
                   :error="errors.databaseName"
                     class="w-full"
+                    @focus="focusedField = 'databaseName'"
                 />
               </UFormField>
 
@@ -103,6 +105,7 @@
                   placeholder="Select Database Type"
                   :error="errors.databaseType"
                   class="w-full"
+                  @focus="focusedField = 'databaseType'"
                 />
               </UFormField>
 
@@ -112,6 +115,7 @@
                   v-model="form.host"
                   :error="errors.host"
                     class="w-full"
+                    @focus="focusedField = 'host'"
                 />
               </UFormField>
 
@@ -121,6 +125,7 @@
                   v-model="form.username"
                   :error="errors.username"
                     class="w-full"
+                    @focus="focusedField = 'username'"
                 />
               </UFormField>
 
@@ -131,6 +136,7 @@
                   v-model="form.password"
                   :error="errors.password"
                     class="w-full"
+                    @focus="focusedField = 'password'"
                 />
               </UFormField>
 
@@ -140,6 +146,7 @@
                   v-model="form.port"
                   :error="errors.port"
                     class="w-full"
+                    @focus="focusedField = 'port'"
                 />
               </UFormField>
 
@@ -150,6 +157,7 @@
                   placeholder="Select Time Zone"
                   :error="errors.serverTime"
                   class="w-full"
+                  @focus="focusedField = 'serverTime'"
                 />
               </UFormField>
             </div>
@@ -160,17 +168,21 @@
                 color="orange" 
                 variant="soft"
                 title="Information"
-                description="Please give us a name how we should label your database internally. This label will only appear in our tool and helps you to distinguish between different data sources."
+                :description="currentHint"
               />
 
               <!-- SSH Tunneling Section -->
               <div class="space-y-4">
-                <div class="flex items-center justify-between">
+                <div
+                    class="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-md -m-2"
+                    @click="focusedField = 'sshTunneling'"
+                >
                   <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Use SSH Tunneling</h3>
                   <UCheckbox 
                     v-model="form.useSshTunneling" 
                     color="orange"
                     aria-label="Use SSH Tunneling"
+                    @focus="focusedField = 'sshTunneling'"
                   />
                 </div>
 
@@ -184,6 +196,7 @@
                         placeholder="22"
                       v-model="form.sshPort"
                         class="w-full"
+                        @focus="focusedField = 'sshPort'"
                     />
                   </UFormField>
 
@@ -192,6 +205,7 @@
                         placeholder="Enter SSH User Name"
                       v-model="form.sshUser"
                         class="w-full"
+                        @focus="focusedField = 'sshUser'"
                     />
                   </UFormField>
 
@@ -200,6 +214,7 @@
                         placeholder="Enter SSH Host Address"
                       v-model="form.sshHost"
                         class="w-full"
+                        @focus="focusedField = 'sshHost'"
                     />
                   </UFormField>
 
@@ -209,6 +224,7 @@
                         placeholder="Enter SSH Password"
                       v-model="form.sshPassword"
                         class="w-full"
+                        @focus="focusedField = 'sshPassword'"
                     />
                   </UFormField>
 
@@ -221,6 +237,7 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
                       v-model="form.sshPrivateKey"
                       :rows="8"
                       class="w-full font-mono text-xs"
+                      @focus="focusedField = 'sshPrivateKey'"
                     />
                     <template #help>
                       <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -364,6 +381,30 @@ const form = ref({
   sshPassword: '',
   sshPrivateKey: '',
   storageLocation: 'remote'
+})
+
+// Context-sensitive form hints (collected from admin.optiqo.report)
+const focusedField = ref('internalName')
+
+const fieldHints = {
+  internalName: 'Please give us a name how we should label your database internally. This label will only appear in our tool and helps you to distinguish between different data sources.',
+  databaseName: 'Please type in the actual name of your database.',
+  databaseType: 'Select the type of database you are connecting to.',
+  host: 'Please give us the IP address or domain name of your database server. If your database is operating behind a firewall, please make sure to whitelist the IP of this instance.',
+  username: 'Please create a user in your database and give us the credentials. The user should only have READ permissions and for analytical purposes be allowed to create temporary tables. Of course, you also can give us an existing user account.',
+  password: 'Please type in the password corresponding to the username provided to us.',
+  port: 'Database port is optional. Unless it is provided, we will use default port depending on your database type.',
+  serverTime: 'The timezone that your database server is configured with.',
+  sshTunneling: 'If secure connection is required or database is only accessible from private network, Secure SSH tunneling has to be used.',
+  sshPort: 'Port value of your server. This value is by default 22 for most SSH enabled servers.',
+  sshUser: 'We highly recommend you to provide a user that has limited privileges and is able to connect to your database server.',
+  sshHost: 'Physical address of your remote server.',
+  sshPassword: 'Using our provided public key is recommended. Alternatively, you can also provide us a password that is used for SSH connection instead of public key.',
+  sshPrivateKey: 'Paste your SSH private key here. Make sure to include the BEGIN and END lines.'
+}
+
+const currentHint = computed(() => {
+  return fieldHints[focusedField.value] || fieldHints.internalName
 })
 
 // Debug mode auto-fill
