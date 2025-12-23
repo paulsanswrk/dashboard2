@@ -16,7 +16,7 @@
               <option value="inner">inner</option>
               <option value="left">left</option>
             </select>
-            <button class="px-2 py-1 border rounded text-sm" @click="add(rel, joinType[idx] || 'inner')">Add</button>
+            <button class="px-2 py-1 border rounded text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" @click="add(rel, joinType[idx] || 'inner')">Add</button>
           </div>
         </div>
       </div>
@@ -31,7 +31,7 @@
             <div class="font-medium">{{ j.joinType.toUpperCase() }}: {{ j.sourceTable }} → {{ j.targetTable }}</div>
             <div class="text-gray-600">{{ formatPairs(j.columnPairs) }}</div>
           </div>
-          <button class="text-red-600 underline" @click="remove(i)">remove</button>
+          <button class="text-red-600 underline cursor-pointer hover:text-red-700 transition-colors" @click="remove(i)">remove</button>
         </li>
       </ul>
     </div>
@@ -39,8 +39,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useReportState, type JoinRef } from '@/composables/useReportState'
+import {ref} from 'vue'
+import {type JoinRef, useReportState} from '@/composables/useReportState'
 
 const props = defineProps<{ relationships: Array<{ constraintName: string; sourceTable: string; targetTable: string; columnPairs: Array<{ position?: number; sourceColumn: string; targetColumn: string }> }> }>()
 

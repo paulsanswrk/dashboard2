@@ -1,11 +1,10 @@
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
 import {db} from '~/lib/db'
-import {dashboards, profiles, dashboardAccess, dashboardTabs, dashboardWidgets, charts} from '~/lib/db/schema'
-import {eq, and, or} from 'drizzle-orm'
+import {charts, dashboardAccess, dashboards, dashboardTabs, dashboardWidgets, profiles} from '~/lib/db/schema'
+import {and, eq, or} from 'drizzle-orm'
 import {createHash} from 'crypto'
 import {withMySqlConnection, withMySqlConnectionConfig} from '../../../utils/mysqlClient'
-import {loadConnectionConfigFromSupabase} from '../../../utils/connectionConfig'
 import {supabaseAdmin} from '../../supabase'
 
 export default defineEventHandler(async (event) => {
@@ -115,8 +114,10 @@ export default defineEventHandler(async (event) => {
                     .from(dashboardAccess)
                     .where(and(
                         eq(dashboardAccess.dashboardId, dashboardId),
-                        eq(dashboardAccess.targetType, 'user'),
-                        eq(dashboardAccess.targetUserId, user.id)
+                        or(
+                            and(eq(dashboardAccess.targetType, 'user'), eq(dashboardAccess.targetUserId, user.id)),
+                            and(eq(dashboardAccess.targetType, 'org'), eq(dashboardAccess.targetOrgId, userProfile.organizationId))
+                        )
                     ))
                     .limit(1)
                     .then(rows => rows[0])
@@ -159,8 +160,10 @@ export default defineEventHandler(async (event) => {
                             .from(dashboardAccess)
                             .where(and(
                                 eq(dashboardAccess.dashboardId, dashboardId),
-                                eq(dashboardAccess.targetType, 'user'),
-                                eq(dashboardAccess.targetUserId, user.id)
+                                or(
+                                    and(eq(dashboardAccess.targetType, 'user'), eq(dashboardAccess.targetUserId, user.id)),
+                                    and(eq(dashboardAccess.targetType, 'org'), eq(dashboardAccess.targetOrgId, userProfile.organizationId))
+                                )
                             ))
                             .limit(1)
                             .then(rows => rows[0])

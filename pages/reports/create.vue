@@ -12,8 +12,8 @@
       </UButton>
     </div>
 
-    <!-- Form Container -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+    <!-- Form Container - no outer card, let the form's cards expand -->
+    <div class="px-6 pb-6">
       <CreateReportForm
         @report-created="onReportCreated"
         @cancel="onCancel"

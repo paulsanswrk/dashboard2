@@ -12,14 +12,14 @@
         <div class="p-2 max-h-72 overflow-auto">
           <div class="mb-2 relative">
             <UInput v-model="tablesQuery" placeholder="Search" class="w-full pr-8" />
-            <button v-if="tablesQuery" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500" @click="tablesQuery = ''">
+            <button v-if="tablesQuery" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer hover:text-gray-700" @click="tablesQuery = ''">
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </div>
           <ul class="space-y-1">
             <li v-for="t in filteredTables" :key="t.id" class="flex items-center gap-2">
               <UCheckbox :model-value="!!selected[t.id]" @update:model-value="(v) => toggleTable(t.id, v)" />
-              <button class="text-left flex-1 truncate" @click="toggleExpand(t.id)">{{ t.label || t.name }}</button>
+              <button class="text-left flex-1 truncate cursor-pointer hover:text-primary-600 transition-colors" @click="toggleExpand(t.id)">{{ t.label || t.name }}</button>
             </li>
           </ul>
         </div>

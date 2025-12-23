@@ -10,173 +10,176 @@
     </div>
 
     <form @submit.prevent="saveReport" class="space-y-8">
-      <!-- Recipients & Message Section -->
-      <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-6">Recipients & Message</h3>
+      <!-- Grid container for cards -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Recipients & Message Section -->
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-6">Recipients & Message</h3>
 
-        <div class="grid grid-cols-1 gap-6">
-          <!-- Report Title -->
-          <div>
-            <UFormField label="Report Title" required>
-              <UInput
-                v-model="reportForm.report_title"
-                placeholder="Enter report title"
-                class="w-full"
-                required
-              />
-            </UFormField>
-          </div>
+          <div class="grid grid-cols-1 gap-6">
+            <!-- Report Title -->
+            <div>
+              <UFormField label="Report Title" required>
+                <UInput
+                    v-model="reportForm.report_title"
+                    placeholder="Enter report title"
+                    class="w-full"
+                    required
+                />
+              </UFormField>
+            </div>
 
-          <!-- Recipients -->
-          <div>
-            <UFormField label="Recipients" required>
-              <div class="space-y-3">
-                <div v-for="(recipient, index) in recipients" :key="index" class="flex gap-2">
-                  <UInput
-                    v-model="recipients[index]"
-                    placeholder="Enter email address or select user"
-                    class="flex-1"
-                    type="email"
-                  />
+            <!-- Recipients -->
+            <div>
+              <UFormField label="Recipients" required>
+                <div class="space-y-3">
+                  <div v-for="(recipient, index) in recipients" :key="index" class="flex gap-2">
+                    <UInput
+                        v-model="recipients[index]"
+                        placeholder="Enter email address or select user"
+                        class="flex-1"
+                        type="email"
+                    />
+                    <UButton
+                        variant="outline"
+                        size="sm"
+                        color="red"
+                        :ui="{ base: 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors' }"
+                        @click="removeRecipient(index)"
+                        icon="i-heroicons-minus"
+                    />
+                  </div>
                   <UButton
-                    variant="outline"
-                    size="sm"
-                    color="red"
-                    :ui="{ base: 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors' }"
-                    @click="removeRecipient(index)"
-                    icon="i-heroicons-minus"
-                  />
+                      variant="outline"
+                      color="orange"
+                      size="sm"
+                      :ui="{ base: 'cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/20 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
+                      @click="addRecipient"
+                      icon="i-heroicons-plus"
+                  >
+                    Add Recipient
+                  </UButton>
                 </div>
-                <UButton
-                  variant="outline"
-                  color="orange"
-                  size="sm"
-                  :ui="{ base: 'cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-900/20 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
-                  @click="addRecipient"
-                  icon="i-heroicons-plus"
-                >
-                  Add Recipient
-                </UButton>
-              </div>
-            </UFormField>
-          </div>
+              </UFormField>
+            </div>
 
-          <!-- Email Subject -->
-          <div>
-            <UFormField label="Email Subject" required>
-              <UInput
-                v-model="reportForm.email_subject"
-                placeholder="Enter email subject"
-                class="w-full"
-                required
-              />
-            </UFormField>
-          </div>
+            <!-- Email Subject -->
+            <div>
+              <UFormField label="Email Subject" required>
+                <UInput
+                    v-model="reportForm.email_subject"
+                    placeholder="Enter email subject"
+                    class="w-full"
+                    required
+                />
+              </UFormField>
+            </div>
 
-          <!-- Email Message -->
-          <div>
-            <UFormField label="Email Message">
-              <UTextarea
-                v-model="reportForm.email_message"
-                placeholder="Add a custom message to your report email..."
-                class="w-full"
-                :rows="4"
-                :maxlength="500"
-              />
-              <div class="text-sm text-gray-500 mt-1">
-                {{ (reportForm.email_message || '').length }}/500 characters
-              </div>
-            </UFormField>
+            <!-- Email Message -->
+            <div>
+              <UFormField label="Email Message">
+                <UTextarea
+                    v-model="reportForm.email_message"
+                    placeholder="Add a custom message to your report email..."
+                    class="w-full"
+                    :rows="4"
+                    :maxlength="500"
+                />
+                <div class="text-sm text-gray-500 mt-1">
+                  {{ (reportForm.email_message || '').length }}/500 characters
+                </div>
+              </UFormField>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content Selection Section -->
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-6">Content Selection</h3>
+
+          <div class="grid grid-cols-1 gap-6">
+            <!-- Scope Selection -->
+            <div>
+              <UFormField label="Report Scope" required>
+                <fieldset class="flex gap-2" aria-label="Report Scope">
+                  <legend class="sr-only">Report Scope</legend>
+                  <label
+                      v-for="scopeOption in scopeOptions"
+                      :key="scopeOption.value"
+                      class="cursor-pointer"
+                  >
+                    <input
+                        class="sr-only"
+                        type="radio"
+                        name="report-scope"
+                        :value="scopeOption.value"
+                        v-model="reportForm.scope"
+                    />
+                    <span :class="getToggleButtonClasses(reportForm.scope === scopeOption.value)">
+                      {{ scopeOption.label }}
+                    </span>
+                  </label>
+                </fieldset>
+              </UFormField>
+            </div>
+
+            <!-- Content Selector -->
+            <div>
+              <UFormField :label="contentSelectorLabel" required>
+                <USelect
+                    v-model="reportForm.content_id"
+                    :items="contentOptions"
+                    :loading="contentLoading"
+                    placeholder="Select content to report on"
+                    required
+                    class="w-full"
+                    :ui="{ content: 'cursor-pointer' }"
+                />
+              </UFormField>
+            </div>
+
+            <!-- Time Frame -->
+            <div>
+              <UFormField label="Time Frame" required>
+                <USelect
+                    v-model="reportForm.time_frame"
+                    :items="timeFrameOptions"
+                    required
+                    class="w-full"
+                    :ui="{ content: 'cursor-pointer' }"
+                />
+              </UFormField>
+            </div>
+
+            <!-- Export Formats -->
+            <div>
+              <UFormField label="Export Formats" required>
+                <div class="flex flex-wrap gap-2">
+                  <UButton
+                      v-for="format in formatOptions"
+                      :key="format.value"
+                      :color="selectedFormats.includes(format.value) ? 'orange' : 'neutral'"
+                      :variant="selectedFormats.includes(format.value) ? 'solid' : 'outline'"
+                      :ui="selectedFormats.includes(format.value)
+                      ? { base: 'cursor-pointer bg-orange-500 text-white hover:bg-orange-600 shadow-sm ring-2 ring-orange-500/30 transition-all' }
+                      : { base: 'cursor-pointer text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-all' }"
+                      size="sm"
+                      @click="toggleFormat(format.value)"
+                  >
+                    <UIcon
+                        :name="getFormatIcon(format.value)"
+                        class="w-4 h-4 mr-1"
+                    />
+                    {{ format.label }}
+                  </UButton>
+                </div>
+              </UFormField>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Content Selection Section -->
-      <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-6">Content Selection</h3>
-
-        <div class="grid grid-cols-1 gap-6">
-          <!-- Scope Selection -->
-          <div>
-            <UFormField label="Report Scope" required>
-              <fieldset class="flex gap-2" aria-label="Report Scope">
-                <legend class="sr-only">Report Scope</legend>
-                <label
-                  v-for="scopeOption in scopeOptions"
-                  :key="scopeOption.value"
-                  class="cursor-pointer"
-                >
-                  <input
-                      class="sr-only"
-                      type="radio"
-                      name="report-scope"
-                      :value="scopeOption.value"
-                      v-model="reportForm.scope"
-                  />
-                  <span :class="getToggleButtonClasses(reportForm.scope === scopeOption.value)">
-                    {{ scopeOption.label }}
-                  </span>
-                </label>
-              </fieldset>
-            </UFormField>
-          </div>
-
-          <!-- Content Selector -->
-          <div>
-            <UFormField :label="contentSelectorLabel" required>
-              <USelect
-                v-model="reportForm.content_id"
-                :items="contentOptions"
-                :loading="contentLoading"
-                placeholder="Select content to report on"
-                required
-                class="w-64"
-                :ui="{ content: 'cursor-pointer' }"
-              />
-            </UFormField>
-          </div>
-
-          <!-- Time Frame -->
-          <div>
-            <UFormField label="Time Frame" required>
-              <USelect
-                v-model="reportForm.time_frame"
-                :items="timeFrameOptions"
-                required
-                class="w-64"
-                :ui="{ content: 'cursor-pointer' }"
-              />
-            </UFormField>
-          </div>
-
-          <!-- Export Formats -->
-          <div>
-            <UFormField label="Export Formats" required>
-              <div class="flex flex-wrap gap-2">
-                <UButton
-                  v-for="format in formatOptions"
-                  :key="format.value"
-                  :color="selectedFormats.includes(format.value) ? 'orange' : 'neutral'"
-                  :variant="selectedFormats.includes(format.value) ? 'solid' : 'outline'"
-                  :ui="selectedFormats.includes(format.value)
-                    ? { base: 'cursor-pointer bg-orange-500 text-white hover:bg-orange-600 shadow-sm ring-2 ring-orange-500/30 transition-all' }
-                    : { base: 'cursor-pointer text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-all' }"
-                  size="sm"
-                  @click="toggleFormat(format.value)"
-                >
-                  <UIcon
-                    :name="getFormatIcon(format.value)"
-                    class="w-4 h-4 mr-1"
-                  />
-                  {{ format.label }}
-                </UButton>
-              </div>
-            </UFormField>
-          </div>
-        </div>
-      </div>
-
-      <!-- Schedule Configuration Section -->
+      <!-- Schedule Configuration Section (full width) -->
       <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-6">Schedule Configuration</h3>
 
@@ -228,7 +231,7 @@
                     :items="timezoneOptions"
                     placeholder="Select timezone"
                     required
-                    class="w-64"
+                    class="w-full"
                     :ui="{ content: 'cursor-pointer' }"
                   />
                 </UFormField>
@@ -312,7 +315,7 @@
         <UButton
           variant="outline"
           color="gray"
-          :ui="{ base: 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors' }"
+          :ui="{ base: 'cursor-pointer bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors' }"
           @click="$emit('cancel')"
           :disabled="saving"
         >
@@ -321,7 +324,7 @@
         <UButton
           type="submit"
           color="orange"
-          :ui="{ base: 'cursor-pointer hover:bg-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
+          :ui="{ base: 'cursor-pointer bg-orange-500 hover:bg-orange-600 text-white focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
           :loading="saving"
         >
           {{ props.editingReport ? 'Update Scheduled Report' : 'Create Scheduled Report' }}

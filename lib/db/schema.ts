@@ -38,17 +38,6 @@ export const profiles = pgTable('profiles', {
 ])
 
 // Viewers table
-export const viewers = pgTable('viewers', {
-    userId: uuid('user_id').primaryKey().references(() => authUsers.id, {onDelete: 'cascade'}),
-    organizationId: uuid('organization_id').notNull().references(() => organizations.id, {onDelete: 'cascade'}),
-    firstName: text('first_name'),
-    lastName: text('last_name'),
-    viewerType: text('viewer_type'),
-    groupName: text('group_name'),
-    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
-}, (table) => [
-    index('idx_viewers_organization_id').on(table.organizationId),
-])
 
 // Charts table
 // Data connections table
@@ -264,7 +253,6 @@ export const dashboardAccess = pgTable('dashboard_access', {
 // Relations
 export const organizationsRelations = relations(organizations, ({many, one}) => ({
     profiles: many(profiles),
-    viewers: many(viewers),
     createdBy: one(authUsers, {
         fields: [organizations.createdBy],
         references: [authUsers.id],
@@ -282,16 +270,6 @@ export const profilesRelations = relations(profiles, ({one}) => ({
     }),
 }))
 
-export const viewersRelations = relations(viewers, ({one}) => ({
-    organization: one(organizations, {
-        fields: [viewers.organizationId],
-        references: [organizations.id],
-    }),
-    user: one(authUsers, {
-        fields: [viewers.userId],
-        references: [authUsers.id],
-    }),
-}))
 
 export const dashboardsRelations = relations(dashboards, ({one, many}) => ({
     creatorUser: one(authUsers, {

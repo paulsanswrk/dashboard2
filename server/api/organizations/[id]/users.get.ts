@@ -3,8 +3,8 @@ import {defineEventHandler} from 'h3'
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../../supabase'
 import {db} from '~/lib/db'
-import {profiles, dashboardAccess, viewers} from '~/lib/db/schema'
-import {eq, and, sql} from 'drizzle-orm'
+import {dashboardAccess, profiles} from '~/lib/db/schema'
+import {and, eq, sql} from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
     const user = await serverSupabaseUser(event)
@@ -102,17 +102,24 @@ export default defineEventHandler(async (event) => {
     // Get organization viewers (for completeness, though not used in current UI)
     const orgViewersRaw = await db
         .select({
-            userId: viewers.userId,
-            firstName: viewers.firstName,
-            lastName: viewers.lastName,
-            viewerType: viewers.viewerType,
-            groupName: viewers.groupName,
-            email: sql<string>`${viewers.firstName} || '.' || ${viewers.lastName} || '@example.com'`, // Fallback email
-            createdAt: viewers.createdAt
+            userId: profiles.userId,
+            firstName: profiles.firstName,
+            lastName: profiles.lastName,
+            viewerType: profiles.viewerType,
+            groupName: profiles.groupName,
+            email: sql<string>`${profiles.firstName}
+            || '.' ||
+            ${profiles.lastName}
+            ||
+            '@example.com'`, // Fallback email
+            createdAt: profiles.createdAt
         })
-        .from(viewers)
-        .where(eq(viewers.organizationId, organizationId))
-        .orderBy(viewers.createdAt)
+        .from(profiles)
+        .where(and(
+            eq(profiles.organizationId, organizationId),
+            eq(profiles.role, 'VIEWER')
+        ))
+        .orderBy(profiles.createdAt)
 
     // Update viewers with real emails
     const orgViewers = orgViewersRaw.map(viewer => ({

@@ -1,5 +1,5 @@
 import {db} from '../index'
-import {appLog, charts, dashboards, organizations, profiles, viewers} from '../schema'
+import {appLog, charts, dashboards, organizations, profiles} from '../schema'
 import {count, desc, eq, inArray, sql} from 'drizzle-orm'
 
 // Get organization statistics
@@ -17,8 +17,10 @@ export async function getOrganizationStats() {
             .from(profiles)
             .where(inArray(profiles.role, ['ADMIN', 'EDITOR'])),
 
-        // Total viewers count
-        db.select({count: count()}).from(viewers),
+        // Total viewers count (profiles with VIEWER role)
+        db.select({count: count()})
+            .from(profiles)
+            .where(eq(profiles.role, 'VIEWER')),
     ])
 
     return {
@@ -63,16 +65,17 @@ export async function getRecentUsers(limit: number = 5) {
 export async function getRecentViewers(limit: number = 5) {
     const recentViewers = await db
         .select({
-            userId: viewers.userId,
-            firstName: viewers.firstName,
-            lastName: viewers.lastName,
-            viewerType: viewers.viewerType,
+            userId: profiles.userId,
+            firstName: profiles.firstName,
+            lastName: profiles.lastName,
+            viewerType: profiles.viewerType,
             organizationName: organizations.name,
-            createdAt: viewers.createdAt,
+            createdAt: profiles.createdAt,
         })
-        .from(viewers)
-        .leftJoin(organizations, eq(viewers.organizationId, organizations.id))
-        .orderBy(desc(viewers.createdAt))
+        .from(profiles)
+        .leftJoin(organizations, eq(profiles.organizationId, organizations.id))
+        .where(eq(profiles.role, 'VIEWER'))
+        .orderBy(desc(profiles.createdAt))
         .limit(limit)
 
     return recentViewers.map(viewer => ({

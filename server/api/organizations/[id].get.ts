@@ -1,7 +1,7 @@
 // @ts-ignore Nuxt Supabase helper available at runtime
 import {serverSupabaseUser} from '#supabase/server'
 import {db} from '~/lib/db'
-import {organizations, profiles, viewers, dashboards} from '~/lib/db/schema'
+import {dashboards, organizations, profiles} from '~/lib/db/schema'
 import {eq, sql} from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -64,16 +64,13 @@ export default defineEventHandler(async (event) => {
               profileCount: sql<number>`count(distinct
               ${profiles.userId}
               )`,
-              viewerCount: sql<number>`count(distinct
-              ${viewers.userId}
-              )`,
+              viewerCount: sql<number>`count(distinct CASE WHEN ${profiles.role} = 'VIEWER' THEN ${profiles.userId} END)`,
               dashboardCount: sql<number>`count(distinct
               ${dashboards.id}
               )`
           })
           .from(organizations)
           .leftJoin(profiles, eq(organizations.id, profiles.organizationId))
-          .leftJoin(viewers, eq(organizations.id, viewers.organizationId))
           .leftJoin(dashboards, eq(organizations.id, dashboards.organizationId))
           .where(eq(organizations.id, organizationId))
           .groupBy(organizations.id)
@@ -94,16 +91,17 @@ export default defineEventHandler(async (event) => {
       // Get organization viewers
       const orgViewers = await db
           .select({
-              userId: viewers.userId,
-              firstName: viewers.firstName,
-              lastName: viewers.lastName,
-              viewerType: viewers.viewerType,
-              groupName: viewers.groupName,
-              createdAt: viewers.createdAt
+              userId: profiles.userId,
+              firstName: profiles.firstName,
+              lastName: profiles.lastName,
+              viewerType: profiles.viewerType,
+              groupName: profiles.groupName,
+              createdAt: profiles.createdAt
           })
-          .from(viewers)
-          .where(eq(viewers.organizationId, organizationId))
-          .orderBy(viewers.createdAt)
+          .from(profiles)
+          .where(eq(profiles.organizationId, organizationId))
+          .where(eq(profiles.role, 'VIEWER'))
+          .orderBy(profiles.createdAt)
 
       // Build response
     const organizationWithCounts = {

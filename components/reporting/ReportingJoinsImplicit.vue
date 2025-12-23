@@ -48,20 +48,20 @@
           </label>
         </div>
         <div class="mt-2">
-          <button class="px-2 py-1 border rounded" @click="applyChoice" :disabled="choiceIdx===null">Apply join</button>
+          <button class="px-2 py-1 border rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" @click="applyChoice" :disabled="choiceIdx===null">Apply join</button>
         </div>
       </div>
 
       <div v-if="relevantRels.length === 1 && !appliedJoins.length" class="text-sm">
-        <button class="px-2 py-1 border rounded" @click="applySingle">Apply suggested join</button>
+        <button class="px-2 py-1 border rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" @click="applySingle">Apply suggested join</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue'
-import { useReportState, type JoinRef } from '@/composables/useReportState'
+import {ref, watchEffect} from 'vue'
+import {type JoinRef, useReportState} from '@/composables/useReportState'
 
 const props = defineProps<{ relationships: Array<{ constraintName: string; sourceTable: string; targetTable: string; columnPairs: Array<{ position?: number; sourceColumn: string; targetColumn: string }> }> ; serverError?: string | null; serverWarnings?: string[] }>()
 

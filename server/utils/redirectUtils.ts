@@ -46,7 +46,7 @@ export function getRedirectPathFromProfile(userProfile: UserProfile | null): str
   if (!userProfile?.role) {
     return null
   }
-  
+
   return getRedirectPathByRole(userProfile.role)
 }
 
@@ -69,7 +69,7 @@ export function canAccessPath(role: UserRole, path: string): boolean {
 
     // Viewers cannot access data connections or reporting builder
     if (role === 'VIEWER') {
-        if (path.startsWith('/data-sources') || path.startsWith('/reporting')) {
+        if (path.startsWith('/data-sources') || path.startsWith('/reporting') || path.startsWith('/integration-wizard')) {
             return false
         }
     }

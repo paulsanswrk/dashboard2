@@ -21,9 +21,9 @@
       <div class="space-y-2">
         <div class="flex items-center gap-2" v-for="(c, i) in (appearance.palette || [])" :key="i">
           <input v-model="appearance.palette[i]" class="border rounded px-2 py-1 w-28" placeholder="#3366FF" />
-          <button class="text-sm text-red-600 underline" @click="removeColor(i)">remove</button>
+          <button class="text-sm text-red-600 underline cursor-pointer hover:text-red-700 transition-colors" @click="removeColor(i)">remove</button>
         </div>
-        <button class="text-sm underline" @click="addColor">+ add color</button>
+        <button class="text-sm underline cursor-pointer hover:text-primary-600 transition-colors" @click="addColor">+ add color</button>
       </div>
     </div>
     <div>
@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { useReportState } from '@/composables/useReportState'
+import {useReportState} from '@/composables/useReportState'
 
 const { appearance } = useReportState()
 

@@ -1,6 +1,6 @@
 import {supabaseAdmin} from '../api/supabase'
 import {db} from '../../lib/db'
-import {dashboardAccess, dashboards, profiles, viewers} from '../../lib/db/schema'
+import {dashboardAccess, dashboards, profiles} from '../../lib/db/schema'
 import {and, eq} from 'drizzle-orm'
 
 /**
@@ -38,19 +38,7 @@ export async function checkConnectionPermission(connectionId: number, userId: st
                 .single()
 
             if (profileError || !profile) {
-                // User might be a viewer, check viewers table
-                const {data: viewer, error: viewerError} = await supabaseAdmin
-                    .from('viewers')
-                    .select('organization_id')
-                    .eq('user_id', userId)
-                    .single()
-
-                if (viewerError || !viewer) {
-                    return false
-                }
-
-                // Viewer has access if they're in the same organization as the connection
-                return viewer.organization_id === connection.organization_id
+                return false
             }
 
             // Regular user: check if they're in the same organization
@@ -154,32 +142,9 @@ export async function checkDashboardPermission(dashboardId: string, userId?: str
             return true
         }
 
-        // 4. Check if user is a viewer with explicit access
+        // No access if user profile not found
         if (!userProfile) {
-            const viewerRecord = await db
-                .select()
-                .from(viewers)
-                .where(eq(viewers.userId, userId))
-                .limit(1)
-                .then(rows => rows[0])
-
-            if (viewerRecord) {
-                // Check if viewer has explicit access via dashboard_access
-                const viewerAccessRecord = await db
-                    .select()
-                    .from(dashboardAccess)
-                    .where(and(
-                        eq(dashboardAccess.dashboardId, dashboardId),
-                        eq(dashboardAccess.targetType, 'user'),
-                        eq(dashboardAccess.targetUserId, userId)
-                    ))
-                    .limit(1)
-                    .then(rows => rows[0])
-
-                if (viewerAccessRecord) {
-                    return true
-                }
-            }
+            return false
         }
 
         return false

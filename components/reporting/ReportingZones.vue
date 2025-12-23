@@ -29,7 +29,7 @@
                 <template v-if="d.sort"><span v-if="d.table || d.dateInterval"> • </span>{{ d.sort }}</template>
               </div>
             </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click.stop="remove('x', i)" aria-label="Remove" data-remove>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('x', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
@@ -68,7 +68,7 @@
                 <template v-if="m.aggregation"><span v-if="m.table"> • </span>{{ formatAggregation(m.aggregation) }}</template>
               </div>
             </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click.stop="remove('y', i)" aria-label="Remove" data-remove>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('y', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
@@ -108,7 +108,7 @@
                 <template v-if="b.sort"><span v-if="b.table || b.dateInterval"> • </span>{{ b.sort }}</template>
               </div>
             </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400" @click.stop="remove('breakdowns', i)" aria-label="Remove" data-remove>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('breakdowns', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
@@ -133,8 +133,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import {useReportState, type ReportField, type MetricRef, type DimensionRef} from '../../composables/useReportState'
+import {computed, ref} from 'vue'
+import {type DimensionRef, type MetricRef, type ReportField, useReportState} from '../../composables/useReportState'
 import ReportingFieldOptionsPopup from './ReportingFieldOptionsPopup.vue'
 
 type ZoneConfig = {

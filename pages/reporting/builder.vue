@@ -73,7 +73,7 @@
               <button
                 @click="sendAiMessage"
                 :disabled="aiLoading || !aiInput.trim()"
-                class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end cursor-pointer"
               >
                 <Icon v-if="aiLoading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
                 <span v-else>Send</span>
@@ -110,7 +110,7 @@
                     class="rounded-md overflow-hidden"
                   >
                     <button
-                      class="w-full flex items-center justify-between px-3 py-2 bg-primary text-white text-sm font-medium"
+                        class="w-full flex items-center justify-between px-3 py-2 bg-primary text-white text-sm font-medium hover:bg-primary-700 cursor-pointer transition-colors"
                       @click="selectDataset(ds.id)"
                     >
                       <span class="truncate">{{ ds.label || ds.name }}</span>
@@ -171,7 +171,7 @@
         <!-- Close button in top right corner -->
         <button
           @click="sidebarVisible = !sidebarVisible"
-          class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
         >
           <Icon name="i-heroicons-x-mark" class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"/>
         </button>

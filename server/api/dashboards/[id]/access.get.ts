@@ -3,8 +3,8 @@ import {defineEventHandler} from 'h3'
 import {serverSupabaseUser} from '#supabase/server'
 import {supabaseAdmin} from '../../supabase'
 import {db} from '~/lib/db'
-import {dashboards, profiles, dashboardAccess, viewers} from '~/lib/db/schema'
-import {eq, and} from 'drizzle-orm'
+import {dashboardAccess, dashboards, profiles} from '~/lib/db/schema'
+import {and, eq} from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
     const user = await serverSupabaseUser(event)
@@ -73,14 +73,17 @@ export default defineEventHandler(async (event) => {
     // Get viewers with access from the organization
     const organizationViewers = await db
         .select({
-            userId: viewers.userId,
-            firstName: viewers.firstName,
-            lastName: viewers.lastName,
-            viewerType: viewers.viewerType,
-            groupName: viewers.groupName
+            userId: profiles.userId,
+            firstName: profiles.firstName,
+            lastName: profiles.lastName,
+            viewerType: profiles.viewerType,
+            groupName: profiles.groupName
         })
-        .from(viewers)
-        .where(eq(viewers.organizationId, dashboard.organizationId))
+        .from(profiles)
+        .where(and(
+            eq(profiles.organizationId, dashboard.organizationId),
+            eq(profiles.role, 'VIEWER')
+        ))
 
     // Get user emails from Supabase Auth
     const userIds = [

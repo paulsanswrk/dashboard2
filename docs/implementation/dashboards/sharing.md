@@ -61,6 +61,7 @@ Extended with public sharing fields:
 #### `GET /api/dashboards/[id]/access`
 
 Loads current sharing settings and permissions for a dashboard.
+Returns users with explicit access (from `dashboard_access` joined with `profiles`).
 
 **Authentication:** Required (dashboard creator or admin only)
 

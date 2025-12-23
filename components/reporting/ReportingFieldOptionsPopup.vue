@@ -31,10 +31,10 @@
       <div class="flex items-center gap-1 flex-shrink-0 h-full">
         <!-- Edit Mode Actions -->
         <template v-if="isEditingLabel">
-          <button @click="cancelEditingLabel" class="p-1 hover:bg-white/10 rounded transition-colors" title="Cancel Rename">
+          <button @click="cancelEditingLabel" class="p-1 hover:bg-white/10 rounded transition-colors cursor-pointer" title="Cancel Rename">
             <Icon name="i-heroicons-x-mark" class="w-5 h-5 text-red-100"/>
           </button>
-          <button @click="stopEditingLabel" class="p-1 hover:bg-white/10 rounded transition-colors" title="Save Rename">
+          <button @click="stopEditingLabel" class="p-1 hover:bg-white/10 rounded transition-colors cursor-pointer" title="Save Rename">
             <Icon name="i-heroicons-check" class="w-5 h-5 text-green-100"/>
           </button>
         </template>
@@ -53,7 +53,7 @@
               v-for="agg in primaryAggregations"
               :key="agg.value"
               @click="localAggregation = agg.value"
-              class="px-2 py-2 text-[10px] font-bold transition-colors border-r last:border-r-0 border-neutral-200 dark:border-dark-lighter"
+              class="px-2 py-2 text-[10px] font-bold transition-colors border-r last:border-r-0 border-neutral-200 dark:border-dark-lighter cursor-pointer"
               :class="localAggregation === agg.value
               ? 'bg-[#a6ce39] text-white' 
               : 'bg-white dark:bg-dark text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-dark-lighter hover:text-neutral-900 dark:hover:text-white'"
@@ -65,7 +65,7 @@
         <!-- More Aggregation Options -->
         <button
             @click="showMoreAggregations = !showMoreAggregations"
-            class="flex items-center gap-1 mt-3 text-[10px] font-bold text-neutral-500 hover:text-primary-400 transition-colors uppercase tracking-widest"
+            class="flex items-center gap-1 mt-3 text-[10px] font-bold text-neutral-500 hover:text-primary-400 transition-colors uppercase tracking-widest cursor-pointer"
         >
           <Icon :name="showMoreAggregations ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-3 h-3"/>
           Additional Methods
@@ -118,7 +118,7 @@
         <!-- More Date Options -->
         <button
             @click="showMoreDateOptions = !showMoreDateOptions"
-            class="flex items-center gap-1 mt-4 text-[10px] font-bold text-neutral-500 hover:text-primary-400 transition-colors uppercase tracking-widest"
+            class="flex items-center gap-1 mt-4 text-[10px] font-bold text-neutral-500 hover:text-primary-400 transition-colors uppercase tracking-widest cursor-pointer"
         >
           <Icon :name="showMoreDateOptions ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-3 h-3"/>
           Additional Settings
@@ -294,13 +294,13 @@
     <div class="flex items-center justify-end gap-2 px-3 py-2 border-t border-neutral-200 dark:border-dark-lighter bg-neutral-50 dark:bg-dark-light">
       <button
           @click="cancel"
-          class="px-3 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+          class="px-3 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
       >
         Cancel
       </button>
       <button
           @click="apply"
-          class="px-4 py-1.5 text-xs font-bold bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors shadow-sm"
+          class="px-4 py-1.5 text-xs font-bold bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors shadow-sm cursor-pointer"
       >
         Apply
       </button>
@@ -309,8 +309,8 @@
 </template>
 
 <script setup lang="ts">
-import {ref, computed, watch, nextTick} from 'vue'
-import type {ReportField, MetricRef, DimensionRef} from '../../composables/useReportState'
+import {computed, nextTick, ref, watch} from 'vue'
+import type {DimensionRef, MetricRef, ReportField} from '../../composables/useReportState'
 
 type ZoneType = 'x' | 'y' | 'breakdowns'
 

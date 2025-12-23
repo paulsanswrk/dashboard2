@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
                 }
                 const {data: profile, error: profileError} = await supabaseAdmin
                     .from('profiles')
-                    .select('organization_id')
+                    .select('organization_id, role')
                     .eq('user_id', user.id)
                     .single()
                 if (profileError || !profile?.organization_id) {
@@ -60,9 +60,34 @@ export default defineEventHandler(async (event) => {
                 }
                 userOrg = profile.organization_id
                 sameOrg = userOrg === dashboard.organization_id
-                isOwner = sameOrg // org-scoped ownership; org members can edit
-                if (!sameOrg) {
-                    throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+
+                // Strict Access Control
+                const isAdmin = ['SUPERADMIN', 'ADMIN'].includes(profile.role)
+                const isCreator = dashboard.creator === user.id
+
+                if (isAdmin || isCreator) {
+                    if (!sameOrg && !isAdmin) { // Admins might access cross-org? Assumed bounded by org for now.
+                        // Actually, if sameOrg is required for admins/creators logic:
+                        if (!sameOrg) throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                    }
+                    isOwner = true
+                } else {
+                    // Check explicit access for Editors/Viewers
+                    if (!sameOrg) throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+
+                    const {data: accessRules} = await supabaseAdmin
+                        .from('dashboard_access')
+                        .select('access_level')
+                        .eq('dashboard_id', dashboard.id)
+                        .or(`target_user_id.eq.${user.id},target_org_id.eq.${userOrg}`)
+
+                    if (!accessRules || accessRules.length === 0) {
+                        throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                    }
+
+                    // Determine if has edit access
+                    const hasEdit = accessRules.some((rule: any) => rule.access_level === 'edit')
+                    isOwner = hasEdit
                 }
             } else {
                 // For public dashboards, capture org context if user is present
@@ -202,103 +227,103 @@ export default defineEventHandler(async (event) => {
             const chartTasks = tabWidgets
                 .filter((lnk: any) => lnk.type === 'chart')
                 .map(async (lnk: any) => {
-            try {
-                const chart = chartsById[lnk.chart_id]
-                if (!chart) {
-                    console.warn('[full.get.ts] Chart not found:', lnk.chart_id)
-                }
-                const sj = (chart?.state_json || {}) as any
-                const internal = sj.internal || {}
-                const effective = {...sj, ...internal}
-                delete (effective as any).internal
-
-                // Prepare data using internal info
-                let columns: any[] = []
-                let rows: any[] = []
-                const meta: Record<string, any> = {}
-
-                try {
-                    const sql = internal.actualExecutedSql || internal.sqlText || ''
-                    const connectionId = internal.dataConnectionId ?? null
-
-                    if (sql) {
-                        let safeSql = sql.trim()
-                        if (!/\blimit\b/i.test(safeSql)) safeSql = `${safeSql} LIMIT 500`
-
-                        if (connectionId) {
-                            try {
-                                const cfg = await loadConnectionConfigForOwner(Number(connectionId))
-                                const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                    const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
-                                    return res as any[]
-                                })
-                                rows = resRows
-                            } catch (e: any) {
-                                console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
-                                throw e
-                            }
-                        } else {
-                            try {
-                                const resRows = await withMySqlConnection(async (conn) => {
-                                    const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
-                                    return res as any[]
-                                })
-                                rows = resRows
-                            } catch (e: any) {
-                                console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
-                                throw e
-                            }
+                    try {
+                        const chart = chartsById[lnk.chart_id]
+                        if (!chart) {
+                            console.warn('[full.get.ts] Chart not found:', lnk.chart_id)
                         }
-                        columns = rows.length ? Object.keys(rows[0]).map((k) => ({key: k, label: k})) : []
-                    } else {
-                        // No SQL available, try to fetch data using dataset preview logic
+                        const sj = (chart?.state_json || {}) as any
+                        const internal = sj.internal || {}
+                        const effective = {...sj, ...internal}
+                        delete (effective as any).internal
+
+                        // Prepare data using internal info
+                        let columns: any[] = []
+                        let rows: any[] = []
+                        const meta: Record<string, any> = {}
+
                         try {
-                            const datasetId = internal.selectedDatasetId
-                            if (datasetId) {
-                                // For server-side rendering, we need to simulate the dataset preview
-                                // For now, we'll leave this empty and let client-side handle it
-                                // TODO: Implement server-side dataset preview
-                                meta.error = 'client_side_fetch_required'
+                            const sql = internal.actualExecutedSql || internal.sqlText || ''
+                            const connectionId = internal.dataConnectionId ?? null
+
+                            if (sql) {
+                                let safeSql = sql.trim()
+                                if (!/\blimit\b/i.test(safeSql)) safeSql = `${safeSql} LIMIT 500`
+
+                                if (connectionId) {
+                                    try {
+                                        const cfg = await loadConnectionConfigForOwner(Number(connectionId))
+                                        const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
+                                            const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
+                                            return res as any[]
+                                        })
+                                        rows = resRows
+                                    } catch (e: any) {
+                                        console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
+                                        throw e
+                                    }
+                                } else {
+                                    try {
+                                        const resRows = await withMySqlConnection(async (conn) => {
+                                            const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
+                                            return res as any[]
+                                        })
+                                        rows = resRows
+                                    } catch (e: any) {
+                                        console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
+                                        throw e
+                                    }
+                                }
+                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({key: k, label: k})) : []
                             } else {
-                                meta.error = 'no_dataset_or_sql'
+                                // No SQL available, try to fetch data using dataset preview logic
+                                try {
+                                    const datasetId = internal.selectedDatasetId
+                                    if (datasetId) {
+                                        // For server-side rendering, we need to simulate the dataset preview
+                                        // For now, we'll leave this empty and let client-side handle it
+                                        // TODO: Implement server-side dataset preview
+                                        meta.error = 'client_side_fetch_required'
+                                    } else {
+                                        meta.error = 'no_dataset_or_sql'
+                                    }
+                                } catch (e: any) {
+                                    meta.error = e?.statusMessage || e?.message || 'dataset_preview_failed'
+                                }
                             }
                         } catch (e: any) {
-                            meta.error = e?.statusMessage || e?.message || 'dataset_preview_failed'
+                            meta.error = e?.statusMessage || e?.message || 'query_failed'
+                        }
+
+                        // Build state for response: owner gets flattened full state; public gets only public subset
+                        const responseState = isOwner ? effective : sj // sj contains only public keys + internal hidden
+
+                        // Sanitize meta for public: do not include SQL
+                        if (!isOwner) delete (meta as any).sql
+
+                        return {
+                            id: lnk.chart_id,
+                            widgetId: lnk.id,
+                            name: chart?.name || '',
+                            position: lnk.position,
+                            configOverride: lnk.config_override || {},
+                            state: responseState,
+                            data: {columns, rows, meta}
+                        }
+                    } catch (e: any) {
+                        console.error('[full.get.ts] Fatal error processing chart', lnk.chart_id, ':', e?.message || e)
+                        // Return error state instead of throwing to prevent Promise.all from failing
+                        return {
+                            id: lnk.chart_id,
+                            widgetId: lnk.id,
+                            name: chartsById[lnk.chart_id]?.name || '',
+                            position: lnk.position,
+                            configOverride: lnk.config_override || {},
+                            state: {},
+                            data: {columns: [], rows: [], meta: {error: e?.statusMessage || e?.message || 'chart_processing_failed'}}
                         }
                     }
-                } catch (e: any) {
-                    meta.error = e?.statusMessage || e?.message || 'query_failed'
-                }
-
-                // Build state for response: owner gets flattened full state; public gets only public subset
-                const responseState = isOwner ? effective : sj // sj contains only public keys + internal hidden
-
-                // Sanitize meta for public: do not include SQL
-                if (!isOwner) delete (meta as any).sql
-
-                return {
-                    id: lnk.chart_id,
-                    widgetId: lnk.id,
-                    name: chart?.name || '',
-                    position: lnk.position,
-                    configOverride: lnk.config_override || {},
-                    state: responseState,
-                    data: {columns, rows, meta}
-                }
-            } catch (e: any) {
-                console.error('[full.get.ts] Fatal error processing chart', lnk.chart_id, ':', e?.message || e)
-                // Return error state instead of throwing to prevent Promise.all from failing
-                return {
-                    id: lnk.chart_id,
-                    widgetId: lnk.id,
-                    name: chartsById[lnk.chart_id]?.name || '',
-                    position: lnk.position,
-                    configOverride: lnk.config_override || {},
-                    state: {},
-                    data: {columns: [], rows: [], meta: {error: e?.statusMessage || e?.message || 'chart_processing_failed'}}
-                }
-            }
-            })
+                })
 
             const chartResults = await Promise.all(chartTasks)
 
@@ -349,7 +374,7 @@ export default defineEventHandler(async (event) => {
         if (e.statusCode) throw e
         console.error('[full.get.ts] Unexpected error:', e?.message || e)
         throw createError({statusCode: 500, statusMessage: 'Internal server error'})
-  }
+    }
 })
 
 

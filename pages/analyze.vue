@@ -25,7 +25,7 @@
         <h3 class="font-medium">Fields</h3>
         <button 
           @click="closeMobilePanel"
-          class="lg:hidden p-1 hover:bg-gray-200 rounded"
+          class="lg:hidden p-1 hover:bg-gray-200 rounded cursor-pointer"
         >
           <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
         </button>
@@ -132,7 +132,7 @@
         <h3 class="font-medium">Settings</h3>
         <button 
           @click="closeMobilePanel"
-          class="lg:hidden p-1 hover:bg-gray-200 rounded"
+          class="lg:hidden p-1 hover:bg-gray-200 rounded cursor-pointer"
         >
           <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
         </button>

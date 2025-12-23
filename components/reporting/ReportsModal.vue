@@ -23,8 +23,8 @@
               <td class="py-2">{{ r.name }}</td>
               <td class="py-2">{{ r.updatedAt }}</td>
               <td class="py-2 text-right space-x-2">
-                <button class="text-blue-600 underline" @click="load(r.id)">Load</button>
-                <button class="text-red-600 underline" @click="remove(r.id)">Delete</button>
+                <button class="text-blue-600 underline cursor-pointer hover:text-blue-700 transition-colors" @click="load(r.id)">Load</button>
+                <button class="text-red-600 underline cursor-pointer hover:text-red-700 transition-colors" @click="remove(r.id)">Delete</button>
               </td>
             </tr>
             <tr v-if="!reports.length">
@@ -39,9 +39,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useReportsService } from '@/composables/useReportsService'
-import { useReportState } from '@/composables/useReportState'
+import {onMounted, ref, watch} from 'vue'
+import {useReportsService} from '@/composables/useReportsService'
+import {useReportState} from '@/composables/useReportState'
 
 const props = defineProps<{
   open: boolean

@@ -10,7 +10,7 @@
         <div class="topbar">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2 lg:gap-6">
-              <button @click="navigateTo('/')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide">
+              <button @click="navigateTo('/')" class="text-xl lg:text-sm font-heading font-semibold tracking-wide cursor-pointer hover:text-gray-200 transition-colors">
                 OPTIQO
               </button>
               <!-- Desktop Navigation -->
@@ -29,7 +29,7 @@
               </nav>
             </div>
             <div class="flex items-center gap-2 lg:gap-4">
-              <button class="p-2 hover:bg-black/10 rounded">
+              <button class="p-2 hover:bg-black/10 rounded cursor-pointer">
                 <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
               </button>
               <!-- Account Dropdown -->

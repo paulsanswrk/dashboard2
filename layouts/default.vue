@@ -91,14 +91,14 @@
             </div>
           </div>
 
-          <button class="sidebar-item theme-toggle" @click="toggleTheme">
+          <button class="sidebar-item theme-toggle cursor-pointer" @click="toggleTheme">
             <ClientOnly>
               <Icon :name="themeIcon" class="w-5 h-5"/>
               {{ themeLabel }}
             </ClientOnly>
           </button>
 
-          <button class="sidebar-item" @click="handleSignOut">
+          <button class="sidebar-item cursor-pointer" @click="handleSignOut">
             <Icon name="i-heroicons-arrow-right-on-rectangle" class="w-5 h-5"/>
             Sign out
           </button>
@@ -114,7 +114,7 @@
               <!-- Mobile Menu Button -->
               <button
                   @click="toggleMobileMenu"
-                  class="lg:hidden p-2 hover:bg-black/10 rounded-md transition-colors"
+                  class="lg:hidden p-2 hover:bg-black/10 rounded-md transition-colors cursor-pointer"
               >
                 <Icon :name="isMobileMenuOpen ? 'i-heroicons-x-mark' : 'i-heroicons-bars-3'" class="w-5 h-5"/>
               </button>
@@ -150,7 +150,7 @@
               </nav>
             </div>
             <div class="flex items-center gap-2 lg:gap-4">
-              <button class="p-2 hover:bg-black/10 rounded">
+              <button class="p-2 hover:bg-black/10 rounded cursor-pointer">
                 <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
               </button>
 

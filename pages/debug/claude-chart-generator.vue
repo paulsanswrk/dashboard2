@@ -593,7 +593,7 @@ onBeforeUnmount(() => {
               <button
                 @click="generateReport"
                 :disabled="isGenerating"
-                class="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors flex items-center"
+                class="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors flex items-center cursor-pointer"
               >
                 <svg v-if="isGenerating" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -605,7 +605,7 @@ onBeforeUnmount(() => {
               <button
                 @click="updateChart"
                 :disabled="!generatedSql || !generatedChartConfig"
-                class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
+                class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 Update Chart
               </button>
@@ -633,7 +633,7 @@ onBeforeUnmount(() => {
                 <button
                   @click="applyGeneratedConfig"
                   :disabled="!generatedChartConfig"
-                  class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                  class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors text-sm cursor-pointer"
                 >
                   Apply Changes
                 </button>
@@ -688,7 +688,7 @@ onBeforeUnmount(() => {
                     :key="type"
                     @click="editorConfig.chartType = type"
                     :class="[
-                      'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                      'px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer',
                       editorConfig.chartType === type
                         ? 'bg-purple-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -795,13 +795,13 @@ onBeforeUnmount(() => {
                 <button
                   @click="applyEditorConfig"
                   :disabled="!chartData.length"
-                  class="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                  class="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   Apply Editor
                 </button>
                 <button
                   @click="resetEditorConfig"
-                  class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   Reset
                 </button>
@@ -826,13 +826,13 @@ onBeforeUnmount(() => {
                 <button
                   @click="applyEditableConfig"
                   :disabled="!editableChartConfig"
-                  class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
+                  class="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   Apply Config
                 </button>
                 <button
                   @click="syncEditableConfig"
-                  class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   Sync from Generated
                 </button>

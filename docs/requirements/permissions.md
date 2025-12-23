@@ -7,6 +7,8 @@ The main principal is organization. Within an organization, Admins get full acce
 
 Editors who create dashboards get full access to their own dashboards. Admins can also create dashboards and get full access.
 
+The "Viewer" role is simply a user profile with role='VIEWER'. They are distinct from full users in the UI but technically implemented in the same `profiles` table.
+
 There also can be defined a group of users (with different levels and from different organizations) that can be given the permissions to a dashboard.
 
 A dashboard may be shared to another user (of any level) or group with either read-only or edit access. Shared users get the specified level of access to the dashboard and all charts within it.

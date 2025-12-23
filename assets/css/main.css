@@ -1169,14 +1169,14 @@ button.border-gray-600:hover {
     @apply bg-gray-100 dark:bg-gray-700;
 }
 
-/* Form max-width for better appearance on wide screens */
-.form-container,
-form:not([class*="w-full"]):not([class*="max-w-"]) {
+/* Form styling classes - apply only when explicitly used */
+/* .form-container class applies max-width: 32rem (512px) for single-column forms */
+.form-container {
     max-width: 32rem;
     /* 512px / max-w-lg */
 }
 
-/* UCard containing forms should have reasonable max-width */
+/* UCard containing forms should have reasonable max-width when using .form-card class */
 .form-card {
     max-width: 28rem;
     /* max-w-md */
