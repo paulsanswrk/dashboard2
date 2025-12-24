@@ -119,9 +119,52 @@
       </template>
     </div>
 
-    <!-- Field Options Popup -->
+    <!-- Filters Zone -->
+    <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('filters')">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="i-heroicons-funnel" class="w-4 h-4 text-neutral-300"/>
+          Filter By
+        </span>
+      </div>
+      <template v-if="filters.length">
+        <ul class="space-y-1" @dragover.prevent @drop="onListDrop('filters')">
+          <li
+              v-for="(f, i) in filters"
+              :key="f.fieldId + '-' + i"
+              class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
+              draggable="true"
+              @dragstart="onDragItemStart('filters', i)"
+              @dragover.prevent
+              @drop="onDragItemDrop('filters', i)"
+              @click="openFilterPopup(i, $event)"
+              data-zone-item="filters"
+          >
+            <div class="pr-6">
+              <div class="text-sm">{{ f.label || f.name }}</div>
+              <div class="text-xs text-neutral-300">
+                <template v-if="f.table">{{ f.table }} •</template>
+                <span class="text-primary-400">{{ formatOperator(f.operator) }}</span>
+                <template v-if="f.values?.length"> {{ f.values.slice(0, 2).join(', ') }}<span v-if="f.values.length > 2">...</span></template>
+                <template v-else-if="f.value"> {{ f.value }}
+                  <template v-if="f.valueTo"> - {{ f.valueTo }}</template>
+                </template>
+              </div>
+            </div>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('filters', i)" aria-label="Remove" data-remove>
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+            </button>
+          </li>
+        </ul>
+      </template>
+      <template v-else>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
+      </template>
+    </div>
+
+    <!-- Field Options Popup (for X, Y, Breakdowns) -->
     <ReportingFieldOptionsPopup
-        :visible="popupVisible"
+        :visible="popupVisible && activeZone !== 'filters'"
         :field="activeField"
         :zone="activeZone"
         :position="popupPosition"
@@ -129,13 +172,24 @@
         @apply="onPopupApply"
         @cancel="closePopup"
     />
+
+    <!-- Filter Options Popup (for Filters zone) -->
+    <ReportingFilterOptionsPopup
+        :visible="filterPopupVisible"
+        :filter="activeFilter"
+        :position="popupPosition"
+        :connection-id="connectionId"
+        @apply="onFilterPopupApply"
+        @cancel="closeFilterPopup"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import {type DimensionRef, type MetricRef, type ReportField, useReportState} from '../../composables/useReportState'
+import {type DimensionRef, type FilterCondition, type MetricRef, type ReportField, useReportState} from '../../composables/useReportState'
 import ReportingFieldOptionsPopup from './ReportingFieldOptionsPopup.vue'
+import ReportingFilterOptionsPopup from './ReportingFilterOptionsPopup.vue'
 
 type ZoneConfig = {
   showXDimensions: boolean
@@ -146,7 +200,7 @@ type ZoneConfig = {
   breakdownLabel?: string
 }
 
-type ZoneType = 'x' | 'y' | 'breakdowns'
+type ZoneType = 'x' | 'y' | 'breakdowns' | 'filters'
 
 const props = defineProps<{
   zoneConfig?: ZoneConfig
@@ -157,7 +211,7 @@ const emit = defineEmits<{
   (e: 'field-updated'): void
 }>()
 
-const {xDimensions, yMetrics, breakdowns, addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow} = useReportState()
+const {xDimensions, yMetrics, breakdowns, filters, addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow} = useReportState()
 
 // Default zone config if none provided
 const zoneConfig = computed(() => props.zoneConfig || {
@@ -178,6 +232,11 @@ const activeField = ref<ReportField | MetricRef | DimensionRef | null>(null)
 const activeZone = ref<ZoneType>('x')
 const activeIndex = ref(0)
 const popupPosition = ref({x: 0, y: 0})
+
+// Filter popup state (separate from dimension/metric popup)
+const filterPopupVisible = ref(false)
+const activeFilter = ref<FilterCondition | null>(null)
+const activeFilterIndex = ref(0)
 
 function openPopup(zone: ZoneType, index: number, event: MouseEvent) {
   // Get the clicked element's position relative to viewport
@@ -218,6 +277,31 @@ function onPopupApply(updates: Partial<MetricRef & DimensionRef>) {
   emit('field-updated')
 }
 
+// Filter popup handlers
+function openFilterPopup(index: number, event: MouseEvent) {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  popupPosition.value = {
+    x: rect.left,
+    y: rect.bottom + 4
+  }
+  activeFilter.value = filters.value[index] ?? null
+  activeFilterIndex.value = index
+  filterPopupVisible.value = true
+}
+
+function closeFilterPopup() {
+  filterPopupVisible.value = false
+  activeFilter.value = null
+}
+
+function onFilterPopupApply(updates: Partial<FilterCondition>) {
+  updateFieldInZone('filters', activeFilterIndex.value, updates)
+  syncUrlNow()
+  closeFilterPopup()
+  emit('field-updated')
+}
+
 function formatAggregation(agg: string | undefined): string {
   if (!agg) return ''
   const map: Record<string, string> = {
@@ -231,6 +315,26 @@ function formatAggregation(agg: string | undefined): string {
     'DIST_COUNT': 'distinct'
   }
   return map[agg] || agg.toLowerCase()
+}
+
+function formatOperator(op: string | undefined): string {
+  if (!op) return ''
+  const map: Record<string, string> = {
+    'equals': '=',
+    'not_equals': '≠',
+    'contains': 'contains',
+    'not_contains': 'not contains',
+    'starts_with': 'starts with',
+    'ends_with': 'ends with',
+    'greater_than': '>',
+    'less_than': '<',
+    'greater_or_equal': '≥',
+    'less_or_equal': '≤',
+    'between': 'between',
+    'is_null': 'is null',
+    'is_not_null': 'is not null'
+  }
+  return map[op] || op
 }
 
 function onDrop(zone: ZoneType) {
@@ -272,7 +376,11 @@ function onListDrop(zone: ZoneType) {
   const d = dragging.value
   if (!d) return
   if (d.zone !== zone) return
-  const len = zone === 'x' ? xDimensions.value.length : zone === 'y' ? yMetrics.value.length : breakdowns.value.length
+  let len = 0
+  if (zone === 'x') len = xDimensions.value.length
+  else if (zone === 'y') len = yMetrics.value.length
+  else if (zone === 'breakdowns') len = breakdowns.value.length
+  else if (zone === 'filters') len = filters.value.length
   const to = Math.max(0, len - 1)
   moveInZone(zone, d.from, to)
   dragging.value = null
@@ -282,10 +390,11 @@ function onListDrop(zone: ZoneType) {
 // Close popup when clicking outside
 if (typeof window !== 'undefined') {
   document.addEventListener('click', (e) => {
-    if (popupVisible.value) {
+    if (popupVisible.value || filterPopupVisible.value) {
       const target = e.target as HTMLElement
-      if (!target.closest('.field-options-popup') && !target.closest('[data-zone-item]')) {
+      if (!target.closest('.field-options-popup') && !target.closest('.filter-options-popup') && !target.closest('[data-zone-item]')) {
         closePopup()
+        closeFilterPopup()
       }
     }
   })

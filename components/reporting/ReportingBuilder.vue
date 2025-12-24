@@ -210,7 +210,7 @@ const emit = defineEmits<{
 }>()
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
-const {xDimensions, yMetrics, breakdowns, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
+const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
 const toast = useToast()
@@ -650,6 +650,7 @@ async function onTestPreview() {
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
       breakdowns: breakdowns.value,
+      filters: filters.value,
       joins: joins.value as any,
       limit: 100,
       connectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId()
@@ -680,7 +681,7 @@ const canAutoPreview = computed(() => {
 
   return false
 })
-watch([selectedDatasetId, xDimensions, yMetrics, breakdowns, joins], async () => {
+watch([selectedDatasetId, xDimensions, yMetrics, breakdowns, filters, joins], async () => {
   if (!canAutoPreview.value) return
   if (useSql.value) return
   await onTestPreview()
@@ -767,6 +768,7 @@ function handleLoadChartState(state: {
   xDimensions: any[]
   yMetrics: any[]
   breakdowns: any[]
+  filters?: any[]
   excludeNullsInDimensions: boolean
   appearance: any
   chartType: string
@@ -787,6 +789,7 @@ function handleLoadChartState(state: {
   xDimensions.value = state.xDimensions || []
   yMetrics.value = state.yMetrics || []
   breakdowns.value = state.breakdowns || []
+  filters.value = state.filters || []
   excludeNullsInDimensions.value = state.excludeNullsInDimensions || false
   appearance.value = state.appearance || {}
 
@@ -848,6 +851,7 @@ async function saveExistingChart(): Promise<boolean> {
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
       breakdowns: breakdowns.value,
+      filters: filters.value,
       excludeNullsInDimensions: excludeNullsInDimensions.value,
       appearance: appearance.value,
       // SQL configuration
@@ -909,6 +913,7 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
       breakdowns: breakdowns.value,
+      filters: filters.value,
       excludeNullsInDimensions: excludeNullsInDimensions.value,
       appearance: appearance.value,
       // SQL configuration

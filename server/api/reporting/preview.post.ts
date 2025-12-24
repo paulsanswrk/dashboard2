@@ -16,11 +16,18 @@ type DimensionRef = ReportField & {
     dateRangeType?: 'static' | 'dynamic'
     dynamicRange?: string
 }
+type FilterCondition = ReportField & {
+    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'between' | 'is_null' | 'is_not_null'
+    values?: string[]
+    value?: string
+    valueTo?: string
+}
 type PreviewRequest = {
   datasetId: string
   xDimensions: DimensionRef[]
   yMetrics: MetricRef[]
   breakdowns: DimensionRef[]
+    filters?: FilterCondition[]
   joins?: Array<{ joinType: 'inner' | 'left'; sourceTable: string; targetTable: string; columnPairs: Array<{ sourceColumn: string; targetColumn: string }> }>
   limit?: number
   connectionId?: number
@@ -159,6 +166,94 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+      // Process standalone filters (Filter By zone)
+      const standaloneFilters: FilterCondition[] = body.filters || []
+      for (const f of standaloneFilters) {
+          const fieldExpr = qualify(f)
+          if (!fieldExpr) continue
+
+          switch (f.operator) {
+              case 'equals':
+                  if (f.values && f.values.length > 0) {
+                      whereParts.push(`${fieldExpr} IN (${f.values.map(() => '?').join(',')})`)
+                      params.push(...f.values)
+                  } else if (f.value !== undefined && f.value !== '') {
+                      whereParts.push(`${fieldExpr} = ?`)
+                      params.push(f.value)
+                  }
+                  break
+              case 'not_equals':
+                  if (f.values && f.values.length > 0) {
+                      whereParts.push(`${fieldExpr} NOT IN (${f.values.map(() => '?').join(',')})`)
+                      params.push(...f.values)
+                  } else if (f.value !== undefined && f.value !== '') {
+                      whereParts.push(`${fieldExpr} != ?`)
+                      params.push(f.value)
+                  }
+                  break
+              case 'contains':
+                  if (f.value) {
+                      whereParts.push(`${fieldExpr} LIKE ?`)
+                      params.push(`%${f.value}%`)
+                  }
+                  break
+              case 'not_contains':
+                  if (f.value) {
+                      whereParts.push(`${fieldExpr} NOT LIKE ?`)
+                      params.push(`%${f.value}%`)
+                  }
+                  break
+              case 'starts_with':
+                  if (f.value) {
+                      whereParts.push(`${fieldExpr} LIKE ?`)
+                      params.push(`${f.value}%`)
+                  }
+                  break
+              case 'ends_with':
+                  if (f.value) {
+                      whereParts.push(`${fieldExpr} LIKE ?`)
+                      params.push(`%${f.value}`)
+                  }
+                  break
+              case 'greater_than':
+                  if (f.value !== undefined && f.value !== '') {
+                      whereParts.push(`${fieldExpr} > ?`)
+                      params.push(f.value)
+                  }
+                  break
+              case 'less_than':
+                  if (f.value !== undefined && f.value !== '') {
+                      whereParts.push(`${fieldExpr} < ?`)
+                      params.push(f.value)
+                  }
+                  break
+              case 'greater_or_equal':
+                  if (f.value !== undefined && f.value !== '') {
+                      whereParts.push(`${fieldExpr} >= ?`)
+                      params.push(f.value)
+                  }
+                  break
+              case 'less_or_equal':
+                  if (f.value !== undefined && f.value !== '') {
+                      whereParts.push(`${fieldExpr} <= ?`)
+                      params.push(f.value)
+                  }
+                  break
+              case 'between':
+                  if (f.value !== undefined && f.value !== '' && f.valueTo !== undefined && f.valueTo !== '') {
+                      whereParts.push(`${fieldExpr} BETWEEN ? AND ?`)
+                      params.push(f.value, f.valueTo)
+                  }
+                  break
+              case 'is_null':
+                  whereParts.push(`${fieldExpr} IS NULL`)
+                  break
+              case 'is_not_null':
+                  whereParts.push(`${fieldExpr} IS NOT NULL`)
+                  break
+          }
+      }
+
     // LIMIT
     const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
 
@@ -175,6 +270,12 @@ export default defineEventHandler(async (event) => {
         allTables.add(m.table)
       }
     }
+      // Also include tables from standalone filters
+      for (const f of standaloneFilters) {
+          if (f.table && isSafeIdentifier(f.table)) {
+              allTables.add(f.table)
+          }
+      }
 
     const tableNames = Array.from(allTables)
     console.log(`[PREVIEW_AUTO_JOIN] Tables involved in query:`, tableNames)
