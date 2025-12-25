@@ -245,8 +245,91 @@
         <!-- Security Settings -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Security Settings</h3>
-          
-          <form @submit.prevent="handleUpdatePassword" class="space-y-4">
+
+          <!-- OAuth User Section -->
+          <div v-if="isOAuthUser" class="space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md p-4">
+              <div class="flex items-start">
+                <Icon name="i-heroicons-information-circle" class="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0"/>
+                <div>
+                  <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                    Signed in with {{ oauthProviderName }}
+                  </h4>
+                  <p class="text-sm text-blue-700 dark:text-blue-300">
+                    Your account uses {{ oauthProviderName }} for authentication. You can add a password below to enable email/password login as an alternative.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Add Password Form for OAuth Users -->
+            <form @submit.prevent="handleSetPassword" class="space-y-4">
+              <div>
+                <label for="newPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Set Password
+                </label>
+                <UInput
+                    id="newPassword"
+                    v-model="passwordForm.newPassword"
+                    type="password"
+                    placeholder="Enter a password"
+                    :disabled="loading"
+                    class="w-full"
+                />
+              </div>
+
+              <div>
+                <label for="confirmPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Confirm Password
+                </label>
+                <UInput
+                    id="confirmPassword"
+                    v-model="passwordForm.confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    :disabled="loading"
+                    class="w-full"
+                />
+              </div>
+
+              <div class="flex justify-end">
+                <UButton
+                    type="submit"
+                    :loading="loading"
+                    color="green"
+                    class="cursor-pointer hover:bg-green-600"
+                >
+                  <Icon name="i-heroicons-key" class="w-4 h-4 mr-2"/>
+                  Add Password
+                </UButton>
+              </div>
+
+              <!-- Password validation errors -->
+              <div v-if="passwordErrors.showErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+                  <div class="flex">
+                    <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-400 mr-2"/>
+                    <div class="text-sm text-red-800 dark:text-red-200">
+                      <h4 class="font-medium mb-2">Please fix the following errors:</h4>
+                      <ul class="space-y-1">
+                        <li v-for="error in passwordValidationErrors" :key="error" class="flex items-center">
+                          <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
+                          {{ error }}
+                        </li>
+                        <li v-if="passwordConfirmError" class="flex items-center">
+                          <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
+                          {{ passwordConfirmError }}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Password User Section -->
+          <form v-else @submit.prevent="handleUpdatePassword" class="space-y-4">
             <div>
               <label for="currentPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Current Password
@@ -388,6 +471,7 @@
 <script setup>
 // Authentication
 const { userProfile, updateProfile, updatePassword, uploadAvatar, deleteAvatar, loading, error, success, clearMessages } = useAuth()
+const user = useSupabaseUser()
 
 // Organization
 const { 
@@ -464,6 +548,26 @@ const hasProfileChanges = computed(() => {
          profileForm.value.lastName !== userProfile.value.lastName
 })
 
+// OAuth detection - check if user signed up via OAuth provider (e.g., Google)
+const isOAuthUser = computed(() => {
+  if (!user.value?.identities) return false
+  // Check if user has OAuth identity and no email/password identity
+  const identities = user.value.identities
+  const hasOAuthIdentity = identities.some(i => i.provider !== 'email')
+  const hasEmailIdentity = identities.some(i => i.provider === 'email')
+  // User is OAuth-only if they have OAuth identity but no email identity
+  return hasOAuthIdentity && !hasEmailIdentity
+})
+
+const oauthProviderName = computed(() => {
+  if (!user.value?.identities) return 'OAuth'
+  const oauthIdentity = user.value.identities.find(i => i.provider !== 'email')
+  if (!oauthIdentity) return 'OAuth'
+  // Capitalize provider name
+  const provider = oauthIdentity.provider
+  return provider.charAt(0).toUpperCase() + provider.slice(1)
+})
+
 // Password validation function
 const validatePassword = (password) => {
   const errors = []
@@ -490,6 +594,12 @@ const isPasswordFormValid = computed(() => {
   return passwordForm.value.newPassword.length >= 6 &&
          passwordForm.value.newPassword === passwordForm.value.confirmPassword &&
          passwordForm.value.currentPassword.length > 0
+})
+
+// OAuth users don't need to provide current password
+const isOAuthPasswordFormValid = computed(() => {
+  return passwordForm.value.newPassword.length >= 6 &&
+      passwordForm.value.newPassword === passwordForm.value.confirmPassword
 })
 
 // Initialize form with current profile data
@@ -583,6 +693,35 @@ const handleUpdatePassword = async () => {
   } catch (err) {
     // Error is handled by the updatePassword function
     console.error('Password update error:', err)
+  }
+}
+
+// Handle setting password for OAuth users (no current password required)
+const handleSetPassword = async () => {
+  // Always show errors when button is clicked
+  passwordErrors.value.showErrors = true
+
+  // Check if form is valid before proceeding
+  if (!isOAuthPasswordFormValid.value) {
+    return
+  }
+
+  try {
+    // OAuth users don't need current password - Supabase allows adding password
+    const result = await updatePassword(passwordForm.value.newPassword)
+
+    if (result.success) {
+      // Reset password form only on success
+      passwordForm.value = {
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }
+      passwordErrors.value.showErrors = false
+    }
+  } catch (err) {
+    // Error is handled by the updatePassword function
+    console.error('Password set error:', err)
   }
 }
 
