@@ -146,40 +146,30 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, statusMessage: `Failed to update report: ${reportError.message}` })
     }
 
-      // Handle email queue management based on status change
+      // Always cancel existing PENDING entries first to avoid duplicates
+      // and ensure schedule changes take effect immediately
+      const {error: cancelError} = await supabaseAdmin
+          .from('email_queue')
+          .update({delivery_status: 'CANCELLED'})
+          .eq('report_id', id)
+          .eq('delivery_status', 'PENDING')
+
+      if (cancelError) {
+          throw createError({statusCode: 500, statusMessage: `Failed to cancel pending deliveries: ${cancelError.message}`})
+      }
+
+      // Create new queue entry for Active reports with the fresh scheduled time
       if (status === 'Active') {
-          // When activating a report, ensure there's a pending email queue entry
-          const {data: existingQueue} = await supabaseAdmin
+          const {error: queueError} = await supabaseAdmin
               .from('email_queue')
-              .select('id')
-              .eq('report_id', id)
-              .eq('delivery_status', 'PENDING')
-              .limit(1)
+              .insert({
+                  report_id: id,
+                  scheduled_for: nextRunTime,
+                  delivery_status: 'PENDING'
+              })
 
-          // Only create new queue entry if none exists
-          if (!existingQueue || existingQueue.length === 0) {
-              const {error: queueError} = await supabaseAdmin
-                  .from('email_queue')
-                  .insert({
-                      report_id: id,
-                      scheduled_for: nextRunTime,
-                      delivery_status: 'PENDING'
-                  })
-
-              if (queueError) {
-                  throw createError({statusCode: 500, statusMessage: `Failed to schedule report: ${queueError.message}`})
-              }
-          }
-      } else {
-          // When pausing a report, cancel any pending queue entries
-          const {error: cancelError} = await supabaseAdmin
-              .from('email_queue')
-              .update({delivery_status: 'CANCELLED'})
-              .eq('report_id', id)
-              .eq('delivery_status', 'PENDING')
-
-          if (cancelError) {
-              throw createError({statusCode: 500, statusMessage: `Failed to cancel pending deliveries: ${cancelError.message}`})
+          if (queueError) {
+              throw createError({statusCode: 500, statusMessage: `Failed to schedule report: ${queueError.message}`})
           }
     }
 
