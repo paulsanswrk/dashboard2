@@ -1,11 +1,11 @@
 import { supabaseAdmin } from '../supabase'
 import { capitalizeRole } from '../../utils/roleUtils'
-import {requireRecaptcha} from '../../utils/recaptchaUtils'
+import { requireRecaptcha } from '../../utils/recaptchaUtils'
 
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-      const {email, password, firstName, lastName, role = 'EDITOR', organizationName, recaptchaToken} = body
+    const { email, password, firstName, lastName, role = 'EDITOR', organizationName, recaptchaToken } = body
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName) {
@@ -15,10 +15,10 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-      // Verify reCAPTCHA if token provided
-      if (recaptchaToken) {
-          await requireRecaptcha(recaptchaToken, 'signup')
-      }
+    // Verify reCAPTCHA if token provided
+    if (recaptchaToken) {
+      await requireRecaptcha(recaptchaToken, 'signup')
+    }
 
     // Capitalize and validate role
     let capitalizedRole: string
@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Create user in Supabase Auth
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -47,30 +48,32 @@ export default defineEventHandler(async (event) => {
 
     const userId = authData.user.id
 
-    // Create or get organization
-    let organizationId = null
-    if (organizationName) {
-      // Create new organization
-      const { data: orgData, error: orgError } = await supabaseAdmin
-        .from('organizations')
-        .insert({
-          name: organizationName,
-          created_by: userId
-        })
-        .select()
-        .single()
+    // Always create an organization for self-registered users
+    // Auto-generate org name if not provided
+    const finalOrgName = organizationName?.trim() || `${firstName} ${lastName}'s Organization`
 
-      if (orgError) {
-        // If organization creation fails, clean up the user
-        await supabaseAdmin.auth.admin.deleteUser(userId)
-        throw createError({
-          statusCode: 400,
-          statusMessage: `Organization creation failed: ${orgError.message}`
-        })
-      }
+    const { data: orgData, error: orgError } = await supabaseAdmin
+      .from('organizations')
+      .insert({
+        name: finalOrgName,
+        created_by: userId
+      })
+      .select()
+      .single()
 
-      organizationId = orgData.id
+    if (orgError) {
+      // If organization creation fails, clean up the user
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Organization creation failed: ${orgError.message}`
+      })
     }
+
+    const organizationId = orgData.id
+
+    // Self-registered users get ADMIN role in their own organization
+    const userRole = 'ADMIN'
 
     // Create user profile
     const { data: profileData, error: profileError } = await supabaseAdmin
@@ -79,7 +82,7 @@ export default defineEventHandler(async (event) => {
         user_id: userId,
         first_name: firstName,
         last_name: lastName,
-        role: capitalizedRole,
+        role: userRole,
         organization_id: organizationId
       })
       .select()

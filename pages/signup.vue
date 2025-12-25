@@ -98,7 +98,7 @@
               />
               <template #help>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Leave blank if you don't want to create an organization yet.
+                  Leave blank to auto-generate from your name.
                 </p>
               </template>
               </UFormField>

@@ -1,12 +1,10 @@
-import {supabaseUser} from '../supabase'
-import {requireRecaptcha} from '../../utils/recaptchaUtils'
+import { supabaseUser } from '../supabase'
+import { requireRecaptcha } from '../../utils/recaptchaUtils'
 
 export default defineEventHandler(async (event) => {
     try {
         const body = await readBody(event)
-        const {email, recaptchaToken} = body
-
-        console.log('🔑 Password reset request for email:', email)
+        const { email, recaptchaToken } = body
 
         if (!email) {
             throw createError({
@@ -20,20 +18,21 @@ export default defineEventHandler(async (event) => {
             await requireRecaptcha(recaptchaToken, 'reset_password')
         }
 
+        // Construct callback URL
+        const origin = getRequestURL(event).origin
+        const callbackUrl = `${origin}/auth/callback`
+
         // Send password reset email via Supabase Auth
-        const {error} = await supabaseUser.auth.resetPasswordForEmail(email, {
-            redirectTo: `${getRequestURL(event).origin}/auth/callback`
+        const { error } = await supabaseUser.auth.resetPasswordForEmail(email, {
+            redirectTo: callbackUrl
         })
 
         if (error) {
-            console.log('❌ Password reset error:', error.message)
             throw createError({
                 statusCode: 400,
                 statusMessage: 'Failed to send password reset email'
             })
         }
-
-        console.log('✅ Password reset email sent successfully')
 
         return {
             success: true,
@@ -47,9 +46,6 @@ export default defineEventHandler(async (event) => {
         })
     }
 })
-
-
-
 
 
 

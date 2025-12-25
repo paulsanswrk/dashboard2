@@ -1,8 +1,15 @@
-import {createError} from 'h3'
+import { createError } from 'h3'
 
 // Verify reCAPTCHA token server-side
 export const verifyRecaptcha = async (token: string, action?: string): Promise<boolean> => {
     const config = useRuntimeConfig()
+
+    // Check if recaptcha is enabled (default to true for backwards compatibility)
+    const enableRecaptcha = process.env.ENABLE_RECAPTCHA !== 'false'
+    if (!enableRecaptcha) {
+        console.log('🔓 reCAPTCHA verification DISABLED (ENABLE_RECAPTCHA=false)')
+        return true
+    }
 
     if (!config.private.recaptchaSecretKey) {
         console.warn('reCAPTCHA secret key not configured')
