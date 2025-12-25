@@ -87,6 +87,19 @@
                 />
               </div>
             </template>
+            <template v-else-if="findWidget(item.i)?.type === 'image'">
+              <div
+                  class="h-full w-full relative border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden cursor-pointer"
+                  :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
+                  @click="handleSelectText(item.i)"
+              >
+                <DashboardImageWidget
+                    :style-props="findWidgetStyle(item.i)"
+                    :edit-mode="!preview"
+                    class="h-full w-full"
+                />
+              </div>
+            </template>
             <template v-else>
               <div class="h-full flex items-center justify-center text-sm text-gray-500">
                 Unsupported widget

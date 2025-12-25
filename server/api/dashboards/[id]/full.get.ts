@@ -1,17 +1,17 @@
-import {defineEventHandler, getQuery} from 'h3'
+import { defineEventHandler, getQuery } from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
-import {serverSupabaseUser} from '#supabase/server'
-import {supabaseAdmin} from '../../supabase'
-import {withMySqlConnection, withMySqlConnectionConfig} from '../../../utils/mysqlClient'
-import {loadConnectionConfigFromSupabase} from '../../../utils/connectionConfig'
-import {validateRenderContext} from '../../../utils/renderContext'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../../supabase'
+import { withMySqlConnection, withMySqlConnectionConfig } from '../../../utils/mysqlClient'
+import { loadConnectionConfigFromSupabase } from '../../../utils/connectionConfig'
+import { validateRenderContext } from '../../../utils/renderContext'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
 export default defineEventHandler(async (event) => {
     try {
         const id = event.context.params?.id as string
-        if (!id) throw createError({statusCode: 400, statusMessage: 'Missing dashboard id'})
+        if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing dashboard id' })
 
         // Check for render context token and password
         const query = getQuery(event)
@@ -22,21 +22,21 @@ export default defineEventHandler(async (event) => {
         // Load dashboard first
         let dashboard: any
         try {
-            const {data, error: dashError} = await supabaseAdmin
+            const { data, error: dashError } = await supabaseAdmin
                 .from('dashboards')
                 .select('id, name, organization_id, creator, is_public, password, created_at, width, height, thumbnail_url')
                 .eq('id', id)
                 .single()
 
             if (dashError || !data) {
-                throw createError({statusCode: 404, statusMessage: 'Dashboard not found'})
+                throw createError({ statusCode: 404, statusMessage: 'Dashboard not found' })
             }
             dashboard = data
-            console.log('Dashboard loaded:', {id: dashboard.id, isPublic: dashboard.is_public, hasPassword: !!dashboard.password})
+            console.log('Dashboard loaded:', { id: dashboard.id, isPublic: dashboard.is_public, hasPassword: !!dashboard.password })
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error loading dashboard:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard'})
+            throw createError({ statusCode: 500, statusMessage: 'Failed to load dashboard' })
         }
 
         // Access control: if not public, require org membership OR valid render context
@@ -48,15 +48,15 @@ export default defineEventHandler(async (event) => {
             if (!dashboard.is_public && !isRenderContext) {
                 user = await serverSupabaseUser(event)
                 if (!user) {
-                    throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
                 }
-                const {data: profile, error: profileError} = await supabaseAdmin
+                const { data: profile, error: profileError } = await supabaseAdmin
                     .from('profiles')
                     .select('organization_id, role')
                     .eq('user_id', user.id)
                     .single()
                 if (profileError || !profile?.organization_id) {
-                    throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
                 }
                 userOrg = profile.organization_id
                 sameOrg = userOrg === dashboard.organization_id
@@ -68,21 +68,21 @@ export default defineEventHandler(async (event) => {
                 if (isAdmin || isCreator) {
                     if (!sameOrg && !isAdmin) { // Admins might access cross-org? Assumed bounded by org for now.
                         // Actually, if sameOrg is required for admins/creators logic:
-                        if (!sameOrg) throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                        if (!sameOrg) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
                     }
                     isOwner = true
                 } else {
                     // Check explicit access for Editors/Viewers
-                    if (!sameOrg) throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                    if (!sameOrg) throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
 
-                    const {data: accessRules} = await supabaseAdmin
+                    const { data: accessRules } = await supabaseAdmin
                         .from('dashboard_access')
                         .select('access_level')
                         .eq('dashboard_id', dashboard.id)
                         .or(`target_user_id.eq.${user.id},target_org_id.eq.${userOrg}`)
 
                     if (!accessRules || accessRules.length === 0) {
-                        throw createError({statusCode: 403, statusMessage: 'Forbidden'})
+                        throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
                     }
 
                     // Determine if has edit access
@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
                 // For public dashboards, capture org context if user is present
                 user = await serverSupabaseUser(event).catch(() => null as any)
                 if (user) {
-                    const {data: profile} = await supabaseAdmin
+                    const { data: profile } = await supabaseAdmin
                         .from('profiles')
                         .select('organization_id')
                         .eq('user_id', user.id)
@@ -106,26 +106,26 @@ export default defineEventHandler(async (event) => {
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error in access control:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Access control error'})
+            throw createError({ statusCode: 500, statusMessage: 'Access control error' })
         }
 
         // Load tabs
         let tabs: any[] = []
         try {
-            const {data: tabsData, error: tabsError} = await supabaseAdmin
+            const { data: tabsData, error: tabsError } = await supabaseAdmin
                 .from('dashboard_tab')
                 .select('id, name, position, style, options')
                 .eq('dashboard_id', dashboard.id)
-                .order('position', {ascending: true})
+                .order('position', { ascending: true })
 
             if (tabsError) {
-                throw createError({statusCode: 500, statusMessage: tabsError.message})
+                throw createError({ statusCode: 500, statusMessage: tabsError.message })
             }
             tabs = tabsData || []
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error loading dashboard tabs:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard tabs'})
+            throw createError({ statusCode: 500, statusMessage: 'Failed to load dashboard tabs' })
         }
 
         // Load widgets for all tabs
@@ -133,22 +133,22 @@ export default defineEventHandler(async (event) => {
         try {
             if (tabs.length > 0) {
                 const tabIds = tabs.map((t: any) => t.id)
-                const {data: widgetsData, error: widgetsError} = await supabaseAdmin
+                const { data: widgetsData, error: widgetsError } = await supabaseAdmin
                     .from('dashboard_widgets')
                     .select('id, tab_id, dashboard_id, type, chart_id, position, style, config_override, created_at')
                     .eq('dashboard_id', dashboard.id)
                     .in('tab_id', tabIds)
-                    .order('created_at', {ascending: true})
+                    .order('created_at', { ascending: true })
 
                 if (widgetsError) {
-                    throw createError({statusCode: 500, statusMessage: widgetsError.message})
+                    throw createError({ statusCode: 500, statusMessage: widgetsError.message })
                 }
                 widgets = widgetsData || []
             }
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error loading dashboard widgets:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to load dashboard widgets'})
+            throw createError({ statusCode: 500, statusMessage: 'Failed to load dashboard widgets' })
         }
 
         // Load charts
@@ -158,20 +158,20 @@ export default defineEventHandler(async (event) => {
         const chartsById: Record<number, any> = {}
         try {
             if (chartIds.length) {
-                const {data: charts, error: chartsError} = await supabaseAdmin
+                const { data: charts, error: chartsError } = await supabaseAdmin
                     .from('charts')
                     .select('id, name, description, state_json')
                     .in('id', chartIds)
 
                 if (chartsError) {
-                    throw createError({statusCode: 500, statusMessage: chartsError.message})
+                    throw createError({ statusCode: 500, statusMessage: chartsError.message })
                 }
                 for (const c of charts || []) chartsById[c.id] = c
             }
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error loading charts:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to load charts'})
+            throw createError({ statusCode: 500, statusMessage: 'Failed to load charts' })
         }
 
         async function loadConnectionConfigForOwner(connectionId: number) {
@@ -181,14 +181,14 @@ export default defineEventHandler(async (event) => {
                     return await loadConnectionConfigFromSupabase(event, Number(connectionId))
                 }
                 // Public render path: verify the connection belongs to the dashboard org, then build cfg
-                const {data, error} = await supabaseAdmin
+                const { data, error } = await supabaseAdmin
                     .from('data_connections')
                     .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
                     .eq('id', Number(connectionId))
                     .single()
 
                 if (error || !data || data.organization_id !== dashboard.organization_id) {
-                    throw createError({statusCode: 403, statusMessage: 'Access to connection denied'})
+                    throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
                 }
                 return {
                     host: data.host,
@@ -208,7 +208,7 @@ export default defineEventHandler(async (event) => {
             } catch (e: any) {
                 if (e.statusCode) throw e
                 console.error('[full.get.ts] Error in loadConnectionConfigForOwner:', e?.message || e)
-                throw createError({statusCode: 500, statusMessage: 'Failed to load connection config'})
+                throw createError({ statusCode: 500, statusMessage: 'Failed to load connection config' })
             }
         }
 
@@ -234,7 +234,7 @@ export default defineEventHandler(async (event) => {
                         }
                         const sj = (chart?.state_json || {}) as any
                         const internal = sj.internal || {}
-                        const effective = {...sj, ...internal}
+                        const effective = { ...sj, ...internal }
                         delete (effective as any).internal
 
                         // Prepare data using internal info
@@ -254,7 +254,7 @@ export default defineEventHandler(async (event) => {
                                     try {
                                         const cfg = await loadConnectionConfigForOwner(Number(connectionId))
                                         const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                            const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
+                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
                                             return res as any[]
                                         })
                                         rows = resRows
@@ -265,7 +265,7 @@ export default defineEventHandler(async (event) => {
                                 } else {
                                     try {
                                         const resRows = await withMySqlConnection(async (conn) => {
-                                            const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
+                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
                                             return res as any[]
                                         })
                                         rows = resRows
@@ -274,7 +274,7 @@ export default defineEventHandler(async (event) => {
                                         throw e
                                     }
                                 }
-                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({key: k, label: k})) : []
+                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
                             } else {
                                 // No SQL available, try to fetch data using dataset preview logic
                                 try {
@@ -308,7 +308,7 @@ export default defineEventHandler(async (event) => {
                             position: lnk.position,
                             configOverride: lnk.config_override || {},
                             state: responseState,
-                            data: {columns, rows, meta}
+                            data: { columns, rows, meta }
                         }
                     } catch (e: any) {
                         console.error('[full.get.ts] Fatal error processing chart', lnk.chart_id, ':', e?.message || e)
@@ -320,7 +320,7 @@ export default defineEventHandler(async (event) => {
                             position: lnk.position,
                             configOverride: lnk.config_override || {},
                             state: {},
-                            data: {columns: [], rows: [], meta: {error: e?.statusMessage || e?.message || 'chart_processing_failed'}}
+                            data: { columns: [], rows: [], meta: { error: e?.statusMessage || e?.message || 'chart_processing_failed' } }
                         }
                     }
                 })
@@ -338,6 +338,17 @@ export default defineEventHandler(async (event) => {
                     configOverride: w.config_override || {}
                 }))
 
+            const imageResults = tabWidgets
+                .filter((w: any) => w.type === 'image')
+                .map((w: any) => ({
+                    id: w.chart_id || null,
+                    widgetId: w.id,
+                    type: 'image',
+                    position: w.position,
+                    style: w.style || {},
+                    configOverride: w.config_override || {}
+                }))
+
             return {
                 id: tab.id,
                 name: tab.name,
@@ -345,8 +356,9 @@ export default defineEventHandler(async (event) => {
                 style: tab.style ?? {},
                 options: tab.options ?? {},
                 widgets: [
-                    ...chartResults.map((c) => ({...c, type: 'chart'})),
-                    ...textResults
+                    ...chartResults.map((c) => ({ ...c, type: 'chart' })),
+                    ...textResults,
+                    ...imageResults
                 ]
             }
         })
@@ -356,7 +368,7 @@ export default defineEventHandler(async (event) => {
             tabResults = await Promise.all(tabTasks)
         } catch (e: any) {
             console.error('[full.get.ts] Error in Promise.all:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to process tabs'})
+            throw createError({ statusCode: 500, statusMessage: 'Failed to process tabs' })
         }
 
         return {
@@ -373,7 +385,7 @@ export default defineEventHandler(async (event) => {
     } catch (e: any) {
         if (e.statusCode) throw e
         console.error('[full.get.ts] Unexpected error:', e?.message || e)
-        throw createError({statusCode: 500, statusMessage: 'Internal server error'})
+        throw createError({ statusCode: 500, statusMessage: 'Internal server error' })
     }
 })
 

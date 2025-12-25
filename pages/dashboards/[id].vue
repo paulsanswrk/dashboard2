@@ -125,6 +125,18 @@
             <Icon name="i-heroicons-plus" class="w-4 h-4"/>
             Add Text
           </UButton>
+          <UButton
+              v-if="isEditableSession"
+              color="orange"
+              variant="solid"
+              size="xs"
+              class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer flex items-center gap-1"
+              @click="showAddImageModal = true"
+              title="Add image"
+          >
+            <Icon name="i-heroicons-photo" class="w-4 h-4"/>
+            Add Image
+          </UButton>
           <UDropdownMenu
               v-if="isEditableSession"
               :items="addChartMenuItems"
@@ -556,6 +568,12 @@
           :dashboard-name="dashboardName"
       />
 
+      <!-- Add Image Modal -->
+      <AddImageModal
+          v-model:open="showAddImageModal"
+          @select="handleImageSelected"
+      />
+
 
       <div class="flex gap-4 items-stretch flex-1 min-h-0">
         <div class="flex-1 min-w-0 h-full">
@@ -594,6 +612,8 @@
             @rename-chart="(name)=> selectedWidget && renameChartInline(selectedWidget.widgetId, name)"
             @delete-chart="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
             @update-chart-appearance="updateChartAppearance"
+            @update-image-style="updateImageStyle"
+            @change-image="handleChangeImage"
         >
           <template #collapse>
             <UButton size="xs" variant="ghost" class="cursor-pointer" @click="sidebarCollapsed = true">
@@ -690,6 +710,7 @@ const showAddChartModal = ref(false)
 const showCreateTabModal = ref(false)
 const showRenameTabModal = ref(false)
 const showDeleteTabModal = ref(false)
+const showAddImageModal = ref(false)
 const pendingRoute = ref<any>(null)
 
 // Text widget editor
@@ -1354,6 +1375,92 @@ async function addTextBlock() {
   }
 }
 
+interface DashboardImage {
+  path: string
+  filename: string
+  url: string
+  size: number
+  type: string
+  uploadedAt: string
+}
+
+async function handleImageSelected(image: DashboardImage) {
+  const targetTabId = activeTabId.value || tabs.value[0]?.id
+  if (!targetTabId) return
+
+  const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
+  const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.y + item.h)) : 0
+  const newPosition = {x: 0, y: nextY, w: 6, h: 4}
+  const imageStyle = {
+    imageUrl: image.url,
+    objectFit: 'contain',
+    borderRadius: 0,
+    background: 'transparent'
+  }
+
+  // Generate a temporary widget ID for immediate UI update
+  const tempWidgetId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  // Create the widget object for local state
+  const newWidget = {
+    widgetId: tempWidgetId,
+    type: 'image' as const,
+    name: image.filename,
+    position: newPosition,
+    style: imageStyle
+  }
+
+  // Add to local state immediately
+  const tab = tabs.value.find(t => t.id === targetTabId)
+  if (tab) {
+    tab.widgets.push(newWidget)
+    tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+    gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+  }
+
+  // Select the widget
+  selectedTextWidgetId.value = tempWidgetId
+
+  // Persist to server in background
+  try {
+    const res = await $fetch<{ success: boolean; widgetId: string }>('/api/dashboard-widgets', {
+      method: 'POST',
+      body: {
+        tabId: targetTabId,
+        type: 'image',
+        position: newPosition,
+        style: imageStyle
+      }
+    })
+
+    if (res?.widgetId && tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets[widgetIndex].widgetId = res.widgetId
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+        initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        if (selectedTextWidgetId.value === tempWidgetId) {
+          selectedTextWidgetId.value = res.widgetId
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to persist image widget to server', error)
+    if (tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets.splice(widgetIndex, 1)
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+      }
+    }
+    if (selectedTextWidgetId.value === tempWidgetId) {
+      selectedTextWidgetId.value = null
+    }
+  }
+}
+
 async function handleDeleteWidget(widgetId: string) {
   try {
     await $fetch('/api/dashboard-widgets', {
@@ -1453,6 +1560,42 @@ function updateChartAppearance(partial: Record<string, any>) {
       console.error('Failed to save chart overrides', error)
     }
   }, 250)
+}
+
+function updateImageStyle(partial: Record<string, any>) {
+  const widget = selectedWidget.value
+  if (!widget || widget.type !== 'image') return
+  if (!isEditableSession.value) return
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+  const targetWidget = tab.widgets.find(w => w.widgetId === widget.widgetId)
+  if (!targetWidget) return
+
+  // Merge with existing style
+  targetWidget.style = {...(targetWidget.style || {}), ...partial}
+
+  // Debounce persist
+  if (saveChartOverrideTimers[widget.widgetId]) {
+    clearTimeout(saveChartOverrideTimers[widget.widgetId]!)
+  }
+  saveChartOverrideTimers[widget.widgetId] = setTimeout(async () => {
+    try {
+      await $fetch('/api/dashboard-widgets', {
+        method: 'PUT',
+        body: {
+          widgetId: widget.widgetId,
+          style: targetWidget.style
+        }
+      })
+    } catch (error) {
+      console.error('Failed to save image style', error)
+    }
+  }, 250)
+}
+
+function handleChangeImage() {
+  // Open the Add Image modal to allow changing the image
+  showAddImageModal.value = true
 }
 
 function startCreateNewChart() {

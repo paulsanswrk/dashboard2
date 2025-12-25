@@ -5,14 +5,14 @@
         <h3 class="text-lg font-semibold">Options</h3>
         <div class="flex items-center gap-1">
           <UButton
-              v-if="(selectedWidget?.type === 'text' || selectedWidget?.type === 'chart') && !readonly"
+              v-if="(selectedWidget?.type === 'text' || selectedWidget?.type === 'chart' || selectedWidget?.type === 'image') && !readonly"
               color="red"
               variant="ghost"
               size="xs"
               icon="i-heroicons-trash"
               class="cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
               @click="handleDelete"
-              :title="selectedWidget?.type === 'chart' ? 'Delete chart' : 'Delete text block'"
+              :title="selectedWidget?.type === 'chart' ? 'Delete chart' : selectedWidget?.type === 'image' ? 'Delete image' : 'Delete text block'"
           />
           <slot name="collapse"></slot>
         </div>
@@ -34,6 +34,7 @@
 import {computed} from 'vue'
 import WidgetSidebarText from './WidgetSidebarText.vue'
 import WidgetSidebarChart from './WidgetSidebarChart.vue'
+import WidgetSidebarImage from './WidgetSidebarImage.vue'
 
 const props = defineProps<{
   selectedWidget: any | null
@@ -51,12 +52,15 @@ const emit = defineEmits<{
   'rename-chart': [name: string]
   'delete-chart': []
   'update-chart-appearance': [partial: Record<string, any>]
+  'update-image-style': [partial: Record<string, any>]
+  'change-image': []
 }>()
 
 const panelComponent = computed(() => {
   if (!props.selectedWidget) return null
   if (props.selectedWidget.type === 'text') return WidgetSidebarText
   if (props.selectedWidget.type === 'chart') return WidgetSidebarChart
+  if (props.selectedWidget.type === 'image') return WidgetSidebarImage
   return null
 })
 
@@ -84,6 +88,30 @@ const panelProps = computed(() => {
       onUpdateChartAppearance: (partial: Record<string, any>) => emit('update-chart-appearance', partial)
     }
   }
+  if (props.selectedWidget.type === 'image') {
+    const style = props.selectedWidget.style || {}
+    return {
+      imageUrl: style.imageUrl || '',
+      objectFit: style.objectFit || 'cover',
+      backgroundColor: style.backgroundColor || 'transparent',
+      borderRadius: style.borderRadius ?? 0,
+      borderColor: style.borderColor || '#cccccc',
+      borderWidth: style.borderWidth ?? 0,
+      borderStyle: style.borderStyle || 'solid',
+      shadowColor: style.shadowColor || '#00000033',
+      shadowSize: style.shadowSize || 'none',
+      shadowPosition: style.shadowPosition || 'bottom-right',
+      linkEnabled: style.linkEnabled ?? false,
+      linkType: style.linkType || 'url',
+      linkUrl: style.linkUrl || '',
+      linkNewTab: style.linkNewTab ?? false,
+      linkDashboardId: style.linkDashboardId || '',
+      linkTabId: style.linkTabId || '',
+      readonly: props.readonly,
+      onUpdateStyle: (partial: Record<string, any>) => emit('update-image-style', partial),
+      onChangeImage: () => emit('change-image')
+    }
+  }
   return {}
 })
 
@@ -100,6 +128,13 @@ function handleDelete() {
   } else if (props.selectedWidget.type === 'chart') {
     // Parent handles confirmation modal for charts
     emit('delete-chart')
+  } else if (props.selectedWidget.type === 'image') {
+    const shouldDelete = typeof window !== 'undefined'
+        ? window.confirm('Delete this image? This action cannot be undone.')
+        : true
+    if (shouldDelete) {
+      emit('delete-widget')
+    }
   }
 }
 </script>
