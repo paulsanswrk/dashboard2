@@ -1,6 +1,6 @@
 <template>
-  <aside class="max-w-md shrink-0 flex sticky top-4 self-start">
-    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-md flex flex-col max-h-[calc(100vh-2rem)]">
+  <aside class="w-72 shrink-0 h-full">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-md flex flex-col h-full max-h-full">
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
         <h3 class="text-lg font-semibold">Options</h3>
         <div class="flex items-center gap-1">

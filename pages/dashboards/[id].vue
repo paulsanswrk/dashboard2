@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen flex flex-col p-4 lg:p-6">
-    <div class="space-y-4 flex-1 flex flex-col overflow-hidden">
+  <div class="h-screen flex flex-col p-4 lg:p-6 overflow-hidden">
+    <div class="space-y-4 flex-1 flex flex-col min-h-0">
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <div class="flex items-center gap-3 flex-1">
         <template v-if="isEditableSession">
