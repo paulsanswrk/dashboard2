@@ -27,7 +27,12 @@
             :tables="datasets"
             :columns-by-table="columnsByTable"
             :initial-selected="initialSelected"
+            :connection-id="connectionId"
+            :custom-views="customViews"
+            :custom-fields="customFields"
             @save="onSchemaSave"
+            @custom-views-changed="onCustomViewsChanged"
+            @custom-fields-changed="onCustomFieldsChanged"
           />
         </div>
       </UCard>
@@ -48,6 +53,8 @@ const saving = ref(false)
 const schemaSelection = ref(null)
 const initialSelected = ref({})
 const allSchemasLoaded = ref(false)
+const customViews = ref([])
+const customFields = ref([])
 
 // Ref to access the SchemaSelector component
 const schemaSelectorRef = ref()
@@ -74,6 +81,12 @@ async function loadExisting() {
     selected[t.tableId] = (t.columns || []).map((c) => c.fieldId || c.name)
   }
   initialSelected.value = selected
+
+  // Load custom views
+  customViews.value = conn?.custom_views || []
+
+  // Load custom fields
+  customFields.value = conn?.custom_fields || []
 }
 
 async function loadAll() {
@@ -117,6 +130,14 @@ async function loadAll() {
 
 function onSchemaSave(payload) {
   schemaSelection.value = payload
+}
+
+function onCustomViewsChanged(views: any[]) {
+  customViews.value = views
+}
+
+function onCustomFieldsChanged(fields: any[]) {
+  customFields.value = fields
 }
 
 async function saveAndContinue() {

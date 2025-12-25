@@ -67,6 +67,8 @@ export const dataConnections = pgTable('data_connections', {
     schemaJson: jsonb('schema_json'),
     autoJoinInfo: jsonb('auto_join_info'),
     dbmsVersion: text('dbms_version'),
+    customViews: jsonb('custom_views').default(sql`'[]'::jsonb`),
+    customFields: jsonb('custom_fields').default(sql`'[]'::jsonb`),
 }, (table) => [
     index('data_connections_owner_idx').on(table.ownerId),
     index('data_connections_org_idx').on(table.organizationId),
