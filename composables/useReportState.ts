@@ -29,8 +29,11 @@ export type JoinRef = {
   constraintName: string
   sourceTable: string
   targetTable: string
-  joinType: 'inner' | 'left'
+    joinType: 'inner' | 'left' | 'right'
   columnPairs: Array<{ position: number; sourceColumn: string; targetColumn: string }>
+    preventDuplication?: boolean
+    sourceCardinality?: 'one' | 'many'
+    targetCardinality?: 'one' | 'many'
 }
 
 export type FilterCondition = ReportField & {
@@ -392,7 +395,26 @@ export function useReportState() {
     canRedo: computed(() => canRedo()),
     // joins
     addJoin(j: JoinRef) { joinsRef.value.push(j) },
-    removeJoin(index: number) { joinsRef.value.splice(index, 1) }
+      removeJoin(index: number) {
+          joinsRef.value.splice(index, 1)
+      },
+      updateJoin(index: number, updates: Partial<JoinRef>) {
+          if (joinsRef.value[index]) {
+              joinsRef.value[index] = {...joinsRef.value[index], ...updates}
+          }
+      },
+      reorderJoin(from: number, to: number) {
+          const arr = joinsRef.value
+          if (from < 0 || from >= arr.length || to < 0 || to >= arr.length) return
+          const [item] = arr.splice(from, 1)
+          if (item) arr.splice(to, 0, item)
+      },
+      setJoins(joins: JoinRef[]) {
+          joinsRef.value = joins
+      },
+      clearJoins() {
+          joinsRef.value = []
+      }
   }
 }
 

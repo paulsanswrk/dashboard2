@@ -135,7 +135,7 @@
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
               <h3 class="font-medium text-white">Zones</h3>
               <ClientOnly>
-                <ReportingZones :zone-config="zoneConfig" :connection-id="connectionId" @field-updated="onFieldUpdated"/>
+                <ReportingZones :zone-config="zoneConfig" :connection-id="connectionId" @field-updated="onFieldUpdated" @open-join-path-modal="showEditJoinPathModal = true"/>
               </ClientOnly>
               <div>
                 <ReportingFilters :disabled="false"/>
@@ -181,6 +181,14 @@
       </div>
     </template>
   </ReportingLayout>
+
+   <!-- Edit Join Path Modal -->
+   <EditJoinPathModal
+       v-model:open="showEditJoinPathModal"
+       :connection-id="connectionId"
+       :available-tables="availableTableNames"
+       @save="onJoinPathSave"
+   />
 </template>
 
 <script setup lang="ts">
@@ -194,6 +202,7 @@ import ReportingLayout from '../../components/reporting/ReportingLayout.vue'
 import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
+import EditJoinPathModal from '../../components/reporting/EditJoinPathModal.vue'
 import ChartConfigEditor from '../../components/reporting/ChartConfigEditor.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
 import {useReportingService} from '../../composables/useReportingService'
@@ -213,6 +222,10 @@ const dashboardId = ref<string | null>(null)
 const {selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql} = useReportState()
 const reportingBuilderRef = ref<any>(null)
 const currentChartType = ref<string>('bar')
+const showEditJoinPathModal = ref(false)
+
+// Computed list of available table names from datasets
+const availableTableNames = computed(() => datasets.value.map(ds => ds.name))
 
 // Zone configuration based on chart type (we'll get this from the builder or use a default)
 const zoneConfig = computed(() => {
@@ -250,6 +263,15 @@ const sidebarVisible = ref(false)
 // Handler for when a field is updated in the zones
 function onFieldUpdated() {
   // Trigger preview refresh when field options are applied
+  const builder = reportingBuilderRef.value as any
+  if (builder?.onTestPreview) {
+    builder.onTestPreview()
+  }
+}
+
+// Handler for when join paths are saved from the modal
+function onJoinPathSave() {
+  // Trigger preview refresh after joins are saved
   const builder = reportingBuilderRef.value as any
   if (builder?.onTestPreview) {
     builder.onTestPreview()

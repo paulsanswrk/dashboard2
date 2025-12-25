@@ -1,5 +1,17 @@
 <template>
   <div class="space-y-2 relative">
+    <!-- Join Path Edit Icon -->
+    <div v-if="hasMultipleTables" class="flex items-center justify-end mb-1">
+      <button
+          class="flex items-center gap-1 px-2 py-1 text-xs text-primary-400 hover:text-primary-300 hover:bg-dark-lighter rounded cursor-pointer transition-colors"
+          title="Click here to modify the join type and path for this query, and to remove unintended duplication of data"
+          @click="$emit('open-join-path-modal')"
+      >
+        <Icon name="i-heroicons-link" class="w-4 h-4"/>
+        <span>Edit Joins</span>
+      </button>
+    </div>
+
     <!-- X Dimensions Zone -->
     <div v-if="zoneConfig.showXDimensions" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
       <div class="flex items-center justify-between mb-1">
@@ -209,9 +221,19 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'field-updated'): void
+  (e: 'open-join-path-modal'): void
 }>()
 
 const {xDimensions, yMetrics, breakdowns, filters, addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow} = useReportState()
+
+// Check if we have fields from multiple tables (for showing join edit icon)
+const hasMultipleTables = computed(() => {
+  const tables = new Set<string>()
+  ;[...xDimensions.value, ...yMetrics.value, ...breakdowns.value].forEach((f) => {
+    if (f?.table) tables.add(f.table)
+  })
+  return tables.size > 1
+})
 
 // Default zone config if none provided
 const zoneConfig = computed(() => props.zoneConfig || {
