@@ -29,26 +29,32 @@ export type JoinRef = {
   constraintName: string
   sourceTable: string
   targetTable: string
-    joinType: 'inner' | 'left' | 'right'
+  joinType: 'inner' | 'left' | 'right'
   columnPairs: Array<{ position: number; sourceColumn: string; targetColumn: string }>
-    preventDuplication?: boolean
-    sourceCardinality?: 'one' | 'many'
-    targetCardinality?: 'one' | 'many'
+  preventDuplication?: boolean
+  sourceCardinality?: 'one' | 'many'
+  targetCardinality?: 'one' | 'many'
 }
 
 export type FilterCondition = ReportField & {
-    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'between' | 'is_null' | 'is_not_null'
-    values?: string[]
-    value?: string
-    valueTo?: string  // For "between" operator
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'between' | 'is_null' | 'is_not_null'
+  values?: string[]
+  value?: string
+  valueTo?: string  // For "between" operator
 }
+
+export type ZoneType = 'x' | 'y' | 'breakdowns' | 'filters' | 'targetValue' | 'location' | 'crossTab'
 
 type ReportState = {
   selectedDatasetId: string | null
   xDimensions: DimensionRef[]
   yMetrics: MetricRef[]
   breakdowns: DimensionRef[]
-    filters: FilterCondition[]
+  filters: FilterCondition[]
+  // New zones for alignment with original app
+  targetValue?: MetricRef | null       // For number, gauge charts
+  location?: DimensionRef | null       // For map charts
+  crossTabDimension?: DimensionRef | null  // For table, pivot charts
   excludeNullsInDimensions?: boolean
   appearance?: {
     // General
@@ -140,7 +146,7 @@ type ReportState = {
     stacked?: boolean
   }
   joins?: JoinRef[]
-    filters?: FilterCondition[]
+  filters?: FilterCondition[]
 }
 
 function encodeState(state: ReportState): string {
@@ -176,6 +182,10 @@ const xDimensionsRef = ref<DimensionRef[]>([])
 const yMetricsRef = ref<MetricRef[]>([])
 const breakdownsRef = ref<DimensionRef[]>([])
 const filtersRef = ref<FilterCondition[]>([])
+// New zone refs for alignment with original app
+const targetValueRef = ref<MetricRef | null>(null)
+const locationRef = ref<DimensionRef | null>(null)
+const crossTabDimensionRef = ref<DimensionRef | null>(null)
 const excludeNullsInDimensionsRef = ref<boolean>(false)
 const appearanceRef = ref<ReportState['appearance']>({
   chartTitle: '',
@@ -205,7 +215,10 @@ function snapshot(): Snapshot {
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
     breakdowns: breakdownsRef.value,
-      filters: filtersRef.value,
+    filters: filtersRef.value,
+    targetValue: targetValueRef.value,
+    location: locationRef.value,
+    crossTabDimension: crossTabDimensionRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
     appearance: appearanceRef.value,
     joins: joinsRef.value
@@ -236,7 +249,10 @@ function applySnapshot(s: Snapshot) {
   xDimensionsRef.value = s.xDimensions || []
   yMetricsRef.value = s.yMetrics || []
   breakdownsRef.value = s.breakdowns || []
-    filtersRef.value = s.filters || []
+  filtersRef.value = s.filters || []
+  targetValueRef.value = s.targetValue || null
+  locationRef.value = s.location || null
+  crossTabDimensionRef.value = s.crossTabDimension || null
   excludeNullsInDimensionsRef.value = !!s.excludeNullsInDimensions
   appearanceRef.value = s.appearance || {}
   joinsRef.value = s.joins || []
@@ -278,7 +294,10 @@ export function useReportState() {
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
     breakdowns: breakdownsRef.value,
-      filters: filtersRef.value,
+    filters: filtersRef.value,
+    targetValue: targetValueRef.value,
+    location: locationRef.value,
+    crossTabDimension: crossTabDimensionRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
     appearance: appearanceRef.value,
     joins: joinsRef.value
@@ -325,21 +344,29 @@ export function useReportState() {
     selectedDatasetIdRef.value = id
   }
 
-    function addToZone(zone: 'x' | 'y' | 'breakdowns' | 'filters', item: ReportField) {
+  function addToZone(zone: ZoneType, item: ReportField) {
     if (zone === 'x') xDimensionsRef.value.push({ ...item })
     else if (zone === 'y') yMetricsRef.value.push({ ...item })
     else if (zone === 'breakdowns') breakdownsRef.value.push({ ...item })
     else if (zone === 'filters') filtersRef.value.push({...item, operator: 'equals'} as FilterCondition)
+    else if (zone === 'targetValue') targetValueRef.value = {...item} as MetricRef
+    else if (zone === 'location') locationRef.value = {...item} as DimensionRef
+    else if (zone === 'crossTab') crossTabDimensionRef.value = {...item} as DimensionRef
   }
 
-    function removeFromZone(zone: 'x' | 'y' | 'breakdowns' | 'filters', index: number) {
+  function removeFromZone(zone: ZoneType, index: number) {
     if (zone === 'x') xDimensionsRef.value.splice(index, 1)
     else if (zone === 'y') yMetricsRef.value.splice(index, 1)
     else if (zone === 'breakdowns') breakdownsRef.value.splice(index, 1)
     else if (zone === 'filters') filtersRef.value.splice(index, 1)
+    else if (zone === 'targetValue') targetValueRef.value = null
+    else if (zone === 'location') locationRef.value = null
+    else if (zone === 'crossTab') crossTabDimensionRef.value = null
   }
 
-    function moveInZone(zone: 'x' | 'y' | 'breakdowns' | 'filters', from: number, to: number) {
+  function moveInZone(zone: ZoneType, from: number, to: number) {
+    // New single-value zones don't support reordering
+    if (zone === 'targetValue' || zone === 'location' || zone === 'crossTab') return
     if (zone === 'x') {
       const arr = xDimensionsRef.value
       const [it] = arr.splice(from, 1)
@@ -353,21 +380,27 @@ export function useReportState() {
       const [it] = arr.splice(from, 1)
       if (it) arr.splice(to, 0, it)
     } else if (zone === 'filters') {
-        const arr = filtersRef.value
-        const [it] = arr.splice(from, 1)
-        if (it) arr.splice(to, 0, it)
+      const arr = filtersRef.value
+      const [it] = arr.splice(from, 1)
+      if (it) arr.splice(to, 0, it)
     }
   }
 
-    function updateFieldInZone(zone: 'x' | 'y' | 'breakdowns' | 'filters', index: number, updates: Partial<MetricRef & DimensionRef & FilterCondition>) {
+  function updateFieldInZone(zone: ZoneType, index: number, updates: Partial<MetricRef & DimensionRef & FilterCondition>) {
     if (zone === 'x' && xDimensionsRef.value[index]) {
-        xDimensionsRef.value[index] = {...xDimensionsRef.value[index], ...updates}
+      xDimensionsRef.value[index] = {...xDimensionsRef.value[index], ...updates}
     } else if (zone === 'y' && yMetricsRef.value[index]) {
-        yMetricsRef.value[index] = {...yMetricsRef.value[index], ...updates}
+      yMetricsRef.value[index] = {...yMetricsRef.value[index], ...updates}
     } else if (zone === 'breakdowns' && breakdownsRef.value[index]) {
-        breakdownsRef.value[index] = {...breakdownsRef.value[index], ...updates}
+      breakdownsRef.value[index] = {...breakdownsRef.value[index], ...updates}
     } else if (zone === 'filters' && filtersRef.value[index]) {
-        filtersRef.value[index] = {...filtersRef.value[index], ...updates} as FilterCondition
+      filtersRef.value[index] = {...filtersRef.value[index], ...updates} as FilterCondition
+    } else if (zone === 'targetValue' && targetValueRef.value) {
+      targetValueRef.value = {...targetValueRef.value, ...updates} as MetricRef
+    } else if (zone === 'location' && locationRef.value) {
+      locationRef.value = {...locationRef.value, ...updates} as DimensionRef
+    } else if (zone === 'crossTab' && crossTabDimensionRef.value) {
+      crossTabDimensionRef.value = {...crossTabDimensionRef.value, ...updates} as DimensionRef
     }
   }
 
@@ -377,7 +410,10 @@ export function useReportState() {
     xDimensions: xDimensionsRef,
     yMetrics: yMetricsRef,
     breakdowns: breakdownsRef,
-      filters: filtersRef,
+    filters: filtersRef,
+    targetValue: targetValueRef,
+    location: locationRef,
+    crossTabDimension: crossTabDimensionRef,
     excludeNullsInDimensions: excludeNullsInDimensionsRef,
     appearance: appearanceRef,
     joins: joinsRef,
@@ -395,26 +431,26 @@ export function useReportState() {
     canRedo: computed(() => canRedo()),
     // joins
     addJoin(j: JoinRef) { joinsRef.value.push(j) },
-      removeJoin(index: number) {
-          joinsRef.value.splice(index, 1)
-      },
-      updateJoin(index: number, updates: Partial<JoinRef>) {
-          if (joinsRef.value[index]) {
-              joinsRef.value[index] = {...joinsRef.value[index], ...updates}
-          }
-      },
-      reorderJoin(from: number, to: number) {
-          const arr = joinsRef.value
-          if (from < 0 || from >= arr.length || to < 0 || to >= arr.length) return
-          const [item] = arr.splice(from, 1)
-          if (item) arr.splice(to, 0, item)
-      },
-      setJoins(joins: JoinRef[]) {
-          joinsRef.value = joins
-      },
-      clearJoins() {
-          joinsRef.value = []
+    removeJoin(index: number) {
+      joinsRef.value.splice(index, 1)
+    },
+    updateJoin(index: number, updates: Partial<JoinRef>) {
+      if (joinsRef.value[index]) {
+        joinsRef.value[index] = {...joinsRef.value[index], ...updates}
       }
+    },
+    reorderJoin(from: number, to: number) {
+      const arr = joinsRef.value
+      if (from < 0 || from >= arr.length || to < 0 || to >= arr.length) return
+      const [item] = arr.splice(from, 1)
+      if (item) arr.splice(to, 0, item)
+    },
+    setJoins(joins: JoinRef[]) {
+      joinsRef.value = joins
+    },
+    clearJoins() {
+      joinsRef.value = []
+    }
   }
 }
 

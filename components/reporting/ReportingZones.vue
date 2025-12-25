@@ -131,6 +131,98 @@
       </template>
     </div>
 
+    <!-- Target Value Zone (for Number/Gauge) - single field slot -->
+    <div v-if="zoneConfig.showTargetValue" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDropSingleZone('targetValue')">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="i-heroicons-arrow-trending-up" class="w-4 h-4 text-neutral-300"/>
+          {{ zoneConfig.targetValueLabel || 'Target Value' }}
+        </span>
+      </div>
+      <template v-if="targetValue">
+        <div
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
+            @click="openPopup('targetValue', 0, $event)"
+            data-zone-item="targetValue"
+        >
+          <div class="pr-6">
+            <div class="text-sm">{{ targetValue.label || targetValue.name }}</div>
+            <div class="text-xs text-neutral-300">
+              <template v-if="targetValue.table">{{ targetValue.table }}</template>
+              <template v-if="targetValue.aggregation"><span v-if="targetValue.table"> • </span>{{ formatAggregation(targetValue.aggregation) }}</template>
+            </div>
+          </div>
+          <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('targetValue', 0)" aria-label="Remove" data-remove>
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+          </button>
+        </div>
+      </template>
+      <template v-else>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
+      </template>
+    </div>
+
+    <!-- Location Zone (for Map) - single field slot -->
+    <div v-if="zoneConfig.showLocation" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDropSingleZone('location')">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="i-heroicons-map-pin" class="w-4 h-4 text-neutral-300"/>
+          {{ zoneConfig.locationLabel || 'Location' }}
+        </span>
+      </div>
+      <template v-if="location">
+        <div
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
+            @click="openPopup('location', 0, $event)"
+            data-zone-item="location"
+        >
+          <div class="pr-6">
+            <div class="text-sm">{{ location.label || location.name }}</div>
+            <div class="text-xs text-neutral-300">
+              <template v-if="location.table">{{ location.table }}</template>
+            </div>
+          </div>
+          <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('location', 0)" aria-label="Remove" data-remove>
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+          </button>
+        </div>
+      </template>
+      <template v-else>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
+      </template>
+    </div>
+
+    <!-- Cross Tab Dimension Zone (for Table/Pivot) - single field slot -->
+    <div v-if="zoneConfig.showCrossTab" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDropSingleZone('crossTab')">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="i-heroicons-view-columns" class="w-4 h-4 text-neutral-300"/>
+          {{ zoneConfig.crossTabLabel || 'Cross Tab Dimension' }}
+        </span>
+      </div>
+      <template v-if="crossTabDimension">
+        <div
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
+            @click="openPopup('crossTab', 0, $event)"
+            data-zone-item="crossTab"
+        >
+          <div class="pr-6">
+            <div class="text-sm">{{ crossTabDimension.label || crossTabDimension.name }}</div>
+            <div class="text-xs text-neutral-300">
+              <template v-if="crossTabDimension.table">{{ crossTabDimension.table }}</template>
+              <template v-if="crossTabDimension.dateInterval"><span v-if="crossTabDimension.table"> • </span>{{ crossTabDimension.dateInterval }}</template>
+            </div>
+          </div>
+          <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('crossTab', 0)" aria-label="Remove" data-remove>
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+          </button>
+        </div>
+      </template>
+      <template v-else>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
+      </template>
+    </div>
+
     <!-- Filters Zone -->
     <div class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('filters')">
       <div class="flex items-center justify-between mb-1">
@@ -199,7 +291,7 @@
 
 <script setup lang="ts">
 import {computed, ref} from 'vue'
-import {type DimensionRef, type FilterCondition, type MetricRef, type ReportField, useReportState} from '../../composables/useReportState'
+import {type DimensionRef, type FilterCondition, type MetricRef, type ReportField, useReportState, type ZoneType} from '../../composables/useReportState'
 import ReportingFieldOptionsPopup from './ReportingFieldOptionsPopup.vue'
 import ReportingFilterOptionsPopup from './ReportingFilterOptionsPopup.vue'
 
@@ -207,12 +299,16 @@ type ZoneConfig = {
   showXDimensions: boolean
   showYMetrics: boolean
   showBreakdowns: boolean
+  showTargetValue: boolean
+  showLocation: boolean
+  showCrossTab: boolean
   xLabel?: string
   yLabel?: string
   breakdownLabel?: string
+  targetValueLabel?: string
+  locationLabel?: string
+  crossTabLabel?: string
 }
-
-type ZoneType = 'x' | 'y' | 'breakdowns' | 'filters'
 
 const props = defineProps<{
   zoneConfig?: ZoneConfig
@@ -224,7 +320,11 @@ const emit = defineEmits<{
   (e: 'open-join-path-modal'): void
 }>()
 
-const {xDimensions, yMetrics, breakdowns, filters, addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow} = useReportState()
+const {
+  xDimensions, yMetrics, breakdowns, filters,
+  targetValue, location, crossTabDimension,
+  addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow
+} = useReportState()
 
 // Check if we have fields from multiple tables (for showing join edit icon)
 const hasMultipleTables = computed(() => {
@@ -232,6 +332,10 @@ const hasMultipleTables = computed(() => {
   ;[...xDimensions.value, ...yMetrics.value, ...breakdowns.value].forEach((f) => {
     if (f?.table) tables.add(f.table)
   })
+  // Also check single-value zones
+  if (targetValue.value?.table) tables.add(targetValue.value.table)
+  if (location.value?.table) tables.add(location.value.table)
+  if (crossTabDimension.value?.table) tables.add(crossTabDimension.value.table)
   return tables.size > 1
 })
 
@@ -240,6 +344,9 @@ const zoneConfig = computed(() => props.zoneConfig || {
   showXDimensions: true,
   showYMetrics: true,
   showBreakdowns: true,
+  showTargetValue: false,
+  showLocation: false,
+  showCrossTab: false,
   xLabel: 'X (Dimensions)',
   yLabel: 'Y (Metrics)',
   breakdownLabel: 'Breakdown'
@@ -277,8 +384,14 @@ function openPopup(zone: ZoneType, index: number, event: MouseEvent) {
     activeField.value = xDimensions.value[index] ?? null
   } else if (zone === 'y') {
     activeField.value = yMetrics.value[index] ?? null
-  } else {
+  } else if (zone === 'breakdowns') {
     activeField.value = breakdowns.value[index] ?? null
+  } else if (zone === 'targetValue') {
+    activeField.value = targetValue.value ?? null
+  } else if (zone === 'location') {
+    activeField.value = location.value ?? null
+  } else if (zone === 'crossTab') {
+    activeField.value = crossTabDimension.value ?? null
   }
 
   activeZone.value = zone
@@ -371,6 +484,24 @@ function onDrop(zone: ZoneType) {
       addToZone(zone, field)
       // ensure URL reflects new state immediately
       syncUrlNow()
+      emit('field-updated')
+    }
+  } catch {}
+}
+
+// Drop handler for single-value zones (targetValue, location, crossTab)
+function onDropSingleZone(zone: 'targetValue' | 'location' | 'crossTab') {
+  const dt = (event as DragEvent).dataTransfer
+  if (!dt) return
+  const str = dt.getData('application/json')
+  if (!str) return
+  try {
+    const parsed = JSON.parse(str)
+    if (parsed?.type === 'field') {
+      const field = parsed.field as ReportField
+      addToZone(zone, field)
+      syncUrlNow()
+      emit('field-updated')
     }
   } catch {}
 }

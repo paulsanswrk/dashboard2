@@ -300,173 +300,200 @@ type ZoneConfig = {
   showXDimensions: boolean
   showYMetrics: boolean
   showBreakdowns: boolean
+  showTargetValue: boolean    // For number, gauge
+  showLocation: boolean       // For map
+  showCrossTab: boolean       // For table, pivot
   xLabel?: string
   yLabel?: string
   breakdownLabel?: string
+  targetValueLabel?: string
+  locationLabel?: string
+  crossTabLabel?: string
 }
 
 const zoneConfig = computed((): ZoneConfig => {
+  // Default config with all zones hidden
+  const defaultConfig: ZoneConfig = {
+    showXDimensions: true,
+    showYMetrics: true,
+    showBreakdowns: true,
+    showTargetValue: false,
+    showLocation: false,
+    showCrossTab: false,
+    xLabel: 'X-Axis',
+    yLabel: 'Y-Axis',
+    breakdownLabel: 'Break Down By'
+  }
+
   switch (chartType.value) {
-    case 'table':
+      // Single value charts - matching original app naming
+    case 'number':
       return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
-        xLabel: 'Columns',
-        yLabel: 'Values',
-        breakdownLabel: 'Rows'
-      }
-    case 'bar':
-    case 'line':
-    case 'area':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
-        xLabel: 'X (Categories)',
-        yLabel: 'Y (Values)',
-        breakdownLabel: 'Series'
-      }
-    case 'pie':
-    case 'donut':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
+        ...defaultConfig,
+        showXDimensions: false,
         showBreakdowns: false,
-        xLabel: 'Categories',
-        yLabel: 'Values'
-      }
-    case 'funnel':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: false,
-        xLabel: 'Stages',
-        yLabel: 'Values'
+        showTargetValue: true,
+        yLabel: 'Measure',
+        targetValueLabel: 'Target Value'
       }
     case 'gauge':
       return {
+        ...defaultConfig,
         showXDimensions: false,
-        showYMetrics: true,
         showBreakdowns: false,
-        yLabel: 'Value'
-      }
-    case 'scatter':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: false,
-        xLabel: 'X Values',
-        yLabel: 'Y Values'
-      }
-    case 'map':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: false,
-        xLabel: 'Regions',
-        yLabel: 'Values'
-      }
-    case 'treemap':
-      return {
-        showXDimensions: true,
-        showYMetrics: false,
-        showBreakdowns: true,
-        xLabel: 'Hierarchy',
-        breakdownLabel: 'Size Values'
-      }
-    case 'sankey':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: false,
-        xLabel: 'Sources',
-        yLabel: 'Targets'
+        showTargetValue: true,
+        yLabel: 'Measure',
+        targetValueLabel: 'Target Value'
       }
     case 'kpi':
       return {
+        ...defaultConfig,
         showXDimensions: false,
-        showYMetrics: true,
         showBreakdowns: false,
-        yLabel: 'Value'
+        showTargetValue: true,
+        yLabel: 'Measure',
+        targetValueLabel: 'Target Value'
+      }
+
+      // Table charts - matching original app with cross-tab
+    case 'table':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        showCrossTab: true,
+        xLabel: 'Columns (Text)',
+        yLabel: 'Columns (Aggregated)',
+        crossTabLabel: 'Cross Tab Dimension'
       }
     case 'pivot':
       return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
+        ...defaultConfig,
+        showCrossTab: true,
         xLabel: 'Columns',
         yLabel: 'Values',
-        breakdownLabel: 'Rows'
+        breakdownLabel: 'Rows',
+        crossTabLabel: 'Cross Tab Dimension'
       }
+
+      // Pie/Donut - matching original app naming
+    case 'pie':
+    case 'donut':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'Divide By',
+        yLabel: 'Measure'
+      }
+
+      // Funnel
+    case 'funnel':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'Stages',
+        yLabel: 'Measure'
+      }
+
+      // Map - with location zone
+    case 'map':
+      return {
+        ...defaultConfig,
+        showXDimensions: false,
+        showLocation: true,
+        yLabel: 'Measure',
+        locationLabel: 'Location',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Cartesian charts - matching original app naming
     case 'column':
+    case 'bar':
     case 'stacked':
       return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
-        xLabel: 'X (Categories)',
-        yLabel: 'Y (Values)',
-        breakdownLabel: 'Series'
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Break Down By'
       }
-    case 'number':
+    case 'line':
+    case 'area':
       return {
-        showXDimensions: false,
-        showYMetrics: true,
-        showBreakdowns: false,
-        yLabel: 'Value'
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Break Down By'
       }
+    case 'boxplot':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis'
+      }
+
+      // Scatter/Bubble
+    case 'scatter':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis'
+      }
+    case 'bubble':
+      return {
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Size'
+      }
+
+      // Treemap
+    case 'treemap':
+      return {
+        ...defaultConfig,
+        showYMetrics: false,
+        xLabel: 'Hierarchy',
+        breakdownLabel: 'Size Values'
+      }
+
+      // Sankey
+    case 'sankey':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'Source',
+        yLabel: 'Target'
+      }
+
+      // Radar
     case 'radar':
       return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
+        ...defaultConfig,
         xLabel: 'Dimensions',
         yLabel: 'Values',
         breakdownLabel: 'Series'
       }
-    case 'bubble':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
-        xLabel: 'X Values',
-        yLabel: 'Y Values',
-        breakdownLabel: 'Size'
-      }
-    case 'boxplot':
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: false,
-        xLabel: 'Category',
-        yLabel: 'Values'
-      }
+
+      // Waterfall
     case 'waterfall':
       return {
-        showXDimensions: true,
-        showYMetrics: true,
+        ...defaultConfig,
         showBreakdowns: false,
         xLabel: 'Categories',
         yLabel: 'Values'
       }
+
+      // Word Cloud
     case 'wordcloud':
       return {
-        showXDimensions: true,
-        showYMetrics: true,
+        ...defaultConfig,
         showBreakdowns: false,
         xLabel: 'Words',
         yLabel: 'Size Values'
       }
+
     default:
-      return {
-        showXDimensions: true,
-        showYMetrics: true,
-        showBreakdowns: true,
-        xLabel: 'X (Dimensions)',
-        yLabel: 'Y (Metrics)',
-        breakdownLabel: 'Breakdown'
-      }
+      return defaultConfig
   }
 })
 
