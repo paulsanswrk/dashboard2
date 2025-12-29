@@ -290,7 +290,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {computed, nextTick, ref} from 'vue'
 import {type DimensionRef, type FilterCondition, type MetricRef, type ReportField, useReportState, type ZoneType} from '../../composables/useReportState'
 import ReportingFieldOptionsPopup from './ReportingFieldOptionsPopup.vue'
 import ReportingFilterOptionsPopup from './ReportingFilterOptionsPopup.vue'
@@ -473,7 +473,8 @@ function formatOperator(op: string | undefined): string {
 }
 
 function onDrop(zone: ZoneType) {
-  const dt = (event as DragEvent).dataTransfer
+  const dropEvent = event as DragEvent
+  const dt = dropEvent.dataTransfer
   if (!dt) return
   const str = dt.getData('application/json')
   if (!str) return
@@ -485,13 +486,56 @@ function onDrop(zone: ZoneType) {
       // ensure URL reflects new state immediately
       syncUrlNow()
       emit('field-updated')
+
+      // Open the popup immediately for the newly added field
+      // The new field is at the end of the zone's array
+      nextTick(() => {
+        let newIndex = 0
+        let newField: ReportField | MetricRef | DimensionRef | null = null
+        if (zone === 'x') {
+          newIndex = xDimensions.value.length - 1
+          newField = xDimensions.value[newIndex] ?? null
+        } else if (zone === 'y') {
+          newIndex = yMetrics.value.length - 1
+          newField = yMetrics.value[newIndex] ?? null
+        } else if (zone === 'breakdowns') {
+          newIndex = breakdowns.value.length - 1
+          newField = breakdowns.value[newIndex] ?? null
+        } else if (zone === 'filters') {
+          // For filters, open the filter popup instead
+          newIndex = filters.value.length - 1
+          const newFilter = filters.value[newIndex] ?? null
+          if (newFilter) {
+            popupPosition.value = {
+              x: dropEvent.clientX,
+              y: dropEvent.clientY + 10
+            }
+            activeFilter.value = newFilter
+            activeFilterIndex.value = newIndex
+            filterPopupVisible.value = true
+          }
+          return
+        }
+
+        if (newField && newIndex >= 0) {
+          popupPosition.value = {
+            x: dropEvent.clientX,
+            y: dropEvent.clientY + 10
+          }
+          activeField.value = newField
+          activeZone.value = zone
+          activeIndex.value = newIndex
+          popupVisible.value = true
+        }
+      })
     }
   } catch {}
 }
 
 // Drop handler for single-value zones (targetValue, location, crossTab)
 function onDropSingleZone(zone: 'targetValue' | 'location' | 'crossTab') {
-  const dt = (event as DragEvent).dataTransfer
+  const dropEvent = event as DragEvent
+  const dt = dropEvent.dataTransfer
   if (!dt) return
   const str = dt.getData('application/json')
   if (!str) return
@@ -502,6 +546,29 @@ function onDropSingleZone(zone: 'targetValue' | 'location' | 'crossTab') {
       addToZone(zone, field)
       syncUrlNow()
       emit('field-updated')
+
+      // Open the popup immediately for the newly added field
+      nextTick(() => {
+        let newField: ReportField | MetricRef | DimensionRef | null = null
+        if (zone === 'targetValue') {
+          newField = targetValue.value ?? null
+        } else if (zone === 'location') {
+          newField = location.value ?? null
+        } else if (zone === 'crossTab') {
+          newField = crossTabDimension.value ?? null
+        }
+
+        if (newField) {
+          popupPosition.value = {
+            x: dropEvent.clientX,
+            y: dropEvent.clientY + 10
+          }
+          activeField.value = newField
+          activeZone.value = zone
+          activeIndex.value = 0
+          popupVisible.value = true
+        }
+      })
     }
   } catch {}
 }
