@@ -215,7 +215,7 @@
     <div class="border-t pt-4">
       <h4 class="text-xs font-semibold text-gray-500 uppercase mb-3">Interactive Link</h4>
 
-      <div class="flex items-center gap-2 mb-3">
+      <label class="flex items-center gap-2 mb-3 cursor-pointer">
         <input
             type="checkbox"
             :checked="linkEnabled"
@@ -223,8 +223,8 @@
             class="rounded border-gray-300 text-blue-600 cursor-pointer"
             @change="handleStyleChange('linkEnabled', ($event.target as HTMLInputElement).checked)"
         />
-        <label class="text-sm text-gray-700 dark:text-gray-300">Enable click action</label>
-      </div>
+        <span class="text-sm text-gray-700 dark:text-gray-300">Enable click action</span>
+      </label>
 
       <div v-if="linkEnabled" class="space-y-3 pl-4">
         <!-- Link Type Selection -->

@@ -47,6 +47,7 @@ interface StyleProps {
 
 const props = defineProps<{
   styleProps: StyleProps
+  editMode?: boolean
 }>()
 
 // Check if link is configured
@@ -156,6 +157,9 @@ const imageStyle = computed(() => ({
 const router = useRouter()
 
 function handleClick() {
+  // Don't navigate in edit mode
+  if (props.editMode) return
+  
   const s = props.styleProps
   if (!s?.linkEnabled) return
 

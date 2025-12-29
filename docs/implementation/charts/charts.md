@@ -23,100 +23,132 @@ The original implementation used Chart.js v4.4.4 loaded via CDN for basic charti
 
 ## Supported Chart Types
 
-The implementation now supports **12 comprehensive chart types**, each with intelligent zone configuration:
+The implementation now supports **21 comprehensive chart types**, each with intelligent zone configuration matching the original Optiqo app:
 
 ### 1. Table/Grid View
 - **Purpose**: Data table display for detailed record viewing
-- **Zones**: X (Columns), Y (Values), Breakdown (Rows)
+- **Zones**: Columns (Text), Columns (Aggregated), Cross Tab Dimension
 - **Use Case**: Detailed data inspection and export
 
 ### 2. Bar/Column Chart
 - **Purpose**: Compare values across categories
-- **Zones**: X (Categories), Y (Values), Breakdown (Series)
+- **Zones**: X-Axis, Y-Axis, Break Down By
 - **Features**: Stacking support, horizontal/vertical orientation
 
 ### 3. Line Chart
 - **Purpose**: Show trends and changes over time
-- **Zones**: X (Categories), Y (Values), Breakdown (Series)
+- **Zones**: X-Axis, Y-Axis, Break Down By
 - **Features**: Smooth curves, markers, trend analysis
 
-### 4. Area Chart ✨ NEW
+### 4. Area Chart
 - **Purpose**: Emphasize magnitude of change over time
-- **Zones**: X (Categories), Y (Values), Breakdown (Series)
+- **Zones**: X-Axis, Y-Axis, Break Down By
 - **Features**: Filled areas under lines, opacity control
 
 ### 5. Pie Chart
 - **Purpose**: Show parts of a whole
-- **Zones**: X (Categories), Y (Values)
+- **Zones**: Divide By, Measure
 - **Features**: Customizable radius, legend positioning
 
 ### 6. Donut Chart
 - **Purpose**: Show parts of a whole with hollow center
-- **Zones**: X (Categories), Y (Values)
+- **Zones**: Divide By, Measure
 - **Features**: Configurable inner radius, emphasis effects
 
-### 7. Funnel/Pyramid Chart ✨ NEW
+### 7. Funnel Chart
 - **Purpose**: Show sequential stages in a process
-- **Zones**: X (Stages), Y (Values)
+- **Zones**: Stages, Measure, Break Down By
 - **Features**: Automatic sorting, proportional sizing
 
-### 8. Gauge/Dial Chart ✨ NEW
-- **Purpose**: Display single values against a range
-- **Zones**: Y (Value)
+### 8. Number/Gauge/KPI
+
+- **Purpose**: Display single values against a target
+- **Zones**: Measure, Target Value
 - **Features**: Configurable ranges, needle styling, animations
 
-### 9. Map/Geographic Visualization ✨ NEW
+### 9. Map/Geographic Visualization
 - **Purpose**: Show data geographically
-- **Zones**: X (Regions), Y (Values)
+- **Zones**: Location, Measure, Break Down By
 - **Features**: World map integration, color mapping, zooming
 
-### 10. Scatter Plot ✨ NEW
+### 10. Scatter Plot
 - **Purpose**: Show relationship between two variables
-- **Zones**: X (X Values), Y (Y Values)
-- **Features**: Bubble sizing, correlation analysis
+- **Zones**: X-Axis, Y-Axis, Break Down By
+- **Features**: Point sizing, correlation analysis
 
-### 11. Treemap ✨ NEW
+### 11. Bubble Chart
+
+- **Purpose**: Show relationship with size encoding
+- **Zones**: Category, Bubble Size, Break Down By
+- **Features**: Bubble sizing, grouping
+
+### 12. Treemap
 - **Purpose**: Display hierarchical data as nested rectangles
-- **Zones**: X (Hierarchy), Breakdown (Size Values)
+- **Zones**: Divide By, Measure, Break Down By
 - **Features**: Hierarchical layout, size-based coloring
 
-### 12. Sankey/Flow Diagram ✨ NEW
+### 13. Sankey/Flow Diagram
 - **Purpose**: Show flow and distribution between nodes
-- **Zones**: X (Sources), Y (Targets)
+- **Zones**: Source, Target, Values
 - **Features**: Flow visualization, node-link diagrams
+
+### 14. Word Cloud
+
+- **Purpose**: Display word frequency visually
+- **Zones**: Word List, Word Count
+- **Features**: Automatic sizing, random positioning
+
+### 15. Pivot Table
+
+- **Purpose**: Cross-tabulation of data
+- **Zones**: Columns, Values, Rows, Cross Tab Dimension
+- **Features**: Aggregation, drill-down
 
 ## Intelligent Zone System
 
 ### Adaptive Zone Configuration
-The system dynamically shows/hides zones and updates labels based on the selected chart type:
+
+The system dynamically shows/hides zones and updates labels based on the selected chart type. Zone configurations are defined in `pages/reporting/builder.vue` and match the original Optiqo application at `admin.optiqo.report/#charts`.
 
 ```typescript
 type ZoneConfig = {
   showXDimensions: boolean
   showYMetrics: boolean
   showBreakdowns: boolean
+  showTargetValue: boolean    // For number, gauge, kpi
+  showLocation: boolean       // For map
+  showCrossTab: boolean       // For table, pivot
   xLabel?: string
   yLabel?: string
   breakdownLabel?: string
+  targetValueLabel?: string
+  locationLabel?: string
+  crossTabLabel?: string
 }
 ```
 
 ### Zone Configurations by Chart Type
 
-| Chart Type | X Dimensions | Y Metrics | Breakdowns | X Label | Y Label | Breakdown Label |
-|------------|-------------|-----------|------------|---------|---------|----------------|
-| Table | ✅ | ✅ | ✅ | Columns | Values | Rows |
-| Bar/Line/Area | ✅ | ✅ | ✅ | X (Categories) | Y (Values) | Series |
-| Pie/Donut | ✅ | ✅ | ❌ | Categories | Values | - |
-| Funnel | ✅ | ✅ | ❌ | Stages | Values | - |
-| Gauge | ❌ | ✅ | ❌ | - | Value | - |
-| Scatter | ✅ | ✅ | ❌ | X Values | Y Values | - |
-| Map | ✅ | ✅ | ❌ | Regions | Values | - |
-| Treemap | ✅ | ❌ | ✅ | Hierarchy | - | Size Values |
-| Sankey | ✅ | ✅ | ❌ | Sources | Targets | - |
+| Chart Type           | X Zone           | Y Zone                 | Breakdown       | Special Zones         |
+|----------------------|------------------|------------------------|-----------------|-----------------------|
+| Table                | ✅ Columns (Text) | ✅ Columns (Aggregated) | ❌               | ✅ Cross Tab Dimension |
+| Number/Gauge/KPI     | ❌                | ✅ Measure              | ❌               | ✅ Target Value        |
+| Bar/Column/Line/Area | ✅ X-Axis         | ✅ Y-Axis               | ✅ Break Down By | ❌                     |
+| Stacked/Waterfall    | ✅ X-Axis         | ✅ Y-Axis               | ✅ Break Down By | ❌                     |
+| Pie/Donut            | ✅ Divide By      | ✅ Measure              | ❌               | ❌                     |
+| Funnel               | ✅ Stages         | ✅ Measure              | ✅ Break Down By | ❌                     |
+| Map                  | ❌                | ✅ Measure              | ✅ Break Down By | ✅ Location            |
+| Scatter              | ✅ X-Axis         | ✅ Y-Axis               | ✅ Break Down By | ❌                     |
+| Bubble               | ✅ Category       | ✅ Bubble Size          | ✅ Break Down By | ❌                     |
+| Treemap              | ✅ Divide By      | ✅ Measure              | ✅ Break Down By | ❌                     |
+| Sankey               | ✅ Source         | ✅ Target               | ✅ Values        | ❌                     |
+| Radar/BoxPlot        | ✅ X-Axis         | ✅ Y-Axis               | ✅ Break Down By | ❌                     |
+| Word Cloud           | ✅ Word List      | ✅ Word Count           | ❌               | ❌                     |
+| Pivot                | ✅ Columns        | ✅ Values               | ✅ Rows          | ✅ Cross Tab Dimension |
 
 ### Dynamic Zone Rendering
-The `ReportingZones.vue` component conditionally renders zones based on the current chart type configuration, providing context-appropriate labels and hiding irrelevant zones.
+
+The `ReportingZones.vue` component conditionally renders zones based on the current chart type configuration, providing context-appropriate labels and hiding irrelevant zones. The `Filter By` zone is always visible for all chart types.
 
 ## Technical Implementation
 

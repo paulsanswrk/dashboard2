@@ -77,73 +77,78 @@ const stepColors = [
   'bg-purple-500'
 ]
 
-// Chart-specific step configurations
+// Chart-specific step configurations (matching original Optiqo app zone names)
 const chartSteps = computed((): Record<ChartType, Step[]> => ({
   table: [
-    {fieldType: 'value field', action: 'to add aggregated columns', zone: 'Values'},
-    {fieldType: 'category field', action: 'to add text columns', zone: 'Columns'},
-    {fieldType: 'category field', action: 'to create a pivot table', zone: 'Rows', isOptional: true}
+    {fieldType: 'value field', action: 'to add aggregated columns', zone: 'Columns (Aggregated)'},
+    {fieldType: 'category field', action: 'to add text columns', zone: 'Columns (Text)'},
+    {fieldType: 'category field', action: 'to create a pivot table', zone: 'Cross Tab Dimension', isOptional: true}
   ],
   bar: [
-    {fieldType: 'value field', action: 'to define bar lengths', zone: 'Values'},
-    {fieldType: 'category field', action: 'to define categories', zone: 'Categories'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Series', isOptional: true}
+    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
   ],
   column: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y (Values)'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X (Categories)'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Series', isOptional: true}
+    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
   ],
   stacked: [
-    {fieldType: 'value field', action: 'to define stacked values', zone: 'Y (Values)'},
-    {fieldType: 'category field', action: 'to define categories', zone: 'X (Categories)'},
-    {fieldType: 'category field', action: 'to create stacks', zone: 'Series'}
+    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to create stacks', zone: 'Break Down By'}
   ],
   line: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y (Values)'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X (Categories)'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Series', isOptional: true}
+    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
   ],
   area: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y (Values)'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X (Categories)'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Series', isOptional: true}
+    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
   ],
   pie: [
-    {fieldType: 'value field', action: 'to define slice sizes', zone: 'Values'},
-    {fieldType: 'category field', action: 'to divide into slices', zone: 'Categories'}
+    {fieldType: 'value field', action: 'to define slice sizes', zone: 'Measure'},
+    {fieldType: 'category field', action: 'to divide into slices', zone: 'Divide By'}
   ],
   donut: [
-    {fieldType: 'value field', action: 'to define segment sizes', zone: 'Values'},
-    {fieldType: 'category field', action: 'to divide into segments', zone: 'Categories'}
+    {fieldType: 'value field', action: 'to define segment sizes', zone: 'Measure'},
+    {fieldType: 'category field', action: 'to divide into segments', zone: 'Divide By'}
   ],
   funnel: [
-    {fieldType: 'value field', action: 'to define stage values', zone: 'Values'},
-    {fieldType: 'category field', action: 'to define funnel stages', zone: 'Stages'}
+    {fieldType: 'value field', action: 'to define stage values', zone: 'Measure'},
+    {fieldType: 'category field', action: 'to define funnel stages', zone: 'Stages'},
+    {fieldType: 'category field', action: 'to break down your funnel', zone: 'Break Down By', isOptional: true}
   ],
   gauge: [
-    {fieldType: 'value field', action: 'to show the measure', zone: 'Value'},
-    {fieldType: 'value field', action: 'to set a target value', zone: 'Target', isOptional: true}
+    {fieldType: 'value field', action: 'to show the measure', zone: 'Measure'},
+    {fieldType: 'value field', action: 'to set a target value', zone: 'Target Value', isOptional: true}
   ],
   map: [
-    {fieldType: 'category field', action: 'to define regions', zone: 'Regions'},
-    {fieldType: 'value field', action: 'to color regions by value', zone: 'Values'}
+    {fieldType: 'value field', action: 'to color regions by value', zone: 'Measure'},
+    {fieldType: 'category field', action: 'with location information', zone: 'Location'},
+    {fieldType: 'category field', action: 'to break down your data', zone: 'Break Down By', isOptional: true}
   ],
   scatter: [
-    {fieldType: 'value field', action: 'to define X-axis values', zone: 'X Values'},
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y Values'}
+    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define X-axis values', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to break down into series', zone: 'Break Down By', isOptional: true}
   ],
   treemap: [
-    {fieldType: 'category field', action: 'to define hierarchy levels', zone: 'Hierarchy'},
-    {fieldType: 'value field', action: 'to define rectangle sizes', zone: 'Size Values'}
+    {fieldType: 'value field', action: 'to define rectangle sizes', zone: 'Measure'},
+    {fieldType: 'category field', action: 'to divide into categories', zone: 'Divide By'},
+    {fieldType: 'category field', action: 'to add hierarchy levels', zone: 'Break Down By', isOptional: true}
   ],
   sankey: [
-    {fieldType: 'category field', action: 'to define flow sources', zone: 'Sources'},
-    {fieldType: 'category field', action: 'to define flow targets', zone: 'Targets'},
+    {fieldType: 'category field', action: 'to define flow sources', zone: 'Source'},
+    {fieldType: 'category field', action: 'to define flow targets', zone: 'Target'},
     {fieldType: 'value field', action: 'to define flow widths', zone: 'Values', isOptional: true}
   ],
   kpi: [
-    {fieldType: 'value field', action: 'to display as a big number', zone: 'Value'}
+    {fieldType: 'value field', action: 'to display as a number', zone: 'Measure'},
+    {fieldType: 'value field', action: 'to set a target value', zone: 'Target Value', isOptional: true}
   ],
   pivot: [
     {fieldType: 'value field', action: 'to aggregate in cells', zone: 'Values'},
@@ -151,29 +156,31 @@ const chartSteps = computed((): Record<ChartType, Step[]> => ({
     {fieldType: 'category field', action: 'to define rows', zone: 'Rows'}
   ],
   number: [
-    {fieldType: 'value field', action: 'to display as a big number', zone: 'Value'}
+    {fieldType: 'value field', action: 'to display as a number', zone: 'Measure'},
+    {fieldType: 'value field', action: 'to set a target value', zone: 'Target Value', isOptional: true}
   ],
   radar: [
-    {fieldType: 'value field', action: 'to define dimension values', zone: 'Values'},
-    {fieldType: 'category field', action: 'to define dimensions', zone: 'Dimensions'},
-    {fieldType: 'category field', action: 'to compare multiple series', zone: 'Series', isOptional: true}
+    {fieldType: 'value field', action: 'to define dimension values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define dimensions', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to compare multiple series', zone: 'Break Down By', isOptional: true}
   ],
   boxplot: [
-    {fieldType: 'value field', action: 'to calculate statistics', zone: 'Values'},
-    {fieldType: 'category field', action: 'to group data', zone: 'Category'}
+    {fieldType: 'value field', action: 'to calculate statistics', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to group data', zone: 'X-Axis'},
+    {fieldType: 'category field', action: 'to break down by category', zone: 'Break Down By', isOptional: true}
   ],
   bubble: [
-    {fieldType: 'value field', action: 'to define X values', zone: 'X Values'},
-    {fieldType: 'value field', action: 'to define Y values', zone: 'Y Values'},
-    {fieldType: 'value field', action: 'to define bubble sizes', zone: 'Size'}
+    {fieldType: 'value field', action: 'to define bubble sizes', zone: 'Bubble Size'},
+    {fieldType: 'category field', action: 'to define categories', zone: 'Category'},
+    {fieldType: 'category field', action: 'to break down into series', zone: 'Break Down By', isOptional: true}
   ],
   waterfall: [
-    {fieldType: 'value field', action: 'to define values', zone: 'Values'},
-    {fieldType: 'category field', action: 'to define categories', zone: 'Categories'}
+    {fieldType: 'value field', action: 'to define values', zone: 'Y-Axis'},
+    {fieldType: 'category field', action: 'to define categories', zone: 'X-Axis'}
   ],
   wordcloud: [
-    {fieldType: 'category field', action: 'to define words', zone: 'Words'},
-    {fieldType: 'value field', action: 'to set word sizes', zone: 'Size Values'}
+    {fieldType: 'value field', action: 'to set word sizes', zone: 'Word Count'},
+    {fieldType: 'category field', action: 'to define words', zone: 'Word List'}
   ]
 }))
 

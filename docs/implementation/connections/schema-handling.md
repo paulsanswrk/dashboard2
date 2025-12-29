@@ -102,6 +102,25 @@ customFields: jsonb('custom_fields')       // Calculated/merged fields
 ]
 ```
 
+#### customReferences Structure
+
+Custom references allow users to define additional table relationships beyond the database's foreign keys. These are stored within `schemaJson.customReferences`:
+
+```json
+[
+  {
+    "id": "custom_1735123456789_abc123",
+    "sourceTable": "orders",
+    "sourceColumn": "product_code",
+    "targetTable": "products",
+    "targetColumn": "sku",
+    "isCustom": true
+  }
+]
+```
+
+Custom references are automatically merged with database foreign keys when computing `auto_join_info`, enabling joins between tables that lack formal foreign key constraints.
+
 ---
 
 ## Components
@@ -110,11 +129,30 @@ customFields: jsonb('custom_fields')       // Calculated/merged fields
 
 **File:** `pages/schema-editor.vue`
 
-Entry point for schema configuration. Loads full schema from connected database, displays SchemaSelector component, and handles saving.
+Entry point for schema configuration. Loads full schema from connected database, displays SchemaSelector component, and handles saving. Navigates to References Editor on completion.
 
 ```
 /schema-editor?id=<connection_id>
 ```
+
+### References Editor Page
+
+**File:** `pages/references-editor.vue`
+
+Allows users to view existing foreign keys and add custom references. Uses a three-column layout:
+
+- **Left panel:** Source table/column selector with expandable tables
+- **Middle panel:** Target table/column selector (mirrored layout)
+- **Right panel:** List of foreign keys (database + custom)
+
+```
+/references-editor?id=<connection_id>
+```
+
+**Components:**
+
+- `components/references/ReferenceSelector.vue` - Table/column selector with search and type icons
+- `components/references/ReferenceList.vue` - Displays relationships with delete for custom refs
 
 ### SchemaSelector Component
 
@@ -165,15 +203,17 @@ Modal with two tabs:
 
 ## API Endpoints
 
-| Endpoint                          | Method | Description                          |
-|-----------------------------------|--------|--------------------------------------|
-| `/api/schema/custom-view-preview` | POST   | Execute SQL query and return preview |
-| `/api/schema/custom-view`         | POST   | Create or update custom view         |
-| `/api/schema/custom-view`         | DELETE | Delete custom view                   |
-| `/api/schema/custom-field`        | POST   | Create or update custom field        |
-| `/api/schema/custom-field`        | DELETE | Delete custom field                  |
-| `/api/reporting/full-schema`      | GET    | Get complete database schema         |
-| `/api/reporting/connection`       | GET    | Get connection with schema info      |
+| Endpoint                          | Method | Description                              |
+|-----------------------------------|--------|------------------------------------------|
+| `/api/schema/custom-view-preview` | POST   | Execute SQL query and return preview     |
+| `/api/schema/custom-view`         | POST   | Create or update custom view             |
+| `/api/schema/custom-view`         | DELETE | Delete custom view                       |
+| `/api/schema/custom-field`        | POST   | Create or update custom field            |
+| `/api/schema/custom-field`        | DELETE | Delete custom field                      |
+| `/api/schema/custom-references`   | POST   | Save custom references, recompute joins  |
+| `/api/schema/custom-references`   | DELETE | Delete custom reference, recompute joins |
+| `/api/reporting/full-schema`      | GET    | Get complete database schema with FKs    |
+| `/api/reporting/connection`       | GET    | Get connection with schema info          |
 
 All endpoints use `AuthHelper.requireConnectionAccess()` for authorization.
 
@@ -197,12 +237,16 @@ Defines 40+ functions for calculated fields:
 
 ## Related Files
 
-| File                               | Purpose                                  |
-|------------------------------------|------------------------------------------|
-| `lib/db/schema.ts`                 | Drizzle ORM schema definition            |
-| `server/utils/connectionConfig.ts` | Connection config loading                |
-| `server/utils/mysqlClient.ts`      | MySQL connection with SSH tunnel support |
-| `server/utils/authHelper.ts`       | Authentication and authorization         |
+| File                                          | Purpose                                  |
+|-----------------------------------------------|------------------------------------------|
+| `lib/db/schema.ts`                            | Drizzle ORM schema definition            |
+| `server/utils/connectionConfig.ts`            | Connection config loading                |
+| `server/utils/mysqlClient.ts`                 | MySQL connection with SSH tunnel support |
+| `server/utils/authHelper.ts`                  | Authentication and authorization         |
+| `server/utils/schemaGraph.ts`                 | Graph algorithms for auto-join           |
+| `pages/references-editor.vue`                 | References configuration page            |
+| `components/references/ReferenceSelector.vue` | Table/column selector                    |
+| `components/references/ReferenceList.vue`     | Foreign key list display                 |
 
 ---
 

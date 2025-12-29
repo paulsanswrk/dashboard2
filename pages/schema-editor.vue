@@ -10,7 +10,7 @@
           <div class="flex items-center gap-2">
             <UButton variant="outline" @click="goBack" class="cursor-pointer">Back</UButton>
             <div class="flex-1" />
-            <UButton variant="outline" :disabled="!allSchemasLoaded" :loading="saving" @click="saveAndContinue" class="cursor-pointer">Save and Continue</UButton>
+            <UButton variant="outline" :disabled="!allSchemasLoaded" :loading="saving" @click="saveAndContinue" class="cursor-pointer">Continue to References</UButton>
           </div>
 
           <!-- Progress indicators -->
@@ -177,7 +177,7 @@ async function saveAndContinue() {
     console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema save response:', response)
     console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema saved successfully - auto_join_info should now be computed on backend')
 
-    navigateTo(`/reporting/builder?data_connection_id=${connectionId.value}`)
+    navigateTo(`/references-editor?id=${connectionId.value}`)
   } catch (error) {
     console.error('[SCHEMA_EDITOR_AUTO_JOIN] Failed to save schema:', error)
   } finally {

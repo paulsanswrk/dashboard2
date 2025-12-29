@@ -246,16 +246,161 @@ const previewTableName = ref('')
 // Computed list of available table names from datasets
 const availableTableNames = computed(() => datasets.value.map(ds => ds.name))
 
-// Zone configuration based on chart type (we'll get this from the builder or use a default)
+// Zone configuration based on chart type (matching original Optiqo app)
 const zoneConfig = computed(() => {
-  // For now, use a default configuration. In the future, this should come from the chart type selection
-  return {
+  const defaultConfig = {
     showXDimensions: true,
     showYMetrics: true,
     showBreakdowns: true,
-    xLabel: 'X (Dimensions)',
-    yLabel: 'Y (Metrics)',
-    breakdownLabel: 'Breakdown'
+    showTargetValue: false,
+    showLocation: false,
+    showCrossTab: false,
+    xLabel: 'X-Axis',
+    yLabel: 'Y-Axis',
+    breakdownLabel: 'Break Down By'
+  }
+
+  switch (currentChartType.value) {
+      // Single value charts - matching original app naming
+    case 'number':
+    case 'gauge':
+    case 'kpi':
+      return {
+        ...defaultConfig,
+        showXDimensions: false,
+        showBreakdowns: false,
+        showTargetValue: true,
+        yLabel: 'Measure',
+        targetValueLabel: 'Target Value'
+      }
+
+      // Table charts - matching original app with cross-tab
+    case 'table':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        showCrossTab: true,
+        xLabel: 'Columns (Text)',
+        yLabel: 'Columns (Aggregated)',
+        crossTabLabel: 'Cross Tab Dimension'
+      }
+    case 'pivot':
+      return {
+        ...defaultConfig,
+        showCrossTab: true,
+        xLabel: 'Columns',
+        yLabel: 'Values',
+        breakdownLabel: 'Rows',
+        crossTabLabel: 'Cross Tab Dimension'
+      }
+
+      // Pie/Donut - matching original app naming
+    case 'pie':
+    case 'donut':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'Divide By',
+        yLabel: 'Measure'
+      }
+
+      // Funnel
+    case 'funnel':
+      return {
+        ...defaultConfig,
+        xLabel: 'Stages',
+        yLabel: 'Measure',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Map - with location zone
+    case 'map':
+      return {
+        ...defaultConfig,
+        showXDimensions: false,
+        showLocation: true,
+        yLabel: 'Measure',
+        locationLabel: 'Location',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Cartesian charts - matching original app naming
+    case 'column':
+    case 'bar':
+    case 'stacked':
+    case 'line':
+    case 'area':
+    case 'waterfall':
+      return {
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Scatter/Bubble
+    case 'scatter':
+      return {
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Break Down By'
+      }
+    case 'bubble':
+      return {
+        ...defaultConfig,
+        xLabel: 'Category',
+        yLabel: 'Bubble Size',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Treemap
+    case 'treemap':
+      return {
+        ...defaultConfig,
+        xLabel: 'Divide By',
+        yLabel: 'Measure',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Sankey
+    case 'sankey':
+      return {
+        ...defaultConfig,
+        xLabel: 'Source',
+        yLabel: 'Target',
+        breakdownLabel: 'Values'
+      }
+
+      // Radar/Spider
+    case 'radar':
+      return {
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Box Plot
+    case 'boxplot':
+      return {
+        ...defaultConfig,
+        xLabel: 'X-Axis',
+        yLabel: 'Y-Axis',
+        breakdownLabel: 'Break Down By'
+      }
+
+      // Word Cloud
+    case 'wordcloud':
+      return {
+        ...defaultConfig,
+        showBreakdowns: false,
+        xLabel: 'Word List',
+        yLabel: 'Word Count'
+      }
+
+    default:
+      return defaultConfig
   }
 })
 
