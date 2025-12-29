@@ -39,26 +39,58 @@
                 <div class="flex items-center gap-4">
                   <Icon name="i-heroicons-circle-stack" class="w-8 h-8 text-gray-400"/>
                   <div class="min-w-0">
-                    <h4 class="font-medium truncate">{{ c.internal_name }}</h4>
+                    <NuxtLink :to="`/reporting/builder?data_connection_id=${c.id}`" class="font-medium truncate hover:text-primary hover:underline" @click.stop>
+                      {{ c.internal_name }}
+                    </NuxtLink>
                     <p class="text-sm text-gray-600 truncate">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
+                    <!-- Usage info -->
+                    <p v-if="getUsageText(c)" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      <Icon name="i-heroicons-exclamation-triangle" class="w-3 h-3 inline mr-1"/>
+                      {{ getUsageText(c) }}
+                    </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2" @click.stop>
-                  <UButton size="xs" variant="outline" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="editConnection(c.id)">
+                  <NuxtLink 
+                    :to="`/integration-wizard?id=${c.id}`" 
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    @click.stop
+                  >
                     <Icon name="i-heroicons-pencil-square" class="w-4 h-4 mr-1"/>
                     Edit
-                  </UButton>
+                  </NuxtLink>
                   <UButton size="xs" variant="outline" color="gray" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="openRenameModal(c)">
                     <Icon name="i-heroicons-squares-2x2" class="w-4 h-4 mr-1"/>
                     Rename
                   </UButton>
-                  <UButton size="xs" color="red" class="bg-red-500 hover:bg-red-600 text-white cursor-pointer" @click="openDeleteModal(c)">
+                  <UTooltip v-if="isDeleteDisabled(c)" text="Connection in use. Only Admins can delete.">
+                    <UButton 
+                      size="xs" 
+                      color="red" 
+                      class="opacity-50 cursor-not-allowed"
+                      disabled
+                    >
+                      <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
+                      Delete
+                    </UButton>
+                  </UTooltip>
+                  <UButton 
+                    v-else
+                    size="xs" 
+                    color="red" 
+                    class="bg-red-500 hover:bg-red-600 text-white cursor-pointer" 
+                    @click="openDeleteModal(c)"
+                  >
                     <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
                     Delete
                   </UButton>
-                  <UButton size="xs" color="primary" class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer" @click="goToBuilder(c.id)">
+                  <NuxtLink 
+                    :to="`/reporting/builder?data_connection_id=${c.id}`" 
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md cursor-pointer"
+                    @click.stop
+                  >
                     Open
-                  </UButton>
+                  </NuxtLink>
                 </div>
               </div>
             </UCard>
@@ -107,7 +139,10 @@
     <DeleteConnectionModal
         v-model:is-open="showDeleteModal"
         :connection="selectedConnection"
+        :usage="selectedConnectionUsage"
+        :user-role="userProfile?.role"
         :loading="deleteLoading"
+        :deletion-result="deletionResult"
         @close-modal="closeDeleteModal"
         @confirm-delete="handleDelete"
     />
@@ -115,12 +150,44 @@
 </template>
 
 <script setup lang="ts">
+import { useAuth } from '~/composables/useAuth'
 // Modal components
 import RenameConnectionModal from '~/components/RenameConnectionModal.vue'
 import DeleteConnectionModal from '~/components/DeleteConnectionModal.vue'
+
+const { userProfile } = useAuth()
+
 const searchQuery = ref('')
 
-const connections = ref<Array<{ id: number; internal_name: string; database_type?: string; host?: string; port?: number }>>([])
+interface ConnectionWithUsage {
+  id: number
+  internal_name: string
+  database_name: string
+  database_type: string
+  host: string
+  port: number
+  organization_id: string
+  chartsCount: number
+  dashboardsCount: number
+  filtersCount: number
+}
+
+interface ConnectionUsage {
+  connectionId: number
+  isUsed: boolean
+  charts: { count: number; items: Array<{ id: number; name: string }> }
+  dashboards: { count: number; items: Array<{ id: string; name: string }> }
+  filters: { count: number }
+}
+
+interface DeletionResult {
+  success: boolean
+  deletedCharts: number
+  deletedWidgets: number
+  clearedFilters: number
+}
+
+const connections = ref<ConnectionWithUsage[]>([])
 const demos = ref<Array<{ id: string; label: string; description?: string }>>([])
 
 const loadingConnections = ref(true)
@@ -129,9 +196,11 @@ const loadingDemos = ref(true)
 // Modal states
 const showRenameModal = ref(false)
 const showDeleteModal = ref(false)
-const selectedConnection = ref(null)
+const selectedConnection = ref<any>(null)
+const selectedConnectionUsage = ref<ConnectionUsage | null>(null)
 const renameLoading = ref(false)
 const deleteLoading = ref(false)
+const deletionResult = ref<DeletionResult | null>(null)
 
 const filteredConnections = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -151,9 +220,35 @@ const filteredDemos = computed(() => {
   )
 })
 
+function getUsageText(conn: ConnectionWithUsage): string | null {
+  if (conn.chartsCount === 0 && conn.dashboardsCount === 0 && conn.filtersCount === 0) return null
+  
+  const parts: string[] = []
+  if (conn.chartsCount > 0) {
+    parts.push(`${conn.chartsCount} chart${conn.chartsCount !== 1 ? 's' : ''}`)
+  }
+  if (conn.filtersCount > 0) {
+    parts.push(`${conn.filtersCount} filter${conn.filtersCount !== 1 ? 's' : ''}`)
+  }
+  if (conn.dashboardsCount > 0) {
+    parts.push(`${conn.dashboardsCount} dashboard${conn.dashboardsCount !== 1 ? 's' : ''}`)
+  }
+  
+  return `Used by ${parts.join(', ')}`
+}
+
+function isDeleteDisabled(conn: ConnectionWithUsage): boolean {
+  const isUsed = conn.chartsCount > 0 || conn.dashboardsCount > 0 || conn.filtersCount > 0
+  if (!isUsed) return false
+  
+  // Editors cannot delete connections in use
+  const role = userProfile.value?.role
+  return role === 'EDITOR'
+}
+
 async function loadConnections() {
   try {
-    connections.value = await $fetch('/api/reporting/connections')
+    connections.value = await $fetch<ConnectionWithUsage[]>('/api/reporting/connections')
   } finally {
     loadingConnections.value = false
   }
@@ -167,7 +262,7 @@ async function loadDemos() {
   }
 }
 
-function goToBuilder(connectionId) {
+function goToBuilder(connectionId: number) {
   navigateTo(`/reporting/builder?data_connection_id=${connectionId}`)
 }
 
@@ -180,9 +275,30 @@ function openRenameModal(connection: any) {
   showRenameModal.value = true
 }
 
-function openDeleteModal(connection: any) {
+async function openDeleteModal(connection: ConnectionWithUsage) {
   selectedConnection.value = connection
+  deletionResult.value = null
   showDeleteModal.value = true
+  
+  // Fetch detailed usage info for the modal (need chart/dashboard names)
+  if (connection.chartsCount > 0 || connection.dashboardsCount > 0) {
+    try {
+      const usage = await $fetch<ConnectionUsage>(`/api/reporting/connections/${connection.id}/usage`)
+      selectedConnectionUsage.value = usage
+    } catch (e) {
+      console.warn('Failed to fetch detailed usage:', e)
+      // Fallback to basic info from the connection
+      selectedConnectionUsage.value = {
+        connectionId: connection.id,
+        isUsed: true,
+        charts: { count: connection.chartsCount, items: [] },
+        dashboards: { count: connection.dashboardsCount, items: [] },
+        filters: { count: 0 }
+      }
+    }
+  } else {
+    selectedConnectionUsage.value = null
+  }
 }
 
 function closeRenameModal() {
@@ -193,6 +309,8 @@ function closeRenameModal() {
 function closeDeleteModal() {
   showDeleteModal.value = false
   selectedConnection.value = null
+  selectedConnectionUsage.value = null
+  deletionResult.value = null
 }
 
 async function handleRename({id, newName}: { id: number; newName: string }) {
@@ -212,27 +330,42 @@ async function handleRename({id, newName}: { id: number; newName: string }) {
   }
 }
 
-async function handleDelete() {
+async function handleDelete(cascadeDelete: boolean = false) {
   if (!selectedConnection.value) return
 
   deleteLoading.value = true
   try {
-    await $fetch('/api/reporting/connections', {
+    const result = await $fetch<DeletionResult>('/api/reporting/connections', {
       method: 'DELETE',
-      params: {id: selectedConnection.value.id}
+      params: { 
+        id: selectedConnection.value.id,
+        cascadeDelete: cascadeDelete ? 'true' : 'false'
+      }
     })
-    await loadConnections()
-    closeDeleteModal()
-  } catch (e) {
+    
+    deletionResult.value = result
+    
+    // If deletion succeeded, refresh the list
+    if (result.success) {
+      await loadConnections()
+    }
+  } catch (e: any) {
     console.error('Failed to delete connection', e)
+    // Show error in the modal
+    deletionResult.value = {
+      success: false,
+      deletedCharts: 0,
+      deletedWidgets: 0,
+      clearedFilters: 0
+    }
   } finally {
     deleteLoading.value = false
   }
 }
 
-async function importDemo(demo) {
+async function importDemo(demo: any) {
   try {
-    const res = await $fetch('/api/data-sources/import', { method: 'POST', body: { id: demo.id } })
+    const res = await $fetch<{ connectionId?: number }>('/api/data-sources/import', { method: 'POST', body: { id: demo.id } })
     if (res?.connectionId) {
       await loadConnections()
       goToBuilder(res.connectionId)
