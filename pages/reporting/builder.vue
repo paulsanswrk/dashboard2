@@ -109,13 +109,22 @@
                     :key="ds.id"
                     class="rounded-md overflow-hidden"
                   >
-                    <button
-                        class="w-full flex items-center justify-between px-3 py-2 bg-primary text-white text-sm font-medium hover:bg-primary-700 cursor-pointer transition-colors"
-                      @click="selectDataset(ds.id)"
-                    >
-                      <span class="truncate">{{ ds.label || ds.name }}</span>
-                      <Icon :name="expandedDatasetId === ds.id ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-4 h-4"/>
-                    </button>
+                    <div class="group flex items-center bg-primary">
+                      <button
+                          class="flex-1 flex items-center justify-between px-3 py-2 text-white text-sm font-medium hover:bg-primary-700 cursor-pointer transition-colors"
+                        @click="selectDataset(ds.id)"
+                      >
+                        <span class="truncate">{{ ds.label || ds.name }}</span>
+                        <Icon :name="expandedDatasetId === ds.id ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-4 h-4"/>
+                      </button>
+                      <button
+                        @click.stop="openTablePreview(ds.name)"
+                        class="px-2 py-2 text-white hover:bg-primary-700 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                        title="Preview table data"
+                      >
+                        <Icon name="i-heroicons-table-cells" class="w-4 h-4"/>
+                      </button>
+                    </div>
 
                     <div v-if="expandedDatasetId === ds.id" class="p-3 bg-transparent">
                       <ReportingSchemaPanel v-if="columnsByDataset[ds.id]?.length" :fields="columnsByDataset[ds.id]" :dataset-name="ds.name"/>
@@ -189,6 +198,13 @@
        :available-tables="availableTableNames"
        @save="onJoinPathSave"
    />
+
+   <!-- Table Preview Modal -->
+   <TablePreviewModal
+       v-model:open="showTablePreviewModal"
+       :connection-id="connectionId"
+       :table-name="previewTableName"
+   />
 </template>
 
 <script setup lang="ts">
@@ -203,6 +219,7 @@ import ReportingBuilder from '../../components/reporting/ReportingBuilder.vue'
 import ReportingSchemaPanel from '../../components/reporting/ReportingSchemaPanel.vue'
 import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import EditJoinPathModal from '../../components/reporting/EditJoinPathModal.vue'
+import TablePreviewModal from '../../components/reporting/TablePreviewModal.vue'
 import ChartConfigEditor from '../../components/reporting/ChartConfigEditor.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
 import {useReportingService} from '../../composables/useReportingService'
@@ -223,6 +240,8 @@ const {selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelect
 const reportingBuilderRef = ref<any>(null)
 const currentChartType = ref<string>('bar')
 const showEditJoinPathModal = ref(false)
+const showTablePreviewModal = ref(false)
+const previewTableName = ref('')
 
 // Computed list of available table names from datasets
 const availableTableNames = computed(() => datasets.value.map(ds => ds.name))
@@ -259,6 +278,12 @@ const columnsByDataset = ref<Record<string, any[]>>({})
 
 // Sidebar visibility (collapsed by default)
 const sidebarVisible = ref(false)
+
+// Table Preview Modal
+function openTablePreview(tableName: string) {
+  previewTableName.value = tableName
+  showTablePreviewModal.value = true
+}
 
 // Handler for when a field is updated in the zones
 function onFieldUpdated() {
