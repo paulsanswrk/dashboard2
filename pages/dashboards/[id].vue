@@ -154,6 +154,18 @@
             </UButton>
           </UDropdownMenu>
           <UButton
+              v-if="isEditableSession"
+              color="purple"
+              variant="solid"
+              size="xs"
+              class="bg-purple-500 hover:bg-purple-600 text-white cursor-pointer flex items-center gap-1"
+              @click="editingFilter = null; showAddFilterModal = true"
+              title="Add filter"
+          >
+            <Icon name="i-heroicons-funnel" class="w-4 h-4"/>
+            Add Filter
+          </UButton>
+          <UButton
               v-if="isEditableSession && sidebarCollapsed"
               size="xs"
               variant="outline"
@@ -574,6 +586,16 @@
           @select="handleImageSelected"
       />
 
+      <!-- Add Filter Modal -->
+      <AddFilterModal
+          v-model:open="showAddFilterModal"
+          :dashboard-id="id"
+          :connections="availableConnections"
+          :editing-filter="editingFilter"
+          @created="onFilterCreated"
+          @updated="onFilterUpdated"
+      />
+
 
       <div class="flex gap-4 items-stretch flex-1 min-h-0">
         <div class="flex-1 min-w-0 h-full">
@@ -586,6 +608,7 @@
                 :loading="loading"
                 :preview="!isEditableSession"
                 :selected-text-id="selectedWidgetId"
+                :dashboard-filters="activeFilterConditions"
                 ref="dashboardRef"
                 @edit-chart="editChart"
                 @rename-chart="startRenameChart"
@@ -598,6 +621,18 @@
             />
           </div>
         </div>
+        <DashboardFiltersPanel
+            v-if="dashboardFilters.length > 0 || isEditableSession"
+            :filters="dashboardFilters"
+            :edit-mode="isEditableSession"
+            :collapsed="filtersPanelCollapsed"
+            @update="updateFilter"
+            @edit="editFilter"
+            @delete="confirmDeleteFilter"
+            @collapse="filtersPanelCollapsed = true"
+            @expand="filtersPanelCollapsed = false"
+            @clear-all="clearAllFilters"
+        />
         <WidgetOptionsSidebar
             v-if="isEditableSession && !sidebarCollapsed"
             :selected-widget="selectedWidget"
@@ -703,7 +738,6 @@ const tabLayouts = reactive<Record<string, any[]>>({})
 const initialTabLayouts = ref<Record<string, any[]>>({})
 const loading = ref(true)
 
-// Modal states
 const showRenameModal = ref(false)
 const showDeleteModal = ref(false)
 const showAddChartModal = ref(false)
@@ -711,7 +745,31 @@ const showCreateTabModal = ref(false)
 const showRenameTabModal = ref(false)
 const showDeleteTabModal = ref(false)
 const showAddImageModal = ref(false)
+const showAddFilterModal = ref(false)
 const pendingRoute = ref<any>(null)
+
+// Dashboard filters state
+interface DashboardFilter {
+  id: string
+  dashboardId: string
+  connectionId: number | null
+  fieldId: string
+  fieldTable: string
+  fieldType: string
+  filterName: string
+  isVisible: boolean
+  filterMode: string
+  config: Record<string, any>
+  currentValue: any
+}
+const dashboardFilters = ref<DashboardFilter[]>([])
+const filtersPanelCollapsed = ref(false)
+const filterToDelete = ref<DashboardFilter | null>(null)
+const editingFilter = ref<DashboardFilter | null>(null)
+
+// Available connections for filter modal
+const availableConnections = ref<Array<{ id: number; internalName: string }>>([])
+const { listConnections } = useReportingService()
 
 // Text widget editor
 const selectedTextWidgetId = ref<string | null>(null)
@@ -1074,14 +1132,35 @@ async function load() {
     }))
 
     setLayoutsFromTabs(true)
+
+    // Load dashboard filters
+    await loadFilters()
   } finally {
     loading.value = false
   }
 }
 
+async function loadFilters() {
+  try {
+    const res = await $fetch<{ filters: DashboardFilter[] }>(`/api/dashboards/${id.value}/filters`)
+    dashboardFilters.value = res.filters || []
+  } catch (err) {
+    console.error('Failed to load filters:', err)
+  }
+}
+
+async function loadConnections() {
+  try {
+    const conns = await listConnections()
+    availableConnections.value = conns.map(c => ({ id: c.id, internalName: c.internal_name }))
+  } catch (err) {
+    console.error('Failed to load connections:', err)
+  }
+}
+
 onMounted(async () => {
   await loadUserProfile()
-  await load()
+  await Promise.all([load(), loadConnections()])
 })
 
 onBeforeRouteLeave((to, from) => {
@@ -1936,6 +2015,101 @@ async function downloadPDF() {
 
 function openShareModal() {
   showShareModal.value = true
+}
+
+// Filter handlers
+function onFilterCreated(filter: DashboardFilter) {
+  dashboardFilters.value.push(filter)
+}
+
+async function updateFilter(filter: DashboardFilter) {
+  try {
+    await $fetch(`/api/dashboards/${id.value}/filters/${filter.id}`, {
+      method: 'PUT',
+      body: { currentValue: filter.currentValue }
+    })
+    // Update local state
+    const idx = dashboardFilters.value.findIndex(f => f.id === filter.id)
+    if (idx >= 0) {
+      dashboardFilters.value[idx] = filter
+    }
+  } catch (err) {
+    console.error('Failed to update filter:', err)
+  }
+}
+
+function editFilter(filter: DashboardFilter) {
+  editingFilter.value = filter
+  showAddFilterModal.value = true
+}
+
+function onFilterUpdated(filter: DashboardFilter) {
+  const idx = dashboardFilters.value.findIndex(f => f.id === filter.id)
+  if (idx >= 0) {
+    dashboardFilters.value[idx] = filter
+  }
+  editingFilter.value = null
+}
+
+function confirmDeleteFilter(filter: DashboardFilter) {
+  filterToDelete.value = filter
+  deleteFilter()
+}
+
+async function deleteFilter() {
+  if (!filterToDelete.value) return
+  try {
+    await $fetch(`/api/dashboards/${id.value}/filters/${filterToDelete.value.id}`, {
+      method: 'DELETE'
+    })
+    dashboardFilters.value = dashboardFilters.value.filter(f => f.id !== filterToDelete.value!.id)
+    filterToDelete.value = null
+  } catch (err) {
+    console.error('Failed to delete filter:', err)
+  }
+}
+
+function clearAllFilters() {
+  dashboardFilters.value.forEach(f => {
+    f.currentValue = null
+  })
+  // Persist the cleared state
+  dashboardFilters.value.forEach(f => updateFilter(f))
+}
+
+// Computed: Active filter conditions for charts
+const activeFilterConditions = computed(() => {
+  return dashboardFilters.value
+      .filter(f => f.currentValue != null)
+      .map(f => ({
+        fieldId: f.fieldId,
+        table: f.fieldTable,
+        type: f.fieldType,
+        operator: getFilterOperator(f),
+        value: f.currentValue,
+        values: Array.isArray(f.currentValue) ? f.currentValue : undefined
+      }))
+})
+
+function getFilterOperator(filter: DashboardFilter): string {
+  if (filter.filterMode === 'values') {
+    return 'equals'
+  } else if (filter.filterMode === 'text_rule') {
+    const op = filter.config?.operator
+    if (op === 'contain') return 'contains'
+    if (op === 'start_with') return 'starts_with'
+    if (op === 'end_with') return 'ends_with'
+    if (op === 'not_contain') return 'not_contains'
+    return op || 'equals'
+  } else if (filter.filterMode === 'constraint') {
+    const op = filter.config?.operator
+    if (op === 'lt') return 'less_than'
+    if (op === 'lte') return 'less_or_equal'
+    if (op === 'gt') return 'greater_than'
+    if (op === 'gte') return 'greater_or_equal'
+    return op || 'equals'
+  }
+  return 'equals'
 }
 </script>
 

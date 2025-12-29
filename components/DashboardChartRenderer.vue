@@ -27,16 +27,26 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import ReportingChart from './reporting/ReportingChart.vue'
 import ReportingPreview from './reporting/ReportingPreview.vue'
 import {useReportingService} from '../composables/useReportingService'
+
+interface DashboardFilterCondition {
+  fieldId: string
+  table: string
+  type: string
+  operator: string
+  value: any
+  values?: any[]
+}
 
 const props = defineProps<{
   state: any
   preloadedColumns?: Array<{ key: string; label: string }>
   preloadedRows?: Array<Record<string, unknown>>
   configOverride?: any
+  dashboardFilters?: DashboardFilterCondition[]
 }>()
 
 const { runPreview, runSql } = useReportingService()
@@ -76,11 +86,28 @@ const chartComponent = computed(() =>
   chartType.value === 'table' ? ReportingPreview : ReportingChart
 )
 
+// Convert dashboard filter to chart filter format
+function convertDashboardFilter(df: DashboardFilterCondition): any {
+  return {
+    field: df.fieldId,
+    table: df.table,
+    operator: df.operator,
+    value: df.values || df.value,
+    type: df.type
+  }
+}
+
+// Merge chart-level filters with dashboard filters
+function getMergedFilters(chartFilters: any[]): any[] {
+  const dashFilters = (props.dashboardFilters || []).map(convertDashboardFilter)
+  return [...(chartFilters || []), ...dashFilters]
+}
+
 async function loadData() {
   error.value = null
   loading.value = true
   try {
-    if (props.preloadedColumns && props.preloadedRows) {
+    if (props.preloadedColumns && props.preloadedRows && !props.dashboardFilters?.length) {
       columns.value = props.preloadedColumns
       rows.value = props.preloadedRows
       loading.value = false
@@ -102,11 +129,15 @@ async function loadData() {
     const datasetId = state.selectedDatasetId
     const connectionId = state.dataConnectionId ?? null
     if (!datasetId) { error.value = 'Missing dataset for chart'; loading.value = false; return }
+
+    // Merge chart filters with dashboard filters
+    const mergedFilters = getMergedFilters(state.filters || [])
+
     const res = await runPreview({
       datasetId,
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
-      filters: state.filters || [],
+      filters: mergedFilters,
       breakdowns: breakdowns.value,
       joins: state.joins || [],
       limit: 100,
@@ -122,6 +153,13 @@ async function loadData() {
 }
 
 onMounted(loadData)
+
+// Reload data when dashboard filters change
+watch(() => props.dashboardFilters, () => {
+  if (props.dashboardFilters !== undefined) {
+    loadData()
+  }
+}, { deep: true })
 </script>
 
 <style scoped>

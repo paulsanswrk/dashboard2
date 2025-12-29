@@ -69,6 +69,7 @@
                       :config-override="findConfigOverride(item.i)"
                       :preloaded-columns="findChartColumns(item.i)"
                       :preloaded-rows="findChartRows(item.i)"
+                      :dashboard-filters="dashboardFilters"
                   />
                 </div>
               </UCard>
@@ -155,10 +156,19 @@ interface Props {
   loading: boolean
   preview?: boolean
   selectedTextId?: string
+  dashboardFilters?: Array<{
+    fieldId: string
+    table: string
+    type: string
+    operator: string
+    value: any
+    values?: any[]
+  }>
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  preview: false
+  preview: false,
+  dashboardFilters: () => []
 })
 
 const emit = defineEmits<{
