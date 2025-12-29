@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import {computed, defineAsyncComponent} from 'vue'
+import {getHelperText, getOnboardingSteps} from '~/lib/charts'
 
 // Lazy-load SVG illustrations
 const TableIllustration = defineAsyncComponent(() => import('./illustrations/TableIllustration.vue'))
@@ -77,114 +78,9 @@ const stepColors = [
   'bg-purple-500'
 ]
 
-// Chart-specific step configurations (matching original Optiqo app zone names)
-const chartSteps = computed((): Record<ChartType, Step[]> => ({
-  table: [
-    {fieldType: 'value field', action: 'to add aggregated columns', zone: 'Columns (Aggregated)'},
-    {fieldType: 'category field', action: 'to add text columns', zone: 'Columns (Text)'},
-    {fieldType: 'category field', action: 'to create a pivot table', zone: 'Cross Tab Dimension', isOptional: true}
-  ],
-  bar: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
-  ],
-  column: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
-  ],
-  stacked: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to create stacks', zone: 'Break Down By'}
-  ],
-  line: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
-  ],
-  area: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define X-axis categories', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to break down into multiple series', zone: 'Break Down By', isOptional: true}
-  ],
-  pie: [
-    {fieldType: 'value field', action: 'to define slice sizes', zone: 'Measure'},
-    {fieldType: 'category field', action: 'to divide into slices', zone: 'Divide By'}
-  ],
-  donut: [
-    {fieldType: 'value field', action: 'to define segment sizes', zone: 'Measure'},
-    {fieldType: 'category field', action: 'to divide into segments', zone: 'Divide By'}
-  ],
-  funnel: [
-    {fieldType: 'value field', action: 'to define stage values', zone: 'Measure'},
-    {fieldType: 'category field', action: 'to define funnel stages', zone: 'Stages'},
-    {fieldType: 'category field', action: 'to break down your funnel', zone: 'Break Down By', isOptional: true}
-  ],
-  gauge: [
-    {fieldType: 'value field', action: 'to show the measure', zone: 'Measure'},
-    {fieldType: 'value field', action: 'to set a target value', zone: 'Target Value', isOptional: true}
-  ],
-  map: [
-    {fieldType: 'value field', action: 'to color regions by value', zone: 'Measure'},
-    {fieldType: 'category field', action: 'with location information', zone: 'Location'},
-    {fieldType: 'category field', action: 'to break down your data', zone: 'Break Down By', isOptional: true}
-  ],
-  scatter: [
-    {fieldType: 'value field', action: 'to define Y-axis values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define X-axis values', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to break down into series', zone: 'Break Down By', isOptional: true}
-  ],
-  treemap: [
-    {fieldType: 'value field', action: 'to define rectangle sizes', zone: 'Measure'},
-    {fieldType: 'category field', action: 'to divide into categories', zone: 'Divide By'},
-    {fieldType: 'category field', action: 'to add hierarchy levels', zone: 'Break Down By', isOptional: true}
-  ],
-  sankey: [
-    {fieldType: 'category field', action: 'to define flow sources', zone: 'Source'},
-    {fieldType: 'category field', action: 'to define flow targets', zone: 'Target'},
-    {fieldType: 'value field', action: 'to define flow widths', zone: 'Values', isOptional: true}
-  ],
-  kpi: [
-    {fieldType: 'value field', action: 'to display as a number', zone: 'Measure'},
-    {fieldType: 'value field', action: 'to set a target value', zone: 'Target Value', isOptional: true}
-  ],
-  pivot: [
-    {fieldType: 'value field', action: 'to aggregate in cells', zone: 'Values'},
-    {fieldType: 'category field', action: 'to define columns', zone: 'Columns'},
-    {fieldType: 'category field', action: 'to define rows', zone: 'Rows'}
-  ],
-  number: [
-    {fieldType: 'value field', action: 'to display as a number', zone: 'Measure'},
-    {fieldType: 'value field', action: 'to set a target value', zone: 'Target Value', isOptional: true}
-  ],
-  radar: [
-    {fieldType: 'value field', action: 'to define dimension values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define dimensions', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to compare multiple series', zone: 'Break Down By', isOptional: true}
-  ],
-  boxplot: [
-    {fieldType: 'value field', action: 'to calculate statistics', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to group data', zone: 'X-Axis'},
-    {fieldType: 'category field', action: 'to break down by category', zone: 'Break Down By', isOptional: true}
-  ],
-  bubble: [
-    {fieldType: 'value field', action: 'to define bubble sizes', zone: 'Bubble Size'},
-    {fieldType: 'category field', action: 'to define categories', zone: 'Category'},
-    {fieldType: 'category field', action: 'to break down into series', zone: 'Break Down By', isOptional: true}
-  ],
-  waterfall: [
-    {fieldType: 'value field', action: 'to define values', zone: 'Y-Axis'},
-    {fieldType: 'category field', action: 'to define categories', zone: 'X-Axis'}
-  ],
-  wordcloud: [
-    {fieldType: 'value field', action: 'to set word sizes', zone: 'Word Count'},
-    {fieldType: 'category field', action: 'to define words', zone: 'Word List'}
-  ]
-}))
-
-const steps = computed(() => chartSteps.value[props.chartType] || chartSteps.value.bar)
+// Chart steps now come from the polymorphic chart registry
+const steps = computed(() => getOnboardingSteps(props.chartType))
+const helperText = computed(() => getHelperText(props.chartType))
 
 // Map chart types to illustration components
 const illustrationComponent = computed(() => {
@@ -227,33 +123,7 @@ const illustrationComponent = computed(() => {
   }
 })
 
-// Helper text based on chart type
-const helperTexts: Record<ChartType, string> = {
-  table: 'Drag fields from the left panel to create tables and pivot tables.',
-  bar: 'Drag fields to visualize data as horizontal bars.',
-  column: 'Drag fields to visualize data as vertical columns.',
-  stacked: 'Drag fields to create stacked bar or column charts.',
-  line: 'Drag fields to show trends over time or categories.',
-  area: 'Drag fields to show cumulative totals over categories.',
-  pie: 'Drag fields to show proportions of a whole.',
-  donut: 'Drag fields to show proportions with a center hole for labels.',
-  funnel: 'Drag fields to visualize conversion or process stages.',
-  gauge: 'Drag a value field to show progress toward a goal.',
-  map: 'Drag fields to color regions on a map based on values.',
-  scatter: 'Drag value fields to plot data points on X-Y axes.',
-  treemap: 'Drag fields to show hierarchical data as nested rectangles.',
-  sankey: 'Drag fields to show flow relationships between entities.',
-  kpi: 'Drag a single value field to display as a prominent number.',
-  pivot: 'Drag fields to create a cross-tabulation heatmap table.',
-  number: 'Drag a single value field to display as a big number.',
-  radar: 'Drag fields to compare multiple dimensions on a spider web.',
-  boxplot: 'Drag fields to show statistical distribution of values.',
-  bubble: 'Drag fields to plot bubbles with X, Y, and size values.',
-  waterfall: 'Drag fields to show cumulative increases and decreases.',
-  wordcloud: 'Drag category and value fields to create a word cloud.'
-}
 
-const helperText = computed(() => helperTexts[props.chartType] || helperTexts.bar)
 </script>
 
 <style scoped>
