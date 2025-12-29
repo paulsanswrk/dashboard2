@@ -1,87 +1,126 @@
 <template>
-  <div class="p-6">
-    <div class="flex justify-end mb-4 gap-2">
-      <template v-if="fromDashboard">
+  <div class="p-4">
+    <!-- Chart Types Row at the top -->
+    <div class="flex items-center justify-between mb-4">
+      <!-- Left Arrow -->
+      <button
+          @click="scrollChartTypes('left')"
+          class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          :disabled="!canScrollLeft"
+      >
+        <Icon name="i-heroicons-chevron-left" class="w-5 h-5"/>
+      </button>
+
+      <!-- Scrollable Chart Types Container -->
+      <div
+          ref="chartTypesContainerRef"
+          class="flex-1 mx-2 overflow-x-auto scrollbar-hide"
+          @scroll="updateScrollState"
+      >
+        <div class="flex items-center gap-2">
+          <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
+                  :disabled="loading"
+                  class="flex flex-col items-center justify-center w-20 h-20 flex-shrink-0 rounded border disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  :class="chartType === t.value ? 'border-primary bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'">
+            <Icon :name="t.icon" class="w-10 h-10"/>
+            <span class="text-xs mt-1">{{ t.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Arrow -->
+      <button
+          @click="scrollChartTypes('right')"
+          class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          :disabled="!canScrollRight"
+      >
+        <Icon name="i-heroicons-chevron-right" class="w-5 h-5"/>
+      </button>
+    </div>
+
+    <!-- Action Buttons Row - compactly placed to the right -->
+    <div class="flex items-center justify-between mb-4">
+      <!-- Title Input -->
+      <input
+          v-model="chartTitle"
+          type="text"
+          placeholder="Enter title for your visualization"
+          class="input-borderless flex-1 max-w-2xl px-1 py-2 text-lg font-medium bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors focus:outline-none"
+      />
+
+      <!-- Action Buttons grouped on the right -->
+      <div class="flex items-center gap-2">
         <UButton
             variant="outline"
             color="gray"
             class="hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
-            @click="discardAndReturn"
+            @click="onClearAll"
             :disabled="loading"
         >
-          <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
-          Discard
+          <Icon name="i-heroicons-trash" class="w-4 h-4"/>
+          Clear
         </UButton>
-        <UButton
-            color="orange"
-            class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
-            @click="doneAndReturn"
-            :loading="loading"
-        >
-          <Icon name="i-heroicons-check" class="w-4 h-4"/>
-          Done
-        </UButton>
-      </template>
-      <template v-else>
-        <UButton
-            v-if="props.dashboardId"
-            color="gray"
-            class="hover:bg-gray-700 hover:text-white cursor-pointer"
-            @click="backToDashboard"
-        >
-          <Icon name="i-heroicons-arrow-left" class="w-4 h-4"/>
-          Back to Dashboard
-        </UButton>
-        <UButton
-            color="blue"
-            class="hover:bg-blue-700 hover:text-white cursor-pointer"
-            @click="props.editingChartId ? saveExistingChart() : openSelectBoard = true"
-            :disabled="loading"
-        >
-          <Icon name="i-heroicons-square-3-stack-3d" class="w-4 h-4"/>
-          {{ props.editingChartId ? 'Save Chart' : 'Save Chart to Dashboard' }}
-        </UButton>
-      </template>
-    </div>
-
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-semibold">Reporting Builder</h2>
-      <div class="flex items-center space-x-2">
         <UButton
             variant="outline"
-          @click="onTestPreview"
-          :disabled="!canAutoPreview || loading"
+            @click="onTestPreview"
+            :disabled="!canAutoPreview || loading"
         >
           <Icon v-if="loading" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
           <Icon v-else name="i-heroicons-arrow-path" class="w-4 h-4"/>
           Refresh
         </UButton>
-        <UButton v-if="false" variant="outline" @click="onUndo" :disabled="!canUndo">Undo</UButton>
-        <UButton v-if="false" variant="outline" @click="onRedo" :disabled="!canRedo">Redo</UButton>
-        <div class="flex items-center space-x-2 ml-4">
-          <label class="text-sm font-medium text-gray-700">Show SQL</label>
-          <button
-            @click="useSql = !useSql"
-            :disabled="loading"
-            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            :class="useSql ? 'bg-indigo-600' : 'bg-gray-200'"
-          >
-            <span
-              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-              :class="useSql ? 'translate-x-6' : 'translate-x-1'"
-            />
-          </button>
-        </div>
         <UButton
-          v-if="!sidebarVisible"
-          variant="outline"
-          @click="$emit('toggle-sidebar')"
+            v-if="!sidebarVisible"
+            variant="outline"
+            @click="$emit('toggle-sidebar')"
         >
           <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
         </UButton>
+        <template v-if="fromDashboard">
+          <UButton
+              variant="outline"
+              color="gray"
+              class="hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+              @click="discardAndReturn"
+              :disabled="loading"
+          >
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+            Discard
+          </UButton>
+          <UButton
+              color="orange"
+              class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+              @click="doneAndReturn"
+              :loading="loading"
+          >
+            <Icon name="i-heroicons-check" class="w-4 h-4"/>
+            Done
+          </UButton>
+        </template>
+        <template v-else>
+          <UButton
+              v-if="props.dashboardId"
+              color="gray"
+              class="hover:bg-gray-700 hover:text-white cursor-pointer"
+              @click="backToDashboard"
+          >
+            <Icon name="i-heroicons-arrow-left" class="w-4 h-4"/>
+            Back
+          </UButton>
+          <UButton
+              color="blue"
+              class="hover:bg-blue-700 hover:text-white cursor-pointer"
+              @click="props.editingChartId ? saveExistingChart() : openSelectBoard = true"
+              :disabled="loading"
+          >
+            <Icon name="i-heroicons-square-3-stack-3d" class="w-4 h-4"/>
+            {{ props.editingChartId ? 'Save' : 'Save to Dashboard' }}
+          </UButton>
+        </template>
       </div>
     </div>
 
+    <!-- SQL Panel (hidden by default, toggle removed from UI) -->
     <div v-if="useSql" class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
       <div class="flex items-center gap-3 mb-3">
         <label class="text-sm font-medium">Override SQL</label>
@@ -94,69 +133,30 @@
       </div>
     </div>
 
-    <div class="">
-
-      <div>
-        <h3 class="font-medium mb-2">Preview</h3>
-        <div class="flex items-center justify-between mb-3">
-          <!-- Left Arrow -->
-          <button
-              @click="scrollChartTypes('left')"
-              class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              :disabled="!canScrollLeft"
-          >
-            <Icon name="i-heroicons-chevron-left" class="w-5 h-5"/>
-          </button>
-
-          <!-- Scrollable Chart Types Container -->
-          <div
-              ref="chartTypesContainerRef"
-              class="flex-1 mx-2 overflow-x-auto scrollbar-hide"
-              @scroll="updateScrollState"
-          >
-            <div class="flex items-center gap-2">
-              <button v-for="t in chartTypes" :key="t.value" @click="chartType = t.value as any"
-                      :disabled="loading"
-                      class="flex flex-col items-center justify-center w-16 h-16 flex-shrink-0 rounded border disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                      :class="chartType === t.value ? 'border-primary bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'">
-                <Icon :name="t.icon" class="w-6 h-6"/>
-                <span class="text-xs mt-1">{{ t.label }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Right Arrow -->
-          <button
-              @click="scrollChartTypes('right')"
-              class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              :disabled="!canScrollRight"
-          >
-            <Icon name="i-heroicons-chevron-right" class="w-5 h-5"/>
-          </button>
-        </div>
-        <div v-if="serverError" class="mb-3 p-2 border border-red-300 bg-red-50 text-red-700 text-sm rounded">
-          {{ serverError }}
-        </div>
-        <div v-if="serverWarnings.length" class="mb-3 p-2 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
-          <div v-for="(w, i) in serverWarnings" :key="i">{{ w }}</div>
-        </div>
-        <!-- Loading state -->
-        <div v-if="loading" class="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-          <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500 mb-3"/>
-          <p class="text-sm text-gray-600 dark:text-gray-400">Loading chart data...</p>
-        </div>
-        <!-- Onboarding guide (shown when no data is loaded) -->
-        <div v-else-if="showOnboardingGuide" class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
-          <ReportingOnboardingGuide :chart-type="chartType"/>
-        </div>
-        <!-- Chart component -->
-        <div v-else ref="previewAreaRef">
-          <component :is="chartComponent" :key="chartType"
-                     ref="chartComponentRef"
-                     :columns="columns" :rows="rows"
-                     :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
-                     :chart-type="chartType" :appearance="appearance" :loading="loading"/>
-        </div>
+    <!-- Chart Preview Area -->
+    <div>
+      <div v-if="serverError" class="mb-3 p-2 border border-red-300 bg-red-50 text-red-700 text-sm rounded">
+        {{ serverError }}
+      </div>
+      <div v-if="serverWarnings.length" class="mb-3 p-2 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
+        <div v-for="(w, i) in serverWarnings" :key="i">{{ w }}</div>
+      </div>
+      <!-- Loading state -->
+      <div v-if="loading" class="flex flex-col items-center justify-center py-16 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+        <Icon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500 mb-3"/>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Loading chart data...</p>
+      </div>
+      <!-- Onboarding guide (shown when no data is loaded) -->
+      <div v-else-if="showOnboardingGuide" class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50">
+        <ReportingOnboardingGuide :chart-type="chartType"/>
+      </div>
+      <!-- Chart component -->
+      <div v-else ref="previewAreaRef">
+        <component :is="chartComponent" :key="chartType"
+                   ref="chartComponentRef"
+                   :columns="columns" :rows="rows"
+                   :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
+                   :chart-type="chartType" :appearance="appearance" :loading="loading"/>
       </div>
     </div>
     <ChartsModal
@@ -238,6 +238,7 @@ const useSql = ref(false)
 const overrideSql = ref(false)
 const sqlText = ref('')
 const actualExecutedSql = ref('')
+const chartTitle = ref('')
 
 const chartTypes = [
   {value: 'table', label: 'Table', icon: 'i-heroicons-table-cells'},
@@ -765,6 +766,24 @@ onMounted(() => {
 function onUndo() { undo() }
 function onRedo() { redo() }
 
+function onClearAll() {
+  // Clear all zones and reset chart state
+  xDimensions.value = []
+  yMetrics.value = []
+  breakdowns.value = []
+  filters.value = []
+  joins.value = []
+  rows.value = []
+  columns.value = []
+  serverError.value = null
+  serverWarnings.value = []
+  useSql.value = false
+  overrideSql.value = false
+  sqlText.value = ''
+  actualExecutedSql.value = ''
+  chartTitle.value = ''
+}
+
 function handleLoadChart(state: {
   dataConnectionId: number | null
   useSql: boolean
@@ -799,6 +818,7 @@ function handleLoadChartState(state: {
   excludeNullsInDimensions: boolean
   appearance: any
   chartType: string
+  chartName?: string
 }) {
   // Set connection ID if provided
   if (state.dataConnectionId !== null) {
@@ -819,6 +839,11 @@ function handleLoadChartState(state: {
   filters.value = state.filters || []
   excludeNullsInDimensions.value = state.excludeNullsInDimensions || false
   appearance.value = state.appearance || {}
+
+  // Set chart title if provided
+  if (state.chartName) {
+    chartTitle.value = state.chartName
+  }
 
   // Auto-run the query after loading state
   nextTick(async () => {
@@ -897,6 +922,7 @@ async function saveExistingChart(): Promise<boolean> {
       method: 'PUT',
       body: {
         id: props.editingChartId,
+        name: chartTitle.value || 'Untitled Chart',
         state: reportState,
         width: chartMeta.width,
         height: chartMeta.height,
@@ -954,9 +980,10 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
 
     const chartMeta = await captureChartMeta()
 
-    // Save the chart
+    // Save the chart - prefer chartTitle if set, otherwise use modal's saveAsName
+    const chartName = chartTitle.value || data.saveAsName || 'Untitled Chart'
     const chartResult = await createChart({
-      name: data.saveAsName,
+      name: chartName,
       state: reportState,
       width: chartMeta.width,
       height: chartMeta.height,
@@ -982,11 +1009,11 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       }
 
       dashboardId = dashboardResult.dashboardId
-      successMessage = `Chart "${data.saveAsName}" has been saved to a new dashboard!`
+      successMessage = `Chart "${chartName}" has been saved to a new dashboard!`
     } else if (data.selectedDestination === 'existing' && data.selectedDashboardId) {
       // Use existing dashboard
       dashboardId = data.selectedDashboardId
-      successMessage = `Chart "${data.saveAsName}" has been saved to the existing dashboard!`
+      successMessage = `Chart "${chartName}" has been saved to the existing dashboard!`
     } else {
       throw new Error('Invalid destination or missing dashboard ID')
     }
@@ -1058,7 +1085,7 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
 
     // Save the chart
     const chartResult = await createChart({
-      name: 'Untitled Chart',
+      name: chartTitle.value || 'Untitled Chart',
       state: reportState,
       width: chartMeta.width,
       height: chartMeta.height,

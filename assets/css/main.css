@@ -274,7 +274,7 @@ h6 {
 
 /* Top bar styles - light mode with lighter orange */
 .topbar {
-    @apply text-white px-6 py-3;
+    @apply text-white px-6 py-2;
     background-color: #f97316;
     /* Orange-500 for light mode */
 }
@@ -468,6 +468,22 @@ main {
 .dark textarea:focus,
 .dark select:focus {
     @apply border-primary ring-primary;
+}
+
+/* Borderless input override - for title inputs etc */
+input.input-borderless,
+.dark input.input-borderless {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+input.input-borderless:focus,
+.dark input.input-borderless:focus {
+    border: none !important;
+    border-bottom: 2px solid #3b82f6 !important;
+    box-shadow: none !important;
+    ring: none !important;
 }
 
 /* Dark theme buttons */

@@ -29,7 +29,7 @@
               </nav>
             </div>
             <div class="flex items-center gap-2 lg:gap-4">
-              <button class="p-2 hover:bg-black/10 rounded cursor-pointer">
+              <button v-if="false" class="p-2 hover:bg-black/10 rounded cursor-pointer">
                 <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
               </button>
               <!-- Account Dropdown -->

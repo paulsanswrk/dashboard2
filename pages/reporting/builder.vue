@@ -540,7 +540,8 @@ async function loadChartFromState(state: any) {
       breakdowns: state.breakdowns || [],
       excludeNullsInDimensions: !!state.excludeNullsInDimensions,
       appearance: state.appearance || {},
-      chartType: state.chartType || 'bar'
+      chartType: state.chartType || 'bar',
+      chartName: state.chartName || ''
     })
   }
 }
@@ -691,7 +692,8 @@ onMounted(async () => {
       editingChartId.value = Number(chartIdParam)
       const chart = await getChart(editingChartId.value)
       if (chart?.state) {
-        await loadChartFromState(chart.state)
+        // Include chart name from the main chart object
+        await loadChartFromState({...chart.state, chartName: chart.name})
       }
     } catch (error) {
       console.error('Failed to load chart:', error)
