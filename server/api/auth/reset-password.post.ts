@@ -1,5 +1,5 @@
-import { supabaseUser } from '../supabase'
-import { requireRecaptcha } from '../../utils/recaptchaUtils'
+import {supabaseUser} from '../supabase'
+import {requireRecaptcha} from '../../utils/recaptchaUtils'
 
 export default defineEventHandler(async (event) => {
     try {
@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
         })
     }
 })
+
 
 
 

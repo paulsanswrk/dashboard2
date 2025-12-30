@@ -45,8 +45,8 @@
                 </UBadge>
               </div>
 
-              <!-- Connection Examples Dropdown - Always available for testing -->
-              <div v-if="connectionExamples.length > 0" class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <!-- Connection Examples Dropdown - Superadmin only -->
+              <div v-if="isSuperAdmin && connectionExamples.length > 0" class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Quick Fill a demo connection:
                 </label>
@@ -79,8 +79,8 @@
             <!-- Left Column - Form Fields -->
             <div class="space-y-4">
               <UFormField label="Internal Name" required class="text-gray-900 dark:text-white">
-                <UInput 
-                  placeholder="insta800.net" 
+                <UInput
+                    id="input-internal-name"
                   v-model="form.internalName"
                   :error="errors.internalName"
                   class="w-full"
@@ -90,7 +90,7 @@
 
               <UFormField label="Database Name" required class="text-gray-900 dark:text-white">
                 <UInput
-                    placeholder="datapine_insider"
+                    id="input-database-name"
                   v-model="form.databaseName"
                   :error="errors.databaseName"
                     class="w-full"
@@ -100,6 +100,7 @@
 
               <UFormField label="Database Type" required class="text-gray-900 dark:text-white">
                 <USelect
+                    id="input-database-type"
                   v-model="form.databaseType"
                   :items="databaseTypes"
                   placeholder="Select Database Type"
@@ -111,7 +112,7 @@
 
               <UFormField label="Host / IP" required class="text-gray-900 dark:text-white">
                 <UInput
-                    placeholder="reporting.insta800.net"
+                    id="input-host"
                   v-model="form.host"
                   :error="errors.host"
                     class="w-full"
@@ -121,7 +122,7 @@
 
               <UFormField label="Username" required class="text-gray-900 dark:text-white">
                 <UInput
-                    placeholder="insta800"
+                    id="input-username"
                   v-model="form.username"
                   :error="errors.username"
                     class="w-full"
@@ -131,8 +132,8 @@
 
               <UFormField label="Password" required class="text-gray-900 dark:text-white">
                 <UInput
+                    id="input-password"
                     type="password"
-                    placeholder="Enter Password"
                   v-model="form.password"
                   :error="errors.password"
                     class="w-full"
@@ -142,7 +143,7 @@
 
               <UFormField label="Database Port" required class="text-gray-900 dark:text-white">
                 <UInput
-                    placeholder="3306"
+                    id="input-port"
                   v-model="form.port"
                   :error="errors.port"
                     class="w-full"
@@ -175,25 +176,29 @@
               <div class="space-y-4">
                 <div
                     class="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-md -m-2"
-                    @click="focusedField = 'sshTunneling'"
+                    @click="form.useSshTunneling = !form.useSshTunneling; focusedField = 'sshTunneling'"
                 >
                   <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Use SSH Tunneling</h3>
-                  <UCheckbox 
-                    v-model="form.useSshTunneling" 
-                    color="orange"
-                    aria-label="Use SSH Tunneling"
-                    @focus="focusedField = 'sshTunneling'"
+                  <USwitch 
+                    v-model="form.useSshTunneling"
+                    color="primary"
+                    class="ring-1 ring-gray-300 dark:ring-gray-600 rounded-full"
+                    @click.stop
                   />
                 </div>
 
                 <UFormField label="Authentication Method" v-if="form.useSshTunneling" class="text-gray-900 dark:text-white">
-                  <URadioGroup v-model="form.sshAuthMethod" :options="sshAuthMethods" />
+                  <URadioGroup
+                      v-model="form.sshAuthMethod"
+                      :items="sshAuthMethods"
+                      orientation="horizontal"
+                  />
                 </UFormField>
 
                 <div v-if="form.useSshTunneling" class="space-y-3">
                   <UFormField label="SSH Port" class="text-gray-900 dark:text-white">
                     <UInput
-                        placeholder="22"
+                        id="input-ssh-port"
                       v-model="form.sshPort"
                         class="w-full"
                         @focus="focusedField = 'sshPort'"
@@ -202,7 +207,7 @@
 
                   <UFormField label="SSH User" class="text-gray-900 dark:text-white">
                     <UInput
-                        placeholder="Enter SSH User Name"
+                        id="input-ssh-user"
                       v-model="form.sshUser"
                         class="w-full"
                         @focus="focusedField = 'sshUser'"
@@ -211,7 +216,7 @@
 
                   <UFormField label="SSH Host" class="text-gray-900 dark:text-white">
                     <UInput
-                        placeholder="Enter SSH Host Address"
+                        id="input-ssh-host"
                       v-model="form.sshHost"
                         class="w-full"
                         @focus="focusedField = 'sshHost'"
@@ -220,8 +225,8 @@
 
                   <UFormField label="SSH Password" v-if="form.sshAuthMethod === 'password'" class="text-gray-900 dark:text-white">
                     <UInput
+                        id="input-ssh-password"
                         type="password"
-                        placeholder="Enter SSH Password"
                       v-model="form.sshPassword"
                         class="w-full"
                         @focus="focusedField = 'sshPassword'"
@@ -230,10 +235,7 @@
 
                   <UFormField label="SSH Private Key" v-if="form.sshAuthMethod === 'public-key'" class="text-gray-900 dark:text-white">
                     <UTextarea
-                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAFwAAAAdzc2gtcn
-NhAAAAAwEAAQAAAQEA1234567890abcdef...
------END OPENSSH PRIVATE KEY-----"
+                        id="input-ssh-private-key"
                       v-model="form.sshPrivateKey"
                       :rows="8"
                       class="w-full font-mono text-xs"
@@ -251,7 +253,7 @@ NhAAAAAwEAAQAAAQEA1234567890abcdef...
               <!-- Storage Location -->
               <div v-if="false" class="space-y-3">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Storage Location</h3>
-                <URadioGroup v-model="form.storageLocation" :options="storageOptions" />
+                <URadioGroup v-model="form.storageLocation" :items="storageOptions"/>
               </div>
             </div>
           </div>
@@ -366,16 +368,16 @@ const steps = ref([
 const form = ref({
   internalName: '',
   databaseName: '',
-  databaseType: 'mysql',
+  databaseType: '',
   host: '',
   username: '',
   password: '',
-  port: '3306',
+  port: '',
   jdbcParams: '',
-  serverTime: 'GMT+02:00',
+  serverTime: '',
   useSshTunneling: false,
   sshAuthMethod: 'password',
-  sshPort: '22',
+  sshPort: '',
   sshUser: '',
   sshHost: '',
   sshPassword: '',
@@ -413,6 +415,10 @@ const debugConfigLoaded = ref(false)
 const connectionExamples = ref([])
 const loadingExamples = ref(false)
 const selectedExample = ref('')
+
+// Check if user is superadmin
+const {userProfile} = useAuth()
+const isSuperAdmin = computed(() => userProfile.value?.role === 'SUPERADMIN')
 
 const errors = ref({})
 const showErrors = ref(false)
@@ -475,7 +481,7 @@ const loadDebugConfiguration = async () => {
   }
 }
 
-// Load connection examples for testing (always available)
+// Load connection examples for superadmins only (server checks role)
 const loadConnectionExamples = async () => {
   try {
     loadingExamples.value = true
@@ -483,12 +489,10 @@ const loadConnectionExamples = async () => {
 
     if (response.success) {
       connectionExamples.value = response.examples
-      console.log(`✅ Loaded ${response.examples.length} connection examples`)
-    } else {
-      console.warn('⚠️ Failed to load connection examples:', response.message)
     }
   } catch (error) {
-    console.log('Connection examples not available:', error?.data?.message || error?.message)
+    // Silently fail - superadmin check on server will return 403 for non-superadmins
+    connectionExamples.value = []
   } finally {
     loadingExamples.value = false
   }
@@ -569,11 +573,15 @@ const clearFormToDefaults = () => {
   console.log('✅ Form cleared to default values')
 }
 
-// Load debug configuration on component mount
+// Watch for user profile to load, then load examples if superadmin
+watch(userProfile, (profile) => {
+  if (profile?.role === 'SUPERADMIN') {
+    loadConnectionExamples()
+  }
+}, {immediate: true})
+
+// Prefill when editing
 onMounted(() => {
-  loadDebugConfiguration()
-  loadConnectionExamples()
-  // Prefill when editing
   try {
     const url = new URL(window.location.href)
     const editId = url.searchParams.get('id')

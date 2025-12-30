@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import { isDebugMode } from '~/server/utils/debugConfig'
+import {isDebugMode} from '~/server/utils/debugConfig'
+import {AuthHelper} from '~/server/utils/authHelper'
 
 interface ConnectionExample {
   description: string
@@ -29,6 +30,15 @@ interface ConnectionExample {
 
 export default defineEventHandler(async (event) => {
   try {
+      // Only SUPERADMIN can access connection examples
+      const ctx = await AuthHelper.requireAuthContext(event)
+      if (ctx.role !== 'SUPERADMIN') {
+          throw createError({
+              statusCode: 403,
+              statusMessage: 'Only Superadmin users can access connection examples'
+          })
+      }
+
     const query = getQuery(event)
     let filename = query.filename as string
 
