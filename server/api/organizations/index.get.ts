@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import {createClient} from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       throw createError({
         statusCode: 401,
@@ -58,10 +58,10 @@ export default defineEventHandler(async (event) => {
     let query = supabase
       .from('organizations')
       .select('*')
-      .order('created_at', { ascending: false })
+        .order('name', {ascending: true})
 
-    // If user is not admin, only show their organization
-    if (profileData.role !== 'ADMIN') {
+      // If user is not superadmin, only show their organization
+      if (profileData.role !== 'SUPERADMIN') {
       query = query.eq('id', profileData.organization_id)
     }
 

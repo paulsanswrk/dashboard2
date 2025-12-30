@@ -13,7 +13,7 @@
       <template #header>
         <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">All Organizations</h3>
       </template>
-      
+
       <ClientOnly>
         <!-- Loading State -->
         <div v-if="isLoading && organizations.length === 0" class="flex justify-center items-center py-12">
@@ -38,68 +38,68 @@
         <div v-else class="overflow-x-auto">
           <table class="w-full">
             <thead>
-              <tr class="border-b border-gray-200 dark:border-gray-700">
-                <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Name</th>
-                <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Users</th>
-                <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Licenses</th>
-                <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Created</th>
-                <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
-                <th class="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Actions</th>
-              </tr>
+            <tr class="border-b border-gray-200 dark:border-gray-700">
+              <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Name</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Users</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Licenses</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Created</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
+              <th class="text-right py-3 px-4 font-medium text-gray-900 dark:text-white">Actions</th>
+            </tr>
             </thead>
             <tbody>
-              <tr v-for="org in organizations" :key="org.id" 
-                  class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                      <Icon name="i-heroicons-building-office" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
-                    </div>
-                    <div>
-                      <div class="font-medium text-gray-900 dark:text-white">{{ org.name }}</div>
-                      <div class="text-sm text-gray-500 dark:text-gray-400">{{ org.id }}</div>
-                    </div>
+            <tr v-for="org in organizations" :key="org.id"
+                class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                    <Icon name="i-heroicons-building-office" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
                   </div>
-                </td>
-                <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
-                  <div class="flex items-center gap-2">
-                    <Icon name="i-heroicons-users" class="w-4 h-4 text-gray-400"/>
-                    <span class="text-gray-900 dark:text-white">{{ org.user_count || 0 }}</span>
+                  <div>
+                    <div class="font-medium text-gray-900 dark:text-white">{{ org.name }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ org.id }}</div>
                   </div>
-                </td>
-                <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
-                  <div class="flex items-center gap-2">
-                    <Icon name="i-heroicons-key" class="w-4 h-4 text-gray-400"/>
-                    <span class="text-gray-900 dark:text-white">{{ org.licenses || 0 }}</span>
-                  </div>
-                </td>
-                <td class="py-3 px-4 text-gray-900 dark:text-white cursor-pointer" @click="viewOrganizationDetails(org)">
-                  {{ formatDate(org.created_at) }}
-                </td>
-                <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
-                  <UBadge :color="org.status === 'active' ? 'success' : 'neutral'" variant="soft">
-                    {{ org.status || 'Active' }}
-                  </UBadge>
-                </td>
-                <td class="py-3 px-4">
-                  <div class="flex items-center justify-end gap-2">
-                    <UButton 
-                      variant="ghost" 
-                      size="sm" 
-                      color="red" 
-                      @click.stop="deleteOrganization(org)" 
+                </div>
+              </td>
+              <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
+                <div class="flex items-center gap-2">
+                  <Icon name="i-heroicons-users" class="w-4 h-4 text-gray-400"/>
+                  <span class="text-gray-900 dark:text-white">{{ org.user_count || 0 }}</span>
+                </div>
+              </td>
+              <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
+                <div class="flex items-center gap-2">
+                  <Icon name="i-heroicons-key" class="w-4 h-4 text-gray-400"/>
+                  <span class="text-gray-900 dark:text-white">{{ org.licenses || 0 }}</span>
+                </div>
+              </td>
+              <td class="py-3 px-4 text-gray-900 dark:text-white cursor-pointer" @click="viewOrganizationDetails(org)">
+                {{ formatDate(org.created_at) }}
+              </td>
+              <td class="py-3 px-4 cursor-pointer" @click="viewOrganizationDetails(org)">
+                <UBadge :color="org.status === 'active' ? 'success' : 'neutral'" variant="soft">
+                  {{ org.status || 'Active' }}
+                </UBadge>
+              </td>
+              <td class="py-3 px-4">
+                <div class="flex items-center justify-end gap-2">
+                  <UButton
+                      variant="ghost"
+                      size="sm"
+                      color="red"
+                      @click.stop="deleteOrganization(org)"
                       :disabled="isLoading"
                       :loading="isDeleting && deletingOrgId === org.id"
-                    >
-                      <Icon name="i-heroicons-trash" class="w-4 h-4"/>
-                    </UButton>
-                  </div>
-                </td>
-              </tr>
+                  >
+                    <Icon name="i-heroicons-trash" class="w-4 h-4"/>
+                  </UButton>
+                </div>
+              </td>
+            </tr>
             </tbody>
           </table>
         </div>
-        
+
         <template #fallback>
           <!-- Server-side fallback -->
           <div class="flex justify-center items-center py-12">
@@ -180,8 +180,8 @@
             </UButton>
             <UButton
                 color="red"
-              @click="confirmDelete"
-              :loading="isDeleting"
+                @click="confirmDelete"
+                :loading="isDeleting"
             >
               Delete Organization
             </UButton>
@@ -194,7 +194,7 @@
 
 <script setup>
 // Authentication
-const { userProfile } = useAuth()
+const {userProfile} = useAuth()
 
 // State
 const organizations = ref([])
@@ -216,7 +216,7 @@ const organizationForm = ref({
 // Get access token for API calls
 const getAccessToken = async () => {
   const supabase = useSupabaseClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const {data: {session}} = await supabase.auth.getSession()
   return session?.access_token
 }
 
@@ -224,19 +224,19 @@ const getAccessToken = async () => {
 const loadOrganizations = async () => {
   try {
     isLoading.value = true
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch('/api/organizations', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
     })
-    
+
     if (response.success) {
       organizations.value = response.organizations
     } else {
@@ -244,9 +244,9 @@ const loadOrganizations = async () => {
     }
   } catch (error) {
     console.error('Error loading organizations:', error)
-    
+
     // Handle session expired errors
-    if (error.message?.includes('Session expired') || 
+    if (error.message?.includes('Session expired') ||
         error.message?.includes('Please log in again') ||
         error.message?.includes('No access token available')) {
       const toast = useToast()
@@ -255,14 +255,14 @@ const loadOrganizations = async () => {
         description: 'Your session has expired. Please log in again.',
         color: 'red'
       })
-      
+
       // Redirect to login after a short delay
       setTimeout(() => {
         navigateTo('/login')
       }, 2000)
       return
     }
-    
+
     // Show user-friendly error message for other errors
     const toast = useToast()
     toast.add({
@@ -287,18 +287,18 @@ const formatDate = (dateString) => {
 // Modal functions
 const openCreateOrganizationModal = () => {
   editingOrganization.value = null
-  organizationForm.value = { name: '', description: '' }
+  organizationForm.value = {name: '', description: ''}
   isCreateModalOpen.value = true
 }
 
 const closeCreateModal = () => {
   isCreateModalOpen.value = false
   editingOrganization.value = null
-  organizationForm.value = { name: '', description: '' }
+  organizationForm.value = {name: '', description: ''}
 }
 
 const viewOrganizationDetails = (org) => {
-  navigateTo(`/admin/organizations/${org.id}`)
+  navigateTo(`/organizations/${org.id}`)
 }
 
 // Delete organization
@@ -309,31 +309,31 @@ const deleteOrganization = (org) => {
 
 const confirmDelete = async () => {
   if (!organizationToDelete.value) return
-  
+
   try {
     isDeleting.value = true
     deletingOrgId.value = organizationToDelete.value.id
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch(`/api/organizations/${organizationToDelete.value.id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
     })
-    
+
     if (response.success) {
       // Remove the organization from the list
       const index = organizations.value.findIndex(o => o.id === organizationToDelete.value.id)
       if (index !== -1) {
         organizations.value.splice(index, 1)
       }
-      
+
       toast.add({
         title: 'Success',
         description: `Organization "${organizationToDelete.value.name}" and all associated users have been deleted successfully`,
@@ -368,16 +368,16 @@ const saveOrganization = async () => {
   try {
     isLoading.value = true
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const headers = {
       'Authorization': `Bearer ${accessToken}`
     }
-    
+
     if (editingOrganization.value) {
       // Update existing organization
       const response = await $fetch(`/api/organizations/${editingOrganization.value.id}`, {
@@ -385,12 +385,12 @@ const saveOrganization = async () => {
         headers,
         body: organizationForm.value
       })
-      
+
       if (response.success) {
         // Update the organization in the list
         const index = organizations.value.findIndex(org => org.id === editingOrganization.value.id)
         if (index !== -1) {
-          organizations.value[index] = { ...organizations.value[index], ...response.organization }
+          organizations.value[index] = {...organizations.value[index], ...response.organization}
         }
         toast.add({
           title: 'Success',
@@ -407,7 +407,7 @@ const saveOrganization = async () => {
         headers,
         body: organizationForm.value
       })
-      
+
       if (response.success) {
         organizations.value.unshift(response.organization)
         toast.add({
@@ -419,7 +419,7 @@ const saveOrganization = async () => {
         throw new Error(response.message || 'Failed to create organization')
       }
     }
-    
+
     closeCreateModal()
   } catch (error) {
     console.error('Error saving organization:', error)

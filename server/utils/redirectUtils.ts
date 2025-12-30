@@ -26,7 +26,7 @@ export function getRedirectPathByRole(role: UserRole): string {
   switch (role) {
       case 'SUPERADMIN':
     case 'ADMIN':
-      return '/admin'
+        return '/'
     case 'EDITOR':
     case 'VIEWER':
         return '/'
@@ -57,6 +57,11 @@ export function getRedirectPathFromProfile(userProfile: UserProfile | null): str
  * @returns True if the user can access the path
  */
 export function canAccessPath(role: UserRole, path: string): boolean {
+    // Block /admin path for everyone as it has been incorrectly cached or bookmarked
+    if (path.startsWith('/admin')) {
+        return false
+    }
+
     // Superadmin can access everything
     if (role === 'SUPERADMIN') {
         return true

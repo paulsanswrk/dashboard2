@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import {createClient} from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       throw createError({
         statusCode: 401,
@@ -40,10 +40,10 @@ export default defineEventHandler(async (event) => {
 
     const userId = user.id
 
-    // Get user's organization from profiles table
+      // Get user's profile and role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id')
+        .select('organization_id, role')
       .eq('user_id', userId)
       .single()
 
@@ -54,15 +54,15 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    if (!profile.organization_id) {
+      if (profile.role !== 'SUPERADMIN' && !profile.organization_id) {
       throw createError({
         statusCode: 400,
         statusMessage: 'User not associated with any organization'
       })
     }
 
-    // Fetch viewers (profiles with VIEWER role) for the current organization
-    const { data: viewers, error: viewersError } = await supabase
+      // Fetch viewers query
+      let query = supabase
       .from('profiles')
       .select(`
         user_id,
@@ -73,9 +73,15 @@ export default defineEventHandler(async (event) => {
         group_name,
         created_at
       `)
-      .eq('organization_id', profile.organization_id)
       .eq('role', 'VIEWER')
-      .order('created_at', { ascending: false })
+          .order('first_name', {ascending: true})
+          .order('last_name', {ascending: true})
+
+      if (profile.role !== 'SUPERADMIN') {
+          query = query.eq('organization_id', profile.organization_id)
+      }
+
+      const {data: viewers, error: viewersError} = await query
 
     if (viewersError) {
       console.error('Error fetching viewers:', viewersError)
@@ -112,8 +118,8 @@ export default defineEventHandler(async (event) => {
     const transformedViewers = viewers.map(viewer => ({
       id: viewer.user_id,
       email: userEmailMap.get(viewer.user_id) || `user-${viewer.user_id.slice(0, 8)}@viewer.com`,
-      name: viewer.first_name && viewer.last_name 
-        ? `${viewer.first_name} ${viewer.last_name}` 
+        name: viewer.first_name && viewer.last_name
+            ? `${viewer.first_name} ${viewer.last_name}`
         : viewer.first_name || viewer.last_name || '',
       type: viewer.viewer_type || 'Viewer',
       group: viewer.group_name || '',

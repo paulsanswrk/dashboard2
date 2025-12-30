@@ -148,7 +148,12 @@
 </template>
 
 <script setup>
-// Use organization scope for users management (default)
+// Determine scope based on user role
+const {userProfile} = useAuth()
+const scope = computed(() => {
+  return userProfile.value?.role === 'SUPERADMIN' ? 'admin' : 'organization'
+})
+
 const {
   selectedUser,
   showAddUserModal,
@@ -180,7 +185,7 @@ const {
   bulkDeleteUsers,
   toggleSelectAll,
   toggleUserSelection
-} = useUsersManagement('organization')
+} = useUsersManagement(scope.value)
 
 // Page meta
 definePageMeta({

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import {createClient} from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -29,10 +29,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       setResponseStatus(event, 401)
       return {
@@ -43,10 +43,10 @@ export default defineEventHandler(async (event) => {
 
     const userId = user.id
 
-    // Get user's organization from profiles table
+      // Get user's profile including role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id')
+        .select('organization_id, role')
       .eq('user_id', userId)
       .single()
 
@@ -58,7 +58,8 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    if (!profile.organization_id) {
+      // If not superadmin, ensure org association
+      if (profile.role !== 'SUPERADMIN' && !profile.organization_id) {
       setResponseStatus(event, 400)
       return {
         success: false,
@@ -66,8 +67,8 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Fetch users (profiles with EDITOR or ADMIN roles) for the current organization
-    const { data: users, error: usersError } = await supabase
+      // Fetch users (profiles)
+      let query = supabase
       .from('profiles')
       .select(`
         user_id,
@@ -76,9 +77,18 @@ export default defineEventHandler(async (event) => {
         role,
         created_at
       `)
-      .eq('organization_id', profile.organization_id)
-      .in('role', ['EDITOR', 'ADMIN'])
-      .order('created_at', { ascending: false })
+          .in('role', ['EDITOR', 'ADMIN', 'SUPERADMIN'])
+          .order('first_name', {ascending: true})
+          .order('last_name', {ascending: true})
+
+      // Apply organization filter for non-superadmins
+      if (profile.role !== 'SUPERADMIN') {
+          query = query.eq('organization_id', profile.organization_id)
+      } else {
+          // For superadmin, maybe we want to see all? Yes.
+      }
+
+      const {data: users, error: usersError} = await query
 
     if (usersError) {
       console.error('Error fetching users:', usersError)
@@ -116,8 +126,8 @@ export default defineEventHandler(async (event) => {
     const transformedUsers = users.map(user => ({
       id: user.user_id,
       email: userEmailMap.get(user.user_id) || `user-${user.user_id.slice(0, 8)}@company.com`,
-      name: user.first_name && user.last_name 
-        ? `${user.first_name} ${user.last_name}` 
+        name: user.first_name && user.last_name
+            ? `${user.first_name} ${user.last_name}`
         : user.first_name || user.last_name || '',
       role: user.role || 'EDITOR',
       firstName: user.first_name || '',
@@ -133,8 +143,8 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Get users error:', error)
-    
-    setResponseStatus(event, 500)
+
+      setResponseStatus(event, 500)
     return {
       success: false,
       error: error.message || 'Internal server error'

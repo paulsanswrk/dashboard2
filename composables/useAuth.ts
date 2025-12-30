@@ -24,21 +24,33 @@ export interface UserProfile {
 export const useAuth = () => {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
-  
+
   // User profile state
   const userProfile = ref<UserProfile | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
   const success = ref<string | null>(null)
-  
+
   // console.log('🏗️ Auth composable: Initializing with user:', user.value)
 
   // Computed properties
   const isAuthenticated = computed(() => !!user.value)
-  
+
   const isAdmin = computed(() => {
       return userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN'
   })
+
+    const isSuperAdmin = computed(() => {
+        return userProfile.value?.role === 'SUPERADMIN'
+    })
+
+    const isEditor = computed(() => {
+        return userProfile.value?.role === 'EDITOR'
+    })
+
+    const isViewer = computed(() => {
+        return userProfile.value?.role === 'VIEWER'
+    })
 
   // Clear messages
   const clearMessages = () => {
@@ -54,12 +66,31 @@ export const useAuth = () => {
     } else {
       error.value = message
     }
-    
+
     // Auto-clear after 5 seconds
     setTimeout(() => {
       clearMessages()
     }, 5000)
   }
+
+    // Helper to extract clean error message
+    const extractErrorMessage = (err: any): string => {
+        // Check if it's a specific API error response with statusMessage
+        if (err.response?._data?.statusMessage) {
+            return err.response._data.statusMessage
+        }
+
+        // Check if it's a specific API error response with message
+        if (err.response?._data?.message) {
+            return err.response._data.message
+        }
+
+        // Fallback to standard error message
+        const message = err.message || 'An unknown error occurred'
+
+        // Clean up "FetchError: " prefix if present
+        return message.replace(/^FetchError: /, '')
+    }
 
   // Sign up with organization
     const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string, recaptchaToken?: string) => {
@@ -88,8 +119,9 @@ export const useAuth = () => {
             throw new Error(response.error || 'Registration failed')
       }
     } catch (err: any) {
-      setMessage(err.message || 'Registration failed', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -133,8 +165,9 @@ export const useAuth = () => {
       }
     } catch (err: any) {
       console.log('❌ Client: Login error:', err)
-      setMessage(err.message || 'Login failed', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -147,7 +180,7 @@ export const useAuth = () => {
       clearMessages()
 
       const { error: signOutError } = await supabase.auth.signOut()
-      
+
       if (signOutError) {
         throw signOutError
       }
@@ -157,10 +190,11 @@ export const useAuth = () => {
       setMessage('Signed out successfully', 'success')
       return { success: true }
     } catch (err: any) {
-      setMessage(err.message || 'Logout failed', 'error')
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
       // Clear state even if API call fails
       userProfile.value = null
-      return { success: false, error: err.message }
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -192,7 +226,8 @@ export const useAuth = () => {
       }
     } catch (err: any) {
       console.error('Error in createUserProfile:', err)
-      throw err
+        const message = extractErrorMessage(err)
+        throw new Error(message)
     }
   }
 
@@ -282,7 +317,7 @@ export const useAuth = () => {
       console.log('🔄 Waiting for user profile to load... (attempt', retryCount + 1, ')')
       await loadUserProfile()
     }
-    
+
     const redirectPath = getRedirectPath()
     if (redirectPath) {
       console.log('🔄 Redirecting to:', redirectPath)
@@ -303,7 +338,7 @@ export const useAuth = () => {
   const updateProfile = async (updates: { firstName?: string; lastName?: string; avatar_url?: string | null }) => {
     try {
       if (!user.value) throw new Error('User not authenticated')
-      
+
       loading.value = true
       clearMessages()
 
@@ -334,8 +369,9 @@ export const useAuth = () => {
       setMessage('Profile updated successfully!', 'success')
       return { success: true, profile: transformedData }
     } catch (err: any) {
-      setMessage(err.message || 'Failed to update profile', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -362,8 +398,9 @@ export const useAuth = () => {
       return { success: true }
     } catch (err: any) {
       console.error('❌ [STEP 3] Password update error:', err)
-      setMessage(err.message || 'Failed to update password', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -373,7 +410,7 @@ export const useAuth = () => {
   const uploadAvatar = async (file: File) => {
     try {
       if (!user.value) throw new Error('User not authenticated')
-      
+
       loading.value = true
       clearMessages()
 
@@ -399,15 +436,16 @@ export const useAuth = () => {
 
       // Update profile with new avatar URL
       const result = await updateProfile({ avatar_url: urlData.publicUrl })
-      
+
       if (result.success) {
         setMessage('Avatar uploaded successfully!', 'success')
       }
-      
+
       return result
     } catch (err: any) {
-      setMessage(err.message || 'Failed to upload avatar', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -417,21 +455,22 @@ export const useAuth = () => {
   const deleteAvatar = async () => {
     try {
       if (!user.value) throw new Error('User not authenticated')
-      
+
       loading.value = true
       clearMessages()
 
       // Update profile to remove avatar URL
       const result = await updateProfile({ avatar_url: null })
-      
+
       if (result.success) {
         setMessage('Avatar removed successfully!', 'success')
       }
-      
+
       return result
     } catch (err: any) {
-      setMessage(err.message || 'Failed to remove avatar', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -453,8 +492,9 @@ export const useAuth = () => {
       setMessage('Confirmation email sent!', 'success')
       return { success: true }
     } catch (err: any) {
-      setMessage(err.message || 'Failed to resend confirmation email', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -490,8 +530,9 @@ export const useAuth = () => {
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Password reset error:', err)
-      setMessage(err.message || 'Failed to send password reset email', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -527,8 +568,9 @@ export const useAuth = () => {
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Magic link error:', err)
-      setMessage(err.message || 'Failed to send magic link', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -568,8 +610,9 @@ export const useAuth = () => {
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Magic link sign up error:', err)
-      setMessage(err.message || 'Failed to send magic link', 'error')
-      return { success: false, error: err.message }
+        const message = extractErrorMessage(err)
+        setMessage(message, 'error')
+        return {success: false, error: message}
     } finally {
       loading.value = false
     }
@@ -591,13 +634,16 @@ export const useAuth = () => {
     loading: computed(() => loading.value),
     error: computed(() => error.value),
     success: computed(() => success.value),
-    
-    // Computed
+
+      // Computed
     isAuthenticated,
     isAdmin,
+      isSuperAdmin,
+      isEditor,
+      isViewer,
     canInviteUsers,
-    
-    // Methods
+
+      // Methods
     signUp,
     signIn,
     signOut,

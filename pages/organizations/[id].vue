@@ -10,9 +10,6 @@
           <h1 class="text-2xl font-heading font-bold tracking-tight text-gray-900 dark:text-white">
             {{ organization?.name || 'Organization Details' }}
           </h1>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Organization ID: {{ organization?.id }}
-          </p>
         </div>
       </div>
     </div>
@@ -27,7 +24,7 @@
       </div>
 
       <!-- Organization Details -->
-      <div v-else-if="organization" class="space-y-6">
+      <div v-else-if="organization" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 items-start">
         <!-- Organization Overview -->
         <UCard class="bg-white dark:bg-gray-800">
           <template #header>
@@ -35,16 +32,10 @@
               Organization Overview
             </h3>
           </template>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="text-center">
-              <div class="flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full mx-auto mb-3">
-                <Icon name="i-heroicons-users" class="w-6 h-6 text-blue-600 dark:text-blue-300"/>
-              </div>
-              <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.user_count || 0 }}</div>
-              <div class="text-sm text-gray-500 dark:text-gray-400">Total Users</div>
-            </div>
-            
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+
+
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full mx-auto mb-3">
                 <Icon name="i-heroicons-user-group" class="w-6 h-6 text-green-600 dark:text-green-300"/>
@@ -52,7 +43,7 @@
               <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.profile_count || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Internal Users</div>
             </div>
-            
+
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full mx-auto mb-3">
                 <Icon name="i-heroicons-eye" class="w-6 h-6 text-purple-600 dark:text-purple-300"/>
@@ -60,7 +51,7 @@
               <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.viewer_count || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Viewers</div>
             </div>
-            
+
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-full mx-auto mb-3">
                 <Icon name="i-heroicons-chart-bar" class="w-6 h-6 text-orange-600 dark:text-orange-300"/>
@@ -69,7 +60,7 @@
               <div class="text-sm text-gray-500 dark:text-gray-400">Dashboards</div>
             </div>
           </div>
-          
+
           <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -80,7 +71,7 @@
                   {{ organization.name }}
                 </div>
               </div>
-              
+
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Organization ID
@@ -89,16 +80,16 @@
                   {{ organization.id }}
                 </div>
               </div>
-              
+
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Created Date
                 </label>
                 <div class="text-gray-900 dark:text-white">
-                  {{ formatDate(organization.created_at) }}
+                  {{ formatDate(organization.createdAt) }}
                 </div>
               </div>
-              
+
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Status
@@ -122,17 +113,17 @@
                   color="orange"
                   size="sm"
                   class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
-                @click="openAddUserModal"
-                :disabled="isLoading"
+                  @click="openAddUserModal"
+                  :disabled="isLoading"
               >
                 <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
                 Add User
               </UButton>
             </div>
           </template>
-          
-          <div v-if="internalUsers?.length > 0" class="space-y-3">
-            <div v-for="profile in internalUsers" :key="profile.user_id" 
+
+          <div v-if="internalUsers?.length > 0" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+            <div v-for="profile in internalUsers" :key="profile.user_id"
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
@@ -149,23 +140,23 @@
               </div>
               <div class="flex items-center gap-3">
                 <div class="text-sm text-gray-500 dark:text-gray-400">
-                  {{ formatDate(profile.created_at, true) }}
+                  {{ formatDate(profile.createdAt, true) }}
                 </div>
                 <UButton
                     variant="ghost"
                     size="sm"
                     color="red"
                     class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
-                  @click="deleteUser(profile)"
-                  :disabled="isDeletingUser"
-                  :loading="isDeletingUser && deletingUserId === profile.user_id"
+                    @click="deleteUser(profile)"
+                    :disabled="isDeletingUser"
+                    :loading="isDeletingUser && deletingUserId === profile.user_id"
                 >
                   <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                 </UButton>
               </div>
             </div>
           </div>
-          
+
           <div v-else class="text-center py-8">
             <Icon name="i-heroicons-user-group" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
             <p class="text-gray-500 dark:text-gray-400">No internal users found</p>
@@ -183,17 +174,17 @@
                   color="purple"
                   size="sm"
                   class="bg-purple-500 hover:bg-purple-600 text-white cursor-pointer"
-                @click="openAddViewerModal"
-                :disabled="isLoading"
+                  @click="openAddViewerModal"
+                  :disabled="isLoading"
               >
                 <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
                 Add Viewer
               </UButton>
             </div>
           </template>
-          
-          <div v-if="allViewers?.length > 0" class="space-y-3">
-            <div v-for="viewer in allViewers" :key="viewer.user_id" 
+
+          <div v-if="allViewers?.length > 0" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+            <div v-for="viewer in allViewers" :key="viewer.user_id"
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
@@ -213,23 +204,23 @@
               </div>
               <div class="flex items-center gap-3">
                 <div class="text-sm text-gray-500 dark:text-gray-400">
-                  {{ formatDate(viewer.created_at, true) }}
+                  {{ formatDate(viewer.createdAt, true) }}
                 </div>
                 <UButton
                     variant="ghost"
                     size="sm"
                     color="red"
                     class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
-                  @click="deleteViewer(viewer)"
-                  :disabled="isDeletingViewer"
-                  :loading="isDeletingViewer && deletingViewerId === viewer.user_id"
+                    @click="deleteViewer(viewer)"
+                    :disabled="isDeletingViewer"
+                    :loading="isDeletingViewer && deletingViewerId === viewer.user_id"
                 >
                   <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                 </UButton>
               </div>
             </div>
           </div>
-          
+
           <div v-else class="text-center py-8">
             <Icon name="i-heroicons-eye" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
             <p class="text-gray-500 dark:text-gray-400">No viewers found</p>
@@ -237,13 +228,13 @@
         </UCard>
 
         <!-- License Management Card -->
-        <UCard class="bg-white dark:bg-gray-800">
+        <UCard v-if="false" class="bg-white dark:bg-gray-800">
           <template #header>
             <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
               License Management
             </h3>
           </template>
-          
+
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
@@ -255,25 +246,25 @@
                 </p>
               </div>
               <div class="flex items-center gap-3">
-                <UInput 
-                  v-model="licensesForm.licenses" 
-                  type="number" 
-                  min="0"
-                  class="w-24 text-center"
-                  :disabled="isUpdating"
+                <UInput
+                    v-model="licensesForm.licenses"
+                    type="number"
+                    min="0"
+                    class="w-24 text-center"
+                    :disabled="isUpdating"
                 />
                 <UButton
                     color="orange"
                     class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
-                  @click="updateLicenses"
-                  :loading="isUpdating"
-                  :disabled="licensesForm.licenses === organization.licenses"
+                    @click="updateLicenses"
+                    :loading="isUpdating"
+                    :disabled="licensesForm.licenses === organization.licenses"
                 >
                   Update
                 </UButton>
               </div>
             </div>
-            
+
             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
               <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-600 dark:text-gray-400">Current Licenses:</span>
@@ -333,7 +324,7 @@
               <USelect
                   v-model="userForm.role"
                   :items="userRoleOptions"
-                placeholder="Select role"
+                  placeholder="Select role"
                   class="w-full"
               />
             </UFormField>
@@ -429,8 +420,8 @@
               </UButton>
               <UButton
                   color="red"
-                @click="confirmDeleteUser"
-                :loading="isDeletingUser"
+                  @click="confirmDeleteUser"
+                  :loading="isDeletingUser"
               >
                 Delete User
               </UButton>
@@ -476,8 +467,8 @@
               </UButton>
               <UButton
                   color="red"
-                @click="confirmDeleteViewer"
-                :loading="isDeletingViewer"
+                  @click="confirmDeleteViewer"
+                  :loading="isDeletingViewer"
               >
                 Delete Viewer
               </UButton>
@@ -505,7 +496,7 @@ const route = useRoute()
 const organizationId = route.params.id
 
 // Authentication
-const { userProfile } = useAuth()
+const {userProfile} = useAuth()
 
 // State
 const organization = ref(null)
@@ -552,8 +543,8 @@ const viewerToDelete = ref(null)
 
 // Role options
 const userRoleOptions = [
-  { label: 'Editor', value: 'EDITOR' },
-  { label: 'Admin', value: 'ADMIN' }
+  {label: 'Editor', value: 'EDITOR'},
+  {label: 'Admin', value: 'ADMIN'}
 ]
 
 // Computed
@@ -565,40 +556,40 @@ const availableLicenses = computed(() => {
 // Filter users by role
 const internalUsers = computed(() => {
   if (!organization.value?.profiles) return []
-  return organization.value.profiles.filter(profile => 
-    profile.role === 'ADMIN' || profile.role === 'EDITOR'
+  return organization.value.profiles.filter(profile =>
+      profile.role === 'ADMIN' || profile.role === 'EDITOR'
   )
 })
 
 const allViewers = computed(() => {
   if (!organization.value) return []
-  
+
   const viewersFromProfiles = (organization.value.profiles || [])
-    .filter(profile => profile.role === 'VIEWER')
-    .map(profile => ({
-      user_id: profile.user_id,
-      first_name: profile.first_name,
-      last_name: profile.last_name,
-      viewer_type: profile.viewer_type || 'Viewer',
-      group_name: profile.group_name || null,
-      created_at: profile.created_at
-    }))
-  
+      .filter(profile => profile.role === 'VIEWER')
+      .map(profile => ({
+        user_id: profile.user_id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        viewer_type: profile.viewer_type || 'Viewer',
+        group_name: profile.group_name || null,
+        createdAt: profile.createdAt
+      }))
+
   const viewersFromViewersTable = organization.value.viewers || []
-  
+
   // Combine both sources and remove duplicates
   const allViewers = [...viewersFromProfiles, ...viewersFromViewersTable]
-  const uniqueViewers = allViewers.filter((viewer, index, self) => 
-    index === self.findIndex(v => v.user_id === viewer.user_id)
+  const uniqueViewers = allViewers.filter((viewer, index, self) =>
+      index === self.findIndex(v => v.user_id === viewer.user_id)
   )
-  
+
   return uniqueViewers
 })
 
 // Get access token for API calls
 const getAccessToken = async () => {
   const supabase = useSupabaseClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const {data: {session}} = await supabase.auth.getSession()
   return session?.access_token
 }
 
@@ -606,19 +597,19 @@ const getAccessToken = async () => {
 const loadOrganizationDetails = async () => {
   try {
     isLoading.value = true
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch(`/api/organizations/${organizationId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
     })
-    
+
     if (response.success) {
       organization.value = response.organization
       licensesForm.value.licenses = response.organization.licenses || 0
@@ -627,9 +618,9 @@ const loadOrganizationDetails = async () => {
     }
   } catch (error) {
     console.error('Error loading organization details:', error)
-    
+
     // Handle session expired errors
-    if (error.message?.includes('Session expired') || 
+    if (error.message?.includes('Session expired') ||
         error.message?.includes('Please log in again') ||
         error.message?.includes('No access token available')) {
       const toast = useToast()
@@ -638,14 +629,14 @@ const loadOrganizationDetails = async () => {
         description: 'Your session has expired. Please log in again.',
         color: 'red'
       })
-      
+
       // Redirect to login after a short delay
       setTimeout(() => {
         navigateTo('/login')
       }, 2000)
       return
     }
-    
+
     // Show user-friendly error message for other errors
     const toast = useToast()
     toast.add({
@@ -663,12 +654,12 @@ const updateLicenses = async () => {
   try {
     isUpdating.value = true
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch(`/api/organizations/${organizationId}`, {
       method: 'PUT',
       headers: {
@@ -678,9 +669,9 @@ const updateLicenses = async () => {
         licenses: parseInt(licensesForm.value.licenses)
       }
     })
-    
+
     if (response.success) {
-      organization.value = { ...organization.value, ...response.organization }
+      organization.value = {...organization.value, ...response.organization}
       toast.add({
         title: 'Success',
         description: 'Licenses updated successfully',
@@ -704,14 +695,18 @@ const updateLicenses = async () => {
 
 // Format date
 const formatDate = (dateString, short = false) => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return 'N/A'
+
   if (short) {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     })
   }
-  return new Date(dateString).toLocaleDateString('en-US', {
+  return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -773,12 +768,12 @@ const addUser = async () => {
   try {
     isAddingUser.value = true
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch(`/api/organizations/${organizationId}/users`, {
       method: 'POST',
       headers: {
@@ -791,17 +786,17 @@ const addUser = async () => {
         role: userForm.value.role
       }
     })
-    
+
     if (response.success) {
       // Reload organization details to get updated user list
       await loadOrganizationDetails()
-      
+
       toast.add({
         title: 'Success',
         description: 'User added successfully',
         color: 'green'
       })
-      
+
       closeAddUserModal()
     } else {
       throw new Error(response.error || 'Failed to add user')
@@ -824,12 +819,12 @@ const addViewer = async () => {
   try {
     isAddingViewer.value = true
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch(`/api/organizations/${organizationId}/viewers`, {
       method: 'POST',
       headers: {
@@ -843,17 +838,17 @@ const addViewer = async () => {
         group: viewerForm.value.group
       }
     })
-    
+
     if (response.success) {
       // Reload organization details to get updated viewer list
       await loadOrganizationDetails()
-      
+
       toast.add({
         title: 'Success',
         description: 'Viewer added successfully',
         color: 'green'
       })
-      
+
       closeAddViewerModal()
     } else {
       throw new Error(response.error || 'Failed to add viewer')
@@ -879,34 +874,34 @@ const deleteUser = (profile) => {
 
 const confirmDeleteUser = async () => {
   if (!userToDelete.value) return
-  
+
   try {
     isDeletingUser.value = true
     deletingUserId.value = userToDelete.value.user_id
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     const response = await $fetch(`/api/users/${userToDelete.value.user_id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
     })
-    
+
     if (response.success) {
       // Reload organization details to get updated user list
       await loadOrganizationDetails()
-      
+
       toast.add({
         title: 'Success',
         description: 'User deleted successfully',
         color: 'green'
       })
-      
+
       cancelDeleteUser()
     } else {
       throw new Error(response.error || 'Failed to delete user')
@@ -938,17 +933,17 @@ const deleteViewer = (viewer) => {
 
 const confirmDeleteViewer = async () => {
   if (!viewerToDelete.value) return
-  
+
   try {
     isDeletingViewer.value = true
     deletingViewerId.value = viewerToDelete.value.user_id
     const toast = useToast()
-    
+
     const accessToken = await getAccessToken()
     if (!accessToken) {
       throw new Error('No access token available')
     }
-    
+
     // Use the existing viewers API endpoint which handles both types
     const response = await $fetch(`/api/viewers/${viewerToDelete.value.user_id}`, {
       method: 'DELETE',
@@ -956,17 +951,17 @@ const confirmDeleteViewer = async () => {
         'Authorization': `Bearer ${accessToken}`
       }
     })
-    
+
     if (response.success) {
       // Reload organization details to get updated viewer list
       await loadOrganizationDetails()
-      
+
       toast.add({
         title: 'Success',
         description: 'Viewer deleted successfully',
         color: 'green'
       })
-      
+
       cancelDeleteViewer()
     } else {
       throw new Error(response.error || 'Failed to delete viewer')

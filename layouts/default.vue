@@ -272,19 +272,16 @@ const topNavItems = computed(() => {
 const sideNavItems = computed(() => {
   if (isSuperAdmin.value) {
     return [
-      {icon: 'i-heroicons-home', label: 'Admin Dashboard', route: '/admin'},
-      {icon: 'i-heroicons-users', label: 'Users', route: '/admin/users'},
-      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/admin/viewers'},
+      {icon: 'i-heroicons-users', label: 'Users', route: '/users'},
+      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/viewers'},
       {icon: 'i-heroicons-building-office', label: 'Organizations', route: '/organizations'},
       {icon: 'i-heroicons-queue-list', label: 'Email Queue', route: '/reports/monitor'}
     ]
   }
   if (isAdmin.value) {
     return [
-      {icon: 'i-heroicons-home', label: 'Admin Dashboard', route: '/admin'},
-      {icon: 'i-heroicons-users', label: 'Users', route: '/admin/users'},
-      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/admin/viewers'},
-      {icon: 'i-heroicons-building-office', label: 'Organizations', route: '/organizations'}
+      {icon: 'i-heroicons-users', label: 'Users', route: '/users'},
+      {icon: 'i-heroicons-eye', label: 'Viewers', route: '/viewers'}
     ]
   }
   // Editors/Viewers: no side nav
@@ -304,19 +301,6 @@ const accountMenuItems = computed(() => {
       disabled: true
     }]
   ]
-
-  // Add dashboard navigation for ADMIN and SUPERADMIN users
-  if (userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN') {
-    baseItems.push([{
-      label: 'Admin Dashboard',
-      icon: 'i-heroicons-shield-check',
-      to: '/admin'
-    }, {
-      label: 'User Dashboard',
-      icon: 'i-heroicons-home',
-      to: '/'
-    }])
-  }
 
   // Add common menu items
   baseItems.push(

@@ -143,7 +143,12 @@
 </template>
 
 <script setup>
-// Use organization scope for viewers management (default)
+// Determine scope based on user role
+const {userProfile} = useAuth()
+const scope = computed(() => {
+  return userProfile.value?.role === 'SUPERADMIN' ? 'admin' : 'organization'
+})
+
 const {
   selectedViewer,
   showAddViewerModal,
@@ -178,7 +183,7 @@ const {
   bulkDeleteViewers,
   toggleSelectAll,
   toggleViewerSelection
-} = useViewersManagement('organization')
+} = useViewersManagement(scope.value)
 
 // Page meta
 definePageMeta({
