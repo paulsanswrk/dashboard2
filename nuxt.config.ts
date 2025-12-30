@@ -116,6 +116,7 @@ export default defineNuxtConfig({
         }
     },
 
+
     // Build configuration for Vercel
     ssr: true,
 

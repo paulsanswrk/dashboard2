@@ -1,8 +1,9 @@
 import {defineEventHandler, readBody} from 'h3'
 import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
 import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {computePathsIndex, type Edge, selectJoinTree, type TableGraph} from '../../utils/schemaGraph'
+import {computePathsForTables, type Edge, selectJoinTree, type TableGraph} from '../../utils/schemaGraph'
 import {AuthHelper} from '../../utils/authHelper'
+
 
 type ReportField = { fieldId: string; name?: string; label?: string; type?: string; isNumeric?: boolean; table?: string }
 type MetricRef = ReportField & { aggregation?: string }
@@ -292,7 +293,7 @@ export default defineEventHandler(async (event) => {
       try {
           const aji = (connection as any)?.auto_join_info
           if (aji?.graph?.nodes && aji?.graph?.adj) {
-              console.log(`[PREVIEW_AUTO_JOIN] Using stored auto_join_info graph for connection ${connectionId}`)
+              console.log(`[PREVIEW_AUTO_JOIN] Using stored graph for connection ${connectionId}`)
 
               // Reconstruct TableGraph from stored entries
               const graph: TableGraph = {
@@ -300,12 +301,13 @@ export default defineEventHandler(async (event) => {
                   adj: new Map<string, Edge[]>(aji.graph.adj as [string, Edge[]][])
               }
 
-              // Build paths index (stored Map was not JSON-serializable)
-              const pathsIndex = computePathsIndex(graph)
+              // Compute paths only for the tables in this query (O(K²) where K = tables used)
+              const pathsIndex = computePathsForTables(graph, tableNames)
 
               // Select join tree for requested tables
               const joinTree = selectJoinTree(tableNames, graph, pathsIndex)
               console.log(`[PREVIEW_AUTO_JOIN] Join tree: nodes=${joinTree.nodes.length}, edges=${joinTree.edgeIds.length}`)
+
 
               if (joinTree.edgeIds.length > 0) {
                   // Build quick edge lookup

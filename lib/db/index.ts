@@ -13,8 +13,10 @@ if (!connectionString) {
 const queryClient = postgres(connectionString, {
     max: 10,
     idle_timeout: 30000, // 30 seconds
+
     connect_timeout: 10000, // 10 seconds
 })
+
 
 export const db = drizzle(queryClient, {schema})
 

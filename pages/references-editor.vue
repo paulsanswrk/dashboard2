@@ -37,6 +37,26 @@
         </template>
 
         <div class="space-y-4">
+          <!-- Top Navigation Buttons -->
+          <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pb-4 border-b dark:border-gray-700">
+            <UButton
+                variant="outline"
+                @click="goBack"
+                class="w-full sm:w-auto cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </UButton>
+            <UButton
+                @click="saveAndProceed"
+                :loading="saving"
+                :disabled="saving"
+                class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+                color="green"
+            >
+              {{ saving ? 'Saving...' : 'Save And Proceed' }}
+            </UButton>
+          </div>
+
           <!-- Instructions -->
           <UAlert
               color="blue"
@@ -161,8 +181,7 @@ const connectionId = computed(() => Number(route.query.id || route.query.connect
 const steps = ref([
   {step: 1, label: 'Integration', active: false, completed: true},
   {step: 2, label: 'Data Schema', active: false, completed: true},
-  {step: 3, label: 'References', active: true, completed: false},
-  {step: 4, label: 'Data Transfer', active: false, completed: false}
+  {step: 3, label: 'References', active: true, completed: false}
 ])
 
 const loading = ref(true)

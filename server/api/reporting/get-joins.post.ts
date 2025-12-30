@@ -1,6 +1,7 @@
 import {defineEventHandler, readBody} from 'h3'
-import {computePathsIndex, type Edge, selectJoinTree, type TableGraph} from '../../utils/schemaGraph'
+import {computePathsForTables, type Edge, selectJoinTree, type TableGraph} from '../../utils/schemaGraph'
 import {AuthHelper} from '../../utils/authHelper'
+
 
 /**
  * Get suggested joins for a set of tables using the pre-computed auto_join_info graph.
@@ -45,12 +46,13 @@ export default defineEventHandler(async (event) => {
             adj: new Map<string, Edge[]>(aji.graph.adj as [string, Edge[]][])
         }
 
-        // Build paths index
-        const pathsIndex = computePathsIndex(graph)
+        // Compute paths only for the requested tables (O(K²) where K = tables requested)
+        const pathsIndex = computePathsForTables(graph, tableNames)
 
         // Select join tree for requested tables
         const joinTree = selectJoinTree(tableNames, graph, pathsIndex)
         console.log(`[GET_JOINS] Join tree: nodes=${joinTree.nodes.length}, edges=${joinTree.edgeIds.length}`)
+
 
         if (joinTree.edgeIds.length === 0) {
             return {

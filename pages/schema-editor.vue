@@ -10,7 +10,7 @@
           <div class="flex items-center gap-2">
             <UButton variant="outline" @click="goBack" class="cursor-pointer">Back</UButton>
             <div class="flex-1" />
-            <UButton variant="outline" :disabled="!allSchemasLoaded" :loading="saving" @click="saveAndContinue" class="cursor-pointer">Continue to References</UButton>
+            <UButton variant="outline" :disabled="!allSchemasLoaded" :loading="saving" @click="saveAndContinue" class="cursor-pointer">{{ saving ? 'Analyzing schema...' : 'Continue to References' }}</UButton>
           </div>
 
           <!-- Progress indicators -->
@@ -168,22 +168,59 @@ async function saveAndContinue() {
       tables: currentSchema.tables.map(t => ({ tableId: t.tableId, columnCount: t.columns.length }))
     })
 
-    const response = await $fetch('/api/reporting/connections', {
-      method: 'PUT',
-      params: { id: connectionId.value },
-      body: { schema: currentSchema }
+    // Initialize toast at function level so it's accessible in catch block
+    const toast = useToast()
+
+    // Clear any previous error toast when retrying
+    toast.clear()
+
+    // Use AbortController for timeout (180 seconds for large schemas)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 180000)
+
+    try {
+      const response = await $fetch('/api/reporting/connections', {
+        method: 'PUT',
+        params: {id: connectionId.value},
+        body: {schema: currentSchema},
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema save response:', response)
+      console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema saved successfully - auto_join_info should now be computed on backend')
+
+      navigateTo(`/references-editor?id=${connectionId.value}`)
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId)
+      throw fetchError
+    }
+  } catch (error: any) {
+    console.error('[SCHEMA_EDITOR_AUTO_JOIN] Failed to save schema:', error)
+
+    // Show user-facing error message
+    const toast = useToast()
+    let errorMessage = 'Failed to save schema. Please try again.'
+
+    if (error?.data?.message) {
+      errorMessage = error.data.message
+    } else if (error?.message) {
+      errorMessage = error.message
+    }
+
+    toast.add({
+      title: 'Schema Save Failed',
+      description: errorMessage,
+      color: 'red',
+      timeout: 8000
     })
 
-    console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema save response:', response)
-    console.log('[SCHEMA_EDITOR_AUTO_JOIN] Schema saved successfully - auto_join_info should now be computed on backend')
-
-    navigateTo(`/references-editor?id=${connectionId.value}`)
-  } catch (error) {
-    console.error('[SCHEMA_EDITOR_AUTO_JOIN] Failed to save schema:', error)
   } finally {
     saving.value = false
   }
 }
+
 
 onMounted(async () => {
   if (!connectionId.value) {

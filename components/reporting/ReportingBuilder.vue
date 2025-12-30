@@ -51,6 +51,17 @@
       <!-- Action Buttons grouped on the right -->
       <div class="flex items-center gap-2">
         <UButton
+            v-if="isDebug"
+            variant="outline"
+            color="gray"
+            class="hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+            @click="useSql = !useSql"
+            :disabled="loading"
+        >
+          <Icon name="i-heroicons-code-bracket" class="w-4 h-4"/>
+          {{ useSql ? 'Hide SQL' : 'Show SQL' }}
+        </UButton>
+        <UButton
             variant="outline"
             color="gray"
             class="hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
@@ -213,6 +224,8 @@ const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelected
 const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
+const config = useRuntimeConfig()
+const isDebug = computed(() => config.public.debugEnv === 'true')
 const toast = useToast()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])

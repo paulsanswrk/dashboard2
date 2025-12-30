@@ -1,6 +1,3 @@
-import fs from 'fs'
-import path from 'path'
-
 export type JoinType = 'inner' | 'left'
 export type Cardinality = '1:N' | 'N:1' | 'N:N' | 'unknown'
 
@@ -55,8 +52,38 @@ export const MAX_DEPTH = 8
 export const K_SHORTEST = 3
 export const COST_WEIGHTS = { hop: 1.0, nToNPenalty: 0.5, nullablePenalty: 0.25 }
 
+/**
+ * Compute paths only for the specified tables (not all pairs in the graph).
+ * This is O(K²) where K is the number of tables, instead of O(N²) where N is all tables.
+ * Used for on-demand path computation at query time.
+ */
+export function computePathsForTables(graph: TableGraph, tableNames: string[]): PathsIndex {
+    const pathsIndex = new Map<string, Map<string, PathObj[]>>()
+    const edgeMap = new Map<string, Edge>()
+    for (const edges of graph.adj.values()) for (const edge of edges) edgeMap.set(edge.id, edge)
+
+    // Only compute paths between the specified tables
+    for (const startTable of tableNames) {
+        if (!graph.nodes.has(startTable)) continue
+        const startPaths = new Map<string, PathObj[]>()
+        for (const targetTable of tableNames) {
+            if (startTable === targetTable) continue
+            if (!graph.nodes.has(targetTable)) continue
+            const allPaths: PathObj[] = []
+            findPathsDFS(startTable, startTable, targetTable, new Set(), [startTable], [], 0, graph.adj, edgeMap, allPaths)
+            if (allPaths.length > 0) {
+                allPaths.sort((a, b) => a.cost - b.cost)
+                startPaths.set(targetTable, allPaths.slice(0, K_SHORTEST))
+            }
+        }
+        if (startPaths.size > 0) pathsIndex.set(startTable, startPaths)
+    }
+    return {paths: pathsIndex}
+}
+
 export function createEdgeId(sourceTable: string, constraintName: string, targetTable: string, reversed = false): string {
-	const suffix = reversed ? '__rev' : ''
+
+    const suffix = reversed ? '__rev' : ''
 	return `${sourceTable}__${constraintName}__${targetTable}${suffix}`
 }
 

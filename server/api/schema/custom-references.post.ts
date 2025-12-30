@@ -3,7 +3,8 @@ import {AuthHelper} from '../../utils/authHelper'
 import {db} from '~/lib/db'
 import {dataConnections} from '~/lib/db/schema'
 import {eq} from 'drizzle-orm'
-import {buildExitPayloads, buildGraph, computePathsIndex} from '../../utils/schemaGraph'
+import {buildGraph} from '../../utils/schemaGraph'
+
 
 interface CustomReference {
     id: string
@@ -65,25 +66,22 @@ export default defineEventHandler(async (event) => {
         }
     })
 
-    // Recompute auto_join_info with custom references
+    // Recompute auto_join_info graph with custom references
     let autoJoinInfo: any = null
     try {
         const schemaForGraph = {schema: {tables: tablesWithCustomFKs}}
         const graph = buildGraph(schemaForGraph)
-        const pathsIndex = computePathsIndex(graph)
-        const exitPayloads = buildExitPayloads(graph, pathsIndex)
 
+        // Only store the graph - paths are computed on-demand at query time
         autoJoinInfo = {
-            pathsIndex,
-            exitPayloads,
             graph: {
                 nodes: Array.from(graph.nodes.entries()),
                 adj: Array.from(graph.adj.entries())
             }
         }
-        console.log(`[CUSTOM_REFERENCES] Recomputed auto_join_info with ${customReferences.length} custom references`)
+        console.log(`[CUSTOM_REFERENCES] Recomputed graph with ${customReferences.length} custom references`)
     } catch (error: any) {
-        console.error('[CUSTOM_REFERENCES] Failed to compute auto_join_info:', error.message)
+        console.error('[CUSTOM_REFERENCES] Failed to build graph:', error.message)
     }
 
     // Update the connection

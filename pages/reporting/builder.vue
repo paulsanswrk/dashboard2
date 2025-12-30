@@ -159,7 +159,7 @@
     </template>
 
     <template #center>
-      <div class="p-6">
+      <div>
         <ClientOnly>
           <ReportingBuilder
             ref="reportingBuilderRef"

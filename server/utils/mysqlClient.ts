@@ -1,6 +1,6 @@
 import mysql from 'mysql2/promise'
-import { Client as SSHClient } from 'ssh2'
-import { loadDebugConfig } from './debugConfig'
+import {Client as SSHClient} from 'ssh2'
+import {loadDebugConfig} from './debugConfig'
 
 export interface MySqlConnectionConfig {
   host: string
@@ -59,7 +59,8 @@ export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, f
     try {
       return await fn(conn)
     } finally {
-      await conn.end().catch(() => {})
+        await conn.end().catch(() => {
+        })
     }
   }
 
@@ -86,23 +87,23 @@ export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, f
         }
         let conn: mysql.Connection | null = null
         ;(async () => {
-          try {
-            conn = await mysql.createConnection({
-              user: cfg.user,
-              password: cfg.password,
-              database: cfg.database,
-              stream,
-              connectTimeout: 30000
-            })
-            const result = await fn(conn)
-            resolve(result)
-          } catch (e) {
-            reject(e)
-          } finally {
-            try { await conn?.end() } catch {}
-            ssh.end()
-          }
-        })()
+              try {
+                  conn = await mysql.createConnection({
+                      user: cfg.user,
+                      password: cfg.password,
+                      database: cfg.database,
+                      stream,
+                      connectTimeout: 30000
+                  })
+                  const result = await fn(conn)
+                  resolve(result)
+              } catch (e) {
+                  reject(e)
+              } finally {
+                  try { await conn?.end() } catch { }
+                  ssh.end()
+              }
+          })()
       })
     })
     ssh.on('error', (e) => reject(e))

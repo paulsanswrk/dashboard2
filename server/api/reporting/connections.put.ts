@@ -1,8 +1,9 @@
 import {defineEventHandler, getQuery, readBody} from 'h3'
+
 import {supabaseAdmin} from '../supabase'
 import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
 import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {buildExitPayloads, buildGraph, computePathsIndex} from '../../utils/schemaGraph'
+import {buildGraph} from '../../utils/schemaGraph'
 import {AuthHelper} from '../../utils/authHelper'
 
 // Update fields on an existing connection. Supports updating schema_json.
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
     })
 
   const update: any = {}
-  console.log(`[AUTO_JOIN] PUT request for connection ${connectionId} with body keys:`, Object.keys(body || {}))
+    console.log(`[AUTO_JOIN] PUT request for connection ${connectionId} with body keys: `, Object.keys(body || {}))
 
   if (body?.schema && typeof body.schema === 'object') {
     console.log(`[AUTO_JOIN] Schema update requested for connection ${connectionId}`)
@@ -31,168 +32,217 @@ export default defineEventHandler(async (event) => {
       const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
       const enrichedTables = await withMySqlConnectionConfig(cfg, async (conn) => {
         const result: any[] = []
-        for (const t of tables) {
-          const tableId = String(t.tableId)
-          // Fetch primary key columns from constraints first
-          const [pkConstraintRows] = await conn.query(
-            `select kcu.column_name, kcu.ordinal_position
-             from information_schema.table_constraints tc
-             join information_schema.key_column_usage kcu
-               on tc.constraint_name = kcu.constraint_name
-              and tc.table_schema = kcu.table_schema
-              and tc.table_name = kcu.table_name
-            where tc.table_schema = database()
-              and tc.table_name = ?
-              and tc.constraint_type = 'PRIMARY KEY'
-            order by kcu.ordinal_position`,
-            [tableId]
+
+          // 1. Collect all table IDs
+          const tableIds = tables.map((t: any) => String(t.tableId))
+          if (tableIds.length === 0) return []
+
+          // 2. Fetch ALL Primary Keys in one go
+          console.log(`[AUTO_JOIN] Fetching PKs for ${tableIds.length} tables`)
+          const [allPkConstraintRows] = await conn.query(
+              `select tc.table_name, kcu.column_name, kcu.ordinal_position
+               from information_schema.table_constraints tc
+                        join information_schema.key_column_usage kcu
+                             on tc.constraint_name = kcu.constraint_name
+                                 and tc.table_schema = kcu.table_schema
+                                 and tc.table_name = kcu.table_name
+               where tc.table_schema = database()
+                 and tc.table_name in (?)
+                 and tc.constraint_type = 'PRIMARY KEY'
+               order by tc.table_name, kcu.ordinal_position`,
+              [tableIds]
           ) as any
 
-          // If no PK constraint found, check for PRIMARY index (unique index named PRIMARY)
-          let primaryKey: string[] = []
-          if (pkConstraintRows.length > 0) {
-            primaryKey = (pkConstraintRows as any[]).map(r => r.column_name)
-          } else {
-            const [primaryIndexRows] = await conn.query(
-              `select column_name, seq_in_index
-               from information_schema.statistics
-               where table_schema = database()
-                 and table_name = ?
-                 and index_name = 'PRIMARY'
-                 and non_unique = 0
-               order by seq_in_index`,
-              [tableId]
-            ) as any
-            primaryKey = (primaryIndexRows as any[]).map(r => r.column_name)
+          // Fallback: Fetch ALL Primary Indices in one go
+          // (Only needed for tables that didn't have a PK in the previous query, but fetching all is simpler/safer)
+          const [allPrimaryIndexRows] = await conn.query(
+              `select table_name, column_name, seq_in_index
+           from information_schema.statistics
+           where table_schema = database()
+             and table_name in (?)
+             and index_name = 'PRIMARY'
+             and non_unique = 0
+           order by table_name, seq_in_index`,
+              [tableIds]
+          ) as any
+
+          // 3. Fetch ALL Unique Constraints in one go
+          console.log(`[AUTO_JOIN] Fetching Unique Constraints for ${tableIds.length} tables`)
+          const [allUniqueConstraintRows] = await conn.query(
+              `select tc.table_name, tc.constraint_name, kcu.column_name
+           from information_schema.table_constraints tc
+           join information_schema.key_column_usage kcu
+             on tc.constraint_name = kcu.constraint_name
+            and tc.table_schema = kcu.table_schema
+            and tc.table_name = kcu.table_name
+           where tc.table_schema = database()
+             and tc.table_name in (?)
+             and tc.constraint_type in ('PRIMARY KEY', 'UNIQUE')
+           order by tc.table_name, tc.constraint_name, kcu.ordinal_position`,
+              [tableIds]
+          ) as any
+
+          // 4. Fetch ALL Foreign Keys involving these tables (as source OR target)
+          // Note: For large schemas, 'kcu.referenced_table_name in (?)' might be slow if index is missing,
+          // but typically information_schema is optimized enough or small enough.
+          console.log(`[AUTO_JOIN] Fetching Foreign Keys for ${tableIds.length} tables`)
+          const [allFkRows] = await conn.query(
+              `select rc.constraint_name,
+                  kcu.table_name as source_table,
+                  kcu.referenced_table_name as target_table,
+                  kcu.ordinal_position as position,
+                  kcu.column_name as source_column,
+                  kcu.referenced_column_name as target_column,
+                  rc.update_rule,
+                  rc.delete_rule
+           from information_schema.referential_constraints rc
+           join information_schema.key_column_usage kcu
+             on rc.constraint_name = kcu.constraint_name
+            and rc.constraint_schema = kcu.constraint_schema
+           where kcu.table_schema = database()
+             and (kcu.table_name in (?) or kcu.referenced_table_name in (?))
+           order by rc.constraint_name, kcu.ordinal_position`,
+              [tableIds, tableIds]
+          ) as any
+
+
+          // --- Processing Results In-Memory ---
+
+          // Map: TableName -> PK Columns
+          const pkMap: Record<string, string[]> = {}
+
+          // Process constraint-based PKs
+          for (const row of allPkConstraintRows as any[]) {
+              // MySQL table names are case-sensitive on Linux but not Windows.
+              // Information schema usually preserves case.
+              // We assume tableIds match the DB case as they came from schema listing.
+              if (!pkMap[row.table_name]) pkMap[row.table_name] = []
+              pkMap[row.table_name].push(row.column_name)
           }
 
-          // Get all unique constraints for the table (including primary key)
-          const [uniqueConstraintRows] = await conn.query(
-            `select tc.constraint_name, kcu.column_name
-             from information_schema.table_constraints tc
-             join information_schema.key_column_usage kcu
-               on tc.constraint_name = kcu.constraint_name
-              and tc.table_schema = kcu.table_schema
-              and tc.table_name = kcu.table_name
-            where tc.table_schema = database()
-              and tc.table_name = ?
-              and tc.constraint_type in ('PRIMARY KEY', 'UNIQUE')
-            order by tc.constraint_name, kcu.ordinal_position`,
-            [tableId]
-          ) as any
-
-          // Group unique constraints by name
-          const uniqueConstraints: Record<string, string[]> = {}
-          for (const row of uniqueConstraintRows) {
-            if (!uniqueConstraints[row.constraint_name]) {
-              uniqueConstraints[row.constraint_name] = []
-            }
-            uniqueConstraints[row.constraint_name].push(row.column_name)
+          // Process index-based PKs (fallback if no constraint PK)
+          for (const row of allPrimaryIndexRows as any[]) {
+              if (!pkMap[row.table_name] || pkMap[row.table_name].length === 0) {
+                  if (!pkMap[row.table_name]) pkMap[row.table_name] = []
+                  pkMap[row.table_name].push(row.column_name)
+              }
           }
 
-          // Fetch foreign key relationships for this table (both directions)
-          const [fkRows] = await conn.query(
-            `select rc.constraint_name,
-                    kcu.table_name as source_table,
-                    kcu.referenced_table_name as target_table,
-                    kcu.ordinal_position as position,
-                    kcu.column_name as source_column,
-                    kcu.referenced_column_name as target_column,
-                    rc.update_rule,
-                    rc.delete_rule
-             from information_schema.referential_constraints rc
-             join information_schema.key_column_usage kcu
-               on rc.constraint_name = kcu.constraint_name
-              and rc.constraint_schema = kcu.constraint_schema
-            where kcu.table_schema = database()
-              and (kcu.table_name = ? or kcu.referenced_table_name = ?)
-            order by rc.constraint_name, kcu.ordinal_position`,
-            [tableId, tableId]
-          ) as any
+          // Map: TableName -> ConstraintName -> Columns
+          const uniqueConstraintsMap: Record<string, Record<string, string[]>> = {}
+          for (const row of allUniqueConstraintRows as any[]) {
+              if (!uniqueConstraintsMap[row.table_name]) uniqueConstraintsMap[row.table_name] = {}
+              if (!uniqueConstraintsMap[row.table_name][row.constraint_name]) uniqueConstraintsMap[row.table_name][row.constraint_name] = []
+              uniqueConstraintsMap[row.table_name][row.constraint_name].push(row.column_name)
+          }
 
-          // Get unique constraints for target tables
-          const targetTables = [...new Set(fkRows.map((r: any) => r.target_table))]
-          const targetUniqueConstraints: Record<string, Record<string, string[]>> = {}
+          // Map: ConstraintName -> FK Definition
+          // We need to process all FK rows to build the full FK objects
+          const fkDefinitions: Record<string, any> = {}
 
-          for (const targetTable of targetTables) {
-            if (targetTable !== tableId) {
-              const [targetUniqueRows] = await conn.query(
-                `select tc.constraint_name, kcu.column_name
-                 from information_schema.table_constraints tc
-                 join information_schema.key_column_usage kcu
-                   on tc.constraint_name = kcu.constraint_name
-                  and tc.table_schema = kcu.table_schema
-                  and tc.table_name = kcu.table_name
-                where tc.table_schema = database()
-                  and tc.table_name = ?
-                  and tc.constraint_type in ('PRIMARY KEY', 'UNIQUE')
-                order by tc.constraint_name, kcu.ordinal_position`,
-                [targetTable]
+          for (const r of allFkRows as any[]) {
+              const name = r.constraint_name
+              if (!fkDefinitions[name]) {
+                  fkDefinitions[name] = {
+                      constraintName: r.constraint_name,
+                      sourceTable: r.source_table,
+                      targetTable: r.target_table,
+                      columnPairs: [],
+                      updateRule: r.update_rule,
+                      deleteRule: r.delete_rule,
+                      isDeferrable: false,
+                      initiallyDeferred: false
+                  }
+              }
+              fkDefinitions[name].columnPairs.push({
+                  position: r.position,
+                  sourceColumn: r.source_column,
+                  targetColumn: r.target_column
+              })
+          }
+
+          // Now assign FKs to their source tables
+          // Map: TableName -> List of FKs (where table is source)
+          const tableFkMap: Record<string, any[]> = {}
+
+          // Pre-calculate target tables we might need to fetch unique constraints for if they weren't in our initial set
+          const allTargetTables = new Set<string>()
+          for (const fk of Object.values(fkDefinitions)) {
+              allTargetTables.add(fk.target_table)
+          }
+          // Identify missing targets
+          const missingTargets = Array.from(allTargetTables).filter(t => !uniqueConstraintsMap[t])
+
+          if (missingTargets.length > 0) {
+              console.log(`[AUTO_JOIN] Fetching Unique Constraints for ${missingTargets.length} external target tables`)
+              const [extraUniqueConstraintRows] = await conn.query(
+                  `select tc.table_name, tc.constraint_name, kcu.column_name
+               from information_schema.table_constraints tc
+               join information_schema.key_column_usage kcu
+                 on tc.constraint_name = kcu.constraint_name
+                and tc.table_schema = kcu.table_schema
+                and tc.table_name = kcu.table_name
+               where tc.table_schema = database()
+                 and tc.table_name in (?)
+                 and tc.constraint_type in ('PRIMARY KEY', 'UNIQUE')
+               order by tc.table_name, tc.constraint_name, kcu.ordinal_position`,
+                  [missingTargets]
               ) as any
 
-              targetUniqueConstraints[targetTable] = {}
-              for (const row of targetUniqueRows) {
-                if (!targetUniqueConstraints[targetTable][row.constraint_name]) {
-                  targetUniqueConstraints[targetTable][row.constraint_name] = []
-                }
-                targetUniqueConstraints[targetTable][row.constraint_name].push(row.column_name)
+              for (const row of extraUniqueConstraintRows as any[]) {
+                  if (!uniqueConstraintsMap[row.table_name]) uniqueConstraintsMap[row.table_name] = {}
+                  if (!uniqueConstraintsMap[row.table_name][row.constraint_name]) uniqueConstraintsMap[row.table_name][row.constraint_name] = []
+                  uniqueConstraintsMap[row.table_name][row.constraint_name].push(row.column_name)
               }
-            }
           }
 
-          // Group foreign keys by constraint and determine direction
-          const grouped: Record<string, any> = {}
-          for (const r of fkRows as any[]) {
-            const name = r.constraint_name
-            if (!grouped[name]) {
-              // If current table is the source, it's a foreign key (child -> parent)
-              // If current table is the target, it's a reverse reference (parent <- child)
-              const isForeignKey = r.source_table === tableId
 
-              grouped[name] = {
-                constraintName: r.constraint_name,
-                sourceTable: r.source_table,
-                targetTable: r.target_table,
-                columnPairs: [],
-                updateRule: r.update_rule,
-                deleteRule: r.delete_rule,
-                isDeferrable: false,
-                initiallyDeferred: false,
-                isForeignKey: isForeignKey
+          // Distribute FKs to their source tables and Calculate Cardinality
+          for (const fk of Object.values(fkDefinitions)) {
+              // We only care about this FK for the result if the SOURCE table is one of our selected tables
+              // (The query returned FKs where source OR target was involved)
+              // Note: FK definitions use camelCase (sourceTable, targetTable)
+              if (!tableIds.includes(fk.sourceTable)) {
+                  continue;
               }
-            }
-            grouped[name].columnPairs.push({ position: r.position, sourceColumn: r.source_column, targetColumn: r.target_column })
-          }
 
-          // Add cardinality determination for each foreign key
-          for (const fk of Object.values(grouped)) {
-            if (fk.isForeignKey) {
-              // Check if source columns are unique (part of unique constraint)
+              if (!tableFkMap[fk.sourceTable]) tableFkMap[fk.sourceTable] = []
+
+              // Calculate Cardinality
+              // Source Unique?
               const sourceColumns = fk.columnPairs.map((cp: any) => cp.sourceColumn)
-              const sourceIsUnique = sourceColumns.every(col =>
-                Object.values(uniqueConstraints).some(constraintCols => constraintCols.includes(col))
+              const sourceConstraints = uniqueConstraintsMap[fk.sourceTable] || {}
+              const sourceIsUnique = sourceColumns.every((col: string) =>
+                  Object.values(sourceConstraints).some(constraintCols => constraintCols.includes(col))
               )
 
-              // Check if target columns are unique (part of unique constraint)
+              // Target Unique?
               const targetColumns = fk.columnPairs.map((cp: any) => cp.targetColumn)
-              const targetTableConstraints = targetUniqueConstraints[fk.targetTable] || {}
-              const targetIsUnique = targetColumns.every(col =>
-                Object.values(targetTableConstraints).some(constraintCols => constraintCols.includes(col))
+              const targetConstraints = uniqueConstraintsMap[fk.targetTable] || {}
+              const targetIsUnique = targetColumns.every((col: string) =>
+                  Object.values(targetConstraints).some(constraintCols => constraintCols.includes(col))
               )
 
-              // Determine cardinality
               if (sourceIsUnique && targetIsUnique) {
-                fk.cardinality = '1:1'
+                  fk.cardinality = '1:1'
               } else {
-                fk.cardinality = '1:N'
+                  fk.cardinality = '1:N'
               }
-            }
+
+              // Mark as isForeignKey = true for the output format
+              fk.isForeignKey = true
+
+              tableFkMap[fk.sourceTable].push(fk)
           }
 
-          // Only include actual foreign keys (where current table is the source)
-          const foreignKeys = Object.values(grouped).filter((fk: any) => fk.isForeignKey)
 
-          // Transform columns to match TableInfo interface if needed
+          // 5. Construct Final Result
+          for (const t of tables) {
+              const tableId = String(t.tableId)
+              // Table name fallback - use tableId as it's the actual table name from the database
+              const tableName = String(t.tableName || tableId)
+
+              // Transform columns
           const transformedColumns = (t.columns || []).map((col: any) => ({
             fieldId: col.fieldId || col.name,
             name: col.name || col.fieldId,
@@ -200,61 +250,51 @@ export default defineEventHandler(async (event) => {
             type: col.type || 'unknown'
           }))
 
+              // Note: FKs are stored using fk.source_table (the database table name) as key
+              // Both tableId and tableName should be the database table name, but check both
+              const fksForTable = tableFkMap[tableId] || tableFkMap[tableName] || []
+
           result.push({
-            tableId: String(t.tableId),
-            tableName: String(t.tableName || t.tableId), // Use tableName if available, otherwise fallback to tableId
+              tableId: tableId,
+              tableName: tableName,
             columns: transformedColumns,
-            primaryKey,
-            foreignKeys: foreignKeys
+              primaryKey: pkMap[tableId] || pkMap[tableName] || [],
+              foreignKeys: fksForTable
           })
         }
+
         return result
       })
 
       update.schema_json = { tables: enrichedTables }
 
-      // Compute and store auto-join information
-      console.log(`[AUTO_JOIN] Starting auto-join computation for connection ${connectionId} with ${enrichedTables.length} tables`)
-      console.log(`[AUTO_JOIN] Enriched tables structure:`, enrichedTables.map(t => ({
-        tableId: t.tableId,
-        tableName: t.tableName,
-        columnCount: t.columns?.length || 0,
-        columns: t.columns?.map((c: any) => ({ fieldId: c.fieldId, name: c.name, type: c.type })) || [],
-        primaryKeyCount: t.primaryKey?.length || 0,
-        foreignKeyCount: t.foreignKeys?.length || 0
-      })))
+        // Compute and store auto-join graph (paths computed on-demand at query time)
+        console.log(`[AUTO_JOIN] Building graph for connection ${connectionId} with ${enrichedTables.length} tables`)
 
       try {
         const schemaJson = { schema: { tables: enrichedTables } }
-        console.log(`[AUTO_JOIN] Built schema JSON with tables:`, enrichedTables.map(t => t.tableName))
-
         const graph = buildGraph(schemaJson)
-        console.log(`[AUTO_JOIN] Built graph with ${graph.nodes.size} nodes and ${graph.adj.size} edges`)
+          console.log(`[AUTO_JOIN] Built graph with ${graph.nodes.size} nodes and ${graph.adj.size} adjacency entries`)
 
-        const pathsIndex = computePathsIndex(graph)
-        console.log(`[AUTO_JOIN] Computed paths index with ${Object.keys(pathsIndex).length} path entries`)
-
-        const exitPayloads = buildExitPayloads(graph, pathsIndex)
-        console.log(`[AUTO_JOIN] Built exit payloads with ${Object.keys(exitPayloads).length} exit entries`)
-
+          // Only store the graph - pathsIndex and exitPayloads are computed on-demand
+          // This makes schema save O(E) instead of O(N²) where N = table count
         update.auto_join_info = {
-          pathsIndex,
-          exitPayloads,
           graph: {
             nodes: Array.from(graph.nodes.entries()),
             adj: Array.from(graph.adj.entries())
           }
         }
-        console.log(`[AUTO_JOIN] Successfully computed and saved auto_join_info for connection ${connectionId}`)
+          console.log(`[AUTO_JOIN] Successfully saved graph for connection ${connectionId}`)
       } catch (error) {
-        console.error(`[AUTO_JOIN] Failed to compute auto-join info for connection ${connectionId}:`, {
+          console.error(`[AUTO_JOIN] Failed to build graph for connection ${connectionId}: `, {
           error: error.message,
           stack: error.stack,
           tableCount: enrichedTables.length,
           tables: enrichedTables.map(t => t.tableName)
         })
-        // Don't fail the update if auto-join computation fails
+          // Don't fail the update if graph building fails
       }
+
     } else {
       update.schema_json = selected
     }
@@ -298,7 +338,7 @@ export default defineEventHandler(async (event) => {
     return { success: true }
   }
 
-  console.log(`[AUTO_JOIN] Updating connection ${connectionId} with fields:`, Object.keys(update))
+    console.log(`[AUTO_JOIN] Updating connection ${connectionId} with fields: `, Object.keys(update))
   if (update.auto_join_info) {
     console.log(`[AUTO_JOIN] Including auto_join_info in update for connection ${connectionId}`)
   }
@@ -318,12 +358,10 @@ export default defineEventHandler(async (event) => {
     const {error} = await updateQuery
 
   if (error) {
-    console.error(`[AUTO_JOIN] Failed to update connection ${connectionId}:`, error)
+      console.error(`[AUTO_JOIN] Failed to update connection ${connectionId}: `, error)
     throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
-  console.log(`[AUTO_JOIN] Successfully updated connection ${connectionId}`)
+    console.log(`[AUTO_JOIN] Successfully updated connection ${connectionId} `)
   return { success: true }
 })
-
-
