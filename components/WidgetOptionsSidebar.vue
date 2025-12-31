@@ -5,14 +5,14 @@
         <h3 class="text-lg font-semibold">Options</h3>
         <div class="flex items-center gap-1">
           <UButton
-              v-if="(selectedWidget?.type === 'text' || selectedWidget?.type === 'chart' || selectedWidget?.type === 'image') && !readonly"
+              v-if="(selectedWidget?.type === 'text' || selectedWidget?.type === 'chart' || selectedWidget?.type === 'image' || selectedWidget?.type === 'icon') && !readonly"
               color="red"
               variant="ghost"
               size="xs"
               icon="i-heroicons-trash"
               class="cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
               @click="handleDelete"
-              :title="selectedWidget?.type === 'chart' ? 'Delete chart' : selectedWidget?.type === 'image' ? 'Delete image' : 'Delete text block'"
+              :title="selectedWidget?.type === 'chart' ? 'Delete chart' : selectedWidget?.type === 'image' ? 'Delete image' : selectedWidget?.type === 'icon' ? 'Delete icon' : 'Delete text block'"
           />
           <slot name="collapse"></slot>
         </div>
@@ -35,6 +35,7 @@ import {computed} from 'vue'
 import WidgetSidebarText from './WidgetSidebarText.vue'
 import WidgetSidebarChart from './WidgetSidebarChart.vue'
 import WidgetSidebarImage from './WidgetSidebarImage.vue'
+import WidgetSidebarIcon from './WidgetSidebarIcon.vue'
 
 const props = defineProps<{
   selectedWidget: any | null
@@ -54,6 +55,8 @@ const emit = defineEmits<{
   'update-chart-appearance': [partial: Record<string, any>]
   'update-image-style': [partial: Record<string, any>]
   'change-image': []
+  'update-icon-style': [partial: Record<string, any>]
+  'change-icon': []
 }>()
 
 const panelComponent = computed(() => {
@@ -61,6 +64,7 @@ const panelComponent = computed(() => {
   if (props.selectedWidget.type === 'text') return WidgetSidebarText
   if (props.selectedWidget.type === 'chart') return WidgetSidebarChart
   if (props.selectedWidget.type === 'image') return WidgetSidebarImage
+  if (props.selectedWidget.type === 'icon') return WidgetSidebarIcon
   return null
 })
 
@@ -112,6 +116,24 @@ const panelProps = computed(() => {
       onChangeImage: () => emit('change-image')
     }
   }
+  if (props.selectedWidget.type === 'icon') {
+    const style = props.selectedWidget.style || {}
+    return {
+      form: {
+        iconName: style.iconName || '',
+        color: style.color || '#374151',
+        size: style.size || 48,
+        backgroundColor: style.backgroundColor || 'transparent',
+        borderRadius: style.borderRadius ?? 0,
+        borderColor: style.borderColor || '#cccccc',
+        borderWidth: style.borderWidth ?? 0,
+        borderStyle: style.borderStyle || 'solid'
+      },
+      onUpdate: (field: string, value: any) => emit('update-icon-style', {[field]: value}),
+      onChangeIcon: () => emit('change-icon'),
+      onDelete: () => emit('delete-widget')
+    }
+  }
   return {}
 })
 
@@ -135,7 +157,13 @@ function handleDelete() {
     if (shouldDelete) {
       emit('delete-widget')
     }
+  } else if (props.selectedWidget.type === 'icon') {
+    const shouldDelete = typeof window !== 'undefined'
+        ? window.confirm('Delete this icon? This action cannot be undone.')
+        : true
+    if (shouldDelete) {
+      emit('delete-widget')
+    }
   }
 }
 </script>
-

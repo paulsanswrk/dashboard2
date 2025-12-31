@@ -7,6 +7,7 @@
         :widgets="widgets"
         :loading="loading"
         :preview="true"
+        :scaling-enabled="false"
     />
   </div>
 </template>

@@ -5,11 +5,12 @@ import {supabaseAdmin} from '../../supabase'
 import puppeteer from 'puppeteer-core'
 import Chromium from '@sparticuz/chromium'
 import {accessSync} from 'fs'
+import {DASHBOARD_PDF_MARGINS, DASHBOARD_WIDTH} from '~/lib/dashboard-constants'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
-// PDF dimensions constants
-const PDF_PAGE_WIDTH = 1800 // pixels (fixed width for viewport and PDF)
+// PDF dimensions - calculated from dashboard constants
+const PDF_PAGE_WIDTH = DASHBOARD_WIDTH + DASHBOARD_PDF_MARGINS.left + DASHBOARD_PDF_MARGINS.right
 
 export default defineEventHandler(async (event) => {
     // @ts-ignore useRuntimeConfig is auto-imported in Nuxt server context
@@ -90,15 +91,15 @@ export default defineEventHandler(async (event) => {
     browser = await puppeteer.launch({
       args: process.env.NODE_ENV === 'production' || process.env.VERCEL
         ? [
-            ...Chromium.args,
-            '--font-render-hinting=none', // Better font rendering
-            '--disable-web-security', // Allow cross-origin for CDN resources
+              ...Chromium.args,
+              '--font-render-hinting=none', // Better font rendering
+              '--disable-web-security', // Allow cross-origin for CDN resources
           ]
         : [
-            '--font-render-hinting=none',
-            '--disable-web-security',
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
+              '--font-render-hinting=none',
+              '--disable-web-security',
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
           ],
       executablePath,
       headless: true,
@@ -147,8 +148,8 @@ export default defineEventHandler(async (event) => {
           return document.body.scrollHeight
       })
 
-      const marginTop = 20 // px
-      const marginBottom = 20 // px
+      const marginTop = DASHBOARD_PDF_MARGINS.top
+      const marginBottom = DASHBOARD_PDF_MARGINS.bottom
       const pdfHeight = bodyHeight + marginTop + marginBottom
 
       console.log(`Page body height: ${bodyHeight}px, PDF height with margins: ${pdfHeight}px`)
@@ -160,10 +161,10 @@ export default defineEventHandler(async (event) => {
         width: `${PDF_PAGE_WIDTH}px`,
       printBackground: true,
       margin: {
-        top: '20px',
-        right: '20px',
-        bottom: '20px',
-        left: '20px'
+          top: `${DASHBOARD_PDF_MARGINS.top}px`,
+          right: `${DASHBOARD_PDF_MARGINS.right}px`,
+          bottom: `${DASHBOARD_PDF_MARGINS.bottom}px`,
+          left: `${DASHBOARD_PDF_MARGINS.left}px`
       },
       preferCSSPageSize: false,
     })

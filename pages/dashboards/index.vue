@@ -241,7 +241,7 @@ async function create() {
   try {
     const res = await createDashboard({ name: newName.value.trim() })
     isCreateOpen.value = false
-    navigateTo(`/dashboards/${res.dashboardId}`)
+    navigateTo(`/dashboards/${res.dashboardId}/edit`)
   } finally {
     creating.value = false
   }

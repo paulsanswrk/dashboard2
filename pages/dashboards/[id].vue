@@ -137,6 +137,18 @@
             <Icon name="i-heroicons-photo" class="w-4 h-4"/>
             Add Image
           </UButton>
+          <UButton
+              v-if="isEditableSession"
+              color="orange"
+              variant="solid"
+              size="xs"
+              class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer flex items-center gap-1"
+              @click="showAddIconModal = true"
+              title="Add icon"
+          >
+            <Icon name="i-lucide-shapes" class="w-4 h-4"/>
+            Add Icon
+          </UButton>
           <UDropdownMenu
               v-if="isEditableSession"
               :items="addChartMenuItems"
@@ -596,6 +608,12 @@
           @updated="onFilterUpdated"
       />
 
+      <!-- Add Icon Modal -->
+      <IconLibraryModal
+          v-model:open="showAddIconModal"
+          @select="handleIconSelected"
+      />
+
 
       <div class="flex gap-4 items-stretch flex-1 min-h-0">
         <div class="flex-1 min-w-0 h-full">
@@ -649,6 +667,8 @@
             @update-chart-appearance="updateChartAppearance"
             @update-image-style="updateImageStyle"
             @change-image="handleChangeImage"
+            @update-icon-style="updateIconStyle"
+            @change-icon="handleChangeIcon"
         >
           <template #collapse>
             <UButton size="xs" variant="ghost" class="cursor-pointer" @click="sidebarCollapsed = true">
@@ -745,6 +765,7 @@ const showCreateTabModal = ref(false)
 const showRenameTabModal = ref(false)
 const showDeleteTabModal = ref(false)
 const showAddImageModal = ref(false)
+const showAddIconModal = ref(false)
 const showAddFilterModal = ref(false)
 const pendingRoute = ref<any>(null)
 
@@ -1675,6 +1696,121 @@ function updateImageStyle(partial: Record<string, any>) {
 function handleChangeImage() {
   // Open the Add Image modal to allow changing the image
   showAddImageModal.value = true
+}
+
+async function handleIconSelected(icon: { iconName: string; color: string; size: number }) {
+  const targetTabId = activeTabId.value || tabs.value[0]?.id
+  if (!targetTabId) return
+
+  const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
+  const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.y + item.h)) : 0
+  const newPosition = {x: 0, y: nextY, w: 2, h: 2}
+  const iconStyle = {
+    iconName: icon.iconName,
+    color: icon.color,
+    size: icon.size,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderWidth: 0
+  }
+
+  // Generate a temporary widget ID for immediate UI update
+  const tempWidgetId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  // Create the widget object for local state
+  const newWidget = {
+    widgetId: tempWidgetId,
+    type: 'icon' as const,
+    name: icon.iconName.replace('i-lucide-', ''),
+    position: newPosition,
+    style: iconStyle
+  }
+
+  // Add to local state immediately
+  const tab = tabs.value.find(t => t.id === targetTabId)
+  if (tab) {
+    tab.widgets.push(newWidget)
+    tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+    gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+  }
+
+  // Select the widget
+  selectedTextWidgetId.value = tempWidgetId
+
+  // Persist to server in background
+  try {
+    const res = await $fetch<{ success: boolean; widgetId: string }>('/api/dashboard-widgets', {
+      method: 'POST',
+      body: {
+        tabId: targetTabId,
+        type: 'icon',
+        position: newPosition,
+        style: iconStyle
+      }
+    })
+
+    if (res?.widgetId && tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets[widgetIndex].widgetId = res.widgetId
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+        initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        if (selectedTextWidgetId.value === tempWidgetId) {
+          selectedTextWidgetId.value = res.widgetId
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to persist icon widget to server', error)
+    if (tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets.splice(widgetIndex, 1)
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+      }
+    }
+    if (selectedTextWidgetId.value === tempWidgetId) {
+      selectedTextWidgetId.value = null
+    }
+  }
+}
+
+function updateIconStyle(partial: Record<string, any>) {
+  const widget = selectedWidget.value
+  if (!widget || widget.type !== 'icon') return
+  if (!isEditableSession.value) return
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+  const targetWidget = tab.widgets.find(w => w.widgetId === widget.widgetId)
+  if (!targetWidget) return
+
+  // Merge with existing style
+  targetWidget.style = {...(targetWidget.style || {}), ...partial}
+
+  // Debounce persist
+  if (saveChartOverrideTimers[widget.widgetId]) {
+    clearTimeout(saveChartOverrideTimers[widget.widgetId]!)
+  }
+  saveChartOverrideTimers[widget.widgetId] = setTimeout(async () => {
+    try {
+      await $fetch('/api/dashboard-widgets', {
+        method: 'PUT',
+        body: {
+          widgetId: widget.widgetId,
+          style: targetWidget.style
+        }
+      })
+    } catch (error) {
+      console.error('Failed to save icon style', error)
+    }
+  }, 250)
+}
+
+function handleChangeIcon() {
+  // Open the Icon Library modal to allow changing the icon
+  showAddIconModal.value = true
 }
 
 function startCreateNewChart() {

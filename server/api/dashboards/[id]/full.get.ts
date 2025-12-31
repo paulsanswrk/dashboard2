@@ -1,10 +1,10 @@
-import { defineEventHandler, getQuery } from 'h3'
+import {defineEventHandler, getQuery} from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
-import { serverSupabaseUser } from '#supabase/server'
-import { supabaseAdmin } from '../../supabase'
-import { withMySqlConnection, withMySqlConnectionConfig } from '../../../utils/mysqlClient'
-import { loadConnectionConfigFromSupabase } from '../../../utils/connectionConfig'
-import { validateRenderContext } from '../../../utils/renderContext'
+import {serverSupabaseUser} from '#supabase/server'
+import {supabaseAdmin} from '../../supabase'
+import {withMySqlConnection, withMySqlConnectionConfig} from '../../../utils/mysqlClient'
+import {loadConnectionConfigFromSupabase} from '../../../utils/connectionConfig'
+import {validateRenderContext} from '../../../utils/renderContext'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -349,6 +349,17 @@ export default defineEventHandler(async (event) => {
                     configOverride: w.config_override || {}
                 }))
 
+            const iconResults = tabWidgets
+                .filter((w: any) => w.type === 'icon')
+                .map((w: any) => ({
+                    id: w.chart_id || null,
+                    widgetId: w.id,
+                    type: 'icon',
+                    position: w.position,
+                    style: w.style || {},
+                    configOverride: w.config_override || {}
+                }))
+
             return {
                 id: tab.id,
                 name: tab.name,
@@ -358,7 +369,8 @@ export default defineEventHandler(async (event) => {
                 widgets: [
                     ...chartResults.map((c) => ({ ...c, type: 'chart' })),
                     ...textResults,
-                    ...imageResults
+                    ...imageResults,
+                    ...iconResults
                 ]
             }
         })

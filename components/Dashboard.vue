@@ -1,5 +1,5 @@
 <template>
-  <div class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden">
+  <div ref="containerRef" class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden">
     <!-- Device width indicator overlay - only show for tablet/mobile -->
     <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
       <!-- Left overlay -->
@@ -23,7 +23,8 @@
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
       <span class="ml-3 text-gray-500">Loading dashboard...</span>
     </div>
-    <div v-else :style="{ width: previewWidth + 'px', margin: '0 auto', position: 'relative', zIndex: 20 }">
+    <!-- Scaled container wrapper - maintains aspect ratio when scaling -->
+    <div v-else :style="scaledContainerStyle">
       <ClientOnly>
         <GridLayout
             :layout="layout"
@@ -101,11 +102,25 @@
                 />
               </div>
             </template>
+            <template v-else-if="findWidget(item.i)?.type === 'icon'">
+              <div
+                  class="h-full w-full relative border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden cursor-pointer"
+                  :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
+                  @click="handleSelectText(item.i)"
+              >
+                <DashboardIconWidget
+                    :style-props="findWidgetStyle(item.i)"
+                    :edit-mode="!preview"
+                    class="h-full w-full"
+                />
+              </div>
+            </template>
             <template v-else>
               <div class="h-full flex items-center justify-center text-sm text-gray-500">
                 Unsupported widget
               </div>
             </template>
+
           </GridItem>
         </GridLayout>
       </ClientOnly>
@@ -114,6 +129,8 @@
 </template>
 
 <script setup lang="ts">
+import {DASHBOARD_WIDTH, DEVICE_PREVIEW_WIDTHS} from '~/lib/dashboard-constants'
+
 interface Widget {
   widgetId: string
   type: 'chart' | 'text' | 'image' | 'icon'
@@ -156,6 +173,8 @@ interface Props {
   loading: boolean
   preview?: boolean
   selectedTextId?: string
+  /** Whether to enable scaling to fit container (default: true for display, false for PDF rendering) */
+  scalingEnabled?: boolean
   dashboardFilters?: Array<{
     fieldId: string
     table: string
@@ -168,6 +187,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   preview: false,
+  scalingEnabled: true,
   dashboardFilters: () => []
 })
 
@@ -183,10 +203,62 @@ const emit = defineEmits<{
   'rename-chart-inline': [widgetId: string, name: string]
 }>()
 
+// Container ref for measuring available width
+const containerRef = ref<HTMLElement | null>(null)
+const containerWidth = ref(0)
+const dashboardHeight = ref(0)
+
+// Measure container width on mount and resize
+onMounted(() => {
+  updateContainerWidth()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateContainerWidth)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateContainerWidth)
+  }
+})
+
+function updateContainerWidth() {
+  if (containerRef.value) {
+    // Account for padding (p-3 = 12px on each side)
+    containerWidth.value = containerRef.value.clientWidth - 24
+  }
+}
+
+// Also update when container ref changes
+watch(containerRef, () => {
+  updateContainerWidth()
+})
+
+// Get the dashboard canvas width based on device
 const previewWidth = computed(() => {
-  if (props.device === 'mobile') return 390
-  if (props.device === 'tablet') return 768
-  return 1600 // Increased from 1200px for better chart readability with 12 columns
+  if (props.device === 'mobile') return DEVICE_PREVIEW_WIDTHS.mobile
+  if (props.device === 'tablet') return DEVICE_PREVIEW_WIDTHS.tablet
+  return DASHBOARD_WIDTH
+})
+
+// Calculate scale factor to fit dashboard in available space
+const scale = computed(() => {
+  if (!props.scalingEnabled || containerWidth.value === 0) return 1
+  // Only scale down, never scale up
+  return Math.min(1, containerWidth.value / previewWidth.value)
+})
+
+// Style for the scaled dashboard container
+const scaledContainerStyle = computed(() => {
+  const s = scale.value
+  return {
+    width: `${previewWidth.value}px`,
+    margin: '0 auto',
+    position: 'relative' as const,
+    zIndex: 20,
+    transform: s < 1 ? `scale(${s})` : undefined,
+    transformOrigin: s < 1 ? 'top center' : undefined,
+  }
 })
 
 // Calculate the left overlay width for the device preview indicator
