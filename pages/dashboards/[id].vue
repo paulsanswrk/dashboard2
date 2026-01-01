@@ -37,6 +37,7 @@
             size="sm"
             class="cursor-pointer"
             @click="handleModeToggle"
+            :loading="saving"
         >
           <Icon :name="isEditableSession ? 'i-heroicons-check' : 'i-heroicons-pencil-square'" class="w-4 h-4 mr-1"/>
           {{ isEditableSession ? 'Done' : 'Edit' }}
@@ -178,15 +179,15 @@
             Add Filter
           </UButton>
           <UButton
-              v-if="isEditableSession && sidebarCollapsed"
+              v-if="isEditableSession && activePanel === 'none'"
               size="xs"
               variant="outline"
               class="cursor-pointer"
-              @click="sidebarCollapsed = false"
-              title="Show Options"
+              @click="setActivePanel('options')"
+              title="Show Panel"
           >
             <Icon name="i-heroicons-adjustments-horizontal" class="w-4 h-4 mr-1"/>
-            Show Options
+            Show Panel
           </UButton>
         </div>
       </div>
@@ -627,6 +628,7 @@
                 :preview="!isEditableSession"
                 :selected-text-id="selectedWidgetId"
                 :dashboard-filters="activeFilterConditions"
+                :tab-style="activeTabStyle"
                 ref="dashboardRef"
                 @edit-chart="editChart"
                 @rename-chart="startRenameChart"
@@ -636,52 +638,97 @@
                 @select-text="selectWidget"
                 @update-text-content="updateTextContent"
                 @rename-chart-inline="renameChartInline"
+                @deselect="handleDeselect"
             />
           </div>
         </div>
-        <DashboardFiltersPanel
-            v-if="dashboardFilters.length > 0 || isEditableSession"
-            :filters="dashboardFilters"
-            :edit-mode="isEditableSession"
-            :collapsed="filtersPanelCollapsed"
-            @update="updateFilter"
-            @edit="editFilter"
-            @delete="confirmDeleteFilter"
-            @collapse="filtersPanelCollapsed = true"
-            @expand="filtersPanelCollapsed = false"
-            @clear-all="clearAllFilters"
-        />
-        <WidgetOptionsSidebar
-            v-if="isEditableSession && !sidebarCollapsed"
-            :selected-widget="selectedWidget"
-            :text-form="textForm"
-            :font-family-items="fontFamilyItems"
-            :chart-appearance="selectedChartAppearance"
-            :readonly="!isEditableSession"
-            @update-text-form="updateTextForm"
-            @update-text-content="updateTextContentInline"
-            @delete-widget="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
-            @edit-chart="selectedWidget && selectedWidget.chartId ? editChart(String(selectedWidget.chartId)) : null"
-            @rename-chart="(name)=> selectedWidget && renameChartInline(selectedWidget.widgetId, name)"
-            @delete-chart="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
-            @update-chart-appearance="updateChartAppearance"
-            @update-image-style="updateImageStyle"
-            @change-image="handleChangeImage"
-            @update-icon-style="updateIconStyle"
-            @change-icon="handleChangeIcon"
+        <!-- Sidebar Panel with Tab Toggle -->
+        <aside
+            v-if="isEditableSession && activePanel !== 'none'"
+            class="w-72 shrink-0 h-full flex flex-col"
         >
-          <template #collapse>
-            <UButton size="xs" variant="ghost" class="cursor-pointer" @click="sidebarCollapsed = true">
-              <Icon name="i-heroicons-chevron-right" class="w-4 h-4"/>
-            </UButton>
-          </template>
-        </WidgetOptionsSidebar>
-      </div>
-      <div v-if="isEditableSession && sidebarCollapsed" class="flex justify-end mt-2">
-        <UButton size="sm" variant="outline" class="cursor-pointer" @click="sidebarCollapsed = false">
-          <Icon name="i-heroicons-chevron-left" class="w-4 h-4 mr-1"/>
-          Show Text Options
-        </UButton>
+          <!-- Tab Toggle Bar -->
+          <div class="flex items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-t-lg shadow-sm">
+            <button
+                :class="[
+                  'flex-1 px-4 py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer rounded-tl-lg',
+                  activePanel === 'filters'
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                ]"
+                @click="setActivePanel('filters')"
+                title="Show Filters"
+            >
+              <Icon name="i-heroicons-funnel" class="w-4 h-4"/>
+              Filters
+              <UBadge v-if="dashboardFilters.length > 0" size="xs" :color="activePanel === 'filters' ? 'neutral' : 'primary'">
+                {{ dashboardFilters.length }}
+              </UBadge>
+            </button>
+            <button
+                :class="[
+                  'flex-1 px-4 py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer',
+                  activePanel === 'options'
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                ]"
+                @click="setActivePanel('options')"
+                title="Show Options"
+            >
+              <Icon name="i-heroicons-adjustments-horizontal" class="w-4 h-4"/>
+              Options
+            </button>
+            <button
+                class="px-3 py-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 cursor-pointer rounded-tr-lg"
+                @click="setActivePanel('none')"
+                title="Close panel"
+            >
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+            </button>
+          </div>
+
+          <!-- Filters Panel Content -->
+          <DashboardFiltersPanel
+              v-if="activePanel === 'filters'"
+              :filters="dashboardFilters"
+              :edit-mode="isEditableSession"
+              :collapsed="false"
+              class="flex-1 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-lg overflow-hidden"
+              @update="updateFilter"
+              @edit="editFilter"
+              @delete="confirmDeleteFilter"
+              @collapse="setActivePanel('none')"
+              @expand="setActivePanel('filters')"
+              @clear-all="clearAllFilters"
+              @add-filter="editingFilter = null; showAddFilterModal = true"
+          />
+
+          <!-- Options Panel Content -->
+          <WidgetOptionsSidebar
+              v-if="activePanel === 'options'"
+              :selected-widget="selectedWidget"
+              :text-form="textForm"
+              :font-family-items="fontFamilyItems"
+              :chart-appearance="selectedChartAppearance"
+              :readonly="!isEditableSession"
+              :tab-style="activeTabStyle"
+              :active-tab-name="activeTabName"
+              class="flex-1 !rounded-t-none !border-t-0"
+              @update-text-form="updateTextForm"
+              @update-text-content="updateTextContentInline"
+              @delete-widget="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
+              @edit-chart="selectedWidget && selectedWidget.chartId ? editChart(String(selectedWidget.chartId)) : null"
+              @rename-chart="(name)=> selectedWidget && renameChartInline(selectedWidget.widgetId, name)"
+              @delete-chart="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
+              @update-chart-appearance="updateChartAppearance"
+              @update-chart-border="updateChartBorder"
+              @update-image-style="updateImageStyle"
+              @change-image="handleChangeImage"
+              @update-icon-style="updateIconStyle"
+              @change-icon="handleChangeIcon"
+              @update-tab-style="updateTabStyle"
+          />
+        </aside>
       </div>
     </div>
   </div>
@@ -739,6 +786,7 @@ const tabs = ref<Array<{
   id: string;
   name: string;
   position: number;
+  style?: any; // Tab style options
   widgets: Array<{
     widgetId: string;
     type: 'chart' | 'text' | 'image' | 'icon';
@@ -784,9 +832,18 @@ interface DashboardFilter {
   currentValue: any
 }
 const dashboardFilters = ref<DashboardFilter[]>([])
-const filtersPanelCollapsed = ref(false)
 const filterToDelete = ref<DashboardFilter | null>(null)
 const editingFilter = ref<DashboardFilter | null>(null)
+
+// Sidebar panel state - only one can be open at a time
+// 'filters' | 'options' | 'none'
+const activePanel = ref<'filters' | 'options' | 'none'>('options')
+const filtersPanelCollapsed = computed(() => activePanel.value !== 'filters')
+const sidebarCollapsed = computed(() => activePanel.value !== 'options')
+
+function setActivePanel(panel: 'filters' | 'options' | 'none') {
+  activePanel.value = panel
+}
 
 // Available connections for filter modal
 const availableConnections = ref<Array<{ id: number; internalName: string }>>([])
@@ -795,7 +852,6 @@ const { listConnections } = useReportingService()
 // Text widget editor
 const selectedTextWidgetId = ref<string | null>(null)
 const selectedWidgetId = selectedTextWidgetId
-const sidebarCollapsed = ref(false)
 const renameChartTimers: Record<number, ReturnType<typeof setTimeout>> = {}
 const saveChartOverrideTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 let saveDashboardNameTimer: ReturnType<typeof setTimeout> | null = null
@@ -820,6 +876,9 @@ const textForm = reactive({
   italic: false,
   underline: false,
   borderRadius: 6,
+  borderWidth: 0,
+  borderColor: '#cccccc',
+  borderStyle: 'solid',
 })
 
 const fontFamilyItems = [
@@ -900,7 +959,7 @@ const effectiveGridConfig = computed(() => ({
 
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 
-// Computed property for current tab widgets/charts
+
 const currentTabWidgets = computed(() => {
   const currentTab = tabs.value.find(t => t.id === activeTabId.value)
   return currentTab?.widgets || []
@@ -1138,6 +1197,7 @@ async function load() {
       id: t.id,
       name: t.name,
       position: t.position,
+      style: t.style || {},
       widgets: (t.widgets || []).map((w: any) => ({
         widgetId: w.widgetId || w.id,
         type: w.type,
@@ -1221,6 +1281,9 @@ async function handleModeToggle() {
   if (!canEditDashboard.value) return
   pendingRoute.value = null
   if (isEditableSession.value) {
+    if (canEditDashboard.value) {
+      await save()
+    }
     await navigateTo(`/dashboards/${id.value}`)
     return
   }
@@ -1612,6 +1675,51 @@ const selectedChartAppearance = computed(() => {
   return mergeAppearance(base, override)
 })
 
+// Tab options computed properties
+const activeTab = computed(() => {
+  return tabs.value.find(t => t.id === activeTabId.value) || null
+})
+
+const activeTabName = computed(() => {
+  return activeTab.value?.name || 'Tab'
+})
+
+const activeTabStyle = computed(() => {
+  return activeTab.value?.style || {}
+})
+
+// Tab style update with debounce
+const saveTabStyleTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+
+function updateTabStyle(newStyle: any) {
+  const tabId = activeTabId.value
+  if (!tabId || !isEditableSession.value) return
+
+  // Update local state immediately
+  const tab = tabs.value.find(t => t.id === tabId)
+  if (tab) {
+    tab.style = {...newStyle}
+  }
+
+  // Debounce persist to server
+  if (saveTabStyleTimers[tabId]) {
+    clearTimeout(saveTabStyleTimers[tabId])
+  }
+  saveTabStyleTimers[tabId] = setTimeout(async () => {
+    try {
+      await $fetch('/api/dashboards/tabs', {
+        method: 'PUT',
+        body: {
+          tabId,
+          style: newStyle
+        }
+      })
+    } catch (error) {
+      console.error('Failed to save tab style', error)
+    }
+  }, 300)
+}
+
 function selectWidget(widgetId: string) {
   const widget = tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === widgetId)
   if (!widget) return
@@ -1619,6 +1727,10 @@ function selectWidget(widgetId: string) {
   if (widget.type === 'text') {
     startEditText(widgetId)
   }
+}
+
+function handleDeselect() {
+  selectedWidgetId.value = null
 }
 
 function updateTextForm(partial: Record<string, any>) {
@@ -1658,6 +1770,37 @@ function updateChartAppearance(partial: Record<string, any>) {
       })
     } catch (error) {
       console.error('Failed to save chart overrides', error)
+    }
+  }, 250)
+}
+
+function updateChartBorder(partial: Record<string, any>) {
+  const widget = selectedWidget.value
+  if (!widget || widget.type !== 'chart') return
+  if (!isEditableSession.value) return
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+  const targetWidget = tab.widgets.find(w => w.widgetId === widget.widgetId)
+  if (!targetWidget) return
+
+  // Merge with existing style
+  targetWidget.style = {...(targetWidget.style || {}), ...partial}
+
+  // Debounce persist
+  if (saveChartOverrideTimers[widget.widgetId]) {
+    clearTimeout(saveChartOverrideTimers[widget.widgetId]!)
+  }
+  saveChartOverrideTimers[widget.widgetId] = setTimeout(async () => {
+    try {
+      await $fetch('/api/dashboard-widgets', {
+        method: 'PUT',
+        body: {
+          widgetId: widget.widgetId,
+          style: targetWidget.style
+        }
+      })
+    } catch (error) {
+      console.error('Failed to save chart border style', error)
     }
   }, 250)
 }

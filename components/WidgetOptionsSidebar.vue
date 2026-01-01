@@ -1,8 +1,8 @@
 <template>
-  <aside class="w-72 shrink-0 h-full">
+  <aside class="shrink-0 h-full">
     <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-md flex flex-col h-full max-h-full">
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-        <h3 class="text-lg font-semibold">Options</h3>
+        <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ selectedWidget ? 'Widget Options' : 'Tab Options' }}</h3>
         <div class="flex items-center gap-1">
           <UButton
               v-if="(selectedWidget?.type === 'text' || selectedWidget?.type === 'chart' || selectedWidget?.type === 'image' || selectedWidget?.type === 'icon') && !readonly"
@@ -14,11 +14,16 @@
               @click="handleDelete"
               :title="selectedWidget?.type === 'chart' ? 'Delete chart' : selectedWidget?.type === 'image' ? 'Delete image' : selectedWidget?.type === 'icon' ? 'Delete icon' : 'Delete text block'"
           />
-          <slot name="collapse"></slot>
         </div>
       </div>
       <div class="p-4 space-y-3 overflow-y-auto flex-1">
-        <div v-if="!selectedWidget" class="text-sm text-gray-500">Select a block to edit its options.</div>
+        <TabOptionsSidebar
+            v-if="!selectedWidget"
+            :tab-style="tabStyle"
+            :active-tab-name="activeTabName"
+            :readonly="readonly"
+            @update:tab-style="$emit('update-tab-style', $event)"
+        />
         <template v-else>
           <component
               :is="panelComponent"
@@ -36,6 +41,8 @@ import WidgetSidebarText from './WidgetSidebarText.vue'
 import WidgetSidebarChart from './WidgetSidebarChart.vue'
 import WidgetSidebarImage from './WidgetSidebarImage.vue'
 import WidgetSidebarIcon from './WidgetSidebarIcon.vue'
+import TabOptionsSidebar from './TabOptionsSidebar.vue'
+import type {TabStyleOptions} from '~/types/tab-options'
 
 const props = defineProps<{
   selectedWidget: any | null
@@ -43,6 +50,8 @@ const props = defineProps<{
   fontFamilyItems: Array<{ label: string; value: string }>
   readonly?: boolean
   chartAppearance?: any
+  tabStyle?: TabStyleOptions
+  activeTabName?: string
 }>()
 
 const emit = defineEmits<{
@@ -53,10 +62,12 @@ const emit = defineEmits<{
   'rename-chart': [name: string]
   'delete-chart': []
   'update-chart-appearance': [partial: Record<string, any>]
+  'update-chart-border': [partial: Record<string, any>]
   'update-image-style': [partial: Record<string, any>]
   'change-image': []
   'update-icon-style': [partial: Record<string, any>]
   'change-icon': []
+  'update-tab-style': [style: TabStyleOptions]
 }>()
 
 const panelComponent = computed(() => {
@@ -81,15 +92,20 @@ const panelProps = computed(() => {
     }
   }
   if (props.selectedWidget.type === 'chart') {
+    const style = props.selectedWidget.style || {}
     return {
       name: props.selectedWidget.name || 'Chart',
       chartType: props.selectedWidget.state?.chartType || 'table',
       chartAppearance: props.chartAppearance || {},
       readonly: props.readonly,
+      borderWidth: style.borderWidth ?? 0,
+      borderColor: style.borderColor || '#cccccc',
+      borderStyle: style.borderStyle || 'solid',
       onEdit: () => emit('edit-chart'),
       onRename: (name: string) => emit('rename-chart', name),
       onDelete: () => emit('delete-chart'),
-      onUpdateChartAppearance: (partial: Record<string, any>) => emit('update-chart-appearance', partial)
+      onUpdateChartAppearance: (partial: Record<string, any>) => emit('update-chart-appearance', partial),
+      onUpdateBorder: (partial: Record<string, any>) => emit('update-chart-border', partial)
     }
   }
   if (props.selectedWidget.type === 'image') {

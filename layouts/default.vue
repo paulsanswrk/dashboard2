@@ -252,7 +252,7 @@ const isMobileMenuOpen = ref(false)
 
 // Top navigation items by role (content work)
 const topNavItems = computed(() => {
-  if (isSuperAdmin.value) return []
+
   if (isViewer.value) {
     return [
       {label: 'DASHBOARDS', shortLabel: 'DASH', route: '/dashboards'},

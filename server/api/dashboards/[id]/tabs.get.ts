@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
     // Fetch tabs for the dashboard
     const {data: tabs, error: tabsError} = await supabaseAdmin
         .from('dashboard_tab')
-        .select('id, name, position')
+        .select('id, name, position, style, options')
         .eq('dashboard_id', dashboardId)
         .order('position', {ascending: true})
 

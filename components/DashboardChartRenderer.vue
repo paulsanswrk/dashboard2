@@ -32,6 +32,8 @@ import ReportingChart from './reporting/ReportingChart.vue'
 import ReportingPreview from './reporting/ReportingPreview.vue'
 import {useReportingService} from '../composables/useReportingService'
 
+import type {TabStyleOptions} from '~/types/tab-options'
+
 interface DashboardFilterCondition {
   fieldId: string
   table: string
@@ -47,6 +49,7 @@ const props = defineProps<{
   preloadedRows?: Array<Record<string, unknown>>
   configOverride?: any
   dashboardFilters?: DashboardFilterCondition[]
+  tabStyle?: TabStyleOptions
 }>()
 
 const { runPreview, runSql } = useReportingService()
@@ -74,7 +77,22 @@ function mergeState(state: any, override: any) {
   return merged
 }
 
-const effectiveState = computed(() => mergeState(props.state, props.configOverride))
+const effectiveState = computed(() => {
+  const merged = mergeState(props.state, props.configOverride)
+
+  // Apply tab styles if available
+  if (props.tabStyle?.seriesColors && props.tabStyle.seriesColors.length > 0) {
+    if (!merged.appearance) merged.appearance = {}
+
+    // Only apply tab palette if chart doesn't have a specific palette set
+    // or if the chart is using default colors
+    if (!merged.appearance.palette || merged.appearance.palette.length === 0) {
+      merged.appearance.palette = props.tabStyle.seriesColors
+    }
+  }
+
+  return merged
+})
 
 const chartType = computed(() => effectiveState.value?.chartType || 'table')
 const appearance = computed(() => effectiveState.value?.appearance || {})

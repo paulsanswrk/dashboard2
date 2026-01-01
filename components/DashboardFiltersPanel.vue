@@ -1,34 +1,31 @@
 <template>
   <div
       v-if="filters.length > 0 || editMode"
-      class="bg-white dark:bg-gray-800 border-l dark:border-gray-700 flex flex-col"
-      :class="collapsed ? 'w-10' : 'w-72'"
+      class="bg-white dark:bg-gray-800 flex flex-col"
+      :class="collapsed ? 'w-10' : ''"
   >
-    <!-- Header -->
-    <div class="flex items-center justify-between px-3 py-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-      <template v-if="!collapsed">
-        <div class="flex items-center gap-2">
-          <Icon name="i-heroicons-funnel" class="w-4 h-4 text-gray-500"/>
-          <span class="font-medium text-sm">Filters</span>
-          <UBadge v-if="activeFilterCount > 0" size="xs" color="primary">{{ activeFilterCount }}</UBadge>
-        </div>
-        <button @click="$emit('collapse')" class="text-gray-400 hover:text-gray-600 cursor-pointer">
-          <Icon name="i-heroicons-chevron-double-right" class="w-4 h-4"/>
-        </button>
-      </template>
-      <template v-else>
-        <button @click="$emit('expand')" class="w-full flex justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
-          <Icon name="i-heroicons-funnel" class="w-4 h-4"/>
-        </button>
-      </template>
+    <!-- Header (only shown in collapsed state for expand button) -->
+    <div v-if="collapsed" class="flex items-center justify-center px-3 py-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+      <button @click="$emit('expand')" class="text-gray-400 hover:text-gray-600 cursor-pointer" title="Expand filters">
+        <Icon name="i-heroicons-funnel" class="w-4 h-4"/>
+      </button>
     </div>
 
     <!-- Filter list -->
     <div v-if="!collapsed" class="flex-1 overflow-auto p-2 space-y-3">
+      <!-- Add Filter button in edit mode -->
+      <button
+          v-if="editMode"
+          @click="$emit('add-filter')"
+          class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md border border-purple-200 dark:border-purple-800 transition-all duration-200 cursor-pointer"
+      >
+        <Icon name="i-heroicons-plus" class="w-4 h-4"/>
+        Add Filter
+      </button>
+
       <div v-if="filters.length === 0" class="text-center py-8 text-gray-400 text-sm">
         <Icon name="i-heroicons-funnel" class="w-8 h-8 mx-auto mb-2 opacity-50"/>
         <p>No filters configured</p>
-        <p v-if="editMode" class="text-xs mt-1">Click "Add Filter" to create one</p>
       </div>
 
       <div
@@ -180,6 +177,7 @@ const emit = defineEmits<{
   (e: 'collapse'): void
   (e: 'expand'): void
   (e: 'clearAll'): void
+  (e: 'add-filter'): void
 }>()
 
 const activeFilterCount = computed(() => {

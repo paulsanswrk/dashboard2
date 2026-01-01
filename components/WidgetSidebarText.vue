@@ -130,6 +130,66 @@
       </div>
     </div>
 
+    <!-- Border Section -->
+    <div class="border-t pt-3 mt-3">
+      <h4 class="text-xs font-semibold text-gray-500 uppercase mb-3">Border</h4>
+      <div class="space-y-3">
+        <!-- Border Width -->
+        <div>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Border Width</label>
+          <div class="flex gap-1 flex-wrap mt-1">
+            <button
+                v-for="option in borderWidthOptions"
+                :key="option.value"
+                type="button"
+                class="px-3 py-1.5 text-xs font-medium rounded-md border cursor-pointer transition-colors"
+                :class="localForm.borderWidth === option.value
+                  ? 'bg-orange-500 text-white border-orange-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                @click="localForm.borderWidth = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+        <!-- Border Color -->
+        <div v-if="localForm.borderWidth > 0">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Border Color</label>
+          <div class="flex gap-2 items-center mt-1">
+            <input
+                type="color"
+                v-model="localForm.borderColor"
+                class="w-8 h-8 rounded cursor-pointer border-0"
+            />
+            <UInput
+                v-model="localForm.borderColor"
+                size="sm"
+                class="flex-1"
+                placeholder="#cccccc"
+            />
+          </div>
+        </div>
+        <!-- Border Style -->
+        <div v-if="localForm.borderWidth > 0">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Border Style</label>
+          <div class="flex gap-1 flex-wrap mt-1">
+            <button
+                v-for="option in borderStyleOptions"
+                :key="option.value"
+                type="button"
+                class="px-3 py-1.5 text-xs font-medium rounded-md border cursor-pointer transition-colors"
+                :class="localForm.borderStyle === option.value
+                  ? 'bg-orange-500 text-white border-orange-500'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                @click="localForm.borderStyle = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -159,6 +219,19 @@ watch(localForm, (val) => {
 function emitContent() {
   emit('update-text-content', localForm.content || '')
 }
+
+const borderWidthOptions = [
+  {label: 'None', value: 0},
+  {label: '1px', value: 1},
+  {label: '2px', value: 2},
+  {label: '3px', value: 3}
+]
+
+const borderStyleOptions = [
+  {label: 'Solid', value: 'solid'},
+  {label: 'Dashed', value: 'dashed'},
+  {label: 'Dotted', value: 'dotted'}
+]
 
 
 </script>

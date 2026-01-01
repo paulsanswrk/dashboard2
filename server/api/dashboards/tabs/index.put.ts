@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const body = await readBody(event)
-    const {tabId, name, position} = body || {}
+    const {tabId, name, position, style, options} = body || {}
 
     if (!tabId) {
         throw createError({statusCode: 400, statusMessage: 'Missing tabId'})
@@ -50,6 +50,8 @@ export default defineEventHandler(async (event) => {
     const updates: any = {}
     if (name !== undefined) updates.name = name.trim()
     if (position !== undefined) updates.position = position
+    if (style !== undefined) updates.style = style
+    if (options !== undefined) updates.options = options
 
     if (Object.keys(updates).length === 0) {
         throw createError({statusCode: 400, statusMessage: 'No valid updates provided'})

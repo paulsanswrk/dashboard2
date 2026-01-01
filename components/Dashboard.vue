@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden">
+  <div ref="containerRef" class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden" @click="handleContainerClick">
     <!-- Device width indicator overlay - only show for tablet/mobile -->
     <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
       <!-- Left overlay -->
@@ -24,7 +24,10 @@
       <span class="ml-3 text-gray-500">Loading dashboard...</span>
     </div>
     <!-- Scaled container wrapper - maintains aspect ratio when scaling -->
-    <div v-else :style="scaledContainerStyle">
+    <div v-else :style="[scaledContainerStyle, {
+      fontFamily: tabStyle?.fontFamily,
+      backgroundColor: tabStyle?.backgroundColor
+    }]">
       <ClientOnly>
         <GridLayout
             :layout="layout"
@@ -53,7 +56,10 @@
               <UCard
                   :class="['h-full w-full cursor-pointer transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i)}]"
                   :ui="{ body: { padding: 'sm:p-2 p-2' } }"
-                  @click="handleSelectText(item.i)"
+                  :style="[getWidgetContainerStyle(item.i), {
+                    backgroundColor: tabStyle?.chartBackground
+                  }]"
+                  @click.stop="handleSelectText(item.i)"
               >
                 <div class="mb-2">
                   <input
@@ -71,15 +77,17 @@
                       :preloaded-columns="findChartColumns(item.i)"
                       :preloaded-rows="findChartRows(item.i)"
                       :dashboard-filters="dashboardFilters"
+                      :tab-style="tabStyle"
                   />
                 </div>
               </UCard>
             </template>
             <template v-else-if="findWidget(item.i)?.type === 'text'">
               <div
-                  class="h-full w-full relative border border-gray-200 dark:border-gray-700 rounded-md p-2 cursor-pointer"
+                  class="h-full w-full relative rounded-md p-2 cursor-pointer"
                   :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
-                  @click="handleSelectText(item.i)"
+                  :style="getWidgetContainerStyle(item.i)"
+                  @click.stop="handleSelectText(item.i)"
               >
                 <DashboardTextWidget
                     :style-props="findWidgetStyle(item.i)"
@@ -91,9 +99,10 @@
             </template>
             <template v-else-if="findWidget(item.i)?.type === 'image'">
               <div
-                  class="h-full w-full relative border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden cursor-pointer"
+                  class="h-full w-full relative rounded-md overflow-hidden cursor-pointer"
                   :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
-                  @click="handleSelectText(item.i)"
+                  :style="getWidgetContainerStyle(item.i)"
+                  @click.stop="handleSelectText(item.i)"
               >
                 <DashboardImageWidget
                     :style-props="findWidgetStyle(item.i)"
@@ -104,9 +113,10 @@
             </template>
             <template v-else-if="findWidget(item.i)?.type === 'icon'">
               <div
-                  class="h-full w-full relative border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden cursor-pointer"
+                  class="h-full w-full relative rounded-md overflow-hidden cursor-pointer"
                   :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
-                  @click="handleSelectText(item.i)"
+                  :style="getWidgetContainerStyle(item.i)"
+                  @click.stop="handleSelectText(item.i)"
               >
                 <DashboardIconWidget
                     :style-props="findWidgetStyle(item.i)"
@@ -130,6 +140,7 @@
 
 <script setup lang="ts">
 import {DASHBOARD_WIDTH, DEVICE_PREVIEW_WIDTHS} from '~/lib/dashboard-constants'
+import type {TabStyleOptions} from '~/types/tab-options'
 
 interface Widget {
   widgetId: string
@@ -183,12 +194,14 @@ interface Props {
     value: any
     values?: any[]
   }>
+  tabStyle?: TabStyleOptions
 }
 
 const props = withDefaults(defineProps<Props>(), {
   preview: false,
   scalingEnabled: true,
-  dashboardFilters: () => []
+  dashboardFilters: () => [],
+  tabStyle: () => ({})
 })
 
 const emit = defineEmits<{
@@ -201,6 +214,7 @@ const emit = defineEmits<{
   'select-text': [widgetId: string]
   'update-text-content': [widgetId: string, content: string]
   'rename-chart-inline': [widgetId: string, name: string]
+  'deselect': []
 }>()
 
 // Container ref for measuring available width
@@ -279,6 +293,41 @@ const findChartColumns = (i: string) => findWidget(i)?.preloadedColumns || undef
 const findChartRows = (i: string) => findWidget(i)?.preloadedRows || undefined
 const findWidgetStyle = (i: string) => findWidget(i)?.style || {}
 const findConfigOverride = (i: string) => findWidget(i)?.configOverride || {}
+
+// Helper to compute border style for widget wrappers
+function getWidgetBorderStyle(i: string): Record<string, string> {
+  const style = findWidgetStyle(i)
+  const borderWidth = style.borderWidth ?? 0
+  if (borderWidth <= 0) return {}
+
+  const borderColor = style.borderColor || '#e5e7eb' // gray-200
+  const borderStyle = style.borderStyle || 'solid'
+  return {
+    border: `${borderWidth}px ${borderStyle} ${borderColor}`
+  }
+}
+
+// Helper to get combined container styles (edit mode indicator + custom border)
+function getWidgetContainerStyle(i: string): Record<string, string> {
+  const customBorder = getWidgetBorderStyle(i)
+
+  // In edit mode (not preview), show thin dashed border as visual indicator
+  // unless widget has a custom border
+  if (!props.preview && !customBorder.border) {
+    return {
+      border: '1px dashed #d1d5db' // gray-300 thin dashed border
+    }
+  }
+
+  return customBorder
+}
+
+// Handle click on container (empty space) to deselect widget
+function handleContainerClick(e: MouseEvent) {
+  // Only deselect in edit mode
+  if (props.preview) return
+  emit('deselect')
+}
 
 function isSelected(widgetId: string) {
   return props.selectedTextId != null && props.selectedTextId === widgetId

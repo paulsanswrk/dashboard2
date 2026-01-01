@@ -53,7 +53,7 @@ const computedStyle = computed(() => {
   const textDecoration = s.underline ? 'underline' : 'none'
 
   return {
-    fontFamily: s.fontFamily || 'Proxima Nova, Inter, sans-serif',
+    fontFamily: s.fontFamily || 'inherit',
     fontSize,
     lineHeight,
     color: s.color || '#111827',
