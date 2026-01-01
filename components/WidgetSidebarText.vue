@@ -207,12 +207,20 @@ const emit = defineEmits<{
 }>()
 
 const localForm = reactive({...props.textForm})
+let isSyncingFromProps = false
 
 watch(() => ({...props.textForm}), (val) => {
+  isSyncingFromProps = true
   Object.assign(localForm, val)
+  nextTick(() => {
+    isSyncingFromProps = false
+  })
 })
 
 watch(localForm, (val) => {
+  if (isSyncingFromProps) {
+    return
+  }
   emit('update-text-form', {...val})
 }, {deep: true})
 

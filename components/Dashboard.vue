@@ -425,6 +425,7 @@ function getTextMenuItems(widgetId: string) {
 }
 
 function onLayoutUpdated(newLayout: any[]) {
+  console.log('[Dashboard.vue] onLayoutUpdated received from GridLayout:', newLayout?.length, 'items')
   emit('update:layout', newLayout)
 }
 </script>
