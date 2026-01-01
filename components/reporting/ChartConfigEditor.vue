@@ -781,18 +781,19 @@ const ToggleSwitch = defineComponent({
     return () => h('button', {
       type: 'button',
       class: [
-        'relative inline-flex h-5 shrink-0 items-center rounded-full transition-colors cursor-pointer',
+        'relative inline-flex shrink-0 items-center rounded-full transition-colors cursor-pointer',
         props.modelValue ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'
       ],
-      style: {width: '36px', minWidth: '36px', maxWidth: '36px'},
+      style: {width: '32px', height: '18px'},
       onClick: () => emit('update:modelValue', !props.modelValue)
     }, [
       h('span', {
-        class: [
-          'inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform',
-          props.modelValue ? 'translate-x-4.5' : 'translate-x-0.5'
-        ],
-        style: {transform: props.modelValue ? 'translateX(18px)' : 'translateX(2px)'}
+        class: 'inline-block rounded-full bg-white shadow transition-transform',
+        style: {
+          width: '14px',
+          height: '14px',
+          transform: props.modelValue ? 'translateX(16px)' : 'translateX(2px)'
+        }
       })
     ])
   }

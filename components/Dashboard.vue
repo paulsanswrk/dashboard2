@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="relative border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden" @click="handleContainerClick">
+  <div ref="containerRef" class="relative min-h-full border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden" @click="handleContainerClick">
     <!-- Device width indicator overlay - only show for tablet/mobile -->
     <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
       <!-- Left overlay -->
@@ -54,19 +54,19 @@
           <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
             <template v-if="findWidget(item.i)?.type === 'chart'">
               <UCard
-                  :class="['h-full w-full cursor-pointer transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i)}]"
+                  :class="['h-full w-full transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i), 'cursor-pointer': !preview}]"
                   :ui="{ body: { padding: 'sm:p-2 p-2' } }"
                   :style="[getWidgetContainerStyle(item.i), {
                     backgroundColor: tabStyle?.chartBackground
                   }]"
-                  @click.stop="handleSelectText(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
               >
                 <div class="mb-2">
                   <input
                       :value="findChartName(item.i)"
                       class="w-full !bg-transparent text-sm font-semibold px-0 py-0 focus:outline-none focus:ring-0 focus:border-transparent"
                       :readonly="preview"
-                      @focus.stop="handleSelectText(item.i)"
+                      @focus.stop="!preview && handleSelectText(item.i)"
                       @input="onChartNameInput(item.i, $event)"
                   />
                 </div>
@@ -84,10 +84,10 @@
             </template>
             <template v-else-if="findWidget(item.i)?.type === 'text'">
               <div
-                  class="h-full w-full relative rounded-md p-2 cursor-pointer"
-                  :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
+                  class="h-full w-full relative rounded-md p-2"
+                  :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
                   :style="getWidgetContainerStyle(item.i)"
-                  @click.stop="handleSelectText(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
               >
                 <DashboardTextWidget
                     :style-props="findWidgetStyle(item.i)"
@@ -99,10 +99,10 @@
             </template>
             <template v-else-if="findWidget(item.i)?.type === 'image'">
               <div
-                  class="h-full w-full relative rounded-md overflow-hidden cursor-pointer"
-                  :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
+                  class="h-full w-full relative rounded-md overflow-hidden"
+                  :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
                   :style="getWidgetContainerStyle(item.i)"
-                  @click.stop="handleSelectText(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
               >
                 <DashboardImageWidget
                     :style-props="findWidgetStyle(item.i)"
@@ -113,10 +113,10 @@
             </template>
             <template v-else-if="findWidget(item.i)?.type === 'icon'">
               <div
-                  class="h-full w-full relative rounded-md overflow-hidden cursor-pointer"
-                  :class="{'ring-2 ring-orange-400': isSelected(item.i)}"
+                  class="h-full w-full relative rounded-md overflow-hidden"
+                  :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
                   :style="getWidgetContainerStyle(item.i)"
-                  @click.stop="handleSelectText(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
               >
                 <DashboardIconWidget
                     :style-props="findWidgetStyle(item.i)"

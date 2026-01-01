@@ -1,5 +1,5 @@
 <template>
-  <div class="h-screen flex flex-col p-4 lg:p-6 overflow-hidden">
+  <div class="h-full flex flex-col p-4 lg:p-6 overflow-hidden">
     <div class="space-y-4 flex-1 flex flex-col min-h-0">
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <div class="flex items-center gap-3 flex-1">
@@ -670,7 +670,7 @@
         <!-- Sidebar Panel with Tab Toggle -->
         <aside
             v-if="isEditableSession && activePanel !== 'none'"
-            class="w-72 shrink-0 h-full flex flex-col"
+            class="w-72 shrink-0 h-full flex flex-col overflow-hidden"
         >
           <!-- Tab Toggle Bar -->
           <div class="flex items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-t-lg shadow-sm">
@@ -718,7 +718,7 @@
               :filters="dashboardFilters"
               :edit-mode="isEditableSession"
               :collapsed="false"
-              class="flex-1 border-x border-b border-gray-200 dark:border-gray-700 rounded-b-lg overflow-hidden"
+              class="flex-1 min-h-0 overflow-auto border-x border-b border-gray-200 dark:border-gray-700 rounded-b-lg"
               @update="updateFilter"
               @edit="editFilter"
               @delete="confirmDeleteFilter"
@@ -738,7 +738,7 @@
               :readonly="!isEditableSession"
               :tab-style="activeTabStyle"
               :active-tab-name="activeTabName"
-              class="flex-1 !rounded-t-none !border-t-0"
+              class="flex-1 min-h-0 overflow-auto !rounded-t-none !border-t-0"
               @update-text-form="updateTextForm"
               @update-text-content="updateTextContentInline"
               @delete-widget="selectedWidget && handleDeleteWidget(selectedWidget.widgetId)"
@@ -840,8 +840,16 @@ const showRenameTabModal = ref(false)
 const showDeleteTabModal = ref(false)
 const showAddImageModal = ref(false)
 const showAddIconModal = ref(false)
+const changingIconWidgetId = ref<string | null>(null)
 const showAddFilterModal = ref(false)
 const pendingRoute = ref<any>(null)
+
+// Clear the changing icon widget ID when the modal closes (prevents stale state)
+watch(showAddIconModal, (open) => {
+  if (!open) {
+    changingIconWidgetId.value = null
+  }
+})
 
 // Dashboard filters state
 interface DashboardFilter {
@@ -2417,6 +2425,42 @@ async function handleIconSelected(icon: { iconName: string; color: string; size:
   const targetTabId = activeTabId.value || tabs.value[0]?.id
   if (!targetTabId) return
 
+  // Check if we're changing an existing icon
+  if (changingIconWidgetId.value) {
+    const widgetIdToChange = changingIconWidgetId.value
+    changingIconWidgetId.value = null // Clear immediately
+
+    const tab = tabs.value.find(t => t.id === targetTabId)
+    if (!tab) return
+
+    const targetWidget = tab.widgets.find(w => w.widgetId === widgetIdToChange)
+    if (!targetWidget || targetWidget.type !== 'icon') return
+
+    // Update the icon name in the existing style, preserving other properties
+    targetWidget.style = {
+      ...(targetWidget.style || {}),
+      iconName: icon.iconName
+    }
+
+    // Persist to server
+    try {
+      await $fetch('/api/dashboard-widgets', {
+        method: 'PUT',
+        body: {
+          widgetId: widgetIdToChange,
+          style: targetWidget.style
+        }
+      })
+    } catch (error) {
+      console.error('Failed to update icon widget', error)
+    }
+
+    // Schedule history recording
+    scheduleWidgetHistoryRecording(widgetIdToChange, 'Icon Change')
+    return
+  }
+
+  // Create a new icon widget
   const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
   const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.y + item.h)) : 0
   const newPosition = {x: 0, y: nextY, w: 2, h: 2}
@@ -2527,7 +2571,10 @@ function updateIconStyle(partial: Record<string, any>) {
 }
 
 function handleChangeIcon() {
-  // Open the Icon Library modal to allow changing the icon
+  // Store the currently selected icon widget ID so we update it instead of creating a new one
+  if (selectedWidget.value?.type === 'icon') {
+    changingIconWidgetId.value = selectedWidget.value.widgetId
+  }
   showAddIconModal.value = true
 }
 

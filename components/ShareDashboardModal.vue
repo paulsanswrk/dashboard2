@@ -16,17 +16,17 @@
         </div>
 
         <!-- Tab Navigation -->
-        <div class="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          <nav class="flex gap-6 min-w-max px-1">
+        <div class="overflow-x-auto">
+          <nav class="inline-flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg gap-1 min-w-max">
             <button
                 v-for="tab in tabs"
                 :key="tab.key"
                 @click="activeTab = tab.key"
                 :class="[
-                '!w-auto !flex-none py-2 px-1 border-b-2 font-medium text-sm cursor-pointer transition-colors duration-200 whitespace-nowrap',
+                'px-4 py-2 text-sm font-medium rounded-md cursor-pointer transition-all duration-200 whitespace-nowrap',
                 activeTab === tab.key
-                  ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700/50'
               ]"
             >
               {{ tab.label }}
@@ -95,40 +95,70 @@
           <!-- Viewers Tab -->
           <div v-if="activeTab === 'viewers'" class="space-y-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">
-              Here you can share a dashboard privately with a viewer or a group of viewers. To add a viewer or a group of viewers please visit the Viewers page in Settings.
+              Here you can share a dashboard privately with a viewer or a group of viewers. To add a viewer or a group of viewers please visit the
+              <NuxtLink to="/settings/viewers" class="text-primary-500 hover:underline">Viewers page</NuxtLink>
+              in Settings.
             </div>
 
-            <div class="space-y-4">
-              <UFormField label="Add Viewer or Group">
-                <USelectMenu
-                    v-model="selectedViewerId"
-                    :items="viewerOptions"
-                    value-key="id"
-                    placeholder="Choose a viewer or group..."
+            <!-- Search Input with Dropdown -->
+            <div class="relative">
+              <div class="relative">
+                <UInput
+                    v-model="viewerSearchQuery"
+                    placeholder="Type to search..."
                     class="w-full"
+                    @focus="showViewerDropdown = true"
                 />
-              </UFormField>
+                <button
+                    v-if="viewerSearchQuery"
+                    @click="viewerSearchQuery = ''; showViewerDropdown = false"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+                </button>
+              </div>
 
-              <div v-if="dashboardViewers.length > 0" class="space-y-2">
-                <h4 class="font-medium text-sm">Viewers with Access:</h4>
+              <!-- Dropdown List -->
+              <div
+                  v-if="showViewerDropdown && filteredViewerOptions.length > 0"
+                  class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <!-- Grouped by type -->
+                <template v-for="group in viewerGroups" :key="group.name">
+                  <div class="px-3 py-2 text-sm font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 sticky top-0">
+                    {{ group.name }}
+                  </div>
+                  <div
+                      v-for="viewer in group.viewers"
+                      :key="viewer.id"
+                      @click="addViewerFromSearch(viewer)"
+                      class="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm"
+                  >
+                    {{ viewer.email || viewer.label }}
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Added Viewers List -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg min-h-[150px]">
+              <div v-if="dashboardViewers.length === 0" class="p-4 text-center text-gray-400 text-sm">
+                No viewers added yet
+              </div>
+              <div v-else class="divide-y divide-gray-200 dark:divide-gray-700">
                 <div
                     v-for="viewer in dashboardViewers"
                     :key="viewer.id"
-                    class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+                    class="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 >
-                  <div class="min-w-0 flex-1">
-                    <h4 class="font-medium">{{ viewer.name }}</h4>
-                    <p class="text-sm text-gray-500">{{ viewer.email }}</p>
-                  </div>
-                  <UButton
-                      color="red"
-                      variant="ghost"
-                      size="xs"
+                  <span class="text-sm">{{ viewer.email || viewer.name }}</span>
+                  <button
                       @click="removeViewerAccess(viewer)"
                       :disabled="loading"
+                      class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer disabled:opacity-50"
                   >
                     <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
-                  </UButton>
+                  </button>
                 </div>
               </div>
             </div>
@@ -249,7 +279,7 @@ const isOpen = computed({
 const activeTab = ref('users')
 const tabs = [
   { key: 'users', label: 'Users' },
-  // { key: 'viewers', label: 'Viewers' }, // Temporarily hidden
+  {key: 'viewers', label: 'Viewers'},
   { key: 'public', label: 'Public URL' }
 ]
 
@@ -269,6 +299,10 @@ const isPasswordProtected = ref(false)
 const hasExistingPassword = ref(false)
 const publicPassword = ref('')
 const publicUrl = ref('')
+
+// Viewer search state
+const viewerSearchQuery = ref('')
+const showViewerDropdown = ref(false)
 
 // Computed properties
 const viewerOptions = computed(() => {
@@ -316,6 +350,34 @@ const viewerOptions = computed(() => {
 const selectedViewer = computed(() => {
   if (!selectedViewerId.value) return null
   return viewerOptions.value.find(option => option.id === selectedViewerId.value) || null
+})
+
+// Filtered viewer options based on search query
+const filteredViewerOptions = computed(() => {
+  const query = viewerSearchQuery.value.toLowerCase().trim()
+  if (!query) return viewerOptions.value
+  return viewerOptions.value.filter(option => {
+    const searchText = (option.email || option.label || '').toLowerCase()
+    return searchText.includes(query)
+  })
+})
+
+// Group viewers by type for dropdown display
+const viewerGroups = computed(() => {
+  const groups: { name: string; viewers: typeof viewerOptions.value }[] = []
+
+  // Filter by type
+  const individuals = filteredViewerOptions.value.filter(v => v.type === 'viewer')
+  const viewerGroupItems = filteredViewerOptions.value.filter(v => v.type === 'group')
+
+  if (individuals.length > 0) {
+    groups.push({name: 'Users', viewers: individuals})
+  }
+  if (viewerGroupItems.length > 0) {
+    groups.push({name: 'Groups', viewers: viewerGroupItems})
+  }
+
+  return groups
 })
 
 
@@ -428,9 +490,8 @@ async function toggleUserAccess(user: any) {
   }
 }
 
-async function addViewerAccess() {
-  const viewer = selectedViewer.value
-  if (!viewer) return false
+async function addViewerFromSearch(viewer: any) {
+  if (!viewer) return
 
   try {
     // If it's an individual viewer, grant access like a regular user
@@ -440,20 +501,19 @@ async function addViewerAccess() {
         body: {
           userId: viewer.value,
           hasAccess: true,
-          accessLevel: 'read' // Viewers typically get read-only access
+          accessLevel: 'read'
         }
       })
     } else if (viewer.type === 'group') {
       // TODO: Implement group access if needed
-      return false
     }
 
-    // Reload dashboard access to update the UI
+    // Clear search and reload
+    viewerSearchQuery.value = ''
+    showViewerDropdown.value = false
     await loadDashboardAccess()
-    return true
   } catch (error) {
     console.error('Failed to add viewer access:', error)
-    return false
   }
 }
 
@@ -539,21 +599,12 @@ watch(isOpen, (open) => {
   }
 })
 
-// Automatically add viewer access when selected
-watch(selectedViewerId, async (newId, oldId) => {
-  // Only add if it's a new selection (not clearing)
-  if (newId && newId !== oldId) {
-    const success = await addViewerAccess()
-    if (success !== false) { // If not explicitly failed
-      selectedViewerId.value = '' // Clear selection after adding
-    }
-  }
-})
-
 // Clear selected viewer when modal closes
 watch(isOpen, (open) => {
   if (!open) {
     selectedViewerId.value = ''
+    viewerSearchQuery.value = ''
+    showViewerDropdown.value = false
   }
 })
 </script>

@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="h-screen flex flex-col overflow-hidden">
     <template v-if="roleLoaded">
     <!-- Color Scheme for theme management -->
     <ColorScheme/>
 
-      <div class="flex flex-1 h-screen bg-gray-50">
+      <div class="flex flex-1 min-h-0 bg-gray-50">
       <!-- Mobile Overlay -->
       <div
           v-if="isMobileMenuOpen"
