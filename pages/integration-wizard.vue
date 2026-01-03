@@ -250,11 +250,6 @@
                 </div>
               </div>
 
-              <!-- Storage Location -->
-              <div v-if="false" class="space-y-3">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Storage Location</h3>
-                <URadioGroup v-model="form.storageLocation" :items="storageOptions"/>
-              </div>
             </div>
           </div>
 
@@ -313,6 +308,19 @@
             </div>
           </div>
 
+          <!-- Data Transfer Configuration (shown for saved connections) -->
+          <div v-if="createdConnectionId" class="mt-6 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <Icon name="i-heroicons-arrow-path" class="w-5 h-5 inline mr-2"/>
+              Data Transfer Options
+            </h3>
+            <DataTransferPanel
+                :connection-id="createdConnectionId"
+                @storage-changed="handleStorageChange"
+                @schedule-saved="handleScheduleSaved"
+            />
+          </div>
+
 
           <!-- Navigation Buttons -->
           <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
@@ -358,6 +366,8 @@
 </template>
 
 <script setup>
+import DataTransferPanel from '~/components/DataTransferPanel.vue'
+
 const steps = ref([
   { step: 1, label: 'Integration', active: true, completed: false },
   { step: 2, label: 'Data Schema', active: false, completed: false },
@@ -905,6 +915,30 @@ const createdConnectionId = ref(null)
 async function finishWizard() {
   if (!createdConnectionId.value) return
   navigateTo(`/schema-editor?id=${createdConnectionId.value}`)
+}
+
+// Handler for storage location changes from DataTransferPanel
+async function handleStorageChange(storageLocation) {
+  if (!createdConnectionId.value) return
+
+  try {
+    await $fetch('/api/reporting/connections', {
+      method: 'PUT',
+      params: {id: createdConnectionId.value},
+      body: {storage_location: storageLocation}
+    })
+    form.value.storageLocation = storageLocation
+    console.log(`Storage location updated to: ${storageLocation}`)
+  } catch (error) {
+    console.error('Failed to update storage location:', error)
+  }
+}
+
+// Handler for when sync schedule is saved
+function handleScheduleSaved() {
+  console.log('Sync schedule saved successfully')
+  // Mark Data Transfer step as completed
+  steps.value[3].completed = true
 }
 
 </script>

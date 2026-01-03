@@ -8,7 +8,12 @@
     {
       "path": "/api/cron/process-reports",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-data",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
+
 

@@ -144,11 +144,12 @@ Available aggregations for metrics:
 
 ## Sample Configurations
 
-Pre-built sample configurations are available at:
+Pre-built sample configurations are available for testing:
 
-```
-docs/examples/chart-configs/sakila-sample-configs.json
-```
+| Database      | File Path                                                   | Description                                              |
+|---------------|-------------------------------------------------------------|----------------------------------------------------------|
+| **Sakila**    | `docs/examples/chart-configs/sakila-sample-configs.json`    | 12 configs: films, actors, payments, rentals             |
+| **Employees** | `docs/examples/chart-configs/employees-sample-configs.json` | 15 configs: departments, salaries, titles, hiring trends |
 
 ### Using Sample Configs
 
@@ -282,6 +283,59 @@ docs/examples/chart-configs/sakila-sample-configs.json
     "showLegend": true,
     "legendPosition": "right",
     "showLabels": true
+  }
+}
+```
+
+### Example: Employees DB - Stacked Chart with Breakdown
+
+```json
+{
+  "chartType": "stacked",
+  "chartTitle": "Job Titles by Gender (Stacked)",
+  "xDimensions": [
+    {
+      "fieldId": "title",
+      "name": "title",
+      "label": "Title",
+      "type": "varchar",
+      "table": "titles"
+    }
+  ],
+  "yMetrics": [
+    {
+      "fieldId": "emp_no",
+      "name": "emp_no",
+      "label": "Count",
+      "type": "int",
+      "table": "employees",
+      "aggregation": "COUNT",
+      "isNumeric": true
+    }
+  ],
+  "breakdowns": [
+    {
+      "fieldId": "gender",
+      "name": "gender",
+      "label": "Gender",
+      "type": "enum",
+      "table": "employees"
+    }
+  ],
+  "filters": [],
+  "joins": [
+    {
+      "constraintName": "fk_titles_employees",
+      "sourceTable": "titles",
+      "targetTable": "employees",
+      "joinType": "inner",
+      "columnPairs": [{"position": 1, "sourceColumn": "emp_no", "targetColumn": "emp_no"}]
+    }
+  ],
+  "appearance": {
+    "showLegend": true,
+    "legendPosition": "top",
+    "showLabels": false
   }
 }
 ```

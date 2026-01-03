@@ -113,6 +113,9 @@ export default defineNuxtConfig({
         preset: 'vercel',
         experimental: {
             wasm: true
+        },
+        routeRules: {
+            '/api/data-transfer/start': {maxDuration: 300}
         }
     },
 
@@ -142,5 +145,6 @@ export default defineNuxtConfig({
                 { rel: 'shortcut icon', href: '/images/optiqo_32x32.png' }
             ]
         }
-    }
+    },
+
 })

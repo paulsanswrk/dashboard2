@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "sakila": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@liangshanli/mcp-server-mysql"
+      ],
+      "env": {
+        "MYSQL_HOST": "13.234.119.243",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "readonly",
+        "MYSQL_PASSWORD": "Zr0OzD85003u",
+        "MYSQL_DATABASE": "sakila",
+        "ALLOW_DDL": "false",
+        "ALLOW_DROP": "false",
+        "ALLOW_DELETE": "false"
+      }
+    },
+    "employees": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@liangshanli/mcp-server-mysql"
+      ],
+      "env": {
+        "MYSQL_HOST": "13.234.119.243",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "readonly",
+        "MYSQL_PASSWORD": "Zr0OzD85003u",
+        "MYSQL_DATABASE": "employees",
+        "ALLOW_DDL": "false",
+        "ALLOW_DROP": "false",
+        "ALLOW_DELETE": "false"
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
-import { bigint, bigserial, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
-import { relations, sql } from 'drizzle-orm'
+import {bigint, bigserial, boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid} from 'drizzle-orm/pg-core'
+import {relations, sql} from 'drizzle-orm'
 
 // Auth users table (referenced by Supabase auth)
 export const authUsers = pgTable('auth.users', {
@@ -75,6 +75,49 @@ export const dataConnections = pgTable('data_connections', {
     index('data_connections_schema_json_gin').on(table.schemaJson),
     index('data_connections_internal_name_idx').on(table.internalName),
     uniqueIndex('data_connections_owner_internal_name_idx').on(table.ownerId, table.internalName),
+])
+
+// Datasource sync configuration and status
+export const datasourceSync = pgTable('datasource_sync', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    connectionId: bigint('connection_id', {mode: 'number'}).notNull()
+        .references(() => dataConnections.id, {onDelete: 'cascade'}),
+    targetSchemaName: text('target_schema_name'),
+    syncSchedule: jsonb('sync_schedule'),
+    lastSyncAt: timestamp('last_sync_at', {withTimezone: true}),
+    nextSyncAt: timestamp('next_sync_at', {withTimezone: true}),
+    syncStatus: text('sync_status', {
+        enum: ['idle', 'queued', 'syncing', 'completed', 'error']
+    }).default('idle').notNull(),
+    syncProgress: jsonb('sync_progress').default(sql`'{}'::jsonb`),
+    foreignKeyMetadata: jsonb('foreign_key_metadata').default(sql`'[]'::jsonb`),
+    syncError: text('sync_error'),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('idx_datasource_sync_connection_id').on(table.connectionId),
+    index('idx_datasource_sync_next_sync_at').on(table.nextSyncAt),
+    index('idx_datasource_sync_status').on(table.syncStatus),
+])
+
+// Sync queue table for incremental data transfer
+export const syncQueue = pgTable('sync_queue', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    syncId: uuid('sync_id').notNull()
+        .references(() => datasourceSync.id, {onDelete: 'cascade'}),
+    tableName: text('table_name').notNull(),
+    status: text('status', {
+        enum: ['pending', 'processing', 'completed', 'error']
+    }).notNull().default('pending'),
+    lastRowOffset: integer('last_row_offset').default(0),
+    totalRows: integer('total_rows'),
+    priority: integer('priority').default(0),
+    error: text('error'),
+    createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow().notNull(),
+}, (table) => [
+    index('idx_sync_queue_sync_id').on(table.syncId),
+    index('idx_sync_queue_status').on(table.status),
 ])
 
 // Charts table
@@ -363,4 +406,24 @@ export const reportsRelations = relations(reports, ({ one }) => ({
         fields: [reports.tabId],
         references: [dashboardTabs.id],
     }),
+}))
+
+export const datasourceSyncRelations = relations(datasourceSync, ({one, many}) => ({
+    connection: one(dataConnections, {
+        fields: [datasourceSync.connectionId],
+        references: [dataConnections.id],
+    }),
+    queueItems: many(syncQueue),
+}))
+
+export const syncQueueRelations = relations(syncQueue, ({one}) => ({
+    sync: one(datasourceSync, {
+        fields: [syncQueue.syncId],
+        references: [datasourceSync.id],
+    }),
+}))
+
+export const dataConnectionsRelations = relations(dataConnections, ({many, one}) => ({
+    charts: many(charts),
+    sync: one(datasourceSync),
 }))

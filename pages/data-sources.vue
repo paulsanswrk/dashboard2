@@ -39,9 +39,21 @@
                 <div class="flex items-center gap-4">
                   <Icon name="i-heroicons-circle-stack" class="w-8 h-8 text-gray-400"/>
                   <div class="min-w-0">
-                    <NuxtLink :to="`/reporting/builder?data_connection_id=${c.id}`" class="font-medium truncate hover:text-primary hover:underline" @click.stop>
-                      {{ c.internal_name }}
-                    </NuxtLink>
+                    <div class="flex items-center gap-2">
+                      <NuxtLink :to="`/reporting/builder?data_connection_id=${c.id}`" class="font-medium truncate hover:text-primary hover:underline" @click.stop>
+                        {{ c.internal_name }}
+                      </NuxtLink>
+                      <!-- Sync Status Badge -->
+                      <UBadge
+                          v-if="getSyncStatus(c.id)"
+                          :color="getSyncStatusColor(getSyncStatus(c.id)!) as any"
+                          variant="soft"
+                          size="xs"
+                      >
+                        <Icon v-if="getSyncStatus(c.id) === 'syncing'" name="i-heroicons-arrow-path" class="w-3 h-3 mr-1 animate-spin"/>
+                        {{ getSyncStatusLabel(getSyncStatus(c.id)!) }}
+                      </UBadge>
+                    </div>
                     <p class="text-sm text-gray-600 truncate">{{ c.database_type?.toUpperCase?.() }} • {{ c.host }}:{{ c.port }}</p>
                     <!-- Usage info -->
                     <p v-if="getUsageText(c)" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
@@ -150,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { useAuth } from '~/composables/useAuth'
+import {useAuth} from '~/composables/useAuth'
 // Modal components
 import RenameConnectionModal from '~/components/RenameConnectionModal.vue'
 import DeleteConnectionModal from '~/components/DeleteConnectionModal.vue'
@@ -167,6 +179,7 @@ interface ConnectionWithUsage {
   host: string
   port: number
   organization_id: string
+  storage_location?: string
   chartsCount: number
   dashboardsCount: number
   filtersCount: number
@@ -201,6 +214,9 @@ const selectedConnectionUsage = ref<ConnectionUsage | null>(null)
 const renameLoading = ref(false)
 const deleteLoading = ref(false)
 const deletionResult = ref<DeletionResult | null>(null)
+
+// Sync status for each connection
+const syncStatuses = ref<Record<number, string>>({})
 
 const filteredConnections = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -249,8 +265,64 @@ function isDeleteDisabled(conn: ConnectionWithUsage): boolean {
 async function loadConnections() {
   try {
     connections.value = await $fetch<ConnectionWithUsage[]>('/api/reporting/connections')
+    // Load sync status for connections with internal storage
+    for (const conn of connections.value) {
+      if (conn.storage_location === 'internal') {
+        loadSyncStatus(conn.id)
+      }
+    }
   } finally {
     loadingConnections.value = false
+  }
+}
+
+async function loadSyncStatus(connectionId: number) {
+  try {
+    const response = await $fetch('/api/data-transfer/status', {
+      params: {connectionId}
+    })
+    if (response.syncStatus && response.syncStatus !== 'no_sync') {
+      syncStatuses.value[connectionId] = response.syncStatus
+    }
+  } catch (e) {
+    // Silently fail - connection may not have sync configured
+  }
+}
+
+function getSyncStatus(connectionId: number): string | null {
+  return syncStatuses.value[connectionId] || null
+}
+
+function getSyncStatusColor(status: string): string {
+  switch (status) {
+    case 'syncing':
+    case 'queued':
+      return 'blue'
+    case 'completed':
+      return 'green'
+    case 'error':
+      return 'red'
+    case 'idle':
+      return 'gray'
+    default:
+      return 'gray'
+  }
+}
+
+function getSyncStatusLabel(status: string): string {
+  switch (status) {
+    case 'syncing':
+      return 'Syncing'
+    case 'queued':
+      return 'Queued'
+    case 'completed':
+      return 'Synced'
+    case 'error':
+      return 'Error'
+    case 'idle':
+      return 'Scheduled'
+    default:
+      return status
   }
 }
 
