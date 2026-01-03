@@ -11,6 +11,21 @@ import type { MySqlColumn } from './mysqlTypeMapping'
 import { generateCreateTableSql, generateFixSequenceSql, normalizeName } from './mysqlTypeMapping'
 
 /**
+ * Check if a value is a MySQL "zero date" that PostgreSQL cannot handle
+ * MySQL allows dates like '0000-00-00 00:00:00' which PostgreSQL rejects
+ */
+function isZeroDate(val: any): boolean {
+    if (val instanceof Date) {
+        // Invalid Date (NaN time) or year 0
+        return isNaN(val.getTime()) || val.getFullYear() === 0
+    }
+    if (typeof val === 'string') {
+        return val.startsWith('0000-00-00')
+    }
+    return false
+}
+
+/**
  * Generate a unique schema name for a connection
  * Format: conn_{short_uuid}_{normalized_db_name}
  */
@@ -194,6 +209,10 @@ export async function bulkInsert(
             if (val === null || val === undefined) {
                 return 'NULL'
             }
+            // Check for MySQL zero-dates that PostgreSQL cannot handle
+            if (isZeroDate(val)) {
+                return 'NULL'
+            }
             if (typeof val === 'boolean') {
                 return val ? 'TRUE' : 'FALSE'
             }
@@ -233,6 +252,8 @@ export async function bulkInsert(
             const batchValuesClauses = batchRows.map(row => {
                 const values = row.map(val => {
                     if (val === null || val === undefined) return 'NULL'
+                    // Check for MySQL zero-dates that PostgreSQL cannot handle
+                    if (isZeroDate(val)) return 'NULL'
                     if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE'
                     if (typeof val === 'number') {
                         if (isNaN(val) || !isFinite(val)) return 'NULL'
