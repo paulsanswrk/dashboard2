@@ -197,6 +197,20 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
         } : undefined,
     }
 
+    // Debug logging for SSH tunnel diagnosis
+    console.log(`🔧 [SYNC] MySQL Config for connection ${connectionId}:`, {
+        host: mysqlConfig.host,
+        port: mysqlConfig.port,
+        database: mysqlConfig.database,
+        useSshTunneling: mysqlConfig.useSshTunneling,
+        hasSshConfig: !!mysqlConfig.ssh,
+        sshHost: mysqlConfig.ssh?.host,
+        sshPort: mysqlConfig.ssh?.port,
+        sshUser: mysqlConfig.ssh?.user,
+        hasSshPassword: !!mysqlConfig.ssh?.password,
+        hasSshPrivateKey: !!mysqlConfig.ssh?.privateKey,
+    })
+
     try {
         // Get or create datasource_sync record
         let [syncRecord] = await db
@@ -473,7 +487,10 @@ export async function processNextQueueItem(
         if (isComplete) {
             // Count completed tables
             const completedCount = await db
-                .select({count: sql<number>`count(*)`})
+                .select({
+                    count: sql<number>`count
+                        (*)`
+                })
                 .from(syncQueue)
                 .where(and(
                     eq(syncQueue.syncId, nextItem.syncId),
@@ -481,7 +498,10 @@ export async function processNextQueueItem(
                 ))
 
             const totalCount = await db
-                .select({count: sql<number>`count(*)`})
+                .select({
+                    count: sql<number>`count
+                        (*)`
+                })
                 .from(syncQueue)
                 .where(eq(syncQueue.syncId, nextItem.syncId))
 
