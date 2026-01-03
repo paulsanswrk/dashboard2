@@ -249,12 +249,12 @@ export function generateCreateTableSql(
         return def
     })
 
-    // Skip primary key constraints for data transfer
-    // This allows duplicate data and avoids constraint violations
-    // if (primaryKeys.length > 0) {
-    //     const pkCols = primaryKeys.map(pk => `"${normalizeName(pk)}"`).join(', ')
-    //     columnDefs.push(`    PRIMARY KEY (${pkCols})`)
-    // }
+    // Re-enable primary key constraints for faster data querying
+    // (NOT NULL still disabled for flexible data import)
+    if (primaryKeys.length > 0) {
+        const pkCols = primaryKeys.map(pk => `"${normalizeName(pk)}"`).join(', ')
+        columnDefs.push(`    PRIMARY KEY (${pkCols})`)
+    }
 
     return `CREATE TABLE ${qualifiedName} (\n${columnDefs.join(',\n')}\n);`
 }
