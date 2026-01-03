@@ -25,6 +25,18 @@ function isZeroDate(val: any): boolean {
     return false
 }
 
+// Regex to match ISO 8601 date strings from MySQL: YYYY-MM-DDTHH:MM:SS.sssZ
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?$/
+
+/**
+ * Convert an ISO date string to PostgreSQL-compatible timestamp format
+ * MySQL returns dates as "2016-09-13T06:14:36.000Z", PostgreSQL expects "2016-09-13 06:14:36"
+ */
+function formatDateForPostgres(val: string): string {
+    // Replace T with space and remove Z and milliseconds
+    return val.replace('T', ' ').replace(/\.\d{3}Z?$/, '').replace('Z', '')
+}
+
 /**
  * Generate a unique schema name for a connection
  * Format: conn_{short_uuid}_{normalized_db_name}
@@ -223,7 +235,8 @@ export async function bulkInsert(
                 return val.toString()
             }
             if (val instanceof Date) {
-                return `'${val.toISOString()}'`
+                // Format Date to PostgreSQL-compatible timestamp
+                return `'${formatDateForPostgres(val.toISOString())}'`
             }
             if (Buffer.isBuffer(val)) {
                 return `'\\x${val.toString('hex')}'`
@@ -231,8 +244,13 @@ export async function bulkInsert(
             if (typeof val === 'object') {
                 return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`
             }
+            // For strings: check if it's an ISO date string from MySQL
+            const strVal = String(val)
+            if (ISO_DATE_REGEX.test(strVal)) {
+                return `'${formatDateForPostgres(strVal)}'`
+            }
             // String value - escape single quotes and backslashes
-            const escaped = String(val)
+            const escaped = strVal
                 .replace(/\\/g, '\\\\')
                 .replace(/'/g, "''")
             return `'${escaped}'`
@@ -259,10 +277,18 @@ export async function bulkInsert(
                         if (isNaN(val) || !isFinite(val)) return 'NULL'
                         return val.toString()
                     }
-                    if (val instanceof Date) return `'${val.toISOString()}'`
+                    if (val instanceof Date) {
+                        // Format Date to PostgreSQL-compatible timestamp
+                        return `'${formatDateForPostgres(val.toISOString())}'`
+                    }
                     if (Buffer.isBuffer(val)) return `'\\x${val.toString('hex')}'`
                     if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`
-                    const escaped = String(val).replace(/\\/g, '\\\\').replace(/'/g, "''")
+                    // For strings: check if it's an ISO date string from MySQL
+                    const strVal = String(val)
+                    if (ISO_DATE_REGEX.test(strVal)) {
+                        return `'${formatDateForPostgres(strVal)}'`
+                    }
+                    const escaped = strVal.replace(/\\/g, '\\\\').replace(/'/g, "''")
                     return `'${escaped}'`
                 })
                 return `(${values.join(', ')})`
@@ -277,7 +303,17 @@ export async function bulkInsert(
         console.log(`✅ [SYNC] Inserted ${totalInserted} rows into ${schemaName}.${normalizedTable}`)
         return { success: true, rowsInserted: totalInserted }
     } catch (err: any) {
-        console.error(`❌ [SYNC] Insert failed:`, err.message)
-        return { success: false, rowsInserted: 0, error: err.message }
+        // Extract just the PostgreSQL error message, excluding the full SQL query with VALUES
+        const errorMsg = err.message || 'Unknown error'
+        // Remove the "Failed query: INSERT INTO ... VALUES (...)" part if present
+        const cleanError = errorMsg.replace(/Failed query:\s*INSERT INTO[^:]+VALUES[\s\S]*$/i, '').trim()
+            || errorMsg.split('VALUES')[0]?.trim()
+            || errorMsg
+        console.error(`❌ [SYNC] Insert failed on ${schemaName}.${normalizedTable}: ${cleanError}`)
+        // Also log the original error code if available
+        if (err.code) {
+            console.error(`   └─ PostgreSQL error code: ${err.code}`)
+        }
+        return { success: false, rowsInserted: 0, error: cleanError }
     }
 }
