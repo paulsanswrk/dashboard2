@@ -303,17 +303,41 @@ export async function bulkInsert(
         console.log(`✅ [SYNC] Inserted ${totalInserted} rows into ${schemaName}.${normalizedTable}`)
         return { success: true, rowsInserted: totalInserted }
     } catch (err: any) {
-        // Extract just the PostgreSQL error message, excluding the full SQL query with VALUES
-        const errorMsg = err.message || 'Unknown error'
-        // Remove the "Failed query: INSERT INTO ... VALUES (...)" part if present
-        const cleanError = errorMsg.replace(/Failed query:\s*INSERT INTO[^:]+VALUES[\s\S]*$/i, '').trim()
-            || errorMsg.split('VALUES')[0]?.trim()
-            || errorMsg
-        console.error(`❌ [SYNC] Insert failed on ${schemaName}.${normalizedTable}: ${cleanError}`)
-        // Also log the original error code if available
-        if (err.code) {
-            console.error(`   └─ PostgreSQL error code: ${err.code}`)
+        // Try to extract the actual PostgreSQL error message from various places
+        // The error structure from Drizzle can nest the actual DB error
+        const dbError = err.cause || err
+        const errorCode = dbError.code || err.code
+
+        // Look for the actual error message in common locations
+        let actualError = ''
+
+        // Check for PostgreSQL-specific error properties
+        if (dbError.detail) actualError = dbError.detail
+        else if (dbError.hint) actualError = dbError.hint
+        else if (dbError.constraint) actualError = `Constraint violation: ${dbError.constraint}`
+        else if (dbError.column) actualError = `Column error: ${dbError.column}`
+
+        // Parse the message to extract error before "Failed query:"
+        const fullMessage = err.message || ''
+        const match = fullMessage.match(/^(.+?)(?:Failed query:|$)/s)
+        if (match && match[1]?.trim()) {
+            actualError = match[1].trim()
         }
-        return { success: false, rowsInserted: 0, error: cleanError }
+
+        // If still no clear error, show what we have
+        if (!actualError) {
+            actualError = errorCode ? `Error code: ${errorCode}` : 'Unknown database error'
+        }
+
+        console.error(`❌ [SYNC] Insert failed on ${schemaName}.${normalizedTable}: ${actualError}`)
+        if (errorCode) {
+            console.error(`   └─ PostgreSQL code: ${errorCode}`)
+        }
+        // Log full error structure for debugging (limited)
+        console.error(`   └─ Full error keys: ${Object.keys(err).join(', ')}`)
+        if (err.cause) {
+            console.error(`   └─ Cause keys: ${Object.keys(err.cause).join(', ')}`)
+        }
+        return { success: false, rowsInserted: 0, error: actualError }
     }
 }
