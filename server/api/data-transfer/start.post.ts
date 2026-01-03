@@ -5,10 +5,10 @@
  * Creates target schema, tables, and queues data for transfer.
  */
 
-import {initializeDataTransfer} from '../../utils/dataTransfer'
-import {db} from '../../../lib/db'
-import {dataConnections, datasourceSync} from '../../../lib/db/schema'
-import {eq} from 'drizzle-orm'
+import { initializeDataTransfer } from '../../utils/dataTransfer'
+import { db } from '../../../lib/db'
+import { dataConnections, datasourceSync } from '../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
     const body = await readBody(event)
@@ -66,6 +66,7 @@ export default defineEventHandler(async (event) => {
 
     let resultMsg = ''
     let tablesQueued = 0
+    let tablesSkipped = 0
     let schemaName = ''
 
     // If syncing or queued, we just want to force a processing cycle
@@ -84,8 +85,9 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        resultMsg = `Data transfer initialized. ${result.tablesQueued} tables queued for transfer.`
+        resultMsg = `Data transfer initialized. ${result.tablesQueued} tables queued, ${result.tablesSkipped || 0} already synced.`
         tablesQueued = result.tablesQueued
+        tablesSkipped = result.tablesSkipped || 0
         schemaName = result.schemaName
     }
 
@@ -96,7 +98,7 @@ export default defineEventHandler(async (event) => {
 
     // Import processSyncQueue dynamically to avoid circular dependencies if any (though utils import is fine)
     try {
-        const {processSyncQueue} = await import('../../utils/dataTransfer')
+        const { processSyncQueue } = await import('../../utils/dataTransfer')
         // Increase to 290s (leave 10s buffer for 5min limit)
         const processingTime = 290 * 1000
         console.log(`🚀 [SYNC] Triggering immediate processing for ${processingTime / 1000}s...`)
@@ -113,6 +115,7 @@ export default defineEventHandler(async (event) => {
         success: true,
         schemaName: schemaName || existingSync?.syncStatus || 'unknown',
         tablesQueued,
+        tablesSkipped,
         message: resultMsg
     }
 })

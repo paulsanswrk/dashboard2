@@ -5,14 +5,23 @@
  * Runs every 5 minutes and processes data chunks within the time limit.
  */
 
-import {DateTime} from 'luxon'
-import {initializeDataTransfer, processSyncQueue} from '../../utils/dataTransfer'
-import {db} from '../../../lib/db'
-import {dataConnections, datasourceSync} from '../../../lib/db/schema'
-import {and, eq, lte, or} from 'drizzle-orm'
-import {LogAccumulator} from '../../utils/loggingUtils'
+import { DateTime } from 'luxon'
+import { initializeDataTransfer, processSyncQueue } from '../../utils/dataTransfer'
+import { db } from '../../../lib/db'
+import { dataConnections, datasourceSync } from '../../../lib/db/schema'
+import { and, eq, lte, or } from 'drizzle-orm'
+import { LogAccumulator } from '../../utils/loggingUtils'
 
 export default defineEventHandler(async (event) => {
+    // TEMPORARILY DISABLED: Resume logic debugging
+    // Re-enable scheduled sync by removing this block when ready
+    console.log('⚠️ [CRON-SYNC] Scheduled sync is temporarily disabled - use manual sync instead')
+    return {
+        success: true,
+        message: 'Scheduled sync is temporarily disabled',
+        disabled: true,
+    }
+
     const startTime = Date.now()
     const logAccumulator = new LogAccumulator()
 
@@ -23,12 +32,12 @@ export default defineEventHandler(async (event) => {
         } else {
             const authHeader = getHeader(event, 'authorization')
             if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                throw createError({statusCode: 401, statusMessage: 'Unauthorized'})
+                throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
             }
 
             const expectedAuthHeader = `Bearer ${process.env.CRON_SECRET}`
             if (!process.env.CRON_SECRET || authHeader !== expectedAuthHeader) {
-                throw createError({statusCode: 401, statusMessage: 'Unauthorized'})
+                throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
             }
         }
 
@@ -170,22 +179,22 @@ function calculateNextSyncTime(config: any): DateTime {
     if (next <= DateTime.now()) {
         switch (config.interval) {
             case 'HOURLY':
-                next = DateTime.now().setZone(timezone).set({minute, second: 0, millisecond: 0})
+                next = DateTime.now().setZone(timezone).set({ minute, second: 0, millisecond: 0 })
                 if (next <= DateTime.now()) {
-                    next = next.plus({hours: 1})
+                    next = next.plus({ hours: 1 })
                 }
                 break
             case 'DAILY':
-                next = next.plus({days: 1})
+                next = next.plus({ days: 1 })
                 break
             case 'WEEKLY':
-                next = next.plus({weeks: 1})
+                next = next.plus({ weeks: 1 })
                 break
             case 'MONTHLY':
-                next = next.plus({months: 1})
+                next = next.plus({ months: 1 })
                 break
             default:
-                next = next.plus({days: 1})
+                next = next.plus({ days: 1 })
         }
     }
 

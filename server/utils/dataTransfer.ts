@@ -5,13 +5,13 @@
  * Handles schema introspection, table creation, and chunked data transfer.
  */
 
-import type {MySqlConnectionConfig} from './mysqlClient'
-import {withMySqlConnectionConfig} from './mysqlClient'
-import type {MySqlColumn} from './mysqlTypeMapping'
-import {bulkInsert, createCustomerSchema, createTable, generateSchemaName, type TableDefinition, truncateTable} from './schemaManager'
-import {db} from '../../lib/db'
-import {dataConnections, datasourceSync, syncQueue} from '../../lib/db/schema'
-import {and, eq, sql} from 'drizzle-orm'
+import type { MySqlConnectionConfig } from './mysqlClient'
+import { withMySqlConnectionConfig } from './mysqlClient'
+import type { MySqlColumn } from './mysqlTypeMapping'
+import { bulkInsert, createCustomerSchema, createTable, generateSchemaName, getTableRowCount, type TableDefinition, truncateTable } from './schemaManager'
+import { db } from '../../lib/db'
+import { dataConnections, datasourceSync, syncQueue } from '../../lib/db/schema'
+import { and, eq, sql } from 'drizzle-orm'
 
 // Default chunk size for data transfer (rows per batch)
 const DEFAULT_CHUNK_SIZE = 5000
@@ -156,17 +156,19 @@ export async function introspectMySqlDatabase(
             foreignKeys.push(...fkMap.values())
         }
 
-        return {tables, foreignKeys}
+        return { tables, foreignKeys }
     })
 }
 
 /**
  * Initialize data transfer for a connection
  * Creates schema, tables, and queues all tables for data transfer
+ * Implements resume logic - skips tables with matching row counts
  */
 export async function initializeDataTransfer(connectionId: number): Promise<{
     schemaName: string
     tablesQueued: number
+    tablesSkipped?: number
     error?: string
 }> {
     // Get connection details
@@ -177,7 +179,7 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
         .limit(1)
 
     if (!connection) {
-        return {schemaName: '', tablesQueued: 0, error: 'Connection not found'}
+        return { schemaName: '', tablesQueued: 0, error: 'Connection not found' }
     }
 
     // Build MySQL config
@@ -225,7 +227,7 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
                 .values({
                     connectionId,
                     syncStatus: 'syncing',
-                    syncProgress: {stage: 'introspecting', message: 'Analyzing source database...'},
+                    syncProgress: { stage: 'introspecting', message: 'Analyzing source database...' },
                 })
                 .returning()
             syncRecord = newSync
@@ -234,7 +236,7 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
             await db.update(datasourceSync)
                 .set({
                     syncStatus: 'syncing',
-                    syncProgress: {stage: 'introspecting', message: 'Analyzing source database...'},
+                    syncProgress: { stage: 'introspecting', message: 'Analyzing source database...' },
                     syncError: null,
                     updatedAt: new Date(),
                 })
@@ -255,7 +257,7 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
             .set({
                 targetSchemaName: schemaName,
                 foreignKeyMetadata: schema.foreignKeys as any,
-                syncProgress: {stage: 'creating_tables', message: 'Creating database structure...'},
+                syncProgress: { stage: 'creating_tables', message: 'Creating database structure...' },
                 updatedAt: new Date(),
             })
             .where(eq(datasourceSync.id, syncRecord!.id))
@@ -286,35 +288,59 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
         await db.delete(syncQueue)
             .where(eq(syncQueue.syncId, syncRecord!.id))
 
-        // Queue all tables for data transfer
-        const queueItems = schema.tables.map((table, index) => ({
+        // Resume logic: Compare row counts and only queue tables that need syncing
+        const tablesToSync: typeof schema.tables = []
+        const tablesSkipped: string[] = []
+
+        for (const table of schema.tables) {
+            const pgRowCount = await getTableRowCount(schemaName, table.tableName)
+            const mysqlRowCount = table.rowCount
+
+            if (pgRowCount === mysqlRowCount && pgRowCount >= 0) {
+                // Table already has same row count - skip it
+                console.log(`⏭️ [SYNC] Skipping ${table.tableName}: PostgreSQL has ${pgRowCount} rows, MySQL has ${mysqlRowCount} rows (match)`)
+                tablesSkipped.push(table.tableName)
+            } else {
+                // Table needs syncing - row count mismatch or table doesn't exist
+                console.log(`📋 [SYNC] Queuing ${table.tableName}: PostgreSQL has ${pgRowCount} rows, MySQL has ${mysqlRowCount} rows (needs sync)`)
+                tablesToSync.push(table)
+            }
+        }
+
+        // Queue only tables that need syncing
+        const queueItems = tablesToSync.map((table, index) => ({
             syncId: syncRecord!.id,
             tableName: table.tableName,
             status: 'pending' as const,
             lastRowOffset: 0,
             totalRows: table.rowCount,
-            priority: schema.tables.length - index,
+            priority: tablesToSync.length - index,
         }))
 
         if (queueItems.length > 0) {
             await db.insert(syncQueue).values(queueItems)
         }
 
+        // Log summary
+        console.log(`📊 [SYNC] Resume logic summary: ${tablesToSync.length} tables to sync, ${tablesSkipped.length} tables skipped (already synced)`)
+
         // Update sync progress
         await db.update(datasourceSync)
             .set({
                 syncProgress: {
                     stage: 'queued',
-                    message: `${schema.tables.length} tables queued for transfer`,
+                    message: `${tablesToSync.length} tables queued for transfer (${tablesSkipped.length} already synced)`,
                     tables_total: schema.tables.length,
-                    tables_done: 0,
+                    tables_queued: tablesToSync.length,
+                    tables_skipped: tablesSkipped.length,
+                    tables_done: tablesSkipped.length, // Count skipped as done
                 },
-                syncStatus: 'queued',
+                syncStatus: tablesToSync.length > 0 ? 'queued' : 'synced',
                 updatedAt: new Date(),
             })
             .where(eq(datasourceSync.id, syncRecord!.id))
 
-        return {schemaName, tablesQueued: schema.tables.length}
+        return { schemaName, tablesQueued: tablesToSync.length, tablesSkipped: tablesSkipped.length }
 
     } catch (error: any) {
         // Update sync status to error
@@ -326,7 +352,7 @@ export async function initializeDataTransfer(connectionId: number): Promise<{
             })
             .where(eq(datasourceSync.connectionId, connectionId))
 
-        return {schemaName: '', tablesQueued: 0, error: error.message}
+        return { schemaName: '', tablesQueued: 0, error: error.message }
     }
 }
 
@@ -353,7 +379,7 @@ export async function processNextQueueItem(
         .limit(1)
 
     if (!nextItem) {
-        return {processed: false, complete: true}
+        return { processed: false, complete: true }
     }
 
     // Mark as processing
@@ -434,7 +460,7 @@ export async function processNextQueueItem(
 
         // Read chunk from MySQL
         const offset = nextItem.lastRowOffset || 0
-        const {columns, rows} = await readMySqlChunk(
+        const { columns, rows } = await readMySqlChunk(
             mysqlConfig,
             nextItem.tableName,
             offset,
@@ -582,7 +608,7 @@ async function readMySqlChunk(
             columns.map((col: string) => row[col])
         )
 
-        return {columns, rows}
+        return { columns, rows }
     })
 }
 
@@ -610,7 +636,7 @@ export async function processSyncQueue(
         if (!result.processed) {
             // Queue is empty
             console.log(`✅ [SYNC] Queue complete! Processed ${itemsProcessed} items, ${rowsTransferred} rows`)
-            return {itemsProcessed, rowsTransferred, errors, complete: true}
+            return { itemsProcessed, rowsTransferred, errors, complete: true }
         }
 
         itemsProcessed++
@@ -626,5 +652,5 @@ export async function processSyncQueue(
 
     // Time limit reached
     console.log(`⏱️ [SYNC] Time limit reached. Processed ${itemsProcessed} items, ${rowsTransferred} rows`)
-    return {itemsProcessed, rowsTransferred, errors, complete: false}
+    return { itemsProcessed, rowsTransferred, errors, complete: false }
 }

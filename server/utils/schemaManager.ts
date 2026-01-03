@@ -75,6 +75,24 @@ export async function createCustomerSchema(schemaName: string): Promise<void> {
     }
 }
 
+/**
+ * Get row count from a PostgreSQL table in the customer schema
+ * Returns -1 if table doesn't exist
+ */
+export async function getTableRowCount(schemaName: string, tableName: string): Promise<number> {
+    const normalizedTable = normalizeName(tableName)
+    try {
+        const result = await pgClient.unsafe(
+            `SELECT COUNT(*) as count FROM "${schemaName}"."${normalizedTable}"`
+        )
+        return parseInt(result[0]?.count || '0', 10)
+    } catch (err: any) {
+        // Table doesn't exist or other error
+        console.log(`⚠️ [SCHEMA] Could not get row count for ${schemaName}.${normalizedTable}: ${err.message}`)
+        return -1
+    }
+}
+
 export interface TableDefinition {
     tableName: string
     columns: MySqlColumn[]
