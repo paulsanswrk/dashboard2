@@ -179,9 +179,13 @@ export function convertColumn(col: MySqlColumn): PostgresColumnDef {
         const mysqlDefault = col.defaultValue
 
         // Handle invalid MySQL "zero date" defaults that PostgreSQL rejects
+        // Debug: log defaults to understand the format
+        if (mysqlDefault && (mysqlDefault.includes('0000-00-00') || mysqlDefault.includes('0000'))) {
+            console.log(`🔍 [TYPE-MAP] Zero-date detected for column ${col.name}: "${mysqlDefault}" (nullable: ${col.nullable})`)
+        }
         if (mysqlDefault === '0000-00-00 00:00:00' ||
             mysqlDefault === '0000-00-00' ||
-            mysqlDefault.startsWith('0000-00-00')) {
+            mysqlDefault.includes('0000-00-00')) {
             // Convert to NULL for nullable columns, or omit default for non-nullable
             defaultExpression = col.nullable ? 'NULL' : undefined
         } else if (mysqlDefault === 'CURRENT_TIMESTAMP' || mysqlDefault === 'current_timestamp()') {

@@ -1,7 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { db } from '~/lib/db'
-import { charts, dashboardFilters, dashboardWidgets, dataConnections } from '~/lib/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { charts, dashboardFilters, dashboardWidgets, dataConnections, datasourceSync, syncQueue } from '~/lib/db/schema'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { AuthHelper } from '~/server/utils/authHelper'
 
 export interface DeleteConnectionResult {
@@ -9,6 +9,7 @@ export interface DeleteConnectionResult {
   deletedCharts: number
   deletedWidgets: number
   clearedFilters: number
+  schemaDropped: boolean
 }
 
 export default defineEventHandler(async (event): Promise<DeleteConnectionResult> => {
@@ -62,6 +63,7 @@ export default defineEventHandler(async (event): Promise<DeleteConnectionResult>
   let deletedCharts = 0
   let deletedWidgets = 0
   let clearedFilters = 0
+  let schemaDropped = false
 
   // Cascade delete if requested
   if (shouldCascade && chartsUsingConnection.length > 0) {
@@ -84,6 +86,35 @@ export default defineEventHandler(async (event): Promise<DeleteConnectionResult>
   // But let's count them for the report
   clearedFilters = filtersUsingConnection.length
 
+  // Clean up data transfer records and schema
+  try {
+    // Get the sync record to find the schema name
+    const [syncRecord] = await db
+      .select({ id: datasourceSync.id, targetSchemaName: datasourceSync.targetSchemaName })
+      .from(datasourceSync)
+      .where(eq(datasourceSync.connectionId, connectionId))
+      .limit(1)
+
+    if (syncRecord) {
+      // Delete sync queue entries first (foreign key constraint)
+      await db.delete(syncQueue).where(eq(syncQueue.syncId, syncRecord.id))
+
+      // Delete the sync record
+      await db.delete(datasourceSync).where(eq(datasourceSync.id, syncRecord.id))
+
+      // Drop the PostgreSQL schema with all tables
+      if (syncRecord.targetSchemaName) {
+        console.log(`🗑️ [CLEANUP] Dropping schema: ${syncRecord.targetSchemaName}`)
+        await db.execute(sql.raw(`DROP SCHEMA IF EXISTS "${syncRecord.targetSchemaName}" CASCADE`))
+        schemaDropped = true
+        console.log(`✅ [CLEANUP] Schema dropped: ${syncRecord.targetSchemaName}`)
+      }
+    }
+  } catch (error: any) {
+    console.error(`⚠️ [CLEANUP] Error cleaning up sync data:`, error.message)
+    // Continue with connection deletion even if cleanup fails
+  }
+
   // Now delete the connection
   await db
     .delete(dataConnections)
@@ -93,6 +124,8 @@ export default defineEventHandler(async (event): Promise<DeleteConnectionResult>
     success: true,
     deletedCharts,
     deletedWidgets,
-    clearedFilters
+    clearedFilters,
+    schemaDropped
   }
 })
+
