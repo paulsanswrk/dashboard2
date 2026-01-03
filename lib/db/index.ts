@@ -1,4 +1,4 @@
-import {drizzle} from 'drizzle-orm/postgres-js'
+import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
 
@@ -18,7 +18,10 @@ const queryClient = postgres(connectionString, {
 })
 
 
-export const db = drizzle(queryClient, {schema})
+export const db = drizzle(queryClient, { schema })
+
+// Export the raw postgres client for direct SQL execution with better error handling
+export const pgClient = queryClient
 
 // Export types for use in queries
 export type Database = typeof db

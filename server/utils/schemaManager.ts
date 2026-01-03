@@ -3,10 +3,11 @@
  *
  * Manages customer data schemas in Supabase for data transfer feature.
  * Uses Drizzle's db.execute() for DDL and DML operations.
+ * Uses raw pgClient for INSERT operations for better error handling.
  */
 
 import { sql } from 'drizzle-orm'
-import { db } from '../../lib/db'
+import { db, pgClient } from '../../lib/db'
 import type { MySqlColumn } from './mysqlTypeMapping'
 import { generateCreateTableSql, generateFixSequenceSql, normalizeName } from './mysqlTypeMapping'
 
@@ -296,48 +297,43 @@ export async function bulkInsert(
 
             const batchSql = `INSERT INTO "${schemaName}"."${normalizedTable}" (${normalizedCols}) VALUES\n${batchValuesClauses}`
 
-            await db.execute(sql.raw(batchSql))
-            totalInserted += batchRows.length
+            // Use raw postgres client for better error handling
+            // pgClient.unsafe() gives us access to actual PostgreSQL error properties
+            try {
+                await pgClient.unsafe(batchSql)
+                totalInserted += batchRows.length
+            } catch (pgErr: any) {
+                // Extract PostgreSQL error details from the raw error
+                const errorMessage = pgErr.message || 'Unknown error'
+                const errorCode = pgErr.code || ''
+                const errorDetail = pgErr.detail || ''
+                const errorHint = pgErr.hint || ''
+                const errorColumn = pgErr.column || ''
+                const errorConstraint = pgErr.constraint || ''
+
+                // Build a clean error message
+                let cleanError = errorMessage
+                if (errorDetail) cleanError += ` | Detail: ${errorDetail}`
+                if (errorHint) cleanError += ` | Hint: ${errorHint}`
+                if (errorColumn) cleanError += ` | Column: ${errorColumn}`
+                if (errorConstraint) cleanError += ` | Constraint: ${errorConstraint}`
+
+                console.error(`❌ [SYNC] Insert failed on ${schemaName}.${normalizedTable}:`)
+                console.error(`   └─ Error: ${errorMessage}`)
+                if (errorCode) console.error(`   └─ Code: ${errorCode}`)
+                if (errorDetail) console.error(`   └─ Detail: ${errorDetail}`)
+                if (errorHint) console.error(`   └─ Hint: ${errorHint}`)
+
+                throw new Error(cleanError)
+            }
         }
 
         console.log(`✅ [SYNC] Inserted ${totalInserted} rows into ${schemaName}.${normalizedTable}`)
         return { success: true, rowsInserted: totalInserted }
     } catch (err: any) {
-        // Try to extract the actual PostgreSQL error message from various places
-        // The error structure from Drizzle can nest the actual DB error
-        const dbError = err.cause || err
-        const errorCode = dbError.code || err.code
-
-        // Look for the actual error message in common locations
-        let actualError = ''
-
-        // Check for PostgreSQL-specific error properties
-        if (dbError.detail) actualError = dbError.detail
-        else if (dbError.hint) actualError = dbError.hint
-        else if (dbError.constraint) actualError = `Constraint violation: ${dbError.constraint}`
-        else if (dbError.column) actualError = `Column error: ${dbError.column}`
-
-        // Parse the message to extract error before "Failed query:"
-        const fullMessage = err.message || ''
-        const match = fullMessage.match(/^(.+?)(?:Failed query:|$)/s)
-        if (match && match[1]?.trim()) {
-            actualError = match[1].trim()
-        }
-
-        // If still no clear error, show what we have
-        if (!actualError) {
-            actualError = errorCode ? `Error code: ${errorCode}` : 'Unknown database error'
-        }
-
-        console.error(`❌ [SYNC] Insert failed on ${schemaName}.${normalizedTable}: ${actualError}`)
-        if (errorCode) {
-            console.error(`   └─ PostgreSQL code: ${errorCode}`)
-        }
-        // Log full error structure for debugging (limited)
-        console.error(`   └─ Full error keys: ${Object.keys(err).join(', ')}`)
-        if (err.cause) {
-            console.error(`   └─ Cause keys: ${Object.keys(err.cause).join(', ')}`)
-        }
-        return { success: false, rowsInserted: 0, error: actualError }
+        // This catches errors from the inner try-catch or any other errors
+        const errorMessage = err.message || 'Unknown database error'
+        console.error(`❌ [SYNC] Insert operation failed: ${errorMessage}`)
+        return { success: false, rowsInserted: 0, error: errorMessage }
     }
 }
