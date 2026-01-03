@@ -5,10 +5,10 @@
  * Uses Drizzle's db.execute() for DDL and DML operations.
  */
 
-import {sql} from 'drizzle-orm'
-import {db} from '../../lib/db'
-import type {MySqlColumn} from './mysqlTypeMapping'
-import {generateCreateTableSql, generateFixSequenceSql, normalizeName} from './mysqlTypeMapping'
+import { sql } from 'drizzle-orm'
+import { db } from '../../lib/db'
+import type { MySqlColumn } from './mysqlTypeMapping'
+import { generateCreateTableSql, generateFixSequenceSql, normalizeName } from './mysqlTypeMapping'
 
 /**
  * Generate a unique schema name for a connection
@@ -73,10 +73,10 @@ export async function createTable(
     try {
         await db.execute(sql.raw(ddlSql))
         console.log(`✅ [SCHEMA] Created table: ${schemaName}.${tableDef.tableName}`)
-        return {success: true, sql: ddlSql}
+        return { success: true, sql: ddlSql }
     } catch (err: any) {
         console.error(`❌ [SCHEMA] Failed to create table:`, err.message)
-        return {success: false, sql: ddlSql, error: err.message}
+        return { success: false, sql: ddlSql, error: err.message }
     }
 }
 
@@ -103,9 +103,25 @@ export async function truncateTable(schemaName: string, tableName: string): Prom
     console.log(`🗑️ [SCHEMA] Truncating table: ${schemaName}.${normalizedTable}`)
 
     try {
+        // First check if table exists
+        const checkResult = await db.execute(sql.raw(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = '${schemaName}' 
+                AND table_name = '${normalizedTable}'
+            ) as exists
+        `))
+
+        const exists = (checkResult as any)?.[0]?.exists
+        if (!exists) {
+            console.warn(`⚠️ [SCHEMA] Table ${schemaName}.${normalizedTable} does not exist, skipping truncate`)
+            return
+        }
+
         await db.execute(sql.raw(`TRUNCATE TABLE "${schemaName}"."${normalizedTable}" RESTART IDENTITY`))
     } catch (error: any) {
-        throw new Error(`Failed to truncate table: ${error.message}`)
+        // Log warning but don't throw - table might not exist
+        console.warn(`⚠️ [SCHEMA] Failed to truncate ${schemaName}.${normalizedTable}: ${error.message}`)
     }
 }
 
@@ -164,7 +180,7 @@ export async function bulkInsert(
     rows: any[][]
 ): Promise<{ success: boolean; rowsInserted: number; error?: string }> {
     if (rows.length === 0) {
-        return {success: true, rowsInserted: 0}
+        return { success: true, rowsInserted: 0 }
     }
 
     const normalizedTable = normalizeName(tableName)
@@ -238,9 +254,9 @@ export async function bulkInsert(
         }
 
         console.log(`✅ [SYNC] Inserted ${totalInserted} rows into ${schemaName}.${normalizedTable}`)
-        return {success: true, rowsInserted: totalInserted}
+        return { success: true, rowsInserted: totalInserted }
     } catch (err: any) {
         console.error(`❌ [SYNC] Insert failed:`, err.message)
-        return {success: false, rowsInserted: 0, error: err.message}
+        return { success: false, rowsInserted: 0, error: err.message }
     }
 }

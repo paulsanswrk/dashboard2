@@ -98,7 +98,7 @@ export function normalizeName(name: string): string {
 function parseColumnType(mysqlType: string): { baseType: string; params: string } {
     const match = mysqlType.toLowerCase().match(/^([a-z]+)(\(.+\))?/)
     if (!match) {
-        return {baseType: mysqlType.toLowerCase(), params: ''}
+        return { baseType: mysqlType.toLowerCase(), params: '' }
     }
     return {
         baseType: match[1] || mysqlType.toLowerCase(),
@@ -111,7 +111,7 @@ function parseColumnType(mysqlType: string): { baseType: string; params: string 
  */
 export function mapMySqlTypeToPostgres(mysqlType: string, columnType?: string): string {
     const fullType = (columnType || mysqlType).toLowerCase().trim()
-    const {baseType, params} = parseColumnType(fullType)
+    const { baseType, params } = parseColumnType(fullType)
 
     // Check for special case: TINYINT(1) is typically boolean
     if (fullType === 'tinyint(1)' || fullType.startsWith('tinyint(1)')) {
@@ -178,7 +178,13 @@ export function convertColumn(col: MySqlColumn): PostgresColumnDef {
         // Convert MySQL default values to PostgreSQL
         const mysqlDefault = col.defaultValue
 
-        if (mysqlDefault === 'CURRENT_TIMESTAMP' || mysqlDefault === 'current_timestamp()') {
+        // Handle invalid MySQL "zero date" defaults that PostgreSQL rejects
+        if (mysqlDefault === '0000-00-00 00:00:00' ||
+            mysqlDefault === '0000-00-00' ||
+            mysqlDefault.startsWith('0000-00-00')) {
+            // Convert to NULL for nullable columns, or omit default for non-nullable
+            defaultExpression = col.nullable ? 'NULL' : undefined
+        } else if (mysqlDefault === 'CURRENT_TIMESTAMP' || mysqlDefault === 'current_timestamp()') {
             defaultExpression = 'now()'
         } else if (pgType === 'boolean') {
             // Convert 0/1 to false/true
