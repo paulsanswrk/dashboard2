@@ -1,10 +1,11 @@
-import {defineEventHandler, getQuery} from 'h3'
+import { defineEventHandler, getQuery } from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
-import {serverSupabaseUser} from '#supabase/server'
-import {supabaseAdmin} from '../../supabase'
-import {withMySqlConnection, withMySqlConnectionConfig} from '../../../utils/mysqlClient'
-import {loadConnectionConfigFromSupabase} from '../../../utils/connectionConfig'
-import {validateRenderContext} from '../../../utils/renderContext'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../../supabase'
+import { withMySqlConnection, withMySqlConnectionConfig } from '../../../utils/mysqlClient'
+import { loadConnectionConfigFromSupabase } from '../../../utils/connectionConfig'
+import { validateRenderContext } from '../../../utils/renderContext'
+import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../../utils/internalStorageQuery'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -252,12 +253,20 @@ export default defineEventHandler(async (event) => {
 
                                 if (connectionId) {
                                     try {
-                                        const cfg = await loadConnectionConfigForOwner(Number(connectionId))
-                                        const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
-                                            return res as any[]
-                                        })
-                                        rows = resRows
+                                        // Check if connection uses internal storage
+                                        const storageInfo = await loadInternalStorageInfo(Number(connectionId))
+
+                                        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+                                            console.log(`[full.get.ts] Using internal storage for chart ${lnk.chart_id}: ${storageInfo.schemaName}`)
+                                            rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql)
+                                        } else {
+                                            const cfg = await loadConnectionConfigForOwner(Number(connectionId))
+                                            const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
+                                                const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
+                                                return res as any[]
+                                            })
+                                            rows = resRows
+                                        }
                                     } catch (e: any) {
                                         console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
                                         throw e

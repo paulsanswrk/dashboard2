@@ -150,6 +150,7 @@ Pre-built sample configurations are available for testing:
 |---------------|-------------------------------------------------------------|----------------------------------------------------------|
 | **Sakila**    | `docs/examples/chart-configs/sakila-sample-configs.json`    | 12 configs: films, actors, payments, rentals             |
 | **Employees** | `docs/examples/chart-configs/employees-sample-configs.json` | 15 configs: departments, salaries, titles, hiring trends |
+| **Datapine**  | `docs/examples/chart-configs/datapine-sample-configs.json`  | 20 configs: bookings, work orders, events, inspections   |
 
 ### Using Sample Configs
 

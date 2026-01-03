@@ -1,7 +1,8 @@
-import {defineEventHandler, readBody} from 'h3'
-import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
-import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {AuthHelper} from '../../utils/authHelper'
+import { defineEventHandler, readBody } from 'h3'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { AuthHelper } from '../../utils/authHelper'
+import { loadInternalStorageInfo, getDistinctValuesInternal } from '../../utils/internalStorageQuery'
 
 type DistinctValuesRequest = {
     connectionId: number
@@ -22,14 +23,14 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<DistinctValuesRequest>(event)
 
     try {
-        const {connectionId, tableName, columnName, limit = 200} = body
+        const { connectionId, tableName, columnName, limit = 200 } = body
 
         if (!connectionId) {
-            return {success: false, error: 'missing_connection_id', values: []}
+            return { success: false, error: 'missing_connection_id', values: [] }
         }
 
         if (!isSafeIdentifier(tableName) || !isSafeIdentifier(columnName)) {
-            return {success: false, error: 'invalid_identifiers', values: []}
+            return { success: false, error: 'invalid_identifiers', values: [] }
         }
 
         // Verify access to this connection
@@ -39,6 +40,25 @@ export default defineEventHandler(async (event) => {
 
         const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 1000)
 
+        // Check if connection uses internal storage
+        const storageInfo = await loadInternalStorageInfo(connectionId)
+
+        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+            console.log(`[distinct-values] Using internal storage: ${storageInfo.schemaName}`)
+            const values = await getDistinctValuesInternal(
+                storageInfo.schemaName,
+                tableName,
+                columnName,
+                safeLimit
+            )
+            return {
+                success: true,
+                values,
+                total: values.length
+            }
+        }
+
+        // Fall back to MySQL query
         const sql = `
             SELECT DISTINCT ${wrapId(columnName)} AS value
             FROM ${wrapId(tableName)}
@@ -63,6 +83,6 @@ export default defineEventHandler(async (event) => {
         }
     } catch (e: any) {
         console.error('[distinct-values] Error:', e?.message)
-        return {success: false, error: e?.message || 'query_failed', values: []}
+        return { success: false, error: e?.message || 'query_failed', values: [] }
     }
 })

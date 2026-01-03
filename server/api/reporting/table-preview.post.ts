@@ -2,6 +2,7 @@ import { defineEventHandler, readBody } from 'h3'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { AuthHelper } from '../../utils/authHelper'
+import { loadInternalStorageInfo, queryInternalTable } from '../../utils/internalStorageQuery'
 
 type TablePreviewRequest = {
     connectionId: number
@@ -39,6 +40,27 @@ export default defineEventHandler(async (event) => {
         })
 
         const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
+
+        // Check if connection uses internal storage
+        const storageInfo = await loadInternalStorageInfo(connectionId)
+
+        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+            console.log(`[table-preview] Using internal storage: ${storageInfo.schemaName}`)
+            const result = await queryInternalTable(
+                storageInfo.schemaName,
+                tableName,
+                '*',
+                limit
+            )
+            const executionMs = Date.now() - start
+            return {
+                columns: result.columns,
+                rows: result.rows,
+                meta: { executionMs, sql: `SELECT * FROM "${storageInfo.schemaName}"."${tableName}" LIMIT ${limit}`, rowCount: result.rows.length }
+            }
+        }
+
+        // Fall back to MySQL query
         const sql = `SELECT * FROM ${wrapId(tableName)} LIMIT ${limit}`
 
         const cfg = await loadConnectionConfigFromSupabase(event, connectionId)

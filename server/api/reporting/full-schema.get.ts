@@ -1,15 +1,45 @@
-import {defineEventHandler, getQuery} from 'h3'
-import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
-import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {AuthHelper} from '../../utils/authHelper'
+import { defineEventHandler, getQuery } from 'h3'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { AuthHelper } from '../../utils/authHelper'
 
 export default defineEventHandler(async (event) => {
   const { connectionId } = getQuery(event) as any
   if (!connectionId) return { tables: [], relationships: [] }
 
   const connId = Number(connectionId)
-    await AuthHelper.requireConnectionAccess(event, connId)
 
+  // Try to use cached schema_json first (works for both internal and remote connections)
+  const connection = await AuthHelper.requireConnectionAccess(event, connId, {
+    columns: 'id, organization_id, schema_json, storage_location'
+  })
+
+  const schemaJson = connection?.schema_json as { tables?: any[] } | null
+  if (schemaJson?.tables) {
+    console.log(`[full-schema] Using cached schema_json for connection ${connId}`)
+
+    // Extract relationships from the cached schema
+    const allRelationships: any[] = []
+    for (const table of schemaJson.tables) {
+      if (table.foreignKeys) {
+        allRelationships.push(...table.foreignKeys)
+      }
+    }
+
+    return {
+      tables: schemaJson.tables,
+      relationships: allRelationships
+    }
+  }
+
+  // No cached schema - for internal storage connections, return empty
+  if (connection?.storage_location === 'internal') {
+    console.warn(`[full-schema] Internal storage connection ${connId} has no cached schema_json`)
+    return { tables: [], relationships: [] }
+  }
+
+  // External connection with no cache - query MySQL directly
+  console.log(`[full-schema] No cached schema, querying MySQL for connection ${connId}`)
   const cfg = await loadConnectionConfigFromSupabase(event, connId)
 
   return await withMySqlConnectionConfig(cfg, async (conn) => {

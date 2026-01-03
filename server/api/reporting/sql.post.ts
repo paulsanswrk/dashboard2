@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { withMySqlConnection, withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
 
 const FORBIDDEN = [/\b(drop|truncate|alter|create|grant|revoke|insert|update|delete|merge)\b/i]
 
@@ -26,18 +27,28 @@ export default defineEventHandler(async (event) => {
   // Use specific connection if provided, otherwise fall back to default
   let rows: any[]
   try {
-    rows = connectionId
-      ? await (async () => {
-          const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
-          return withMySqlConnectionConfig(cfg, async (conn) => {
-            const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
-            return res as any[]
-          })
-        })()
-      : await withMySqlConnection(async (conn) => {
+    if (connectionId) {
+      // Check if connection uses internal storage
+      const storageInfo = await loadInternalStorageInfo(connectionId)
+
+      if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+        console.log(`[sql.post] Using internal storage: ${storageInfo.schemaName}`)
+        rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql)
+      } else {
+        // Fall back to MySQL query
+        const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
+        rows = await withMySqlConnectionConfig(cfg, async (conn) => {
           const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
           return res as any[]
         })
+      }
+    } else {
+      // No connection ID - use default MySQL connection
+      rows = await withMySqlConnection(async (conn) => {
+        const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
+        return res as any[]
+      })
+    }
   } catch (error: any) {
     // Handle MySQL timeout errors specifically
     if (error.code === 'PROTOCOL_SEQUENCE_TIMEOUT' || error.message?.includes('Query inactivity timeout')) {

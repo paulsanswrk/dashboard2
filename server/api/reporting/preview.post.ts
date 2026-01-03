@@ -1,34 +1,35 @@
-import {defineEventHandler, readBody} from 'h3'
-import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
-import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {computePathsForTables, type Edge, selectJoinTree, type TableGraph} from '../../utils/schemaGraph'
-import {AuthHelper} from '../../utils/authHelper'
+import { defineEventHandler, readBody } from 'h3'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { computePathsForTables, type Edge, selectJoinTree, type TableGraph } from '../../utils/schemaGraph'
+import { AuthHelper } from '../../utils/authHelper'
+import { loadInternalStorageInfo, executeInternalStorageQuery, translateIdentifiers } from '../../utils/internalStorageQuery'
 
 
 type ReportField = { fieldId: string; name?: string; label?: string; type?: string; isNumeric?: boolean; table?: string }
 type MetricRef = ReportField & { aggregation?: string }
 type DimensionRef = ReportField & {
-    sort?: 'asc' | 'desc'
-    dateInterval?: string
-    filterValues?: string[]
-    filterMode?: 'include' | 'exclude'
-    dateRangeStart?: string
-    dateRangeEnd?: string
-    dateRangeType?: 'static' | 'dynamic'
-    dynamicRange?: string
+  sort?: 'asc' | 'desc'
+  dateInterval?: string
+  filterValues?: string[]
+  filterMode?: 'include' | 'exclude'
+  dateRangeStart?: string
+  dateRangeEnd?: string
+  dateRangeType?: 'static' | 'dynamic'
+  dynamicRange?: string
 }
 type FilterCondition = ReportField & {
-    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'between' | 'is_null' | 'is_not_null'
-    values?: string[]
-    value?: string
-    valueTo?: string
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'between' | 'is_null' | 'is_not_null'
+  values?: string[]
+  value?: string
+  valueTo?: string
 }
 type PreviewRequest = {
   datasetId: string
   xDimensions: DimensionRef[]
   yMetrics: MetricRef[]
   breakdowns: DimensionRef[]
-    filters?: FilterCondition[]
+  filters?: FilterCondition[]
   joins?: Array<{ joinType: 'inner' | 'left'; sourceTable: string; targetTable: string; columnPairs: Array<{ sourceColumn: string; targetColumn: string }> }>
   limit?: number
   connectionId?: number
@@ -44,22 +45,22 @@ function wrapId(id: string) {
 }
 
 function getDynamicDateRangeExpr(fieldExpr: string, range: string): string | null {
-    switch (range) {
-        case 'last_7_days':
-            return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
-        case 'last_30_days':
-            return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
-        case 'last_90_days':
-            return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 90 DAY)`
-        case 'this_month':
-            return `${fieldExpr} >= DATE_FORMAT(NOW(), '%Y-%m-01')`
-        case 'this_quarter':
-            return `${fieldExpr} >= MAKEDATE(YEAR(NOW()), 1) + INTERVAL QUARTER(NOW())*3-3 MONTH`
-        case 'this_year':
-            return `${fieldExpr} >= DATE_FORMAT(NOW(), '%Y-01-01')`
-        default:
-            return null
-    }
+  switch (range) {
+    case 'last_7_days':
+      return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+    case 'last_30_days':
+      return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+    case 'last_90_days':
+      return `${fieldExpr} >= DATE_SUB(NOW(), INTERVAL 90 DAY)`
+    case 'this_month':
+      return `${fieldExpr} >= DATE_FORMAT(NOW(), '%Y-%m-01')`
+    case 'this_quarter':
+      return `${fieldExpr} >= MAKEDATE(YEAR(NOW()), 1) + INTERVAL QUARTER(NOW())*3-3 MONTH`
+    case 'this_year':
+      return `${fieldExpr} >= DATE_FORMAT(NOW(), '%Y-01-01')`
+    default:
+      return null
+  }
 }
 
 export default defineEventHandler(async (event) => {
@@ -72,14 +73,14 @@ export default defineEventHandler(async (event) => {
     }
 
     const table = wrapId(body.datasetId)
-      const connectionId = body.connectionId ? Number(body.connectionId) : null
-      if (!connectionId) {
-          return {columns: [], rows: [], meta: {executionMs: Date.now() - start, error: 'missing_connection'}}
-      }
+    const connectionId = body.connectionId ? Number(body.connectionId) : null
+    if (!connectionId) {
+      return { columns: [], rows: [], meta: { executionMs: Date.now() - start, error: 'missing_connection' } }
+    }
 
-      const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
-          columns: 'id, organization_id, auto_join_info'
-      })
+    const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
+      columns: 'id, organization_id, auto_join_info'
+    })
     const dims: DimensionRef[] = [...(body.xDimensions || []), ...(body.breakdowns || [])]
     const metrics: MetricRef[] = body.yMetrics || []
 
@@ -124,37 +125,37 @@ export default defineEventHandler(async (event) => {
       columns.push({ key: 'count', label: 'Count' })
     }
 
-      // WHERE from dimension/metric filters
+    // WHERE from dimension/metric filters
     const whereParts: string[] = []
     const params: any[] = []
 
-      // Dimension filters (Value list and Date range)
-      for (const d of dims) {
-          const fieldExpr = qualify(d)
+    // Dimension filters (Value list and Date range)
+    for (const d of dims) {
+      const fieldExpr = qualify(d)
       if (!fieldExpr) continue
 
-          // Value list filters
-          if (d.filterValues && d.filterValues.length > 0) {
-              const mode = d.filterMode === 'exclude' ? 'NOT IN' : 'IN'
-              whereParts.push(`${fieldExpr} ${mode} (${d.filterValues.map(() => '?').join(',')})`)
-              params.push(...d.filterValues)
-          }
+      // Value list filters
+      if (d.filterValues && d.filterValues.length > 0) {
+        const mode = d.filterMode === 'exclude' ? 'NOT IN' : 'IN'
+        whereParts.push(`${fieldExpr} ${mode} (${d.filterValues.map(() => '?').join(',')})`)
+        params.push(...d.filterValues)
+      }
 
-          // Date range filters
-          if (d.dateRangeType === 'static') {
-              if (d.dateRangeStart) {
-                  whereParts.push(`${fieldExpr} >= ?`)
-                  params.push(d.dateRangeStart)
+      // Date range filters
+      if (d.dateRangeType === 'static') {
+        if (d.dateRangeStart) {
+          whereParts.push(`${fieldExpr} >= ?`)
+          params.push(d.dateRangeStart)
         }
-              if (d.dateRangeEnd) {
-                  whereParts.push(`${fieldExpr} <= ?`)
-                  params.push(d.dateRangeEnd)
+        if (d.dateRangeEnd) {
+          whereParts.push(`${fieldExpr} <= ?`)
+          params.push(d.dateRangeEnd)
         }
-          } else if (d.dateRangeType === 'dynamic' && d.dynamicRange) {
-              const rangeExpr = getDynamicDateRangeExpr(fieldExpr, d.dynamicRange)
-              if (rangeExpr) {
-                  whereParts.push(rangeExpr)
-              }
+      } else if (d.dateRangeType === 'dynamic' && d.dynamicRange) {
+        const rangeExpr = getDynamicDateRangeExpr(fieldExpr, d.dynamicRange)
+        if (rangeExpr) {
+          whereParts.push(rangeExpr)
+        }
       }
     }
 
@@ -167,93 +168,93 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-      // Process standalone filters (Filter By zone)
-      const standaloneFilters: FilterCondition[] = body.filters || []
-      for (const f of standaloneFilters) {
-          const fieldExpr = qualify(f)
-          if (!fieldExpr) continue
+    // Process standalone filters (Filter By zone)
+    const standaloneFilters: FilterCondition[] = body.filters || []
+    for (const f of standaloneFilters) {
+      const fieldExpr = qualify(f)
+      if (!fieldExpr) continue
 
-          switch (f.operator) {
-              case 'equals':
-                  if (f.values && f.values.length > 0) {
-                      whereParts.push(`${fieldExpr} IN (${f.values.map(() => '?').join(',')})`)
-                      params.push(...f.values)
-                  } else if (f.value !== undefined && f.value !== '') {
-                      whereParts.push(`${fieldExpr} = ?`)
-                      params.push(f.value)
-                  }
-                  break
-              case 'not_equals':
-                  if (f.values && f.values.length > 0) {
-                      whereParts.push(`${fieldExpr} NOT IN (${f.values.map(() => '?').join(',')})`)
-                      params.push(...f.values)
-                  } else if (f.value !== undefined && f.value !== '') {
-                      whereParts.push(`${fieldExpr} != ?`)
-                      params.push(f.value)
-                  }
-                  break
-              case 'contains':
-                  if (f.value) {
-                      whereParts.push(`${fieldExpr} LIKE ?`)
-                      params.push(`%${f.value}%`)
-                  }
-                  break
-              case 'not_contains':
-                  if (f.value) {
-                      whereParts.push(`${fieldExpr} NOT LIKE ?`)
-                      params.push(`%${f.value}%`)
-                  }
-                  break
-              case 'starts_with':
-                  if (f.value) {
-                      whereParts.push(`${fieldExpr} LIKE ?`)
-                      params.push(`${f.value}%`)
-                  }
-                  break
-              case 'ends_with':
-                  if (f.value) {
-                      whereParts.push(`${fieldExpr} LIKE ?`)
-                      params.push(`%${f.value}`)
-                  }
-                  break
-              case 'greater_than':
-                  if (f.value !== undefined && f.value !== '') {
-                      whereParts.push(`${fieldExpr} > ?`)
-                      params.push(f.value)
-                  }
-                  break
-              case 'less_than':
-                  if (f.value !== undefined && f.value !== '') {
-                      whereParts.push(`${fieldExpr} < ?`)
-                      params.push(f.value)
-                  }
-                  break
-              case 'greater_or_equal':
-                  if (f.value !== undefined && f.value !== '') {
-                      whereParts.push(`${fieldExpr} >= ?`)
-                      params.push(f.value)
-                  }
-                  break
-              case 'less_or_equal':
-                  if (f.value !== undefined && f.value !== '') {
-                      whereParts.push(`${fieldExpr} <= ?`)
-                      params.push(f.value)
-                  }
-                  break
-              case 'between':
-                  if (f.value !== undefined && f.value !== '' && f.valueTo !== undefined && f.valueTo !== '') {
-                      whereParts.push(`${fieldExpr} BETWEEN ? AND ?`)
-                      params.push(f.value, f.valueTo)
-                  }
-                  break
-              case 'is_null':
-                  whereParts.push(`${fieldExpr} IS NULL`)
-                  break
-              case 'is_not_null':
-                  whereParts.push(`${fieldExpr} IS NOT NULL`)
-                  break
+      switch (f.operator) {
+        case 'equals':
+          if (f.values && f.values.length > 0) {
+            whereParts.push(`${fieldExpr} IN (${f.values.map(() => '?').join(',')})`)
+            params.push(...f.values)
+          } else if (f.value !== undefined && f.value !== '') {
+            whereParts.push(`${fieldExpr} = ?`)
+            params.push(f.value)
           }
+          break
+        case 'not_equals':
+          if (f.values && f.values.length > 0) {
+            whereParts.push(`${fieldExpr} NOT IN (${f.values.map(() => '?').join(',')})`)
+            params.push(...f.values)
+          } else if (f.value !== undefined && f.value !== '') {
+            whereParts.push(`${fieldExpr} != ?`)
+            params.push(f.value)
+          }
+          break
+        case 'contains':
+          if (f.value) {
+            whereParts.push(`${fieldExpr} LIKE ?`)
+            params.push(`%${f.value}%`)
+          }
+          break
+        case 'not_contains':
+          if (f.value) {
+            whereParts.push(`${fieldExpr} NOT LIKE ?`)
+            params.push(`%${f.value}%`)
+          }
+          break
+        case 'starts_with':
+          if (f.value) {
+            whereParts.push(`${fieldExpr} LIKE ?`)
+            params.push(`${f.value}%`)
+          }
+          break
+        case 'ends_with':
+          if (f.value) {
+            whereParts.push(`${fieldExpr} LIKE ?`)
+            params.push(`%${f.value}`)
+          }
+          break
+        case 'greater_than':
+          if (f.value !== undefined && f.value !== '') {
+            whereParts.push(`${fieldExpr} > ?`)
+            params.push(f.value)
+          }
+          break
+        case 'less_than':
+          if (f.value !== undefined && f.value !== '') {
+            whereParts.push(`${fieldExpr} < ?`)
+            params.push(f.value)
+          }
+          break
+        case 'greater_or_equal':
+          if (f.value !== undefined && f.value !== '') {
+            whereParts.push(`${fieldExpr} >= ?`)
+            params.push(f.value)
+          }
+          break
+        case 'less_or_equal':
+          if (f.value !== undefined && f.value !== '') {
+            whereParts.push(`${fieldExpr} <= ?`)
+            params.push(f.value)
+          }
+          break
+        case 'between':
+          if (f.value !== undefined && f.value !== '' && f.valueTo !== undefined && f.valueTo !== '') {
+            whereParts.push(`${fieldExpr} BETWEEN ? AND ?`)
+            params.push(f.value, f.valueTo)
+          }
+          break
+        case 'is_null':
+          whereParts.push(`${fieldExpr} IS NULL`)
+          break
+        case 'is_not_null':
+          whereParts.push(`${fieldExpr} IS NOT NULL`)
+          break
       }
+    }
 
     // LIMIT
     const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
@@ -271,12 +272,12 @@ export default defineEventHandler(async (event) => {
         allTables.add(m.table)
       }
     }
-      // Also include tables from standalone filters
-      for (const f of standaloneFilters) {
-          if (f.table && isSafeIdentifier(f.table)) {
-              allTables.add(f.table)
-          }
+    // Also include tables from standalone filters
+    for (const f of standaloneFilters) {
+      if (f.table && isSafeIdentifier(f.table)) {
+        allTables.add(f.table)
       }
+    }
 
     const tableNames = Array.from(allTables)
     console.log(`[PREVIEW_AUTO_JOIN] Tables involved in query:`, tableNames)
@@ -287,76 +288,76 @@ export default defineEventHandler(async (event) => {
     const includedLower = new Set<string>([String(body.datasetId).toLowerCase()])
 
     // Use auto-join if we have multiple tables and no manual joins specified
-      if (tableNames.length > 1 && (!body.joins || body.joins.length === 0) && connectionId) {
+    if (tableNames.length > 1 && (!body.joins || body.joins.length === 0) && connectionId) {
       console.log(`[PREVIEW_AUTO_JOIN] Attempting auto-join for ${tableNames.length} tables:`, tableNames)
 
       try {
-          const aji = (connection as any)?.auto_join_info
-          if (aji?.graph?.nodes && aji?.graph?.adj) {
-              console.log(`[PREVIEW_AUTO_JOIN] Using stored graph for connection ${connectionId}`)
+        const aji = (connection as any)?.auto_join_info
+        if (aji?.graph?.nodes && aji?.graph?.adj) {
+          console.log(`[PREVIEW_AUTO_JOIN] Using stored graph for connection ${connectionId}`)
 
-              // Reconstruct TableGraph from stored entries
-              const graph: TableGraph = {
-                  nodes: new Map<string, any>(aji.graph.nodes as [string, any][]),
-                  adj: new Map<string, Edge[]>(aji.graph.adj as [string, Edge[]][])
-              }
+          // Reconstruct TableGraph from stored entries
+          const graph: TableGraph = {
+            nodes: new Map<string, any>(aji.graph.nodes as [string, any][]),
+            adj: new Map<string, Edge[]>(aji.graph.adj as [string, Edge[]][])
+          }
 
-              // Compute paths only for the tables in this query (O(K²) where K = tables used)
-              const pathsIndex = computePathsForTables(graph, tableNames)
+          // Compute paths only for the tables in this query (O(K²) where K = tables used)
+          const pathsIndex = computePathsForTables(graph, tableNames)
 
-              // Select join tree for requested tables
-              const joinTree = selectJoinTree(tableNames, graph, pathsIndex)
-              console.log(`[PREVIEW_AUTO_JOIN] Join tree: nodes=${joinTree.nodes.length}, edges=${joinTree.edgeIds.length}`)
+          // Select join tree for requested tables
+          const joinTree = selectJoinTree(tableNames, graph, pathsIndex)
+          console.log(`[PREVIEW_AUTO_JOIN] Join tree: nodes=${joinTree.nodes.length}, edges=${joinTree.edgeIds.length}`)
 
 
-              if (joinTree.edgeIds.length > 0) {
-                  // Build quick edge lookup
-                  const edgeById = new Map<string, Edge>()
-                  for (const [, edges] of graph.adj) {
-                      for (const e of edges) edgeById.set(e.id, e)
+          if (joinTree.edgeIds.length > 0) {
+            // Build quick edge lookup
+            const edgeById = new Map<string, Edge>()
+            for (const [, edges] of graph.adj) {
+              for (const e of edges) edgeById.set(e.id, e)
+            }
+
+            // Resolve edge objects
+            const sortedEdges = joinTree.edgeIds
+              .map(id => edgeById.get(id))
+              .filter(Boolean) as Edge[]
+
+            // Add JOINs in dependency order starting from base datasetId
+            const pending = new Set(sortedEdges.map(e => e.id))
+            let madeProgress = true
+            while (pending.size && madeProgress) {
+              madeProgress = false
+              for (const edgeId of Array.from(pending)) {
+                const edge = edgeById.get(edgeId)!
+                const sourceTable = edge.from
+                const targetTable = edge.to
+                if (includedTables.has(targetTable) || includedLower.has(String(targetTable).toLowerCase())) {
+                  pending.delete(edgeId)
+                  continue
+                }
+                if (includedTables.has(sourceTable) || includedLower.has(String(sourceTable).toLowerCase())) {
+                  const onParts: string[] = []
+                  for (const pair of edge.payload.columnPairs || []) {
+                    if (isSafeIdentifier(pair.sourceColumn) && isSafeIdentifier(pair.targetColumn)) {
+                      onParts.push(`${wrapId(sourceTable)}.${wrapId(pair.sourceColumn)} = ${wrapId(targetTable)}.${wrapId(pair.targetColumn)}`)
+                    }
                   }
-
-                  // Resolve edge objects
-                  const sortedEdges = joinTree.edgeIds
-                      .map(id => edgeById.get(id))
-                      .filter(Boolean) as Edge[]
-
-                  // Add JOINs in dependency order starting from base datasetId
-                  const pending = new Set(sortedEdges.map(e => e.id))
-                  let madeProgress = true
-                  while (pending.size && madeProgress) {
-                      madeProgress = false
-                      for (const edgeId of Array.from(pending)) {
-                          const edge = edgeById.get(edgeId)!
-                          const sourceTable = edge.from
-                          const targetTable = edge.to
-                          if (includedTables.has(targetTable) || includedLower.has(String(targetTable).toLowerCase())) {
-                              pending.delete(edgeId)
-                              continue
-                          }
-                          if (includedTables.has(sourceTable) || includedLower.has(String(sourceTable).toLowerCase())) {
-                              const onParts: string[] = []
-                              for (const pair of edge.payload.columnPairs || []) {
-                                  if (isSafeIdentifier(pair.sourceColumn) && isSafeIdentifier(pair.targetColumn)) {
-                                      onParts.push(`${wrapId(sourceTable)}.${wrapId(pair.sourceColumn)} = ${wrapId(targetTable)}.${wrapId(pair.targetColumn)}`)
-                                  }
-                              }
-                              if (onParts.length) {
-                                  joinClauses.push(`INNER JOIN ${wrapId(targetTable)} ON ${onParts.join(' AND ')}`)
-                                  includedTables.add(targetTable)
-                                  includedLower.add(String(targetTable).toLowerCase())
-                                  pending.delete(edgeId)
-                                  madeProgress = true
-                                  console.log(`[PREVIEW_AUTO_JOIN] Added join: ${sourceTable} -> ${targetTable}`)
-                              }
-                          }
-                      }
+                  if (onParts.length) {
+                    joinClauses.push(`INNER JOIN ${wrapId(targetTable)} ON ${onParts.join(' AND ')}`)
+                    includedTables.add(targetTable)
+                    includedLower.add(String(targetTable).toLowerCase())
+                    pending.delete(edgeId)
+                    madeProgress = true
+                    console.log(`[PREVIEW_AUTO_JOIN] Added join: ${sourceTable} -> ${targetTable}`)
                   }
+                }
               }
-          } else {
-              console.error(`[PREVIEW_AUTO_JOIN] Missing auto_join_info for connection ${connectionId}`)
-              const executionMsBefore = Date.now() - start
-              return {columns, rows: [], meta: {executionMs: executionMsBefore, error: 'missing_auto_join_info'}}
+            }
+          }
+        } else {
+          console.error(`[PREVIEW_AUTO_JOIN] Missing auto_join_info for connection ${connectionId}`)
+          const executionMsBefore = Date.now() - start
+          return { columns, rows: [], meta: { executionMs: executionMsBefore, error: 'missing_auto_join_info' } }
         }
       } catch (error) {
         console.error(`[PREVIEW_AUTO_JOIN] Failed to compute auto-join:`, error)
@@ -411,16 +412,16 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-      // Build ORDER BY from dimensions with sort specified
-      const orderByParts: string[] = []
-      for (const d of dims) {
-          if (d.sort && (d.sort === 'asc' || d.sort === 'desc')) {
-              const field = qualify(d)
-              if (field) {
-                  orderByParts.push(`${field} ${d.sort.toUpperCase()}`)
-              }
-          }
+    // Build ORDER BY from dimensions with sort specified
+    const orderByParts: string[] = []
+    for (const d of dims) {
+      if (d.sort && (d.sort === 'asc' || d.sort === 'desc')) {
+        const field = qualify(d)
+        if (field) {
+          orderByParts.push(`${field} ${d.sort.toUpperCase()}`)
+        }
       }
+    }
 
     const sql = [
       'SELECT',
@@ -431,7 +432,7 @@ export default defineEventHandler(async (event) => {
       ...crossJoinClauses,
       whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '',
       groupByParts.length ? 'GROUP BY ' + groupByParts.join(', ') : '',
-        orderByParts.length ? 'ORDER BY ' + orderByParts.join(', ') : '',
+      orderByParts.length ? 'ORDER BY ' + orderByParts.join(', ') : '',
       'LIMIT ' + limit
     ].filter(Boolean).join(' ')
 
@@ -443,14 +444,28 @@ export default defineEventHandler(async (event) => {
       return { columns, rows: [], meta: metaPre }
     }
 
+    // Check if connection uses internal storage
+    const storageInfo = await loadInternalStorageInfo(connectionId)
+
+    let rows: any[]
+    let finalSql = sql
+
+    if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+      console.log(`[preview] Using internal storage: ${storageInfo.schemaName}`)
+      // Translate MySQL backticks to PostgreSQL double quotes
+      finalSql = translateIdentifiers(sql)
+      rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
+    } else {
+      // Fall back to MySQL query
       const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
-    const rows = await withMySqlConnectionConfig(cfg, async (conn) => {
-      const [res] = await conn.query(sql, params)
-      return res as any[]
-    })
+      rows = await withMySqlConnectionConfig(cfg, async (conn) => {
+        const [res] = await conn.query(sql, params)
+        return res as any[]
+      })
+    }
 
     const executionMs = Date.now() - start
-    const meta: Record<string, any> = { executionMs, sql }
+    const meta: Record<string, any> = { executionMs, sql: finalSql }
     return {
       columns,
       rows,
