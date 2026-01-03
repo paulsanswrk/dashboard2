@@ -5,10 +5,14 @@
  */
 
 // Type mapping from MySQL to PostgreSQL
+// NOTE: For data transfer, we use loose types to avoid constraint issues:
+// - TINYINT(1) and BIT(1) map to SMALLINT (not BOOLEAN) because MySQL sends 0/1 integers
+// - All columns are made nullable to handle null data from MySQL
+// - No primary key or foreign key constraints
 const TYPE_MAPPING: Record<string, string> = {
-    // Boolean
-    'tinyint(1)': 'boolean',
-    'bit(1)': 'boolean',
+    // Boolean-like types - use SMALLINT to accept MySQL's 0/1 integer values
+    'tinyint(1)': 'smallint',
+    'bit(1)': 'smallint',
 
     // Integer types
     'tinyint': 'smallint',
@@ -113,14 +117,15 @@ export function mapMySqlTypeToPostgres(mysqlType: string, columnType?: string): 
     const fullType = (columnType || mysqlType).toLowerCase().trim()
     const { baseType, params } = parseColumnType(fullType)
 
-    // Check for special case: TINYINT(1) is typically boolean
+    // TINYINT(1) is typically boolean in MySQL, but MySQL sends 0/1 integers
+    // Use SMALLINT to accept the integer values without type mismatch errors
     if (fullType === 'tinyint(1)' || fullType.startsWith('tinyint(1)')) {
-        return 'boolean'
+        return 'smallint'
     }
 
-    // Check for BIT(1) as boolean
+    // BIT(1) similar - use SMALLINT to accept integer values
     if (fullType === 'bit(1)') {
-        return 'boolean'
+        return 'smallint'
     }
 
     // Look up the base type first
@@ -228,11 +233,14 @@ export function generateCreateTableSql(
     const pgColumns = columns.map(col => convertColumn(col))
 
     const columnDefs = pgColumns.map(col => {
+        // For data transfer, make ALL columns nullable to avoid constraint errors
+        // MySQL data often has nulls in columns marked as NOT NULL in schema
         let def = `    "${col.name}" ${col.type}`
 
-        if (!col.nullable) {
-            def += ' NOT NULL'
-        }
+        // Skip NOT NULL constraint - we want maximum flexibility for data import
+        // if (!col.nullable) {
+        //     def += ' NOT NULL'
+        // }
 
         if (col.defaultExpression) {
             def += ` DEFAULT ${col.defaultExpression}`
@@ -241,11 +249,12 @@ export function generateCreateTableSql(
         return def
     })
 
-    // Add primary key constraint if any
-    if (primaryKeys.length > 0) {
-        const pkCols = primaryKeys.map(pk => `"${normalizeName(pk)}"`).join(', ')
-        columnDefs.push(`    PRIMARY KEY (${pkCols})`)
-    }
+    // Skip primary key constraints for data transfer
+    // This allows duplicate data and avoids constraint violations
+    // if (primaryKeys.length > 0) {
+    //     const pkCols = primaryKeys.map(pk => `"${normalizeName(pk)}"`).join(', ')
+    //     columnDefs.push(`    PRIMARY KEY (${pkCols})`)
+    // }
 
     return `CREATE TABLE ${qualifiedName} (\n${columnDefs.join(',\n')}\n);`
 }
