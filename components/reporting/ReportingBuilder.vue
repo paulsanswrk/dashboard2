@@ -144,6 +144,56 @@
       </div>
     </div>
 
+    <!-- Debug JSON Config Panel (only shown when DEBUG_ENV=true) -->
+    <ClientOnly>
+      <div v-if="isDebug" class="mb-4 border rounded-lg bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700">
+        <button
+          @click="debugPanelOpen = !debugPanelOpen"
+          class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer rounded-t-lg"
+        >
+          <div class="flex items-center gap-2">
+            <Icon name="i-heroicons-beaker" class="w-4 h-4 text-amber-600 dark:text-amber-400"/>
+            <span class="font-medium text-sm text-amber-800 dark:text-amber-200">Debug: JSON Chart Config</span>
+          </div>
+          <Icon :name="debugPanelOpen ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-4 h-4 text-amber-600 dark:text-amber-400"/>
+        </button>
+        
+        <div v-if="debugPanelOpen" class="px-4 pb-4 space-y-3">
+          <p class="text-xs text-amber-700 dark:text-amber-300">
+            Paste a JSON chart configuration to test the chart builder. This will override current settings.
+          </p>
+          <textarea
+            v-model="debugJsonConfig"
+            rows="12"
+            class="w-full border border-amber-300 dark:border-amber-600 rounded-lg p-3 font-mono text-xs bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
+            placeholder='{"chartType": "column", "xDimensions": [...], "yMetrics": [...], ...}'
+          ></textarea>
+          <div class="flex items-center gap-3">
+            <UButton
+              color="amber"
+              class="bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
+              @click="applyDebugConfig"
+              :disabled="loading || !debugJsonConfig.trim()"
+            >
+              <Icon name="i-heroicons-play" class="w-4 h-4"/>
+              Apply Config
+            </UButton>
+            <UButton
+              variant="outline"
+              color="amber"
+              class="border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 cursor-pointer"
+              @click="exportCurrentConfig"
+            >
+              <Icon name="i-heroicons-arrow-down-tray" class="w-4 h-4"/>
+              Export Current
+            </UButton>
+            <span v-if="debugConfigError" class="text-xs text-red-600 dark:text-red-400">{{ debugConfigError }}</span>
+            <span v-if="debugConfigSuccess" class="text-xs text-green-600 dark:text-green-400">{{ debugConfigSuccess }}</span>
+          </div>
+        </div>
+      </div>
+    </ClientOnly>
+
     <!-- Chart Preview Area -->
     <div>
       <div v-if="serverError" class="mb-3 p-2 border border-red-300 bg-red-50 text-red-700 text-sm rounded">
@@ -252,6 +302,12 @@ const overrideSql = ref(false)
 const sqlText = ref('')
 const actualExecutedSql = ref('')
 const chartTitle = ref('')
+
+// Debug panel state
+const debugPanelOpen = ref(false)
+const debugJsonConfig = ref('')
+const debugConfigError = ref('')
+const debugConfigSuccess = ref('')
 
 const chartTypes = [
   {value: 'table', label: 'Table', icon: 'i-heroicons-table-cells'},
@@ -1214,6 +1270,139 @@ function getCurrentState() {
     chartType: chartType.value,
     appearance: appearance.value
   }
+}
+
+// Debug panel functions
+function applyDebugConfig() {
+  debugConfigError.value = ''
+  debugConfigSuccess.value = ''
+  
+  try {
+    const config = JSON.parse(debugJsonConfig.value)
+    const changes: string[] = []
+    
+    // Apply chart type
+    if (config.chartType) {
+      const validTypes = chartTypes.map(t => t.value)
+      if (validTypes.includes(config.chartType)) {
+        const oldType = chartType.value
+        chartType.value = config.chartType as typeof chartType.value
+        if (oldType !== chartType.value) changes.push(`chartType: ${oldType} → ${chartType.value}`)
+      }
+    }
+    
+    // Apply zones - use spread to create new array references for Vue reactivity
+    if (Array.isArray(config.xDimensions)) {
+      const oldLen = xDimensions.value.length
+      xDimensions.value = [...config.xDimensions]
+      changes.push(`xDimensions: ${oldLen} → ${xDimensions.value.length} items`)
+    }
+    if (Array.isArray(config.yMetrics)) {
+      const oldLen = yMetrics.value.length
+      yMetrics.value = [...config.yMetrics]
+      changes.push(`yMetrics: ${oldLen} → ${yMetrics.value.length} items`)
+    }
+    if (Array.isArray(config.breakdowns)) {
+      const oldLen = breakdowns.value.length
+      breakdowns.value = [...config.breakdowns]
+      changes.push(`breakdowns: ${oldLen} → ${breakdowns.value.length} items`)
+    }
+    if (Array.isArray(config.filters)) {
+      const oldLen = filters.value.length
+      filters.value = [...config.filters]
+      changes.push(`filters: ${oldLen} → ${filters.value.length} items`)
+    }
+    if (Array.isArray(config.joins)) {
+      const oldLen = joins.value.length
+      joins.value = [...config.joins]
+      changes.push(`joins: ${oldLen} → ${joins.value.length} items`)
+    }
+    
+    // Apply appearance
+    if (config.appearance && typeof config.appearance === 'object') {
+      appearance.value = { ...appearance.value, ...config.appearance }
+      changes.push('appearance updated')
+    }
+    
+    // Apply SQL settings
+    if (typeof config.useSql === 'boolean') {
+      useSql.value = config.useSql
+      changes.push(`useSql: ${config.useSql}`)
+    }
+    if (typeof config.overrideSql === 'boolean') {
+      overrideSql.value = config.overrideSql
+    }
+    if (typeof config.sqlText === 'string') {
+      sqlText.value = config.sqlText
+      if (config.sqlText) changes.push('sqlText set')
+    }
+    
+    // Apply chart title
+    if (typeof config.chartTitle === 'string') {
+      chartTitle.value = config.chartTitle
+      if (config.chartTitle) changes.push(`title: ${config.chartTitle}`)
+    }
+    
+    // Apply excludeNullsInDimensions
+    if (typeof config.excludeNullsInDimensions === 'boolean') {
+      excludeNullsInDimensions.value = config.excludeNullsInDimensions
+    }
+    
+    // Build success message with debug info
+    const connectionId = selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId()
+    const previewInfo = canAutoPreview.value 
+      ? `Preview will run (connectionId: ${connectionId})` 
+      : `No auto-preview (canAutoPreview: false, hasData: ${xDimensions.value.length > 0 || yMetrics.value.length > 0})`
+    
+    debugConfigSuccess.value = `Applied: ${changes.join(', ')}. ${previewInfo}`
+    console.log('[Debug Config] Applied config:', { config, changes, canAutoPreview: canAutoPreview.value, connectionId })
+    
+    // Auto-run preview/SQL after applying config
+    nextTick(async () => {
+      if (useSql.value && overrideSql.value && sqlText.value.trim()) {
+        await onRunSql(true)
+      } else if (canAutoPreview.value) {
+        console.log('[Debug Config] Running preview...')
+        await onTestPreview()
+        console.log('[Debug Config] Preview complete, rows:', rows.value.length)
+      } else {
+        console.log('[Debug Config] Skipping preview - canAutoPreview is false')
+      }
+    })
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      debugConfigSuccess.value = ''
+    }, 3000)
+    
+  } catch (e: any) {
+    debugConfigError.value = `Invalid JSON: ${e.message}`
+  }
+}
+
+function exportCurrentConfig() {
+  const config = {
+    chartType: chartType.value,
+    chartTitle: chartTitle.value,
+    xDimensions: xDimensions.value,
+    yMetrics: yMetrics.value,
+    breakdowns: breakdowns.value,
+    filters: filters.value,
+    joins: joins.value,
+    appearance: appearance.value,
+    excludeNullsInDimensions: excludeNullsInDimensions.value,
+    useSql: useSql.value,
+    overrideSql: overrideSql.value,
+    sqlText: sqlText.value
+  }
+  
+  debugJsonConfig.value = JSON.stringify(config, null, 2)
+  debugConfigSuccess.value = 'Current config exported to textarea'
+  
+  // Clear success message after 3 seconds
+  setTimeout(() => {
+    debugConfigSuccess.value = ''
+  }, 3000)
 }
 
 defineExpose({

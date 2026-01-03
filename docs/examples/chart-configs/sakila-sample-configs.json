@@ -1,0 +1,478 @@
+{
+  "description": "Sample JSON chart configurations for testing the Optiqo Chart Builder with the Sakila database",
+  "version": "2.1.0",
+  "note": "Copy the 'config' object (not the wrapper) to paste into the debug panel",
+  "configs": [
+    {
+      "name": "1. Column Chart: Films by Category",
+      "description": "Shows film count per category - Sports has 74, Music has 51",
+      "config": {
+        "chartType": "column",
+        "chartTitle": "Films by Category",
+        "xDimensions": [
+          {
+            "fieldId": "name",
+            "name": "name",
+            "label": "Category",
+            "type": "varchar",
+            "table": "category"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Film Count",
+            "type": "smallint",
+            "table": "film_category",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [
+          {
+            "constraintName": "fk_film_category_category",
+            "sourceTable": "film_category",
+            "targetTable": "category",
+            "joinType": "inner",
+            "columnPairs": [{"position": 1, "sourceColumn": "category_id", "targetColumn": "category_id"}]
+          }
+        ],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "2. Pie Chart: Films by Rating",
+      "description": "Shows film count per rating - PG-13 leads with 223, G has 178",
+      "config": {
+        "chartType": "pie",
+        "chartTitle": "Films by Rating",
+        "xDimensions": [
+          {
+            "fieldId": "rating",
+            "name": "rating",
+            "label": "Rating",
+            "type": "enum",
+            "table": "film"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Film Count",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": true,
+          "legendPosition": "right",
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "3. Column Chart: Films by Rental Duration",
+      "description": "Shows film count per rental duration (3-7 days). Duration 6 has 212 films.",
+      "config": {
+        "chartType": "column",
+        "chartTitle": "Films by Rental Duration",
+        "xDimensions": [
+          {
+            "fieldId": "rental_duration",
+            "name": "rental_duration",
+            "label": "Rental Duration (days)",
+            "type": "tinyint",
+            "table": "film"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Film Count",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "4. Column Chart with Breakdown: Films by Rental Duration & Rating",
+      "description": "Films by rental duration, broken down by rating. Single table, no joins needed.",
+      "config": {
+        "chartType": "column",
+        "chartTitle": "Films by Rental Duration & Rating",
+        "xDimensions": [
+          {
+            "fieldId": "rental_duration",
+            "name": "rental_duration",
+            "label": "Rental Duration",
+            "type": "tinyint",
+            "table": "film"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Film Count",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [
+          {
+            "fieldId": "rating",
+            "name": "rating",
+            "label": "Rating",
+            "type": "enum",
+            "table": "film"
+          }
+        ],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": true,
+          "legendPosition": "top",
+          "showLabels": false
+        }
+      }
+    },
+    {
+      "name": "5. Bar Chart: Actors by Film Count",
+      "description": "Top actors - Gina Degeneres leads with 42 films",
+      "config": {
+        "chartType": "bar",
+        "chartTitle": "Top Actors by Film Count",
+        "xDimensions": [
+          {
+            "fieldId": "first_name",
+            "name": "first_name",
+            "label": "Actor",
+            "type": "varchar",
+            "table": "actor"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Film Count",
+            "type": "smallint",
+            "table": "film_actor",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [
+          {
+            "constraintName": "fk_film_actor_actor",
+            "sourceTable": "film_actor",
+            "targetTable": "actor",
+            "joinType": "inner",
+            "columnPairs": [{"position": 1, "sourceColumn": "actor_id", "targetColumn": "actor_id"}]
+          }
+        ],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "6. Stacked Column: Films by Rental Duration & Rating",
+      "description": "Same as #4 but stacked view",
+      "config": {
+        "chartType": "stacked",
+        "chartTitle": "Films by Rental Duration (Stacked)",
+        "xDimensions": [
+          {
+            "fieldId": "rental_duration",
+            "name": "rental_duration",
+            "label": "Rental Duration",
+            "type": "tinyint",
+            "table": "film"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Film Count",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [
+          {
+            "fieldId": "rating",
+            "name": "rating",
+            "label": "Rating",
+            "type": "enum",
+            "table": "film"
+          }
+        ],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": true,
+          "legendPosition": "top",
+          "showLabels": false
+        }
+      }
+    },
+    {
+      "name": "7. Donut Chart: Payment by Staff",
+      "description": "Revenue split between 2 staff members",
+      "config": {
+        "chartType": "donut",
+        "chartTitle": "Revenue by Staff",
+        "xDimensions": [
+          {
+            "fieldId": "staff_id",
+            "name": "staff_id",
+            "label": "Staff ID",
+            "type": "tinyint",
+            "table": "payment"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "amount",
+            "name": "amount",
+            "label": "Revenue",
+            "type": "decimal",
+            "table": "payment",
+            "aggregation": "SUM",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": true,
+          "legendPosition": "right",
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "8. Number Card: Total Films",
+      "description": "Single metric showing total film count (1000 films)",
+      "config": {
+        "chartType": "number",
+        "chartTitle": "Total Films in Catalog",
+        "xDimensions": [],
+        "yMetrics": [
+          {
+            "fieldId": "film_id",
+            "name": "film_id",
+            "label": "Total Films",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "9. Column Chart: Average Film Length by Rating",
+      "description": "Average film length per rating category",
+      "config": {
+        "chartType": "column",
+        "chartTitle": "Average Film Length by Rating",
+        "xDimensions": [
+          {
+            "fieldId": "rating",
+            "name": "rating",
+            "label": "Rating",
+            "type": "enum",
+            "table": "film"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "length",
+            "name": "length",
+            "label": "Avg Length (min)",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "AVG",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "10. Table: Films with Details",
+      "description": "Table view of film data",
+      "config": {
+        "chartType": "table",
+        "chartTitle": "Film Details",
+        "xDimensions": [
+          {
+            "fieldId": "title",
+            "name": "title",
+            "label": "Title",
+            "type": "varchar",
+            "table": "film"
+          },
+          {
+            "fieldId": "rating",
+            "name": "rating",
+            "label": "Rating",
+            "type": "enum",
+            "table": "film"
+          },
+          {
+            "fieldId": "rental_duration",
+            "name": "rental_duration",
+            "label": "Rental Days",
+            "type": "tinyint",
+            "table": "film"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "length",
+            "name": "length",
+            "label": "Length (min)",
+            "type": "smallint",
+            "table": "film",
+            "aggregation": "SUM",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": true
+        }
+      }
+    },
+    {
+      "name": "11. Line Chart: Payment Amount by Staff Over Time (if date grouping works)",
+      "description": "This tests time-series with breakdown",
+      "config": {
+        "chartType": "line",
+        "chartTitle": "Payment Trends",
+        "xDimensions": [
+          {
+            "fieldId": "payment_date",
+            "name": "payment_date",
+            "label": "Payment Date",
+            "type": "datetime",
+            "table": "payment"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "amount",
+            "name": "amount",
+            "label": "Revenue",
+            "type": "decimal",
+            "table": "payment",
+            "aggregation": "SUM",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": false,
+          "showLabels": false
+        }
+      }
+    },
+    {
+      "name": "12. Area Chart: Payments by Staff",
+      "description": "Area chart showing payment trends with staff breakdown",
+      "config": {
+        "chartType": "area",
+        "chartTitle": "Payments by Staff",
+        "xDimensions": [
+          {
+            "fieldId": "payment_date",
+            "name": "payment_date",
+            "label": "Date",
+            "type": "datetime",
+            "table": "payment"
+          }
+        ],
+        "yMetrics": [
+          {
+            "fieldId": "payment_id",
+            "name": "payment_id",
+            "label": "Transaction Count",
+            "type": "smallint",
+            "table": "payment",
+            "aggregation": "COUNT",
+            "isNumeric": true
+          }
+        ],
+        "breakdowns": [
+          {
+            "fieldId": "staff_id",
+            "name": "staff_id",
+            "label": "Staff ID",
+            "type": "tinyint",
+            "table": "payment"
+          }
+        ],
+        "filters": [],
+        "joins": [],
+        "appearance": {
+          "showLegend": true,
+          "legendPosition": "top",
+          "showLabels": false
+        }
+      }
+    }
+  ]
+}
