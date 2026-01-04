@@ -1,4 +1,4 @@
-import {DateTime} from 'luxon'
+import { DateTime } from 'luxon'
 
 export interface ScheduleConfig {
     interval: 'DAILY' | 'WEEKLY' | 'MONTHLY'
@@ -21,7 +21,7 @@ export interface ReportSchedule extends ScheduleConfig {
  * @returns DateTime object representing the next scheduled run in UTC
  */
 export function calculateNextRun(schedule: ScheduleConfig, fromTime?: DateTime): DateTime {
-    const {interval, send_time, timezone, day_of_week} = schedule
+    const { interval, send_time, timezone, day_of_week } = schedule
 
     // Default to current time if not provided
     const baseTime = fromTime || DateTime.now()
@@ -40,37 +40,44 @@ export function calculateNextRun(schedule: ScheduleConfig, fromTime?: DateTime):
         millisecond: 0
     })
 
-    // If the calculated time is in the past for today, move to next occurrence
-    if (nextRun <= baseTime) {
-        switch (interval) {
-            case 'DAILY':
-                nextRun = nextRun.plus({days: 1})
-                break
+    // Always advance to next occurrence since we're calculating the NEXT run
+    // The cron may process items slightly before scheduled time (e.g., 21:30 for 21:33 scheduled)
+    // so we need to always move forward, not stay on the same day
+    switch (interval) {
+        case 'DAILY':
+            // If nextRun is in the past or very close to now, advance by 1 day
+            if (nextRun <= baseTime.plus({ minutes: 5 })) {
+                nextRun = nextRun.plus({ days: 1 })
+            }
+            break
 
-            case 'WEEKLY':
-                if (day_of_week && day_of_week.length > 0) {
+        case 'WEEKLY':
+            if (day_of_week && day_of_week.length > 0) {
+                // For weekly, always find the next valid day
+                if (nextRun <= baseTime.plus({ minutes: 5 })) {
                     nextRun = getNextWeeklyRun(nextRun, day_of_week, timezone)
                 } else {
-                    // Default to next week if no days specified
-                    nextRun = nextRun.plus({weeks: 1})
+                    // Check if current day matches weekly constraints
+                    const dayAbbrev = nextRun.toFormat('ccc')
+                    if (!day_of_week.includes(dayAbbrev)) {
+                        nextRun = getNextWeeklyRun(nextRun, day_of_week, timezone)
+                    }
                 }
-                break
-
-            case 'MONTHLY':
-                nextRun = nextRun.plus({months: 1})
-                break
-
-            default:
-                throw new Error(`Unsupported interval: ${interval}`)
-        }
-    } else {
-        // Time is in the future today, but check if it matches weekly constraints
-        if (interval === 'WEEKLY' && day_of_week && day_of_week.length > 0) {
-            const dayAbbrev = nextRun.toFormat('ccc') // Mon, Tue, etc.
-            if (!day_of_week.includes(dayAbbrev)) {
-                nextRun = getNextWeeklyRun(nextRun, day_of_week, timezone)
+            } else {
+                if (nextRun <= baseTime.plus({ minutes: 5 })) {
+                    nextRun = nextRun.plus({ weeks: 1 })
+                }
             }
-        }
+            break
+
+        case 'MONTHLY':
+            if (nextRun <= baseTime.plus({ minutes: 5 })) {
+                nextRun = nextRun.plus({ months: 1 })
+            }
+            break
+
+        default:
+            throw new Error(`Unsupported interval: ${interval}`)
     }
 
     return nextRun.toUTC()
@@ -97,7 +104,7 @@ function getNextWeeklyRun(fromTime: DateTime, dayOfWeek: string[], timezone: str
             daysToAdd += 7 // Move to next week
         }
 
-        const candidateTime = fromTime.plus({days: daysToAdd})
+        const candidateTime = fromTime.plus({ days: daysToAdd })
 
         // Check if this candidate is in the future
         if (candidateTime > fromTime) {
@@ -109,7 +116,7 @@ function getNextWeeklyRun(fromTime: DateTime, dayOfWeek: string[], timezone: str
     const firstDay = dayOfWeek[0]
     const firstDayNum = dayMap[firstDay]
     const daysToAdd = (firstDayNum - currentDay + 7) % 7 || 7
-    return fromTime.plus({days: daysToAdd})
+    return fromTime.plus({ days: daysToAdd })
 }
 
 /**
@@ -170,7 +177,7 @@ export function getUpcomingRuns(
     for (let i = 0; i < count; i++) {
         const nextRun = calculateNextRun(schedule, currentTime)
         runs.push(nextRun)
-        currentTime = nextRun.plus({minutes: 1}) // Add 1 minute to avoid infinite loop
+        currentTime = nextRun.plus({ minutes: 1 }) // Add 1 minute to avoid infinite loop
     }
 
     return runs

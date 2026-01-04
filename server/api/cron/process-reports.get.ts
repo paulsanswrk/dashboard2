@@ -1,9 +1,9 @@
-import {createClient} from '@supabase/supabase-js'
-import {DateTime} from 'luxon'
-import {calculateNextRun} from '../../utils/schedulingUtils'
-import {generateReportAttachments} from '../../utils/reportGenerator'
-import {sendReportEmail} from '../../utils/emailService'
-import {LogAccumulator} from '../../utils/loggingUtils'
+import { createClient } from '@supabase/supabase-js'
+import { DateTime } from 'luxon'
+import { calculateNextRun } from '../../utils/schedulingUtils'
+import { generateReportAttachments } from '../../utils/reportGenerator'
+import { sendReportEmail } from '../../utils/emailService'
+import { LogAccumulator } from '../../utils/loggingUtils'
 
 // Types for email queue processing
 interface EmailQueueItem {
@@ -93,10 +93,10 @@ export default defineEventHandler(async (event) => {
 
         // Find pending email queue items that should run now (within 5-minute window)
         const now = DateTime.now().toUTC()
-        const fiveMinutesAgo = now.minus({minutes: 5})
-        const fiveMinutesFromNow = now.plus({minutes: 5})
+        const fiveMinutesAgo = now.minus({ minutes: 5 })
+        const fiveMinutesFromNow = now.plus({ minutes: 5 })
 
-        const {data: pendingItems, error: queueError} = await supabase
+        const { data: pendingItems, error: queueError } = await supabase
             .from('email_queue')
             .select(`
         id,
@@ -128,7 +128,7 @@ export default defineEventHandler(async (event) => {
             .eq('delivery_status', 'PENDING')
             .gte('scheduled_for', fiveMinutesAgo.toISO())
             .lte('scheduled_for', fiveMinutesFromNow.toISO())
-            .order('scheduled_for', {ascending: true})
+            .order('scheduled_for', { ascending: true })
 
         if (queueError) {
             logAccumulator.addLog('error', 'cron', 'Failed to fetch pending email queue items', {
@@ -172,14 +172,21 @@ export default defineEventHandler(async (event) => {
             let reportDetails: any = {}
 
             try {
-                // Mark as processing (to prevent duplicate processing)
-                await supabase
+                // Mark as IN_PROGRESS to prevent duplicate processing from overlapping cron runs
+                const { error: lockError } = await supabase
                     .from('email_queue')
                     .update({
+                        delivery_status: 'IN_PROGRESS',
                         attempt_count: queueItem.attempt_count + 1,
                         processed_at: now.toISO()
                     })
                     .eq('id', queueItem.id)
+                    .eq('delivery_status', 'PENDING') // Optimistic locking
+
+                // Skip if another cron run already claimed this item
+                if (lockError) {
+                    continue
+                }
 
                 // Generate report attachments
                 const attachments = await generateReportAttachments(report)
@@ -218,12 +225,14 @@ export default defineEventHandler(async (event) => {
 
                 // Calculate and schedule next run if this is a recurring report
                 if (report.status === 'Active') {
+                    // Pass scheduled_for time (not now) to ensure we calculate the NEXT run correctly
+                    const scheduledTime = DateTime.fromISO(queueItem.scheduled_for)
                     const nextRunTime = calculateNextRun({
                         interval: report.interval,
                         send_time: report.send_time,
                         timezone: report.timezone,
                         day_of_week: report.day_of_week
-                    }, now)
+                    }, scheduledTime)
 
                     await supabase
                         .from('email_queue')
@@ -236,7 +245,7 @@ export default defineEventHandler(async (event) => {
                     // Update the report's next_run_at
                     await supabase
                         .from('reports')
-                        .update({next_run_at: nextRunTime.toISO()})
+                        .update({ next_run_at: nextRunTime.toISO() })
                         .eq('id', report.id)
 
                     reportDetails.next_run_scheduled = nextRunTime.toISO()

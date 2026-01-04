@@ -266,6 +266,8 @@ const expandedDatasetId = ref<string | null>(null)
 
 // Preloaded columns cache: populated when connection is selected
 const columnsByDataset = ref<Record<string, any[]>>({})
+// Preloaded relationships cache: all foreign keys for the entire connection
+const allRelationships = ref<any[]>([])
 
 // Sidebar visibility (collapsed by default)
 const sidebarVisible = ref(false)
@@ -277,21 +279,19 @@ function openTablePreview(tableName: string) {
 }
 
 // Handler for when a field is updated in the zones
+// Note: Preview is automatically triggered by the watcher in ReportingBuilder
+// when zone state changes, so we don't need to manually call it here
 function onFieldUpdated() {
-  // Trigger preview refresh when field options are applied
-  const builder = reportingBuilderRef.value as any
-  if (builder?.onTestPreview) {
-    builder.onTestPreview()
-  }
+  // Placeholder for any additional logic needed when a field is updated
+  // The preview refresh is handled by the automatic watcher
 }
 
 // Handler for when join paths are saved from the modal
+// Note: Preview is automatically triggered by the watcher in ReportingBuilder
+// when joins state changes, so we don't need to manually call it here
 function onJoinPathSave() {
-  // Trigger preview refresh after joins are saved
-  const builder = reportingBuilderRef.value as any
-  if (builder?.onTestPreview) {
-    builder.onTestPreview()
-  }
+  // Placeholder for any additional logic needed when joins are saved
+  // The preview refresh is handled by the automatic watcher
 }
 
 // AI mode toggle
@@ -432,15 +432,20 @@ watch(selectedDatasetId, async (id) => {
       } else {
         schema.value = await getSchema(id)
       }
-      relationships.value = await getRelationships(id)
+      // Filter pre-loaded relationships for the selected dataset
+      relationships.value = allRelationships.value.filter(
+        (rel: any) => rel.sourceTable === id || rel.targetTable === id
+      )
     } catch (error) {
-      console.error('Failed to load schema or relationships:', error)
+      console.error('Failed to load schema:', error)
       schema.value = []
       relationships.value = []
     }
     schemaLoading.value = false
-    // reset any previously applied joins when dataset changes
-    joins.value = []
+    // reset any previously applied joins when dataset changes (only if there are joins)
+    if (joins.value.length > 0) {
+      joins.value = []
+    }
   } else {
     schema.value = []
     relationships.value = []
@@ -466,6 +471,7 @@ watch(connectionId, async (id) => {
   expandedDatasetId.value = null
   schema.value = []
   columnsByDataset.value = {}
+  allRelationships.value = []
 
   if (!id) {
     datasets.value = []
@@ -474,8 +480,8 @@ watch(connectionId, async (id) => {
   }
 
   try {
-    // Fetch full schema (tables + columns) in one request
-    const fullSchema = await $fetch<{ tables: Array<{ tableId: string; tableName: string; columns: any[] }> }>('/api/reporting/full-schema', {
+    // Fetch full schema (tables + columns + relationships) in one request
+    const fullSchema = await $fetch<{ tables: Array<{ tableId: string; tableName: string; columns: any[] }>; relationships: any[] }>('/api/reporting/full-schema', {
       params: {connectionId: id}
     })
 
@@ -492,6 +498,9 @@ watch(connectionId, async (id) => {
       columnsMap[t.tableId] = t.columns || []
     }
     columnsByDataset.value = columnsMap
+    
+    // Cache all relationships for the connection
+    allRelationships.value = fullSchema.relationships || []
   } catch (error) {
     console.error('Failed to load full schema:', error)
     // Fallback to old method

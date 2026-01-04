@@ -270,7 +270,7 @@ const emit = defineEmits<{
   'chart-type-change': [chartType: string]
 }>()
 
-const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId } = useReportingService()
+const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId, setSelectedDatasetId } = useReportingService()
 const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
@@ -282,7 +282,7 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
 const serverError = ref<string | null>(null)
 const serverWarnings = ref<string[]>([])
-const chartType = ref<'table' | 'bar' | 'column' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey' | 'kpi' | 'pivot' | 'stacked' | 'radar' | 'boxplot' | 'bubble' | 'waterfall' | 'number' | 'wordcloud'>('table')
+const chartType = ref<'table' | 'bar' | 'column' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey' | 'kpi' | 'pivot' | 'stacked' | 'radar' | 'boxplot' | 'bubble' | 'waterfall' | 'number' | 'wordcloud'>('column')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 
 // Show onboarding guide when no data is loaded and no zones are populated
@@ -778,7 +778,7 @@ const canAutoPreview = computed(() => {
 
   return false
 })
-watch([selectedDatasetId, xDimensions, yMetrics, breakdowns, filters, joins], async () => {
+watch([xDimensions, yMetrics, breakdowns, filters, joins], async () => {
   if (!canAutoPreview.value) return
   if (useSql.value) return
   await onTestPreview()
@@ -1316,6 +1316,33 @@ function applyDebugConfig() {
       const oldLen = joins.value.length
       joins.value = [...config.joins]
       changes.push(`joins: ${oldLen} → ${joins.value.length} items`)
+    }
+    
+    // Determine the correct datasetId from config fields
+    // This prevents CROSS JOIN issues when config tables differ from UI-selected dataset
+    const configTables = new Set<string>()
+    const addTable = (field: any) => {
+      if (field?.table && typeof field.table === 'string') {
+        configTables.add(field.table)
+      }
+    }
+    ;(config.xDimensions || []).forEach(addTable)
+    ;(config.yMetrics || []).forEach(addTable)
+    ;(config.breakdowns || []).forEach(addTable)
+    ;(config.filters || []).forEach(addTable)
+    
+    if (configTables.size > 0) {
+      // Use the first table from xDimensions, or yMetrics as the base dataset
+      const primaryTable = config.xDimensions?.[0]?.table 
+        || config.yMetrics?.[0]?.table 
+        || Array.from(configTables)[0]
+      
+      if (primaryTable && primaryTable !== selectedDatasetId.value) {
+        const oldDatasetId = selectedDatasetId.value
+        setSelectedDatasetId(primaryTable)
+        changes.push(`datasetId: ${oldDatasetId ?? 'null'} → ${primaryTable}`)
+        console.log('[Debug Config] Updated selectedDatasetId to match config tables:', primaryTable)
+      }
     }
     
     // Apply appearance

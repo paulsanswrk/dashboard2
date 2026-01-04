@@ -439,8 +439,7 @@ export default defineEventHandler(async (event) => {
     const executionMsBefore = Date.now() - start
     const metaPre: Record<string, any> = { executionMs: executionMsBefore, sql }
     if (missingTables.length) {
-      metaPre.warnings = [`Tables without explicit joins added via CROSS JOIN: ${missingTables.join(', ')}`]
-      metaPre.error = 'cross_join_blocked'
+      metaPre.error = `No join path found for: ${missingTables.join(', ')}. Please use columns from the same table or define a join path.`
       return { columns, rows: [], meta: metaPre }
     }
 

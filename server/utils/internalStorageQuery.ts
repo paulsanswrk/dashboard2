@@ -121,36 +121,30 @@ export async function executeInternalStorageQuery(
     // Translate MySQL backticks to PostgreSQL double quotes
     let pgSql = translateIdentifiers(sql)
 
-    // Set the search_path to include the schema
-    // This allows unqualified table names to resolve correctly
-    const searchPathSql = `SET search_path TO ${wrapIdPg(schemaName)}, public`
+    // Convert ? placeholders to numbered placeholders ($1, $2, etc.)
+    let paramIndex = 0
+    const numberedSql = pgSql.replace(/\?/g, () => `$${++paramIndex}`)
 
     console.log(`[InternalStorage] Executing query in schema ${schemaName}`)
     console.log(`[InternalStorage] Original SQL: ${sql.substring(0, 200)}...`)
-    console.log(`[InternalStorage] Translated SQL: ${pgSql.substring(0, 200)}...`)
+    console.log(`[InternalStorage] Translated SQL: ${numberedSql.substring(0, 200)}...`)
 
     try {
-        // Set search path and execute query in a transaction-like manner
-        await pgClient.unsafe(searchPathSql)
+        // Use a transaction to ensure search_path and query run on the same connection
+        // This is critical for connection pooling - without a transaction, 
+        // SET search_path and the query could run on different connections
+        const result = await pgClient.begin(async (tx) => {
+            // Set search_path to include the schema (on THIS connection within the transaction)
+            await tx.unsafe(`SET LOCAL search_path TO "${schemaName}", public`)
 
-        // Execute the query
-        // Note: postgres.js uses $1, $2, etc. for parameters
-        // We need to convert ? placeholders to numbered placeholders
-        let paramIndex = 0
-        const numberedSql = pgSql.replace(/\?/g, () => `$${++paramIndex}`)
+            // Execute the query on the same connection
+            const rows = await tx.unsafe(numberedSql, params)
 
-        const result = await pgClient.unsafe(numberedSql, params)
+            return rows as any[]
+        })
 
-        // Reset search path to default
-        await pgClient.unsafe('SET search_path TO public')
-
-        return result as any[]
+        return result
     } catch (error: any) {
-        // Reset search path even on error
-        try {
-            await pgClient.unsafe('SET search_path TO public')
-        } catch { }
-
         console.error(`[InternalStorage] Query error:`, error?.message || error)
         throw error
     }

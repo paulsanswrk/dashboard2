@@ -134,6 +134,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   connectionId: number | null
+  initialStorageLocation?: string
 }>()
 
 const emit = defineEmits<{
@@ -142,7 +143,7 @@ const emit = defineEmits<{
 }>()
 
 // Storage options
-const storageLocation = ref('remote')
+const storageLocation = ref(props.initialStorageLocation || 'remote')
 const storageOptions = [
   {
     label: 'Remote Connection',

@@ -316,6 +316,7 @@
             </h3>
             <DataTransferPanel
                 :connection-id="createdConnectionId"
+                :initial-storage-location="form.storageLocation"
                 @storage-changed="handleStorageChange"
                 @schedule-saved="handleScheduleSaved"
             />
@@ -812,6 +813,7 @@ async function prefillFromConnection(id) {
       form.value.sshHost = conn.ssh_host || ''
       form.value.sshPassword = conn.ssh_password || ''
       form.value.sshPrivateKey = conn.ssh_private_key || ''
+      form.value.storageLocation = conn.storage_location || 'remote'
       createdConnectionId.value = id
     }
   } catch (e) {
