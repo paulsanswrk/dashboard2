@@ -108,75 +108,12 @@
       <!-- Main Content -->
       <div class="flex-1 flex flex-col lg:ml-0">
         <!-- Top Bar -->
-        <div class="topbar">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2 lg:gap-6">
-              <!-- Mobile Menu Button -->
-              <button
-                  @click="toggleMobileMenu"
-                  class="lg:hidden p-2 hover:bg-black/10 rounded-md transition-colors cursor-pointer"
-              >
-                <Icon :name="isMobileMenuOpen ? 'i-heroicons-x-mark' : 'i-heroicons-bars-3'" class="w-5 h-5"/>
-              </button>
-              <template v-if="isEditorOrViewer">
-                <OptiqoLogo/>
-              </template>
-              <template v-else>
-                <NuxtLink to="/" class="text-xl lg:text-sm font-heading font-semibold tracking-wide cursor-pointer">
-                OPTIQO
-                </NuxtLink>
-              </template>
-              <!-- Desktop Navigation -->
-              <nav v-if="topNavItems.length" class="hidden lg:flex gap-6">
-                <NuxtLink
-                    v-for="item in topNavItems"
-                    :key="item.route"
-                    :to="item.route"
-                    class="hover:underline hover:text-gray-200 font-heading font-medium text-sm tracking-wide transition-colors"
-                >
-                  {{ item.label }}
-                </NuxtLink>
-              </nav>
-              <!-- Mobile Navigation -->
-              <nav v-if="topNavItems.length" class="lg:hidden flex gap-2 text-xs">
-                <NuxtLink
-                    v-for="item in topNavItems"
-                    :key="item.route"
-                    :to="item.route"
-                    class="hover:underline hover:text-gray-200 font-heading font-medium tracking-wide transition-colors"
-                >
-                  {{ item.shortLabel || item.label }}
-                </NuxtLink>
-              </nav>
-            </div>
-            <div class="flex items-center gap-2 lg:gap-4">
-              <button class="p-2 hover:bg-black/10 rounded cursor-pointer">
-                <Icon name="i-heroicons-cog-6-tooth" class="w-4 h-4"/>
-              </button>
-
-              <!-- Account Dropdown -->
-              <UDropdownMenu :items="accountMenuItems" :popper="{ placement: 'bottom-end' }" :ui="{ background: 'bg-white dark:bg-gray-800' }" @select="handleMenuSelect">
-                <UButton variant="ghost" class="p-1 hover:bg-transparent avatar-button">
-                  <UAvatar
-                      :alt="userDisplayName"
-                      :src="userProfile?.avatar_url"
-                      :text="userInitials"
-                      size="sm"
-                      :class="userProfile?.avatar_url ? 'avatar-custom' : 'ring-2 ring-gray-200 avatar-custom'"
-                      :ui="{ background: userProfile?.avatar_url ? '' : 'bg-gray-300 dark:bg-gray-500' }"
-                  />
-                </UButton>
-
-                <template #account>
-                  <div class="px-2 py-1.5">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ userDisplayName }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ userProfile?.email }}</p>
-                  </div>
-                </template>
-              </UDropdownMenu>
-            </div>
-          </div>
-        </div>
+        <TopBar 
+            :show-mobile-menu-button="true" 
+            :show-settings-button="true"
+            :mobile-menu-open="isMobileMenuOpen"
+            @toggle-mobile-menu="toggleMobileMenu"
+        />
 
         <!-- Page Content -->
         <main class="flex-1 overflow-auto">
@@ -213,7 +150,6 @@
 <script setup lang="ts">
 // Authentication
 const {userProfile, signOut} = useAuth()
-const user = useSupabaseUser()
 
 // Theme management
 const {isDark, toggleTheme, themeIcon, themeLabel} = useTheme()
@@ -230,27 +166,13 @@ const isViewer = computed(() => role.value === 'VIEWER')
 const isEditor = computed(() => role.value === 'EDITOR')
 const isAdmin = computed(() => role.value === 'ADMIN')
 const isSuperAdmin = computed(() => role.value === 'SUPERADMIN')
-const isEditorOrViewer = computed(() => isEditor.value || isViewer.value)
-
-// User display properties
-const userDisplayName = computed(() => {
-  if (!userProfile.value) return 'User'
-  return `${userProfile.value.firstName} ${userProfile.value.lastName}`
-})
-
-const userInitials = computed(() => {
-  if (!userProfile.value) return 'U'
-  const first = userProfile.value.firstName?.charAt(0) || ''
-  const last = userProfile.value.lastName?.charAt(0) || ''
-  return `${first}${last}`.toUpperCase()
-})
 
 // Current year for copyright
 const currentYear = computed(() => new Date().getFullYear())
 
 const isMobileMenuOpen = ref(false)
 
-// Top navigation items by role (content work)
+// Top navigation items by role (content work) - used by sidebar for mobile
 const topNavItems = computed(() => {
 
   if (isViewer.value) {
@@ -292,42 +214,6 @@ const showSideNav = computed(() =>
     sideNavItems.value.length > 0 || (isMobileMenuOpen.value && topNavItems.value.length > 0)
 )
 
-// Account dropdown menu items
-const accountMenuItems = computed(() => {
-  const baseItems = [
-    [{
-      label: userDisplayName.value,
-      slot: 'account',
-      disabled: true
-    }]
-  ]
-
-  // Add common menu items
-  baseItems.push(
-      [{
-        label: 'Account Settings',
-        icon: 'i-heroicons-user',
-        to: '/account'
-      }],
-      [{
-        label: themeLabel.value,
-        icon: themeIcon.value,
-        onClick() {
-          toggleTheme()
-        }
-      }],
-      [{
-        label: 'Sign Out',
-        icon: 'i-heroicons-arrow-right-on-rectangle',
-        onClick() {
-          handleSignOut()
-        }
-      }]
-  )
-
-  return baseItems
-})
-
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
 }
@@ -366,35 +252,6 @@ const isActiveRoute = (routePath: string) => {
   }
 
   return false
-}
-
-const handleThemeToggle = () => {
-  debugger
-  toggleTheme()
-}
-
-const handleSignOutClick = () => {
-  handleSignOut()
-}
-
-const handleMenuSelect = (item: any) => {
-  console.log('Menu item selected:', item)
-  if (item.to) {
-    navigateTo(item.to)
-  } else if (item.onClick) {
-    console.log('Calling onClick handler')
-    item.onClick()
-  } else if (item.click) {
-    console.log('Calling click handler')
-    item.click()
-  } else if (item.action) {
-    console.log('Handling action:', item.action)
-    if (item.action === 'toggleTheme') {
-      toggleTheme()
-    }
-  } else {
-    console.log('No onClick, click, to, or action property found')
-  }
 }
 
 const handleSignOut = async () => {

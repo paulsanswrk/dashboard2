@@ -1,19 +1,54 @@
 import mysql from 'mysql2/promise'
 import { Client } from 'ssh2'
+import { supabaseAdmin } from '../supabase'
+import { AuthHelper } from '../../utils/authHelper'
+
+// Mask value used in connection.get.ts - credentials matching this are fetched from DB
+const MASKED_VALUE = '********'
 
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { 
-      host, 
-      port, 
-      username, 
-      password, 
-      database, 
+    let {
+      host,
+      port,
+      username,
+      password,
+      database,
       jdbcParams = '',
       useSshTunneling = false,
-      sshConfig = {}
+      sshConfig = {},
+      connectionId // Optional - used to fetch real credentials when masked
     } = body
+
+    // If password is masked and connectionId is provided, fetch real credentials from DB
+    if (password === MASKED_VALUE && connectionId) {
+      const conn = await AuthHelper.requireConnectionAccess(event, Number(connectionId), { columns: '*' })
+
+      // Fetch real credentials
+      const { data: realConn, error } = await supabaseAdmin
+        .from('data_connections')
+        .select('password, ssh_password, ssh_private_key')
+        .eq('id', connectionId)
+        .eq('organization_id', conn.organization_id)
+        .single()
+
+      if (error || !realConn) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: 'Connection not found or access denied'
+        })
+      }
+
+      // Replace masked values with real credentials
+      password = realConn.password
+      if (sshConfig?.password === MASKED_VALUE) {
+        sshConfig.password = realConn.ssh_password
+      }
+      if (sshConfig?.privateKey === MASKED_VALUE) {
+        sshConfig.privateKey = realConn.ssh_private_key
+      }
+    }
 
     // Validate required fields
     if (!host || !port || !username || !password || !database) {
@@ -22,6 +57,7 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Missing required connection parameters'
       })
     }
+
 
     // Parse port to number
     const portNumber = parseInt(port, 10)
@@ -54,11 +90,11 @@ export default defineEventHandler(async (event) => {
     let connection
     try {
       connection = await mysql.createConnection(connectionConfig)
-      
+
       // Test a simple query to ensure the connection works
-        const [rows] = await connection.execute('SELECT 1 as test')
-        console.log('SQL query result:', rows)
-      
+      const [rows] = await connection.execute('SELECT 1 as test')
+      console.log('SQL query result:', rows)
+
       return {
         success: true,
         message: 'Successfully connected to the database. All credentials are valid.',
@@ -71,10 +107,10 @@ export default defineEventHandler(async (event) => {
       }
     } catch (dbError: any) {
       console.error('Database connection error:', dbError)
-      
+
       // Provide user-friendly error messages
       let errorMessage = 'Failed to connect to the database.'
-      
+
       if (dbError.code === 'ECONNREFUSED') {
         errorMessage = 'Connection refused. Please check the host and port.'
       } else if (dbError.code === 'ENOTFOUND') {
@@ -90,7 +126,7 @@ export default defineEventHandler(async (event) => {
       } else if (dbError.message) {
         errorMessage = `Database error: ${dbError.message}`
       }
-      
+
       return {
         success: false,
         message: errorMessage,
@@ -109,7 +145,7 @@ export default defineEventHandler(async (event) => {
     }
   } catch (error: any) {
     console.error('Connection test error:', error)
-    
+
     throw createError({
       statusCode: error.statusCode || 500,
       statusMessage: error.message || 'Internal server error'
@@ -119,22 +155,22 @@ export default defineEventHandler(async (event) => {
 
 // SSH tunnel connection test function
 async function testConnectionWithSSHTunnel(body: any) {
-  const { 
-    host, 
-    port, 
-    username, 
-    password, 
+  const {
+    host,
+    port,
+    username,
+    password,
     database,
     sshConfig = {}
   } = body
 
-  const { 
-    port: sshPort, 
-    user: sshUser, 
-    host: sshHost, 
+  const {
+    port: sshPort,
+    user: sshUser,
+    host: sshHost,
     password: sshPassword,
     privateKey,
-    authMethod 
+    authMethod
   } = sshConfig
 
   // Validate SSH configuration
@@ -212,9 +248,9 @@ async function testConnectionWithSSHTunnel(body: any) {
             })
           } catch (dbErr: any) {
             console.error('❌ MySQL connection through SSH tunnel failed:', dbErr)
-            
+
             let errorMessage = 'Failed to connect to MySQL through SSH tunnel.'
-            
+
             if (dbErr.code === 'ER_ACCESS_DENIED_ERROR') {
               errorMessage = 'Access denied. Please check the MySQL username and password.'
             } else if (dbErr.code === 'ER_BAD_DB_ERROR') {
@@ -237,9 +273,9 @@ async function testConnectionWithSSHTunnel(body: any) {
 
     ssh.on('error', (err) => {
       console.error('❌ SSH connection error:', err)
-      
+
       let errorMessage = 'Failed to connect to SSH server.'
-      
+
       if (err.message.includes('Authentication failed')) {
         errorMessage = 'SSH authentication failed. Please check your SSH credentials.'
       } else if (err.message.includes('ECONNREFUSED')) {
@@ -277,14 +313,14 @@ async function testConnectionWithSSHTunnel(body: any) {
 // Helper function to parse JDBC URL parameters
 function parseJdbcParams(jdbcParams: string): Record<string, any> {
   const params: Record<string, any> = {}
-  
+
   if (!jdbcParams || !jdbcParams.startsWith('?')) {
     return params
   }
-  
+
   const queryString = jdbcParams.substring(1) // Remove the '?'
   const pairs = queryString.split('&')
-  
+
   for (const pair of pairs) {
     const [key, value] = pair.split('=')
     if (key && value) {
@@ -300,6 +336,6 @@ function parseJdbcParams(jdbcParams: string): Record<string, any> {
       }
     }
   }
-  
+
   return params
 }
