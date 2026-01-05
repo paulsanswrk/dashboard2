@@ -23,3 +23,12 @@ export const DEVICE_PREVIEW_WIDTHS = {
     tablet: 768,
     mobile: 390
 } as const
+
+/** Available dashboard width presets for user selection */
+export const DASHBOARD_WIDTH_PRESETS = [
+    { label: 'Default (1200px)', value: 1200 },
+    { label: 'Wide (1400px)', value: 1400 },
+    { label: 'Extra Wide (1600px)', value: 1600 },
+    { label: 'Full HD (1920px)', value: 1920 },
+] as const
+

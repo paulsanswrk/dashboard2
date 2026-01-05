@@ -132,7 +132,7 @@
     </div>
 
     <!-- SQL Panel (hidden by default, toggle removed from UI) -->
-    <div v-if="useSql" class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+    <div v-if="useSql && isDebug" class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
       <div class="flex items-center gap-3 mb-3">
         <label class="text-sm font-medium">Override SQL</label>
         <input type="checkbox" v-model="overrideSql" :disabled="loading" />

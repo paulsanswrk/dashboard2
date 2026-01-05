@@ -1698,8 +1698,8 @@ function renderChart() {
     legend: {
       show: showLegend,
       data: series.map(s => s.name),
-      top: props.appearance?.legendPosition === 'bottom' ? 'bottom' :
-          props.appearance?.legendPosition === 'left' || props.appearance?.legendPosition === 'right' ? 'middle' : 'top',
+      top: props.appearance?.legendPosition === 'top' ? 'top' :
+          props.appearance?.legendPosition === 'left' || props.appearance?.legendPosition === 'right' ? 'middle' : 'bottom',
       left: props.appearance?.legendPosition === 'left' ? 'left' :
           props.appearance?.legendPosition === 'right' ? 'right' : 'center',
       orient: props.appearance?.legendPosition === 'left' || props.appearance?.legendPosition === 'right' ? 'vertical' : 'horizontal',
@@ -1708,7 +1708,7 @@ function renderChart() {
     grid: {
       left: props.appearance?.legendPosition === 'left' ? '15%' : '3%',
       right: props.appearance?.legendPosition === 'right' ? '15%' : '4%',
-      bottom: props.appearance?.legendPosition === 'bottom' ? '15%' : '10%',
+      bottom: (props.appearance?.legendPosition === 'bottom' || !props.appearance?.legendPosition) ? '15%' : '10%',
       top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
       containLabel: true
     },

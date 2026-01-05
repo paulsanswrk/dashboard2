@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="relative min-h-full border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden" @click="handleContainerClick">
+  <div ref="containerRef" class="relative w-full min-h-full border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden" @click="handleContainerClick">
     <!-- Device width indicator overlay - only show for tablet/mobile -->
     <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
       <!-- Left overlay -->
@@ -23,117 +23,120 @@
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
       <span class="ml-3 text-gray-500">Loading dashboard...</span>
     </div>
-    <!-- Scaled container wrapper - maintains aspect ratio when scaling -->
-    <div v-else :style="[scaledContainerStyle, {
-      fontFamily: tabStyle?.fontFamily,
-      backgroundColor: tabStyle?.backgroundColor
-    }]">
-      <ClientOnly>
-        <GridLayout
-            :layout="layout"
-            :col-num="gridConfig.colNum"
-            :row-height="gridConfig.rowHeight"
-            :max-rows="gridConfig.maxRows"
-            :margin="gridConfig.margin"
-            :is-draggable="gridConfig.isDraggable && !preview"
-            :is-resizable="gridConfig.isResizable && !preview"
-            :is-mirrored="gridConfig.isMirrored"
-            :is-bounded="gridConfig.isBounded"
-            :auto-size="gridConfig.autoSize"
-            :vertical-compact="gridConfig.verticalCompact"
-            :restore-on-drag="gridConfig.restoreOnDrag"
-            :prevent-collision="gridConfig.preventCollision"
-            :use-css-transforms="gridConfig.useCssTransforms"
-            :use-style-cursor="gridConfig.useStyleCursor && !preview"
-            :transform-scale="gridConfig.transformScale"
-            :responsive="gridConfig.responsive"
-            :breakpoints="gridConfig.breakpoints"
-            :cols="gridConfig.cols"
-            @layout-updated="onLayoutUpdated"
-        >
-          <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
-            <template v-if="findWidget(item.i)?.type === 'chart'">
-              <UCard
-                  :class="['h-full w-full transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i), 'cursor-pointer': !preview}]"
-                  :ui="{ body: { padding: 'sm:p-2 p-2' } }"
-                  :style="[getWidgetContainerStyle(item.i), {
-                    backgroundColor: tabStyle?.chartBackground
-                  }]"
-                  @click.stop="!preview && handleSelectText(item.i)"
-              >
-                <div class="mb-2">
-                  <input
-                      :value="findChartName(item.i)"
-                      class="w-full !bg-transparent text-sm font-semibold px-0 py-0 focus:outline-none focus:ring-0 focus:border-transparent"
+    <!-- Wrapper uses relative positioning and sets the visual height after scaling -->
+    <!-- The inner scaled container is absolute so its original large size doesn't affect layout -->
+    <div v-else class="relative" :style="wrapperStyle">
+      <div class="absolute top-0 left-0" :style="[scaledContainerStyle, {
+        fontFamily: tabStyle?.fontFamily,
+        backgroundColor: tabStyle?.backgroundColor
+      }]">
+        <ClientOnly>
+          <GridLayout
+              :layout="layout"
+              :col-num="gridConfig.colNum"
+              :row-height="gridConfig.rowHeight"
+              :max-rows="gridConfig.maxRows"
+              :margin="gridConfig.margin"
+              :is-draggable="gridConfig.isDraggable && !preview"
+              :is-resizable="gridConfig.isResizable && !preview"
+              :is-mirrored="gridConfig.isMirrored"
+              :is-bounded="gridConfig.isBounded"
+              :auto-size="gridConfig.autoSize"
+              :vertical-compact="gridConfig.verticalCompact"
+              :restore-on-drag="gridConfig.restoreOnDrag"
+              :prevent-collision="gridConfig.preventCollision"
+              :use-css-transforms="gridConfig.useCssTransforms"
+              :use-style-cursor="gridConfig.useStyleCursor && !preview"
+              :transform-scale="gridConfig.transformScale"
+              :responsive="gridConfig.responsive"
+              :breakpoints="gridConfig.breakpoints"
+              :cols="gridConfig.cols"
+              @layout-updated="onLayoutUpdated"
+          >
+            <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
+              <template v-if="findWidget(item.i)?.type === 'chart'">
+                <UCard
+                    :class="['h-full w-full transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i), 'cursor-pointer': !preview}]"
+                    :ui="{ body: { padding: 'sm:p-2 p-2' } }"
+                    :style="[getWidgetContainerStyle(item.i), {
+                      backgroundColor: tabStyle?.chartBackground
+                    }]"
+                    @click.stop="!preview && handleSelectText(item.i)"
+                >
+                  <div class="mb-2">
+                    <input
+                        :value="findChartName(item.i)"
+                        class="w-full !bg-transparent text-sm font-semibold px-0 py-0 focus:outline-none focus:ring-0 focus:border-transparent"
+                        :readonly="preview"
+                        @focus.stop="!preview && handleSelectText(item.i)"
+                        @input="onChartNameInput(item.i, $event)"
+                    />
+                  </div>
+                  <div class="h-full">
+                    <DashboardChartRenderer
+                        :state="findChartState(item.i)"
+                        :config-override="findConfigOverride(item.i)"
+                        :preloaded-columns="findChartColumns(item.i)"
+                        :preloaded-rows="findChartRows(item.i)"
+                        :dashboard-filters="dashboardFilters"
+                        :tab-style="tabStyle"
+                    />
+                  </div>
+                </UCard>
+              </template>
+              <template v-else-if="findWidget(item.i)?.type === 'text'">
+                <div
+                    class="h-full w-full relative rounded-md p-2"
+                    :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
+                    :style="getWidgetContainerStyle(item.i)"
+                    @click.stop="!preview && handleSelectText(item.i)"
+                >
+                  <DashboardTextWidget
+                      :style-props="findWidgetStyle(item.i)"
+                      class="h-full w-full"
                       :readonly="preview"
-                      @focus.stop="!preview && handleSelectText(item.i)"
-                      @input="onChartNameInput(item.i, $event)"
+                      @update:content="handleUpdateTextContent(item.i, $event)"
                   />
                 </div>
-                <div class="h-full">
-                  <DashboardChartRenderer
-                      :state="findChartState(item.i)"
-                      :config-override="findConfigOverride(item.i)"
-                      :preloaded-columns="findChartColumns(item.i)"
-                      :preloaded-rows="findChartRows(item.i)"
-                      :dashboard-filters="dashboardFilters"
-                      :tab-style="tabStyle"
+              </template>
+              <template v-else-if="findWidget(item.i)?.type === 'image'">
+                <div
+                    class="h-full w-full relative rounded-md overflow-hidden"
+                    :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
+                    :style="getWidgetContainerStyle(item.i)"
+                    @click.stop="!preview && handleSelectText(item.i)"
+                >
+                  <DashboardImageWidget
+                      :style-props="findWidgetStyle(item.i)"
+                      :edit-mode="!preview"
+                      class="h-full w-full"
                   />
                 </div>
-              </UCard>
-            </template>
-            <template v-else-if="findWidget(item.i)?.type === 'text'">
-              <div
-                  class="h-full w-full relative rounded-md p-2"
-                  :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
-                  :style="getWidgetContainerStyle(item.i)"
-                  @click.stop="!preview && handleSelectText(item.i)"
-              >
-                <DashboardTextWidget
-                    :style-props="findWidgetStyle(item.i)"
-                    class="h-full w-full"
-                    :readonly="preview"
-                    @update:content="handleUpdateTextContent(item.i, $event)"
-                />
-              </div>
-            </template>
-            <template v-else-if="findWidget(item.i)?.type === 'image'">
-              <div
-                  class="h-full w-full relative rounded-md overflow-hidden"
-                  :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
-                  :style="getWidgetContainerStyle(item.i)"
-                  @click.stop="!preview && handleSelectText(item.i)"
-              >
-                <DashboardImageWidget
-                    :style-props="findWidgetStyle(item.i)"
-                    :edit-mode="!preview"
-                    class="h-full w-full"
-                />
-              </div>
-            </template>
-            <template v-else-if="findWidget(item.i)?.type === 'icon'">
-              <div
-                  class="h-full w-full relative rounded-md overflow-hidden"
-                  :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
-                  :style="getWidgetContainerStyle(item.i)"
-                  @click.stop="!preview && handleSelectText(item.i)"
-              >
-                <DashboardIconWidget
-                    :style-props="findWidgetStyle(item.i)"
-                    :edit-mode="!preview"
-                    class="h-full w-full"
-                />
-              </div>
-            </template>
-            <template v-else>
-              <div class="h-full flex items-center justify-center text-sm text-gray-500">
-                Unsupported widget
-              </div>
-            </template>
+              </template>
+              <template v-else-if="findWidget(item.i)?.type === 'icon'">
+                <div
+                    class="h-full w-full relative rounded-md overflow-hidden"
+                    :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
+                    :style="getWidgetContainerStyle(item.i)"
+                    @click.stop="!preview && handleSelectText(item.i)"
+                >
+                  <DashboardIconWidget
+                      :style-props="findWidgetStyle(item.i)"
+                      :edit-mode="!preview"
+                      class="h-full w-full"
+                  />
+                </div>
+              </template>
+              <template v-else>
+                <div class="h-full flex items-center justify-center text-sm text-gray-500">
+                  Unsupported widget
+                </div>
+              </template>
 
-          </GridItem>
-        </GridLayout>
-      </ClientOnly>
+            </GridItem>
+          </GridLayout>
+        </ClientOnly>
+      </div>
     </div>
   </div>
 </template>
@@ -186,6 +189,8 @@ interface Props {
   selectedTextId?: string
   /** Whether to enable scaling to fit container (default: true for display, false for PDF rendering) */
   scalingEnabled?: boolean
+  /** Custom dashboard width in pixels (defaults to DASHBOARD_WIDTH constant) */
+  dashboardWidth?: number
   dashboardFilters?: Array<{
     fieldId: string
     table: string
@@ -248,30 +253,49 @@ watch(containerRef, () => {
   updateContainerWidth()
 })
 
-// Get the dashboard canvas width based on device
+// Get the dashboard canvas width based on device and custom dashboard width
 const previewWidth = computed(() => {
   if (props.device === 'mobile') return DEVICE_PREVIEW_WIDTHS.mobile
   if (props.device === 'tablet') return DEVICE_PREVIEW_WIDTHS.tablet
-  return DASHBOARD_WIDTH
+  return props.dashboardWidth || DASHBOARD_WIDTH
 })
 
 // Calculate scale factor to fit dashboard in available space
+// Scales both up and down to fill the container without dead zones
 const scale = computed(() => {
   if (!props.scalingEnabled || containerWidth.value === 0) return 1
-  // Only scale down, never scale up
-  return Math.min(1, containerWidth.value / previewWidth.value)
+  return containerWidth.value / previewWidth.value
 })
 
 // Style for the scaled dashboard container
+// Position is set by template class (absolute), this just handles width and transform
 const scaledContainerStyle = computed(() => {
   const s = scale.value
+  // When scale is 1, no transform needed
+  if (s === 1) {
+    return {
+      width: `${previewWidth.value}px`,
+      zIndex: 20,
+    }
+  }
+  // When scaling, set width to desired preview width but transform it
   return {
     width: `${previewWidth.value}px`,
-    margin: '0 auto',
-    position: 'relative' as const,
     zIndex: 20,
-    transform: s < 1 ? `scale(${s})` : undefined,
-    transformOrigin: s < 1 ? 'top center' : undefined,
+    transform: `scale(${s})`,
+    transformOrigin: 'top left',
+  }
+})
+
+// Wrapper style to constrain the scaled content and prevent horizontal scroll
+// The wrapper has explicit dimensions matching the visually scaled size
+const wrapperStyle = computed(() => {
+  const s = scale.value
+  // Use 100% width of parent (which is constrained by CSS)
+  // Height is auto to flow with content, but we use min-height for safety
+  return {
+    width: '100%',
+    minHeight: '400px',
   }
 })
 

@@ -22,7 +22,9 @@
             :tab-style="tabStyle"
             :active-tab-name="activeTabName"
             :readonly="readonly"
+            :dashboard-width="dashboardWidth"
             @update:tab-style="$emit('update-tab-style', $event)"
+            @update:dashboard-width="$emit('update-dashboard-width', $event)"
         />
         <template v-else>
           <component
@@ -52,6 +54,7 @@ const props = defineProps<{
   chartAppearance?: any
   tabStyle?: TabStyleOptions
   activeTabName?: string
+  dashboardWidth?: number
 }>()
 
 const emit = defineEmits<{
@@ -68,6 +71,7 @@ const emit = defineEmits<{
   'update-icon-style': [partial: Record<string, any>]
   'change-icon': []
   'update-tab-style': [style: TabStyleOptions]
+  'update-dashboard-width': [width: number]
 }>()
 
 const panelComponent = computed(() => {

@@ -641,7 +641,7 @@
 
 
       <div class="flex gap-4 items-stretch flex-1 min-h-0">
-        <div class="flex-1 min-w-0 h-full">
+        <div class="flex-1 min-w-0 h-full overflow-hidden">
           <div class="h-full overflow-auto pr-1">
             <Dashboard
                 :device="device"
@@ -654,6 +654,7 @@
                 :selected-text-id="selectedWidgetId"
                 :dashboard-filters="activeFilterConditions"
                 :tab-style="activeTabStyle"
+                :dashboard-width="dashboardWidth"
                 ref="dashboardRef"
                 @edit-chart="editChart"
                 @rename-chart="startRenameChart"
@@ -738,6 +739,7 @@
               :readonly="!isEditableSession"
               :tab-style="activeTabStyle"
               :active-tab-name="activeTabName"
+              :dashboard-width="dashboardWidth"
               class="flex-1 min-h-0 overflow-auto !rounded-t-none !border-t-0"
               @update-text-form="updateTextForm"
               @update-text-content="updateTextContentInline"
@@ -752,6 +754,7 @@
               @update-icon-style="updateIconStyle"
               @change-icon="handleChangeIcon"
               @update-tab-style="updateTabStyle"
+              @update-dashboard-width="updateDashboardWidth"
           />
         </aside>
       </div>
@@ -761,6 +764,7 @@
 
 <script setup lang="ts">
 definePageMeta({
+  layout: 'dashboard',
   alias: ['/dashboards/:id/edit']
 })
 
@@ -830,6 +834,7 @@ const activeTabId = ref<string>('')
 const gridLayout = ref<any[]>([])
 const tabLayouts = reactive<Record<string, any[]>>({})
 const initialTabLayouts = ref<Record<string, any[]>>({})
+const dashboardWidth = ref<number | undefined>(undefined)
 const loading = ref(true)
 
 const showRenameModal = ref(false)
@@ -1340,6 +1345,7 @@ async function load() {
   try {
     const res = await getDashboardFull(id.value)
     dashboardName.value = res.name
+    dashboardWidth.value = res.width || undefined
 
     tabs.value = (res.tabs || []).map((t: any) => ({
       id: t.id,
@@ -2281,6 +2287,29 @@ function updateTabStyle(newStyle: any) {
     // Update baseline
     tabStyleBaseline = {tabId, style: capturedNewStyle}
   }, 500)
+}
+
+// Dashboard width update with debounce
+let saveDashboardWidthTimer: ReturnType<typeof setTimeout> | null = null
+
+function updateDashboardWidth(newWidth: number) {
+  if (!isEditableSession.value) return
+
+  // Update local state immediately
+  dashboardWidth.value = newWidth
+
+  // Debounce persist to server
+  if (saveDashboardWidthTimer) {
+    clearTimeout(saveDashboardWidthTimer)
+  }
+  saveDashboardWidthTimer = setTimeout(async () => {
+    try {
+      await updateDashboard(id.value, { width: newWidth })
+      console.log('[Page] Dashboard width saved:', newWidth)
+    } catch (error) {
+      console.error('Failed to save dashboard width', error)
+    }
+  }, 300)
 }
 
 function selectWidget(widgetId: string) {
