@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody } from 'h3'
 import Anthropic from '@anthropic-ai/sdk'
+import { CLAUDE_MODEL } from '../../utils/aiConfig'
 
 type RequestBody = {
   userPrompt: string
@@ -52,7 +53,7 @@ Always ensure your configuration is complete and will render properly with EChar
   try {
     const dataSample = body.dataSample?.slice(0, 5) || []
     const response = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: CLAUDE_MODEL,
       max_tokens: 2048,
       temperature: 0.3,
       system: systemPrompt,
@@ -80,8 +81,8 @@ Generate a complete ECharts option object.`
     } catch (e) {
       // Try to extract JSON from markdown code blocks or other formatting
       const match = content.match(/```json\s*([\s\S]*?)\s*```/) ||
-                   content.match(/```\s*([\s\S]*?)\s*```/) ||
-                   content.match(/\{[\s\S]*\}/)
+        content.match(/```\s*([\s\S]*?)\s*```/) ||
+        content.match(/\{[\s\S]*\}/)
       if (match) {
         parsed = JSON.parse(match[1] || match[0])
       } else {

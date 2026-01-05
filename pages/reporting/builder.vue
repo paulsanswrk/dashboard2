@@ -299,7 +299,7 @@ const aiModeEnabled = ref(true)
 
 // AI chat state
 const aiMessages = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])
-const aiInput = ref('Show me a pie chart of film categories by number of films')
+const aiInput = ref('')
 const aiLoading = ref(false)
 const chatContainer = ref<HTMLElement | null>(null)
 

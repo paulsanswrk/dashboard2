@@ -71,6 +71,32 @@ function getCurrentState(): { sql: string; chartType: string; appearance: any }
 }
 ```
 
+#### 4. **server/utils/aiConfig.ts** (NEW)
+**Purpose**: Centralized AI configuration constants
+
+```typescript
+// Claude model identifier - update this when upgrading to newer Claude versions
+export const CLAUDE_MODEL = 'claude-3-7-sonnet-20250219'
+export const CLAUDE_DEFAULT_TEMPERATURE = 0.3
+export const CLAUDE_DEFAULT_MAX_TOKENS = 2048
+```
+
+All Claude API endpoints import and use this constant, enabling easy model upgrades by changing a single file.
+**Purpose**: API endpoint for AI chart generation
+
+**Request Format**:
+```typescript
+{
+  connectionId: number,           // Required: Data connection ID
+  userPrompt: string,             // Required: User's natural language request
+  currentSql?: string,            // Optional: Current SQL query
+  currentChartType?: string,      // Optional: Current chart type
+  currentAppearance?: object,     // Optional: Current appearance settings
+  datasetId?: string,             // Optional: Dataset ID
+  schemaJson?: unknown            // Optional: Schema override
+}
+```
+
 **Response Format**:
 ```typescript
 {
@@ -131,7 +157,7 @@ AI receives:
   - Current SQL (if any)
   - Current chart type (if any)
   - Current appearance settings (if any)
-  - Database schema
+  - Database schema (with foreign keys)
   - Selected connection ID
 ```
 
@@ -174,8 +200,31 @@ The AI assistant is configured with a comprehensive system prompt that includes:
 #### Context Propagation
 The system maintains context across requests by:
 1. **Current State Retrieval**: Getting current SQL, chart type, and appearance from builder
-2. **Schema Awareness**: Loading database schema for the selected connection
+2. **Schema Awareness**: Loading database schema for the selected connection, including foreign key relationships
 3. **Iterative Building**: Using current state as foundation for new requests
+
+#### Schema Information Provided
+The AI receives comprehensive schema information for each table:
+- **Table name and columns** with data types
+- **Column type flags**: `isDate`, `isString`, `isBoolean`, `isNumeric`
+- **Foreign key relationships**: `sourceColumn`, `targetTable`, `targetColumn`
+
+Example schema format:
+```json
+{
+  "tables": [
+    {
+      "tableId": "film_category",
+      "columns": [...],
+      "primaryKey": [],
+      "foreignKeys": [
+        { "sourceColumn": "film_id", "targetTable": "film", "targetColumn": "film_id" },
+        { "sourceColumn": "category_id", "targetTable": "category", "targetColumn": "category_id" }
+      ]
+    }
+  ]
+}
+```
 
 #### Auto-Application Mechanism
 ```typescript
@@ -221,7 +270,6 @@ Query executes against correct database
 
 #### Input Features
 - **Multi-line Textarea**: 3 rows height, non-resizable
-- **Pre-filled Example**: "Show me a pie chart of film categories by number of films"
 - **Smart Keyboard Handling**: Enter sends, Shift+Enter adds new line
 - **Disabled During Loading**: Prevents multiple simultaneous requests
 
@@ -305,7 +353,7 @@ CLAUDE_AI_KEY=your_claude_api_key_here
 ```
 
 ### Dependencies
-- **@anthropic-ai/sdk**: Claude AI client library
+- **@anthropic-ai/sdk**: Claude AI client library (^0.71.2+)
 - **Existing MySQL/mysql2**: Database connectivity
 - **Vue 3 Composition API**: Frontend reactivity
 - **Nuxt 3**: Server-side rendering and API routes
@@ -353,6 +401,7 @@ CLAUDE_AI_KEY=your_claude_api_key_here
 - **docs/implementation/charts/charts.md**: Chart type specifications
 - **docs/implementation/connections/data-connections-takeaways.md**: Connection management
 - **server/api/reporting/README.md**: API documentation
+- **server/utils/aiConfig.ts**: Centralized AI model configuration
 
 ## 🏁 Conclusion
 
@@ -368,5 +417,7 @@ The feature successfully bridges the gap between technical data analysis and bus
 ---
 
 **Implementation Date**: October 28, 2025
+**Last Updated**: January 5, 2026
 **Status**: ✅ Complete and Production-Ready
+**Claude Model**: claude-3-7-sonnet-20250219 (configurable via `server/utils/aiConfig.ts`)
 **Maintainer**: AI Assistant Integration Team

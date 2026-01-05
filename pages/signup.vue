@@ -224,6 +224,13 @@
 </template>
 
 <script setup>
+// Show reCAPTCHA badge on this auth page
+useHead({
+  bodyAttrs: {
+    class: 'show-recaptcha'
+  }
+})
+
 // Redirect if already authenticated
 const { isAuthenticated, redirectToDashboard } = useAuth()
 

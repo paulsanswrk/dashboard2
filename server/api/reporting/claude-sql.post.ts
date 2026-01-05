@@ -1,8 +1,9 @@
-import {defineEventHandler, readBody} from 'h3'
+import { defineEventHandler, readBody } from 'h3'
 import Anthropic from '@anthropic-ai/sdk'
-import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
-import {AuthHelper} from '../../utils/authHelper'
+import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import { AuthHelper } from '../../utils/authHelper'
+import { CLAUDE_MODEL } from '../../utils/aiConfig'
 
 type RequestBody = {
     connectionId: number
@@ -15,7 +16,7 @@ type RequestBody = {
 export default defineEventHandler(async (event) => {
     const body = await readBody<RequestBody>(event)
     if (!body?.connectionId || !body?.userPrompt) {
-        throw createError({statusCode: 400, statusMessage: 'Missing connectionId or userPrompt'})
+        throw createError({ statusCode: 400, statusMessage: 'Missing connectionId or userPrompt' })
     }
 
     const connectionData = await AuthHelper.requireConnectionAccess(event, body.connectionId, {
@@ -35,7 +36,33 @@ export default defineEventHandler(async (event) => {
             )
             // Minimal live schema format similar to docs/examples/ddl
             const tableNames = (tables as any[]).map((r) => String(r.tableName))
-            const result: any = {tables: [] as any[]}
+
+            // Get all foreign keys for this database
+            const [allFks] = await conn.query(
+                `SELECT 
+                 kcu.TABLE_NAME as sourceTable,
+                 kcu.COLUMN_NAME as sourceColumn,
+                 kcu.REFERENCED_TABLE_NAME as targetTable,
+                 kcu.REFERENCED_COLUMN_NAME as targetColumn
+               FROM information_schema.KEY_COLUMN_USAGE kcu
+               WHERE kcu.TABLE_SCHEMA = DATABASE()
+                 AND kcu.REFERENCED_TABLE_NAME IS NOT NULL`
+            )
+
+            // Group FKs by table
+            const fksByTable: Record<string, any[]> = {}
+            for (const fk of allFks as any[]) {
+                if (!fksByTable[fk.sourceTable]) {
+                    fksByTable[fk.sourceTable] = []
+                }
+                fksByTable[fk.sourceTable].push({
+                    sourceColumn: fk.sourceColumn,
+                    targetTable: fk.targetTable,
+                    targetColumn: fk.targetColumn
+                })
+            }
+
+            const result: any = { tables: [] as any[] }
             for (const tn of tableNames) {
                 const [cols] = await conn.query(
                     `SELECT COLUMN_NAME as name, DATA_TYPE as type
@@ -57,7 +84,7 @@ export default defineEventHandler(async (event) => {
                         isNumeric: !['char', 'varchar', 'text', 'blob'].includes(String(c.type).toLowerCase()),
                     })),
                     primaryKey: [],
-                    foreignKeys: []
+                    foreignKeys: fksByTable[tn] || []
                 })
             }
             return result
@@ -71,14 +98,14 @@ export default defineEventHandler(async (event) => {
         const chartsDocPath = new URL('../../../../docs/implementation/charts/charts.md', import.meta.url)
         const fs = await import('fs/promises')
         chartsDescription = await fs.readFile(chartsDocPath, 'utf8')
-    } catch {}
+    } catch { }
 
     const apiKey = process.env.CLAUDE_AI_KEY
     if (!apiKey) {
-        throw createError({statusCode: 500, statusMessage: 'CLAUDE_AI_KEY is not configured'})
+        throw createError({ statusCode: 500, statusMessage: 'CLAUDE_AI_KEY is not configured' })
     }
 
-    const client = new Anthropic({apiKey})
+    const client = new Anthropic({ apiKey })
 
     const systemPrompt = `You are an expert BI assistant that creates complete chart solutions using Apache ECharts for MySQL Sakila database.
 
@@ -116,7 +143,7 @@ IMPORTANT: Always include the "chartType" field in your response to specify the 
 
     try {
         const response = await client.messages.create({
-            model: 'claude-3-7-sonnet-20250219',
+            model: CLAUDE_MODEL,
             max_tokens: 1024,
             temperature: 0.2,
             system: systemPrompt,
@@ -194,7 +221,7 @@ Return JSON with fields: sql, explanation`
         console.log('Claude response:', parsed)
 
         // Inject chartType into chartConfig for ECharts compatibility
-        const chartConfig = {...parsed.chartConfig}
+        const chartConfig = { ...parsed.chartConfig }
         if (parsed.chartType && chartConfig.series && Array.isArray(chartConfig.series) && chartConfig.series.length > 0) {
             chartConfig.series[0].type = parsed.chartType
             chartConfig.chartType = parsed.chartType

@@ -598,12 +598,12 @@ footer {
 }
 
 /* Right sidebar in reporting layout */
-.dark .resizable-layout > aside:last-child {
+.dark .resizable-layout>aside:last-child {
     background-color: var(--color-dark) !important;
 }
 
 /* Ensure sidebar content has proper dark styling */
-.dark .resizable-layout > aside:last-child .bg-white {
+.dark .resizable-layout>aside:last-child .bg-white {
     background-color: #111827 !important;
     /* gray-900 */
 }
@@ -1200,8 +1200,8 @@ button.border-gray-600:hover {
 
 /* Checkbox with label cursor:pointer */
 input[type="checkbox"],
-input[type="checkbox"] + label,
-input[type="checkbox"] ~ label,
+input[type="checkbox"]+label,
+input[type="checkbox"]~label,
 label:has(input[type="checkbox"]),
 [class*="UCheckbox"],
 [class*="u-checkbox"] {
@@ -1210,8 +1210,8 @@ label:has(input[type="checkbox"]),
 
 /* Radio buttons with label cursor:pointer */
 input[type="radio"],
-input[type="radio"] + label,
-input[type="radio"] ~ label,
+input[type="radio"]+label,
+input[type="radio"]~label,
 label:has(input[type="radio"]),
 [class*="URadio"],
 [class*="u-radio"] {
@@ -1264,4 +1264,14 @@ select.w-full {
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
     /* Chrome, Safari, Opera */
+}
+
+/* reCAPTCHA badge - hide globally by default */
+.grecaptcha-badge {
+    visibility: hidden !important;
+}
+
+/* Show reCAPTCHA badge on auth-related pages */
+body.show-recaptcha .grecaptcha-badge {
+    visibility: visible !important;
 }

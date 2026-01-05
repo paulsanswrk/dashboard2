@@ -1,8 +1,9 @@
-import {defineEventHandler, readBody} from 'h3'
+import { defineEventHandler, readBody } from 'h3'
 import Anthropic from '@anthropic-ai/sdk'
-import {loadConnectionConfigFromSupabase} from '../../utils/connectionConfig'
-import {withMySqlConnectionConfig} from '../../utils/mysqlClient'
-import {AuthHelper} from '../../utils/authHelper'
+import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import { AuthHelper } from '../../utils/authHelper'
+import { CLAUDE_MODEL } from '../../utils/aiConfig'
 
 type RequestBody = {
   connectionId: number
@@ -20,9 +21,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing connectionId or userPrompt' })
   }
 
-    const connectionData = await AuthHelper.requireConnectionAccess(event, body.connectionId, {
-        columns: 'id, organization_id, schema_json'
-    })
+  const connectionData = await AuthHelper.requireConnectionAccess(event, body.connectionId, {
+    columns: 'id, organization_id, schema_json'
+  })
 
   // Load schema: prefer provided schemaJson, then saved schema_json, otherwise live introspection
   let schemaJson: unknown = body.schemaJson || connectionData.schema_json
@@ -36,6 +37,32 @@ export default defineEventHandler(async (event) => {
          WHERE TABLE_SCHEMA = DATABASE()`
       )
       const tableNames = (tables as any[]).map((r) => String(r.tableName))
+
+      // Get all foreign keys for this database
+      const [allFks] = await conn.query(
+        `SELECT 
+           kcu.TABLE_NAME as sourceTable,
+           kcu.COLUMN_NAME as sourceColumn,
+           kcu.REFERENCED_TABLE_NAME as targetTable,
+           kcu.REFERENCED_COLUMN_NAME as targetColumn
+         FROM information_schema.KEY_COLUMN_USAGE kcu
+         WHERE kcu.TABLE_SCHEMA = DATABASE()
+           AND kcu.REFERENCED_TABLE_NAME IS NOT NULL`
+      )
+
+      // Group FKs by table
+      const fksByTable: Record<string, any[]> = {}
+      for (const fk of allFks as any[]) {
+        if (!fksByTable[fk.sourceTable]) {
+          fksByTable[fk.sourceTable] = []
+        }
+        fksByTable[fk.sourceTable].push({
+          sourceColumn: fk.sourceColumn,
+          targetTable: fk.targetTable,
+          targetColumn: fk.targetColumn
+        })
+      }
+
       const result: any = { tables: [] as any[] }
       for (const tn of tableNames) {
         const [cols] = await conn.query(
@@ -58,7 +85,7 @@ export default defineEventHandler(async (event) => {
             isNumeric: !['char', 'varchar', 'text', 'blob'].includes(String(c.type).toLowerCase()),
           })),
           primaryKey: [],
-          foreignKeys: []
+          foreignKeys: fksByTable[tn] || []
         })
       }
       return result
@@ -122,24 +149,24 @@ CONVERSATIONAL STYLE:
   try {
     // Build user message with context
     let userMessage = `User Request: "${body.userPrompt}"\n\n`
-    
+
     if (body.currentSql) {
       userMessage += `Current SQL:\n${body.currentSql}\n\n`
     }
-    
+
     if (body.currentChartType) {
       userMessage += `Current Chart Type: ${body.currentChartType}\n\n`
     }
-    
+
     if (body.currentAppearance) {
       userMessage += `Current Chart Appearance:\n${JSON.stringify(body.currentAppearance, null, 2)}\n\n`
     }
-    
+
     userMessage += `Database Schema:\n${JSON.stringify(schemaJson, null, 2)}\n\n`
     userMessage += `Generate the SQL query and ECharts configuration.`
 
     const response = await client.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
+      model: CLAUDE_MODEL,
       max_tokens: 2048,
       temperature: 0.3,
       system: systemPrompt,
@@ -159,7 +186,7 @@ CONVERSATIONAL STYLE:
       parsed = JSON.parse(content)
     } catch (e) {
       console.log('Direct JSON parse failed, trying alternative methods...')
-      
+
       const match = content.match(/```json\s*([\s\S]*?)\s*```/) ||
         content.match(/```\s*([\s\S]*?)\s*```/) ||
         content.match(/\{[\s\S]*\}/)

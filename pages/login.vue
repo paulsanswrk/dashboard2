@@ -173,6 +173,13 @@
 </template>
 
 <script setup>
+// Show reCAPTCHA badge on this auth page
+useHead({
+  bodyAttrs: {
+    class: 'show-recaptcha'
+  }
+})
+
 // Auth composable
 const { isAuthenticated, redirectToDashboard } = useAuth()
 
