@@ -41,6 +41,16 @@
                 placeholder="Enter title..."
             />
           </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-600 dark:text-gray-400 w-20">Title Bottom Margin</label>
+            <input
+                v-model.number="appearance.titlePaddingBottom"
+                type="number"
+                min="0"
+                class="flex-1 px-2 py-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                placeholder="20"
+            />
+          </div>
         </div>
       </ConfigSection>
 

@@ -114,6 +114,7 @@ Your task is to help the user iteratively build their report by modifying the SQ
 Return ONLY a compact JSON object with THREE fields:
 - "sql": A valid MySQL query string for the data
 - "chartConfig": A complete ECharts configuration object
+- "title": A short, descriptive title for the chart (max 5-7 words)
 - "explanation": A friendly, conversational response explaining what you did (2-3 sentences max)
 
 IMPORTANT SQL CONSTRAINTS:
@@ -129,7 +130,8 @@ IMPORTANT SQL CONSTRAINTS:
 ECHARTS CONFIGURATION REQUIREMENTS:
 - Create a valid ECharts option object
 - Choose appropriate chart types (pie, bar, line, scatter, etc.) based on the data
-- Include proper titles, legends, tooltips, and formatting
+- Include a "legend" configuration (e.g., bottom or right aligned)
+- Include "xAxis" and "yAxis" configurations with proper "name" properties (e.g., "Revenue ($)", "Year")
 - Ensure the configuration matches the SQL query output structure
 - Use a professional color palette
 - If current config exists, modify it based on user's request rather than starting from scratch
@@ -165,6 +167,12 @@ CONVERSATIONAL STYLE:
     userMessage += `Database Schema:\n${JSON.stringify(schemaJson, null, 2)}\n\n`
     userMessage += `Generate the SQL query and ECharts configuration.`
 
+    userMessage += `Generate the SQL query and ECharts configuration.`
+
+    console.log('[AI Chart Assistant] User Prompt:', body.userPrompt)
+    console.log('[AI Chart Assistant] System Prompt:', systemPrompt)
+    console.log('[AI Chart Assistant] User Message:', userMessage)
+
     const response = await client.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 2048,
@@ -179,6 +187,7 @@ CONVERSATIONAL STYLE:
     })
 
     const content = response.content[0].text
+    console.log('[AI Chart Assistant] Raw Content:', content)
 
     // Parse the JSON response
     let parsed: any
@@ -207,6 +216,9 @@ CONVERSATIONAL STYLE:
       throw new Error('Claude response missing required fields: sql, chartConfig, explanation')
     }
 
+    // Default title if missing
+    const chartTitle = parsed.title || 'Chart'
+
     // Infer chart type from chartConfig
     let chartType = 'table'
     if (parsed.chartConfig.series && Array.isArray(parsed.chartConfig.series) && parsed.chartConfig.series.length > 0) {
@@ -220,6 +232,7 @@ CONVERSATIONAL STYLE:
       sql: parsed.sql.trim(),
       chartConfig: parsed.chartConfig,
       chartType: chartType,
+      title: chartTitle,
       explanation: parsed.explanation.trim(),
       usage: response.usage
     }

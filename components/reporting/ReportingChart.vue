@@ -274,7 +274,8 @@ function renderChart() {
     const option = {
       title: {
         text: props.appearance?.chartTitle || '',
-        show: !!props.appearance?.chartTitle
+        show: !!props.appearance?.chartTitle,
+        padding: [0, 0, 20, 0]
       },
       tooltip: {
         trigger: 'item',
@@ -361,7 +362,8 @@ function renderChart() {
     const option = {
       title: {
         text: props.appearance?.chartTitle || '',
-        show: !!props.appearance?.chartTitle
+        show: !!props.appearance?.chartTitle,
+        padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
       },
       tooltip: {
         formatter: (params: any) => {
@@ -471,7 +473,8 @@ function renderChart() {
     const option = {
       title: {
         text: props.appearance?.chartTitle || '',
-        show: !!props.appearance?.chartTitle
+        show: !!props.appearance?.chartTitle,
+        padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
       },
       tooltip: {
         trigger: 'item',
@@ -568,7 +571,8 @@ function renderChart() {
     const option = {
       title: {
         text: props.appearance?.chartTitle || '',
-        show: !!props.appearance?.chartTitle
+        show: !!props.appearance?.chartTitle,
+        padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
       },
       tooltip: {
         trigger: 'item',
@@ -593,8 +597,9 @@ function renderChart() {
       series: [{
         name: 'Funnel',
         type: 'funnel',
+        type: 'funnel',
         left: '5%',
-        top: '5%',
+        top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
         bottom: '30%',
         width: '90%',
         min: 0,
@@ -664,7 +669,8 @@ function renderChart() {
       title: {
         text: props.appearance?.chartTitle || '',
         show: !!props.appearance?.chartTitle,
-        left: 'center'
+        left: 'center',
+        padding: [0, 0, 20, 0]
       },
       tooltip: {
         trigger: 'item',
@@ -765,7 +771,8 @@ function renderChart() {
       title: {
         text: props.appearance?.chartTitle || '',
         show: !!props.appearance?.chartTitle,
-        left: 'center'
+        left: 'center',
+        padding: [0, 0, 20, 0]
       },
       tooltip: {
         trigger: 'item',
@@ -880,7 +887,8 @@ function renderChart() {
       title: {
         text: props.appearance?.chartTitle || '',
         show: !!props.appearance?.chartTitle,
-        left: 'center'
+        left: 'center',
+        padding: [0, 0, 20, 0]
       },
       tooltip: {
         trigger: 'item',
@@ -1427,10 +1435,16 @@ function renderChart() {
       title: {
         text: props.appearance?.chartTitle || '',
         show: !!props.appearance?.chartTitle,
-        left: 'center'
+        left: 'center',
+        padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
       },
       xAxis: {type: 'category', data: categories},
+      xAxis: {type: 'category', data: categories},
       yAxis: {type: 'value'},
+      grid: {
+        top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
+        bottom: '15%'
+      },
       series: [{
         type: 'boxplot',
         data: boxplotData,
@@ -1469,10 +1483,16 @@ function renderChart() {
       title: {
         text: props.appearance?.chartTitle || '',
         show: !!props.appearance?.chartTitle,
-        left: 'center'
+        left: 'center',
+        padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
       },
       xAxis: {type: 'category', data: cats},
       yAxis: {type: 'value'},
+
+      grid: {
+        top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
+        bottom: '15%'
+      },
       series: [
         {
           type: 'bar',
@@ -1537,13 +1557,16 @@ function renderChart() {
       title: {
         text: props.appearance?.chartTitle || '',
         show: !!props.appearance?.chartTitle,
-        left: 'center'
+        left: 'center',
+        padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
       },
       series: [{
         type: 'wordCloud',
         shape: 'circle',
+        type: 'wordCloud',
+        shape: 'circle',
         left: 'center',
-        top: 'center',
+        top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
         width: '80%',
         height: '80%',
         rotationRange: [-45, 45],
@@ -1643,7 +1666,8 @@ function renderChart() {
       show: !!props.appearance?.chartTitle,
       textStyle: {
         fontFamily: props.appearance?.fontFamily || 'Arial'
-      }
+      },
+      padding: [0, 0, (props.appearance?.titlePaddingBottom ?? 20), 0]
     },
     tooltip: {
       trigger: 'axis',
@@ -1685,7 +1709,7 @@ function renderChart() {
       left: props.appearance?.legendPosition === 'left' ? '15%' : '3%',
       right: props.appearance?.legendPosition === 'right' ? '15%' : '4%',
       bottom: props.appearance?.legendPosition === 'bottom' ? '15%' : '10%',
-      top: '15%',
+      top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
       containLabel: true
     },
     xAxis: {

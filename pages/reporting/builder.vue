@@ -585,6 +585,9 @@ async function sendAiMessage() {
       sql: string
       chartConfig: any
       chartType: string
+      title?: string
+      explanation: string
+      usage?: any
       explanation: string
       usage?: any
     }>('/api/reporting/ai-chart-assistant', {
@@ -607,8 +610,13 @@ async function sendAiMessage() {
     })
 
     // Auto-apply the changes
-    if (reportingBuilderRef.value && typeof reportingBuilderRef.value.applySqlAndChartType === 'function') {
-      reportingBuilderRef.value.applySqlAndChartType(response.sql, response.chartType)
+    if (reportingBuilderRef.value) {
+      if (typeof reportingBuilderRef.value.applySqlAndChartType === 'function') {
+        reportingBuilderRef.value.applySqlAndChartType(response.sql, response.chartType, response.chartConfig)
+      }
+      if (response.title && typeof reportingBuilderRef.value.setTitle === 'function') {
+        reportingBuilderRef.value.setTitle(response.title)
+      }
     }
     
     // Scroll chat to bottom

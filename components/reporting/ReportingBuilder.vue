@@ -1245,20 +1245,67 @@ function onRunSqlClick() {
   onRunSql(false)
 }
 
-// Expose methods for parent component (AI integration)
-function applySqlAndChartType(sql: string, type: string) {
+// Helper to set chart title from parent (e.g. AI assistant)
+function setTitle(title: string) {
+  chartTitle.value = title
+  const newAppearance = { ...appearance.value }
+  newAppearance.chartTitle = title
+  appearance.value = newAppearance
+}
+
+// Watcher to sync chartTitle input to appearance
+watch(chartTitle, (newVal) => {
+  if (appearance.value.chartTitle !== newVal) {
+    const newAppearance = { ...appearance.value }
+    newAppearance.chartTitle = newVal
+    appearance.value = newAppearance
+  }
+})
+
+// Apply SQL and chart type from AI or template
+function applySqlAndChartType(sql: string, type: string, chartConfig?: any) {
   // Enable SQL mode and override
   useSql.value = true
   overrideSql.value = true
   sqlText.value = sql
+  chartType.value = type as any
+  
+  if (chartConfig) {
+    // Map AI chartConfig to our appearance model
+    const newAppearance = { ...appearance.value }
+    
+    // Legend mapping
+    if (chartConfig.legend) {
+      newAppearance.showLegend = chartConfig.legend.show !== false
+      if (chartConfig.legend.orient) newAppearance.legendPosition = chartConfig.legend.orient === 'vertical' ? 'right' : 'bottom'
+    }
 
-  // Set chart type if valid
-  const validTypes = ['table', 'bar', 'line', 'area', 'pie', 'donut', 'funnel', 'gauge', 'map', 'scatter', 'treemap', 'sankey']
-  if (validTypes.includes(type)) {
-    chartType.value = type as any
+     // Title mapping
+    if (chartConfig.title && chartConfig.title.text) {
+      newAppearance.chartTitle = chartConfig.title.text
+      chartTitle.value = chartConfig.title.text
+    } else if (chartConfig.title && typeof chartConfig.title === 'string') {
+        newAppearance.chartTitle = chartConfig.title
+        chartTitle.value = chartConfig.title
+    }
+    
+    // Axis mapping
+    if (chartConfig.xAxis) {
+      if (!newAppearance.xAxis) newAppearance.xAxis = {}
+      if (chartConfig.xAxis.name) newAppearance.xAxis.title = chartConfig.xAxis.name
+      newAppearance.xAxis.showTitle = !!chartConfig.xAxis.name
+    }
+    
+    if (chartConfig.yAxis) {
+      if (!newAppearance.yAxis) newAppearance.yAxis = {}
+      if (chartConfig.yAxis.name) newAppearance.yAxis.title = chartConfig.yAxis.name
+      newAppearance.yAxis.showTitle = !!chartConfig.yAxis.name
+    }
+
+    appearance.value = newAppearance
   }
-
-  // Execute the SQL, preserving the chart type set by AI
+  
+  // Trigger preview
   nextTick(() => {
     onRunSql(true)
   })
@@ -1434,10 +1481,12 @@ function exportCurrentConfig() {
 
 defineExpose({
   applySqlAndChartType,
+  setTitle,
   getCurrentState,
   handleLoadChartState,
   onTestPreview
 })
+
 
 </script>
 
