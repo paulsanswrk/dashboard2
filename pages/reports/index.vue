@@ -191,6 +191,17 @@ const toggleReportStatus = async (report: Report) => {
   try {
     const result = await toggleStatus(report.id, report.status)
     report.status = result.newStatus
+
+    // Refresh next run time for this report
+    if (result.newStatus === 'Active') {
+      const queueItems = await getEmailQueueForReport(report.id)
+      if (queueItems.length > 0) {
+        nextRunTimes.value.set(report.id, new Date(queueItems[0].scheduled_for).toLocaleString())
+      }
+    } else {
+      nextRunTimes.value.set(report.id, 'Paused')
+    }
+
     toast.add({
       title: 'Success',
       description: `Report ${result.newStatus === 'Active' ? 'activated' : 'paused'} successfully`,

@@ -748,6 +748,8 @@ const testConnection = async () => {
         database: form.value.databaseName,
         jdbcParams: form.value.jdbcParams,
         useSshTunneling: form.value.useSshTunneling,
+        // Include connectionId when editing so backend can fetch real credentials if masked
+        connectionId: createdConnectionId.value || undefined,
         sshConfig: form.value.useSshTunneling ? {
           port: form.value.sshPort,
           user: form.value.sshUser,
