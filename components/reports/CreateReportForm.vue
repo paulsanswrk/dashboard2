@@ -348,8 +348,8 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-// Supabase client
-const supabase = useSupabaseClient()
+// Services
+const { listDashboards } = useDashboardsService()
 
 // Toast notifications
 const toast = useToast()
@@ -475,32 +475,17 @@ const loadContentOptions = async (scope: string) => {
   contentLoading.value = true
   try {
     if (scope === 'Dashboard') {
-      // Load dashboards
-      const { data: dashboards, error } = await supabase
-        .from('dashboards')
-        .select('id, name')
-        .order('name')
-
-      if (error) throw error
+      // Load dashboards using the dashboards service API
+      const dashboards = await listDashboards()
       contentOptions.value = (dashboards || []).map(d => ({
         label: d.name,
         value: d.id
       }))
     } else {
-      // Load dashboard tabs joined with dashboard names
-      const {data: tabs, error} = await supabase
-          .from('dashboard_tab')
-          .select(`
-          id,
-          name,
-          dashboards!inner(name)
-        `)
-          .order('dashboards(name)', {ascending: true})
-          .order('position', {ascending: true})
-
-      if (error) throw error
+      // Load dashboard tabs via API
+      const tabs = await $fetch<Array<{ id: string; name: string; dashboard_name: string }>>('/api/dashboard-tabs')
       contentOptions.value = (tabs || []).map(t => ({
-        label: `${t.dashboards.name} - ${t.name}`,
+        label: `${t.dashboard_name} - ${t.name}`,
         value: t.id
       }))
     }
@@ -512,10 +497,16 @@ const loadContentOptions = async (scope: string) => {
   }
 }
 
+// Track if this is the initial load (to avoid clearing content_id when editing)
+const isInitialScopeLoad = ref(true)
+
 // Watch for scope changes to load appropriate content
 watch(() => reportForm.value.scope, async (newScope) => {
-  // Clear the content selection when scope changes
-  reportForm.value.content_id = ''
+  // Only clear the content selection when scope is changed by user action, not on initial load
+  if (!isInitialScopeLoad.value) {
+    reportForm.value.content_id = ''
+  }
+  isInitialScopeLoad.value = false
   await loadContentOptions(newScope)
 }, { immediate: true })
 
@@ -744,6 +735,9 @@ const getUserTimezone = () => {
 watch(() => props.editingReport, (newReport) => {
   hasSubmitted.value = false
   if (newReport) {
+    // Reset flag so scope watcher doesn't clear content_id on this load
+    isInitialScopeLoad.value = true
+    
     // Populate form with existing report data
     reportForm.value = {
       report_title: newReport.report_title || '',
@@ -773,6 +767,7 @@ watch(() => props.editingReport, (newReport) => {
     })
   } else {
     // Reset form for new report creation
+    isInitialScopeLoad.value = true
     resetForm()
   }
 }, { immediate: true })
