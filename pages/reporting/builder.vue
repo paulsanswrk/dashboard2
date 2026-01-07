@@ -617,6 +617,10 @@ async function sendAiMessage() {
       if (response.title && typeof reportingBuilderRef.value.setTitle === 'function') {
         reportingBuilderRef.value.setTitle(response.title)
       }
+      // Put the chartConfig in the debug textarea for inspection
+      if (typeof reportingBuilderRef.value.setDebugJsonConfig === 'function') {
+        reportingBuilderRef.value.setDebugJsonConfig(response.chartConfig)
+      }
     }
     
     // Scroll chat to bottom

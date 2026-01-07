@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const connectionData = await AuthHelper.requireConnectionAccess(event, body.connectionId, {
-    columns: 'id, organization_id, schema_json'
+    columns: 'id, organization_id, schema_json, dbms_version'
   })
 
   // Load schema: prefer provided schemaJson, then saved schema_json, otherwise live introspection
@@ -98,49 +98,115 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'CLAUDE_AI_KEY is not configured' })
   }
 
-  const client = new Anthropic({ apiKey })
+  // Get DBMS version for SQL dialect guidance
+  const dbmsVersion = connectionData.dbms_version || 'MySQL 8'
 
-  // Build context-aware system prompt
+  // All supported chart types
+  const supportedChartTypes = [
+    'table', 'number', 'column', 'bar', 'stacked', 'line', 'area',
+    'pie', 'donut', 'funnel', 'gauge', 'kpi', 'radar', 'scatter',
+    'bubble', 'boxplot', 'waterfall', 'treemap', 'sankey', 'pivot', 'wordcloud'
+  ]
+
+  const client = new Anthropic({ apiKey })
   const systemPrompt = `You are an expert BI assistant that helps users create and modify data visualizations using Apache ECharts.
 
 You will receive:
 1. A user request describing what they want
 2. The current SQL query (if any)
-3. The current chart configuration (if any)
-4. The database schema
+3. The current chart type (if any)
+4. The current chart configuration (if any)
+5. The database schema
 
 Your task is to help the user iteratively build their report by modifying the SQL and chart configuration based on their request.
 
-Return ONLY a compact JSON object with THREE fields:
-- "sql": A valid MySQL query string for the data
+Return ONLY a compact JSON object with these fields:
+- "sql": A valid SQL query string for the data
 - "chartConfig": A complete ECharts configuration object
 - "title": A short, descriptive title for the chart (max 5-7 words)
 - "explanation": A friendly, conversational response explaining what you did (2-3 sentences max)
 
-IMPORTANT SQL CONSTRAINTS:
-- Use ANSI SQL compatible with MySQL 8
+!!! CRITICAL - STRICT JSON REQUIREMENTS !!!
+Your output will be parsed with JSON.parse(). If it contains ANYTHING that is not valid JSON, the entire system will break.
+
+ABSOLUTELY FORBIDDEN - DO NOT USE:
+- JavaScript functions (e.g., "symbolSize": function(data) {...} is INVALID)
+- Arrow functions (e.g., "formatter": (params) => ... is INVALID)
+- Comments (// or /* */)
+- Unquoted keys
+- Template literals
+- Any JavaScript code whatsoever
+
+ONLY these JSON types are allowed: strings, numbers, booleans, arrays, objects, null.
+
+EXAMPLES OF WHAT NOT TO DO:
+❌ "symbolSize": function(data) { return Math.sqrt(data[2]); }
+❌ "formatter": (params) => params.name
+❌ "symbolSize": 10 + 5
+
+CORRECT ALTERNATIVES:
+✓ "symbolSize": 10  (use a fixed number)
+✓ Omit "formatter" entirely (ECharts has good defaults)
+✓ Use "symbolSize": 20 or another reasonable fixed value
+
+SQL CONSTRAINTS:
+- Database: ${dbmsVersion}
+- Use SQL syntax compatible with the database version above
 - Only reference tables/columns that exist in the provided schema
 - Prefer explicit JOINs with clear join conditions
 - Ensure columns in GROUP BY are valid; aggregate non-grouped metrics
-- Limit result size appropriately (e.g., LIMIT 100)
+- Limit result size appropriately (e.g., LIMIT 100 for MySQL, FETCH FIRST 100 ROWS for others)
 - Avoid destructive operations; SELECT-only
 - Use meaningful column aliases that can be used in charts
 - If current SQL exists, build upon it based on user's request
 
-ECHARTS CONFIGURATION REQUIREMENTS:
+AVAILABLE CHART TYPES:
+${supportedChartTypes.join(', ')}
+
+CHART TYPE SELECTION - CRITICAL:
+When the user explicitly requests a chart type (e.g., "make it a bubble chart", "show as pie"), you MUST use that exact type in series.type.
+Our chart types map directly to ECharts series types. Use the EXACT type name from the list above.
+
+IMPORTANT: "bubble" and "scatter" are DIFFERENT chart types in our system:
+- "scatter": Use series.type = "scatter" with fixed symbolSize
+- "bubble": Use series.type = "bubble" (our system handles this specially)
+
+If user says "bubble chart" → use type: "bubble", NOT type: "scatter"
+If user says "scatter chart" → use type: "scatter"
+
+When user doesn't specify a chart type:
+- Keep the current chart type if it makes sense for the new data
+- Otherwise, choose based on data characteristics:
+
+Chart type guidelines:
+- table: Raw data display or detailed breakdowns
+- number/kpi: Single aggregated values (e.g., "show total revenue")
+- column: Vertical bars comparing categories
+- bar: Horizontal bars comparing categories  
+- stacked: Composition across categories (stacked bars)
+- line/area: Time series and trends
+- pie/donut: Proportional distributions (name + value)
+- funnel: Conversion/stage progressions
+- gauge: Single metrics with min/max ranges
+- scatter: X-Y correlations with fixed point sizes
+- bubble: X-Y correlations with variable point sizes (3rd dimension)
+- radar: Multi-dimensional comparisons
+- boxplot: Statistical distributions
+- waterfall: Cumulative effect of sequential values
+- treemap: Hierarchical data with size encoding
+- sankey: Flow/relationship visualization
+- pivot: Cross-tabulated data
+- wordcloud: Text frequency visualization
+
+ECHARTS CONFIGURATION:
 - Create a valid ECharts option object
-- Choose appropriate chart types (pie, bar, line, scatter, etc.) based on the data
-- Include a "legend" configuration (e.g., bottom or right aligned)
-- Include "xAxis" and "yAxis" configurations with proper "name" properties (e.g., "Revenue ($)", "Year")
+- For Cartesian charts (column, bar, stacked, line, area, scatter, bubble, boxplot, waterfall): include "xAxis" and "yAxis" with proper "name" properties
+- For radial/polar charts (pie, donut, gauge, radar): do NOT include xAxis/yAxis
+- For hierarchical charts (treemap, sankey): use appropriate data structures
+- Include a "legend" configuration when multiple series exist (e.g., bottom or right aligned)
 - Ensure the configuration matches the SQL query output structure
 - Use a professional color palette
 - If current config exists, modify it based on user's request rather than starting from scratch
-
-CHART TYPE SELECTION:
-- pie/donut: For categorical distributions (2 columns: name, value)
-- bar/line/area: For trends and comparisons (category columns first, then numeric values)
-- scatter: For correlations between numeric values
-- gauge: For single KPI values
 
 CONVERSATIONAL STYLE:
 - Be friendly and helpful in your explanation
@@ -165,7 +231,6 @@ CONVERSATIONAL STYLE:
     }
 
     userMessage += `Database Schema:\n${JSON.stringify(schemaJson, null, 2)}\n\n`
-    userMessage += `Generate the SQL query and ECharts configuration.`
 
     userMessage += `Generate the SQL query and ECharts configuration.`
 

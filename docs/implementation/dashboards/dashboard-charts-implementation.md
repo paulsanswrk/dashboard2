@@ -7,6 +7,7 @@ This document outlines the implementation of multi-tab dashboard charts function
 ## 🎯 Key Features
 
 - **Chart Saving**: Save complete chart configurations including SQL, appearance, chart type, and PNG thumbnails plus width/height
+- **Dynamic Widget Sizing**: Charts saved to dashboards are automatically sized based on their rendered dimensions
 - **Multi-Tab Dashboard Organization**: Create dashboards with multiple tabs, each containing charts with custom positioning
 - **Dashboard Thumbnails**: Dashboards capture PNG thumbnails on save (client-side snapshot) and store width/height
 - **Tab Management**: Create, rename, and delete dashboard tabs with full CRUD operations
@@ -269,9 +270,13 @@ Renders saved chart state without builder controls. Props:
 2. Clicks "Save Chart to Dashboard"
 3. Selects destination (New Dashboard or Existing Dashboard Tab)
 4. System:
-   - Saves complete chart state to `charts` table
+   - Captures chart dimensions (width/height) from the rendered preview
+   - Converts pixel dimensions to grid units using `pixelDimensionsToGridUnits()`:
+     - Width (w): Maps pixel width to grid columns (1-12) based on container width ratio
+     - Height (h): Converts pixel height to row units (pixels ÷ 30px row height, minimum 4 rows)
+   - Saves complete chart state to `charts` table (including width/height for thumbnails)
    - Creates new dashboard/tab if selected
-   - Creates entry in `dashboard_charts` linking chart to tab with positioning
+   - Creates entry in `dashboard_widgets` linking chart to tab with calculated positioning
    - Shows success confirmation
 
 ### Tab Management Process

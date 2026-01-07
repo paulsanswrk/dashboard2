@@ -4,7 +4,7 @@
     <div class="relative w-full max-w-lg">
       <!-- Central illustration based on chart type -->
       <div class="mb-6">
-        <component :is="illustrationComponent" class="mx-auto"/>
+        <component :is="illustrationComponent" class="mx-auto illustration-scaled"/>
       </div>
 
       <!-- Step instructions -->
@@ -51,10 +51,20 @@ import {getHelperText, getOnboardingSteps} from '~/lib/charts'
 const TableIllustration = defineAsyncComponent(() => import('./illustrations/TableIllustration.vue'))
 const KpiIllustration = defineAsyncComponent(() => import('./illustrations/KpiIllustration.vue'))
 const BarLineIllustration = defineAsyncComponent(() => import('./illustrations/BarLineIllustration.vue'))
+const BarIllustration = defineAsyncComponent(() => import('./illustrations/BarIllustration.vue'))
+const LineIllustration = defineAsyncComponent(() => import('./illustrations/LineIllustration.vue'))
+const AreaIllustration = defineAsyncComponent(() => import('./illustrations/AreaIllustration.vue'))
+const StackedIllustration = defineAsyncComponent(() => import('./illustrations/StackedIllustration.vue'))
+const WaterfallIllustration = defineAsyncComponent(() => import('./illustrations/WaterfallIllustration.vue'))
 const PieIllustration = defineAsyncComponent(() => import('./illustrations/PieIllustration.vue'))
+const DonutIllustration = defineAsyncComponent(() => import('./illustrations/DonutIllustration.vue'))
 const GaugeIllustration = defineAsyncComponent(() => import('./illustrations/GaugeIllustration.vue'))
 const FunnelIllustration = defineAsyncComponent(() => import('./illustrations/FunnelIllustration.vue'))
 const ScatterIllustration = defineAsyncComponent(() => import('./illustrations/ScatterIllustration.vue'))
+const BubbleIllustration = defineAsyncComponent(() => import('./illustrations/BubbleIllustration.vue'))
+const BoxplotIllustration = defineAsyncComponent(() => import('./illustrations/BoxplotIllustration.vue'))
+const RadarIllustration = defineAsyncComponent(() => import('./illustrations/RadarIllustration.vue'))
+const WordcloudIllustration = defineAsyncComponent(() => import('./illustrations/WordcloudIllustration.vue'))
 const TreemapIllustration = defineAsyncComponent(() => import('./illustrations/TreemapIllustration.vue'))
 const SankeyIllustration = defineAsyncComponent(() => import('./illustrations/SankeyIllustration.vue'))
 const PivotIllustration = defineAsyncComponent(() => import('./illustrations/PivotIllustration.vue'))
@@ -88,23 +98,31 @@ const illustrationComponent = computed(() => {
     case 'table':
       return TableIllustration
     case 'bar':
+      return BarIllustration
     case 'column':
-    case 'line':
-    case 'area':
-    case 'stacked':
-    case 'waterfall':
       return BarLineIllustration
+    case 'line':
+      return LineIllustration
+    case 'area':
+      return AreaIllustration
+    case 'stacked':
+      return StackedIllustration
+    case 'waterfall':
+      return WaterfallIllustration
     case 'pie':
-    case 'donut':
       return PieIllustration
+    case 'donut':
+      return DonutIllustration
     case 'funnel':
       return FunnelIllustration
     case 'gauge':
       return GaugeIllustration
     case 'scatter':
-    case 'bubble':
-    case 'boxplot':
       return ScatterIllustration
+    case 'bubble':
+      return BubbleIllustration
+    case 'boxplot':
+      return BoxplotIllustration
     case 'treemap':
       return TreemapIllustration
     case 'sankey':
@@ -115,9 +133,9 @@ const illustrationComponent = computed(() => {
     case 'pivot':
       return PivotIllustration
     case 'radar':
-      return GaugeIllustration  // Use gauge for radar as closest match
+      return RadarIllustration
     case 'wordcloud':
-      return PieIllustration  // Use pie for wordcloud as visual approximation
+      return WordcloudIllustration
     default:
       return BarLineIllustration
   }
@@ -141,5 +159,12 @@ const illustrationComponent = computed(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.illustration-scaled {
+  display: block;
+  transform: scale(1.5);
+  transform-origin: center center;
+  margin: 2rem auto 3.5rem auto;
 }
 </style>

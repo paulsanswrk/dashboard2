@@ -168,7 +168,7 @@
             class="w-full border border-amber-300 dark:border-amber-600 rounded-lg p-3 font-mono text-xs bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
             placeholder='{"chartType": "column", "xDimensions": [...], "yMetrics": [...], ...}'
           ></textarea>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <UButton
               color="amber"
               class="bg-amber-500 hover:bg-amber-600 text-white cursor-pointer"
@@ -176,7 +176,16 @@
               :disabled="loading || !debugJsonConfig.trim()"
             >
               <Icon name="i-heroicons-play" class="w-4 h-4"/>
-              Apply Config
+              Apply Builder State
+            </UButton>
+            <UButton
+              color="blue"
+              class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+              @click="applyAiChartConfig"
+              :disabled="loading || !debugJsonConfig.trim()"
+            >
+              <Icon name="i-heroicons-sparkles" class="w-4 h-4"/>
+              Apply AI chartConfig
             </UButton>
             <UButton
               variant="outline"
@@ -958,6 +967,35 @@ async function captureChartMeta(): Promise<{ width?: number | null; height?: num
   return {width: width ?? null, height: height ?? null, thumbnailBase64: thumbnailBase64 ?? null}
 }
 
+/**
+ * Convert pixel dimensions to grid layout units for dashboard positioning.
+ * Dashboard grid uses colNum: 12 and rowHeight: 30.
+ */
+function pixelDimensionsToGridUnits(width?: number | null, height?: number | null): { w: number; h: number } {
+  const ROW_HEIGHT = 30
+  const COL_NUM = 12
+  const CONTAINER_WIDTH = 1200 // Approximate dashboard container width
+
+  // Default fallback values (increased h from 4 to 8 for better visibility)
+  const DEFAULT_W = 6
+  const DEFAULT_H = 8
+
+  // Calculate grid width (w) - map pixel width to grid columns
+  let w = DEFAULT_W
+  if (width && width > 0) {
+    const fraction = Math.min(width / CONTAINER_WIDTH, 1)
+    w = Math.max(2, Math.min(COL_NUM, Math.round(fraction * COL_NUM)))
+  }
+
+  // Calculate grid height (h) - convert pixels to row units
+  let h = DEFAULT_H
+  if (height && height > 0) {
+    h = Math.max(4, Math.ceil(height / ROW_HEIGHT))
+  }
+
+  return { w, h }
+}
+
 async function saveExistingChart(): Promise<boolean> {
   if (!props.editingChartId) return false
 
@@ -1087,12 +1125,13 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       throw new Error('Invalid destination or missing dashboard ID')
     }
 
-    // Create the dashboard-report relationship with default position
+    // Create the dashboard-report relationship with position based on chart dimensions
+    const { w, h } = pixelDimensionsToGridUnits(chartMeta.width, chartMeta.height)
     const position = {
       x: 0,
       y: 0,
-      w: 6,
-      h: 4,
+      w,
+      h,
       i: chartResult.chartId.toString()
     }
 
@@ -1165,11 +1204,13 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
       throw new Error('Failed to save chart')
     }
 
+    // Calculate grid position from captured chart dimensions
+    const { w, h } = pixelDimensionsToGridUnits(chartMeta.width, chartMeta.height)
     const position = {
       x: 0,
       y: 0,
-      w: 6,
-      h: 4,
+      w,
+      h,
       i: chartResult.chartId.toString()
     }
 
@@ -1454,6 +1495,66 @@ function applyDebugConfig() {
   }
 }
 
+// Apply AI-returned ECharts chartConfig (different format than builder state)
+function applyAiChartConfig() {
+  debugConfigError.value = ''
+  debugConfigSuccess.value = ''
+  
+  try {
+    const config = JSON.parse(debugJsonConfig.value)
+    const changes: string[] = []
+    
+    // Infer chart type from series if present
+    if (config.series && Array.isArray(config.series) && config.series.length > 0) {
+      const seriesType = config.series[0].type
+      if (seriesType) {
+        const mappedType = seriesType === 'doughnut' ? 'donut' : seriesType
+        const validTypes = chartTypes.map(t => t.value)
+        if (validTypes.includes(mappedType)) {
+          const oldType = chartType.value
+          chartType.value = mappedType as typeof chartType.value
+          if (oldType !== mappedType) changes.push(`chartType: ${oldType} → ${mappedType}`)
+        }
+      }
+    }
+    
+    // Extract title if present
+    if (config.title?.text && typeof config.title.text === 'string') {
+      chartTitle.value = config.title.text
+      changes.push(`title: ${config.title.text}`)
+    }
+    
+    // Store the ECharts config in appearance for the chart component to use
+    // The chart component can read this and apply it directly
+    const echartsAppearance: Record<string, any> = {}
+    
+    // Copy relevant ECharts options to appearance
+    if (config.legend) echartsAppearance.legend = config.legend
+    if (config.tooltip) echartsAppearance.tooltip = config.tooltip
+    if (config.xAxis) echartsAppearance.xAxis = config.xAxis
+    if (config.yAxis) echartsAppearance.yAxis = config.yAxis
+    if (config.grid) echartsAppearance.grid = config.grid
+    if (config.color) echartsAppearance.color = config.color
+    if (config.series) echartsAppearance.series = config.series
+    
+    if (Object.keys(echartsAppearance).length > 0) {
+      appearance.value = { ...appearance.value, echartsOverride: echartsAppearance }
+      changes.push('ECharts options stored in appearance.echartsOverride')
+    }
+    
+    debugConfigSuccess.value = `Applied AI config: ${changes.join(', ')}`
+    console.log('[AI Chart Config] Applied:', { config, changes })
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      debugConfigSuccess.value = ''
+    }, 3000)
+    
+  } catch (e: any) {
+    debugConfigError.value = `Invalid JSON: ${e.message}`
+  }
+}
+
 function exportCurrentConfig() {
   const config = {
     chartType: chartType.value,
@@ -1479,12 +1580,19 @@ function exportCurrentConfig() {
   }, 3000)
 }
 
+// Set debug JSON config from outside (e.g., AI response)
+function setDebugJsonConfig(config: any) {
+  debugJsonConfig.value = typeof config === 'string' ? config : JSON.stringify(config, null, 2)
+  debugPanelOpen.value = true  // Auto-open the panel so user can see it
+}
+
 defineExpose({
   applySqlAndChartType,
   setTitle,
   getCurrentState,
   handleLoadChartState,
-  onTestPreview
+  onTestPreview,
+  setDebugJsonConfig
 })
 
 

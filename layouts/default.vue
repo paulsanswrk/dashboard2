@@ -137,8 +137,8 @@
     </div>
     </template>
     <template v-else>
-      <div class="flex flex-1 items-center justify-center h-screen bg-gray-50">
-        <div class="flex items-center gap-3 text-gray-600">
+      <div class="flex flex-1 items-center justify-center h-screen bg-gray-50 dark:bg-neutral-900">
+        <div class="flex items-center gap-3 text-gray-600 dark:text-gray-300">
           <Icon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin"/>
           <span>Loading workspace...</span>
         </div>
