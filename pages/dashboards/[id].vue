@@ -217,184 +217,15 @@
       </div>
     </div>
 
-    <!-- Debug Panel (only shown when DEBUG_ENV=true) -->
+    <!-- Debug Panel (only in dev mode) -->
     <ClientOnly>
-      <div v-if="debugEnv" class="debug-panel border rounded bg-neutral-50 dark:bg-neutral-800 p-2">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="font-medium text-xs flex items-center gap-2">
-          <Icon name="i-heroicons-beaker" class="w-3 h-3 text-orange-500"/>
-          GridLayout Debug
-        </h3>
-        <UButton
-          variant="ghost"
-          size="xs"
-          color="gray"
-          class="cursor-pointer"
-          @click="debugPanelOpen = !debugPanelOpen"
-        >
-          <Icon :name="debugPanelOpen ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="w-3 h-3"/>
-        </UButton>
-      </div>
-
-      <div v-if="debugPanelOpen" class="space-y-3">
-        <!-- Basic Layout Properties -->
-        <div>
-          <h4 class="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2 uppercase tracking-wide">Basic Layout</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Columns</label>
-              <UInput v-model.number="gridConfig.colNum" type="number" size="sm" min="1" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Row Height</label>
-              <UInput v-model.number="gridConfig.rowHeight" type="number" size="sm" min="1" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Max Rows</label>
-              <UInput v-model="maxRowsInput" type="number" size="sm" min="1" placeholder="Infinity" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Margin [x,y]</label>
-              <div class="flex gap-1">
-                <UInput v-model.number="gridConfig.margin[0]" type="number" size="sm" placeholder="x" min="0" />
-                <UInput v-model.number="gridConfig.margin[1]" type="number" size="sm" placeholder="y" min="0" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Behavior Properties -->
-        <div>
-          <h4 class="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2 uppercase tracking-wide">Behavior</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Draggable</label>
-              <UCheckbox v-model="gridConfig.isDraggable" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Resizable</label>
-              <UCheckbox v-model="gridConfig.isResizable" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Mirrored (RTL)</label>
-              <UCheckbox v-model="gridConfig.isMirrored" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Bounded</label>
-              <UCheckbox v-model="gridConfig.isBounded" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Layout Properties -->
-        <div>
-          <h4 class="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2 uppercase tracking-wide">Layout</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Auto Size</label>
-              <UCheckbox v-model="gridConfig.autoSize" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vertical Compact</label>
-              <UCheckbox v-model="gridConfig.verticalCompact" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Restore on Drag</label>
-              <UCheckbox v-model="gridConfig.restoreOnDrag" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Prevent Collision</label>
-              <UCheckbox v-model="gridConfig.preventCollision" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Performance Properties -->
-        <div>
-          <h4 class="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2 uppercase tracking-wide">Performance</h4>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">CSS Transforms</label>
-              <UCheckbox v-model="gridConfig.useCssTransforms" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Style Cursor</label>
-              <UCheckbox v-model="gridConfig.useStyleCursor" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Transform Scale</label>
-              <UInput v-model.number="gridConfig.transformScale" type="number" size="sm" step="0.1" min="0.1" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Responsive Properties -->
-        <div>
-          <h4 class="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2 uppercase tracking-wide">Responsive</h4>
-          <div class="space-y-2">
-            <div>
-              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Responsive</label>
-              <UCheckbox v-model="gridConfig.responsive" />
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Breakpoints</label>
-                <UTextarea
-                  v-model="breakpointsJson"
-                  :rows="2"
-                  size="sm"
-                  monospace
-                  placeholder='{"lg": 1200, "md": 996, "sm": 768, "xs": 480, "xxs": 0}'
-                />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Columns per Breakpoint</label>
-                <UTextarea
-                  v-model="colsJson"
-                  :rows="2"
-                  size="sm"
-                  monospace
-                  placeholder='{"lg": 12, "md": 10, "sm": 6, "xs": 4, "xxs": 2}'
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- JSON Editor for gridLayout -->
-        <div>
-          <h4 class="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2 uppercase tracking-wide">Layout Data</h4>
-          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Grid Layout JSON</label>
-          <UTextarea
-            v-model="gridLayoutJson"
-            :rows="6"
-            size="sm"
-            monospace
-            @input="updateGridLayoutFromJson"
-            placeholder="Edit the grid layout as JSON..."
-          />
-        </div>
-
-        <!-- Current Layout Info -->
-        <div class="text-xs text-gray-600 dark:text-gray-400 border-t pt-2">
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <div class="font-medium mb-1">Layout Stats</div>
-              <div>Items: {{ gridLayout.length }}</div>
-              <div>Total Width: {{ gridLayout.reduce((sum, item) => sum + item.w, 0) }}</div>
-              <div>Max Height: {{ gridLayout.length ? Math.max(...gridLayout.map(item => item.y + item.h)) : 0 }}</div>
-            </div>
-            <div>
-              <div class="font-medium mb-1">Config Summary</div>
-              <div>Responsive: {{ gridConfig.responsive ? 'Yes' : 'No' }}</div>
-              <div>Draggable: {{ gridConfig.isDraggable ? 'Yes' : 'No' }}</div>
-              <div>Resizable: {{ gridConfig.isResizable ? 'Yes' : 'No' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <DebugGridLayoutPanel
+          v-if="$nuxt.isDev"
+          :config="gridConfig"
+          :layout="gridLayout"
+          @update:config="Object.assign(gridConfig, $event)"
+          @update:layout="gridLayout = $event"
+      />
     </ClientOnly>
 
     <!-- Rename Chart Modal -->
@@ -783,18 +614,6 @@ const isEditableSession = computed(() => isEditMode.value && canEditDashboard.va
 useHead(() => ({
   title: isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'
 }))
-
-// Debug environment flag for development
-const { public: { debugEnv: runtimeDebugEnv } } = useRuntimeConfig()
-const debugEnv = ref<boolean>(false)
-
-onMounted(() => {
-  if (typeof window === 'undefined') return
-  if (!('__DEBUG_ENV__' in (window as any))) {
-    ;(window as any).__DEBUG_ENV__ = runtimeDebugEnv === 'true'
-  }
-  debugEnv.value = (window as any).__DEBUG_ENV__ === true
-})
 
 
 watch(

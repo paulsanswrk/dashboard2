@@ -1,5 +1,5 @@
 import { defineEventHandler, readBody } from 'h3'
-import { withMySqlConnection } from '../../utils/mysqlClient'
+import { withMySqlConnection } from '../../utils/mysqlClient.dev'
 
 export default defineEventHandler(async (event) => {
   const { datasetId, fields, filters, limit = 100 } = await readBody<any>(event)

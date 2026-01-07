@@ -11,12 +11,13 @@
         <div v-for="(w, i) in props.serverWarnings" :key="i">{{ w }}</div>
       </div>
       
-      <div v-if="debugEnv && usedTables.size" class="text-xs p-2 border border-neutral-300 bg-neutral-50 rounded">
-        <div class="font-medium mb-1">Debug (tables in use)</div>
-        <div>Used: {{ Array.from(usedTables).join(', ') }}</div>
-        <div>Relevant FKs: {{ relevantRels.length }}</div>
-        <div v-if="appliedJoins.length">Applied: {{ appliedJoins.map(j => `${j.sourceTable}->${j.targetTable}`).join(', ') }}</div>
-      </div>
+      <!-- Debug panel (dev only) -->
+      <DebugJoinsPanel
+          v-if="$nuxt.isDev && usedTables.size"
+          :used-tables="usedTables"
+          :relevant-rels-count="relevantRels.length"
+          :applied-joins="appliedJoins"
+      />
       <div v-if="appliedJoins.length" class="text-sm">
         <div class="text-gray-200 mb-1">Applied:</div>
         <ul class="space-y-1">
@@ -70,7 +71,6 @@ const appliedJoins = joins
 const choiceIdx = ref<number | null>(null)
 const relevantRels = ref<any[]>([])
 const usedTables = ref<Set<string>>(new Set())
-const debugEnv = ref<boolean>(false)
 
 function formatPairs(pairs: Array<{ sourceColumn: string; targetColumn: string }>) {
   return pairs.map((p: any) => `${p.sourceColumn} = ${p.targetColumn}`).join(' AND ')
@@ -113,12 +113,6 @@ watchEffect(() => {
   // normalize comparison to be case-insensitive
   const usedLower = new Set(Array.from(used).map(t => String(t).toLowerCase()))
   relevantRels.value = (props.relationships || []).filter((r: any) => usedLower.has(String(r.sourceTable).toLowerCase()) && usedLower.has(String(r.targetTable).toLowerCase()))
-})
-
-watchEffect(() => {
-  if (typeof window !== 'undefined') {
-    debugEnv.value = (window as any).__DEBUG_ENV__ === true
-  }
 })
 </script>
 

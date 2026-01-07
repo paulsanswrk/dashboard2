@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import {isDebugMode} from '~/server/utils/debugConfig'
-import {AuthHelper} from '~/server/utils/authHelper'
+import { isDebugMode } from '~/server/utils/debugConfig.dev'
+import { AuthHelper } from '~/server/utils/authHelper'
 
 interface ConnectionExample {
   description: string
@@ -30,14 +30,14 @@ interface ConnectionExample {
 
 export default defineEventHandler(async (event) => {
   try {
-      // Only SUPERADMIN can access connection examples
-      const ctx = await AuthHelper.requireAuthContext(event)
-      if (ctx.role !== 'SUPERADMIN') {
-          throw createError({
-              statusCode: 403,
-              statusMessage: 'Only Superadmin users can access connection examples'
-          })
-      }
+    // Only SUPERADMIN can access connection examples
+    const ctx = await AuthHelper.requireAuthContext(event)
+    if (ctx.role !== 'SUPERADMIN') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only Superadmin users can access connection examples'
+      })
+    }
     // Always available Sakila demo connection for testing
     const sakilaExample = {
       filename: 'sakila.json',
@@ -67,36 +67,36 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-      // Always available insta800.net demo connection for testing
-      const insta800Example = {
-          filename: 'insta800.net.json',
-          description: 'insta800.net',
-          config: {
-              description: 'insta800.net',
-              version: '1.0.0',
-              connection: {
-                  internalName: 'insta800.net',
-                  databaseName: 'dispotronic_insta_test',
-                  databaseType: 'mysql',
-                  host: 'localhost',
-                  username: 'dispotronic_usr',
-                  password: 'mfjuEvc382X',
-                  port: '3306',
-                  jdbcParams: '',
-                  serverTime: 'GMT+02:00',
-                  useSshTunneling: true,
-                  sshAuthMethod: 'public-key',
-                  sshPort: '22',
-                  sshUser: 'mysqlconn',
-                  sshHost: 'instatest.ksf.kiev.ua',
-                  sshPassword: '',
-                  sshPrivateKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\nc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0biHQeMhSLbktV76Y7aTQAA\nALBVCYpWVQmKVgAAAAtzc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0bi\nHQeMhSLbktV76Y7aTQAAAEBPdjYDC7vbDAajgXMdq8uTXulzdJFPYf0Im9quxcUU\nPG96+sjA7GxmPyjKSrO27qV3RuIdB4yFItuS1XvpjtpNAAAAIG15c3FsY29ubkBp\nbnN0YXRlc3QyLmtzZi5raWV2LnVhAQIDBAUGBwgJCgsMDQ==\n-----END OPENSSH PRIVATE KEY-----',
-                  storageLocation: 'remote'
-              }
-          }
+    // Always available insta800.net demo connection for testing
+    const insta800Example = {
+      filename: 'insta800.net.json',
+      description: 'insta800.net',
+      config: {
+        description: 'insta800.net',
+        version: '1.0.0',
+        connection: {
+          internalName: 'insta800.net',
+          databaseName: 'dispotronic_insta_test',
+          databaseType: 'mysql',
+          host: 'localhost',
+          username: 'dispotronic_usr',
+          password: 'mfjuEvc382X',
+          port: '3306',
+          jdbcParams: '',
+          serverTime: 'GMT+02:00',
+          useSshTunneling: true,
+          sshAuthMethod: 'public-key',
+          sshPort: '22',
+          sshUser: 'mysqlconn',
+          sshHost: 'instatest.ksf.kiev.ua',
+          sshPassword: '',
+          sshPrivateKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\nc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0biHQeMhSLbktV76Y7aTQAA\nALBVCYpWVQmKVgAAAAtzc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0bi\nHQeMhSLbktV76Y7aTQAAAEBPdjYDC7vbDAajgXMdq8uTXulzdJFPYf0Im9quxcUU\nPG96+sjA7GxmPyjKSrO27qV3RuIdB4yFItuS1XvpjtpNAAAAIG15c3FsY29ubkBp\nbnN0YXRlc3QyLmtzZi5raWV2LnVhAQIDBAUGBwgJCgsMDQ==\n-----END OPENSSH PRIVATE KEY-----',
+          storageLocation: 'remote'
+        }
       }
+    }
 
-      const examples: Array<{ filename: string, description: string, config: ConnectionExample }> = [sakilaExample, insta800Example]
+    const examples: Array<{ filename: string, description: string, config: ConnectionExample }> = [sakilaExample, insta800Example]
 
     // If in debug mode, also load additional examples from filesystem
     if (isDebugMode()) {
@@ -114,8 +114,8 @@ export default defineEventHandler(async (event) => {
               const content = fs.readFileSync(filePath, 'utf-8')
               const config: ConnectionExample = JSON.parse(content)
 
-                // Avoid duplicate sakila and insta800 entries
-                if (file !== 'sakila.json' && file !== 'insta800.net.json') {
+              // Avoid duplicate sakila and insta800 entries
+              if (file !== 'sakila.json' && file !== 'insta800.net.json') {
                 examples.push({
                   filename: file,
                   description: config.description || file.replace('.json', ''),

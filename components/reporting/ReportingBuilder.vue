@@ -144,7 +144,7 @@
       </div>
     </div>
 
-    <!-- Debug JSON Config Panel (only shown when DEBUG_ENV=true) -->
+    <!-- Debug JSON Config Panel (dev mode only) -->
     <ClientOnly>
       <div v-if="isDebug" class="mb-4 border rounded-lg bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700">
         <button
@@ -283,8 +283,8 @@ const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelected
 const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
-const config = useRuntimeConfig()
-const isDebug = computed(() => config.public.debugEnv === 'true')
+const nuxtApp = useNuxtApp()
+const isDebug = computed(() => nuxtApp.static.isDev ?? import.meta.dev)
 const toast = useToast()
 const loading = ref(false)
 const rows = ref<Array<Record<string, unknown>>>([])

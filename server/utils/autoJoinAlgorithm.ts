@@ -2,8 +2,6 @@
 // Based on the specification in docs/requirements/auto-join.md
 
 import { parse, stringify } from 'devalue'
-import fs from 'fs'
-import path from 'path'
 import {
     buildGraph,
     computePathsIndex,
@@ -105,15 +103,9 @@ export function findJoinPaths(tables: TableInfo[], selectedTableNames: string[])
     const schemaJson = { schema: { tables } }
     const graph = buildGraph(schemaJson)
     const pathsIndex = computePathsIndex(graph)
-    const exitPayloads = buildExitPayloads(graph, pathsIndex)
 
     // Use the selectJoinTree function to find optimal join tree
     const joinTreeResult = selectJoinTree(selectedTableNames, graph, pathsIndex)
-
-    // Generate debug PUML file if DEBUG_ENV is enabled
-    if (process.env.DEBUG_ENV === 'true') {
-        generateDebugPuml(graph, exitPayloads, selectedTableNames, joinTreeResult)
-    }
 
     if (joinTreeResult.nodes.length === 0) {
         return {
@@ -233,9 +225,9 @@ function generateJoinSQL(selectedTables: string[], joinGraph: JoinEdge[]): strin
     // Simple approach: loop through joinGraph items and build joins
     for (const edge of joinGraph) {
         // if (edge.from === startTable || selectedTables.includes(edge.from)) {
-            const joinClause = `JOIN ${edge.to} ON ${edge.from}.${edge.columnPairs[0]?.sourceColumn || 'id'} = ${edge.to}.${edge.columnPairs[0]?.targetColumn || 'id'}`
-            console.log(`[SQL_GEN] Adding join: ${joinClause}`)
-            sqlParts.push(joinClause)
+        const joinClause = `JOIN ${edge.to} ON ${edge.from}.${edge.columnPairs[0]?.sourceColumn || 'id'} = ${edge.to}.${edge.columnPairs[0]?.targetColumn || 'id'}`
+        console.log(`[SQL_GEN] Adding join: ${joinClause}`)
+        sqlParts.push(joinClause)
         // }
     }
 
@@ -281,121 +273,3 @@ function generateJoinSQL_old(selectedTables: string[], joinGraph: JoinEdge[]): s
     return finalSQL
 }
 
-/**
- * Generate debug PUML file for visualization when DEBUG_ENV is enabled
- */
-function generateDebugPuml(
-    graph: TableGraph,
-    exitPayloads: ExitPayloads,
-    selectedTableNames: string[],
-    joinTreeResult: { edgeIds: string[], nodes: string[] }
-): void {
-    try {
-        // Create .debug directory in app root
-        const debugDir = path.join(process.cwd(), '.debug')
-        if (!fs.existsSync(debugDir)) {
-            fs.mkdirSync(debugDir, { recursive: true })
-        }
-
-        // Create filename with timestamp and table names
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-        const tableNames = selectedTableNames.join('_')
-        const filename = `debug-join-${tableNames}-${timestamp}.puml`
-        const filepath = path.join(debugDir, filename)
-
-        // Generate comprehensive debug PUML that shows:
-        // 1. All nodes and edges (full graph)
-        // 2. Highlighted edges from the selected join tree
-        // 3. Exit payloads for context
-        const pumlContent = generateComprehensiveDebugPuml(graph, exitPayloads, joinTreeResult)
-
-        // Write PUML file
-        fs.writeFileSync(filepath, pumlContent)
-
-        console.log(`[DEBUG] Generated PUML file: ${filepath}`)
-        console.log(`[DEBUG] Selected tables: ${selectedTableNames.join(', ')}`)
-        console.log(`[DEBUG] Join tree nodes: ${joinTreeResult.nodes.length}`)
-        console.log(`[DEBUG] Join tree edges: ${joinTreeResult.edgeIds.length}`)
-        console.log(`[DEBUG] Total nodes in graph: ${graph.nodes.size}`)
-        console.log(`[DEBUG] Total edges in graph: ${Array.from(graph.adj.values()).reduce((sum, edges) => sum + edges.length, 0)}`)
-    } catch (error) {
-        console.error('[DEBUG] Failed to generate PUML file:', error)
-    }
-}
-
-/**
- * Generate comprehensive debug PUML showing full graph, join tree, and exit payloads
- */
-function generateComprehensiveDebugPuml(
-    graph: TableGraph,
-    exitPayloads: ExitPayloads,
-    joinTreeResult: { edgeIds: string[], nodes: string[] }
-): string {
-    let puml = `@startuml\n` +
-        `!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist\n` +
-        `skinparam classAttributeIconSize 0\n` +
-        `skinparam ArrowThickness 1\n` +
-        `skinparam ArrowColor #888888\n` +
-        `skinparam ClassBorderColor #444444\n` +
-        `skinparam ClassBackgroundColor #f8f8f8\n` +
-        `skinparam NoteBorderColor #888888\n` +
-        `skinparam NoteBackgroundColor #ffffcc\n` +
-        `\nlegend right\n` +
-        `  |= Color |= Meaning |\n` +
-        `  | Blue | Selected join path |\n` +
-        `  | Red | Alternative paths |\n` +
-        `  | Black | Regular connections |\n` +
-        `endlegend\n\n`
-
-    // Add all tables as classes
-    for (const [tableName] of graph.nodes) {
-        puml += `class "${tableName}" as ${tableName} {\n`
-        puml += `  +table\n`
-        puml += `}\n`
-    }
-
-    // Add all edges with different colors based on whether they're in the join tree
-    const addedEdges = new Set<string>()
-    const highlightedEdges = new Set(joinTreeResult.edgeIds)
-
-    for (const [sourceTable, edges] of graph.adj) {
-        for (const edge of edges) {
-            const edgeKey = `${edge.from}->${edge.to}`
-            if (addedEdges.has(edgeKey)) continue
-            addedEdges.add(edgeKey)
-
-            const isHighlighted = highlightedEdges.has(edge.id)
-            const color = isHighlighted ? '[#blue]' : ''
-            const thickness = isHighlighted ? 'bold' : ''
-
-            const cardinality = edge.payload.cardinality
-            const constraint = edge.payload.constraintName
-            const columns = edge.payload.columnPairs.map(cp => `${cp.sourceColumn}=${cp.targetColumn}`).join(', ')
-
-            puml += `${edge.from} ${color}${thickness}--> ${edge.to} : ${constraint}\\n${columns}\\n${cardinality}\n`
-        }
-    }
-
-    // Add exit payload notes (but only for tables that have exits)
-    for (const [tableName, exits] of Object.entries(exitPayloads.exits)) {
-        if (exits.length > 0) {
-            puml += `note right of ${tableName}\n`
-            puml += `  **Exit Paths:**\n`
-
-            for (const exit of exits) {
-                puml += `  ${exit.exitTo}:\n`
-                for (const path of exit.paths.slice(0, 3)) { // Limit to top 3 paths
-                    puml += `    ${path.label}\n`
-                }
-                if (exit.paths.length > 3) {
-                    puml += `    ... (${exit.paths.length - 3} more)\n`
-                }
-            }
-
-            puml += `end note\n`
-        }
-    }
-
-    puml += '@enduml\n'
-    return puml
-}

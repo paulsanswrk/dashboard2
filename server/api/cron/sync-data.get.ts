@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
     const logAccumulator = new LogAccumulator()
 
     try {
-        // Auth check - bypass in debug mode
-        if (process.env.DEBUG_ENV === 'true') {
+        // Auth check - bypass in dev mode
+        if (import.meta.dev) {
             logAccumulator.addLog('debug', 'cron-sync', 'Bypassing cron authentication for local development')
         } else {
             const authHeader = getHeader(event, 'authorization')

@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import {isDebugMode} from '~/server/utils/debugConfig'
-import {AuthHelper} from '~/server/utils/authHelper'
+import { isDebugMode } from '~/server/utils/debugConfig.dev'
+import { AuthHelper } from '~/server/utils/authHelper'
 
 interface ConnectionExample {
   description: string
@@ -30,14 +30,14 @@ interface ConnectionExample {
 
 export default defineEventHandler(async (event) => {
   try {
-      // Only SUPERADMIN can access connection examples
-      const ctx = await AuthHelper.requireAuthContext(event)
-      if (ctx.role !== 'SUPERADMIN') {
-          throw createError({
-              statusCode: 403,
-              statusMessage: 'Only Superadmin users can access connection examples'
-          })
-      }
+    // Only SUPERADMIN can access connection examples
+    const ctx = await AuthHelper.requireAuthContext(event)
+    if (ctx.role !== 'SUPERADMIN') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only Superadmin users can access connection examples'
+      })
+    }
 
     const query = getQuery(event)
     let filename = query.filename as string
@@ -87,37 +87,37 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-      // Handle hardcoded insta800.net connection (always available for superadmins)
-      if (filename === 'insta800.net.json') {
-          const insta800Config: ConnectionExample = {
-              description: 'insta800.net',
-              version: '1.0.0',
-              connection: {
-                  internalName: 'insta800.net',
-                  databaseName: 'dispotronic_insta_test',
-                  databaseType: 'mysql',
-                  host: 'localhost',
-                  username: 'dispotronic_usr',
-                  password: 'mfjuEvc382X',
-                  port: '3306',
-                  jdbcParams: '',
-                  serverTime: 'GMT+02:00',
-                  useSshTunneling: true,
-                  sshAuthMethod: 'public-key',
-                  sshPort: '22',
-                  sshUser: 'mysqlconn',
-                  sshHost: 'instatest.ksf.kiev.ua',
-                  sshPassword: '',
-                  sshPrivateKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\nc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0biHQeMhSLbktV76Y7aTQAA\nALBVCYpWVQmKVgAAAAtzc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0bi\nHQeMhSLbktV76Y7aTQAAAEBPdjYDC7vbDAajgXMdq8uTXulzdJFPYf0Im9quxcUU\nPG96+sjA7GxmPyjKSrO27qV3RuIdB4yFItuS1XvpjtpNAAAAIG15c3FsY29ubkBp\nbnN0YXRlc3QyLmtzZi5raWV2LnVhAQIDBAUGBwgJCgsMDQ==\n-----END OPENSSH PRIVATE KEY-----',
-                  storageLocation: 'remote'
-              }
-          }
+    // Handle hardcoded insta800.net connection (always available for superadmins)
+    if (filename === 'insta800.net.json') {
+      const insta800Config: ConnectionExample = {
+        description: 'insta800.net',
+        version: '1.0.0',
+        connection: {
+          internalName: 'insta800.net',
+          databaseName: 'dispotronic_insta_test',
+          databaseType: 'mysql',
+          host: 'localhost',
+          username: 'dispotronic_usr',
+          password: 'mfjuEvc382X',
+          port: '3306',
+          jdbcParams: '',
+          serverTime: 'GMT+02:00',
+          useSshTunneling: true,
+          sshAuthMethod: 'public-key',
+          sshPort: '22',
+          sshUser: 'mysqlconn',
+          sshHost: 'instatest.ksf.kiev.ua',
+          sshPassword: '',
+          sshPrivateKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\nc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0biHQeMhSLbktV76Y7aTQAA\nALBVCYpWVQmKVgAAAAtzc2gtZWQyNTUxOQAAACBvevrIwOxsZj8oykqztu6ld0bi\nHQeMhSLbktV76Y7aTQAAAEBPdjYDC7vbDAajgXMdq8uTXulzdJFPYf0Im9quxcUU\nPG96+sjA7GxmPyjKSrO27qV3RuIdB4yFItuS1XvpjtpNAAAAIG15c3FsY29ubkBp\nbnN0YXRlc3QyLmtzZi5raWV2LnVhAQIDBAUGBwgJCgsMDQ==\n-----END OPENSSH PRIVATE KEY-----',
+          storageLocation: 'remote'
+        }
+      }
 
-          return {
-              success: true,
-              filename: 'insta800.net.json',
-              config: insta800Config.connection,
-              notes: insta800Config.notes
+      return {
+        success: true,
+        filename: 'insta800.net.json',
+        config: insta800Config.connection,
+        notes: insta800Config.notes
       }
     }
 

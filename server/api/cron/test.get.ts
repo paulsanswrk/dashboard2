@@ -2,8 +2,8 @@ export default defineEventHandler(async (event) => {
     const startTime = Date.now()
 
     try {
-        // Bypass authentication in local development when DEBUG_ENV=true
-        if (process.env.DEBUG_ENV === 'true') {
+        // Bypass authentication in local development
+        if (import.meta.dev) {
             console.log('🔧 [TEST CRON] Bypassing cron authentication for local development')
         } else {
             // Only allow service role access (for Vercel cron jobs)

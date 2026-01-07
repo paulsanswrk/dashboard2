@@ -688,10 +688,7 @@ onMounted(async () => {
   connectionsLoading.value = true
   connections.value = await listConnections()
   connectionsLoading.value = false
-  // expose debug flag to window for client-only components
-  if (typeof window !== 'undefined') {
-    ;(window as any).__DEBUG_ENV__ = (import.meta as any).env?.DEBUG_ENV === 'true'
-  }
+  
   // Seed from URL if present
   const url = new URL(window.location.href)
   const cid = url.searchParams.get('data_connection_id')

@@ -19,6 +19,14 @@ export default defineNuxtConfig({
         ...(enableRecaptcha ? ['nuxt-recaptcha'] : [])
     ],
 
+    // Components configuration - exclude debug components in production
+    components: {
+        dirs: [
+            '~/components',
+            { path: '~/components/debug', enabled: process.dev }
+        ]
+    },
+
 
     // Supabase Configuration
     supabase: {
@@ -47,7 +55,6 @@ export default defineNuxtConfig({
             supabaseUrl: process.env.SUPABASE_URL,
             supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
             siteUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000',
-            debugEnv: process.env.DEBUG_ENV || 'false',
             enableRecaptcha: process.env.ENABLE_RECAPTCHA !== 'false',
         },
         supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -115,7 +122,7 @@ export default defineNuxtConfig({
             wasm: true
         },
         routeRules: {
-            '/api/data-transfer/start': {maxDuration: 300}
+            '/api/data-transfer/start': { maxDuration: 300 }
         }
     },
 

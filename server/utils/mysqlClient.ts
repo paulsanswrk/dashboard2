@@ -1,6 +1,5 @@
 import mysql from 'mysql2/promise'
-import {Client as SSHClient} from 'ssh2'
-import {loadDebugConfig} from './debugConfig'
+import { Client as SSHClient } from 'ssh2'
 
 export interface MySqlConnectionConfig {
   host: string
@@ -18,34 +17,6 @@ export interface MySqlConnectionConfig {
   }
 }
 
-async function loadConfig(): Promise<MySqlConnectionConfig> {
-  const debug = await loadDebugConfig()
-  if (!debug) {
-    throw new Error('MySQL connection config not found. Enable DEBUG_ENV or provide runtime config.')
-  }
-  const cfg: MySqlConnectionConfig = {
-    host: debug.host,
-    port: parseInt(debug.port, 10),
-    user: debug.username,
-    password: debug.password,
-    database: debug.databaseName,
-    useSshTunneling: !!debug.useSshTunneling,
-    ssh: debug.useSshTunneling ? {
-      host: debug.sshHost,
-      port: parseInt(debug.sshPort, 10),
-      user: debug.sshUser,
-      password: debug.sshPassword || undefined,
-      privateKey: debug.sshPrivateKey || undefined
-    } : undefined
-  }
-  return cfg
-}
-
-export async function withMySqlConnection<T>(fn: (conn: mysql.Connection) => Promise<T>): Promise<T> {
-  const cfg = await loadConfig()
-  return withMySqlConnectionConfig(cfg, fn)
-}
-
 export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, fn: (conn: mysql.Connection) => Promise<T>): Promise<T> {
   if (!cfg.useSshTunneling) {
     const conn = await mysql.createConnection({
@@ -59,8 +30,8 @@ export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, f
     try {
       return await fn(conn)
     } finally {
-        await conn.end().catch(() => {
-        })
+      await conn.end().catch(() => {
+      })
     }
   }
 
@@ -86,23 +57,23 @@ export async function withMySqlConnectionConfig<T>(cfg: MySqlConnectionConfig, f
           return
         }
         let conn: mysql.Connection | null = null
-        ;(async () => {
-              try {
-                  conn = await mysql.createConnection({
-                      user: cfg.user,
-                      password: cfg.password,
-                      database: cfg.database,
-                      stream,
-                      connectTimeout: 30000
-                  })
-                  const result = await fn(conn)
-                  resolve(result)
-              } catch (e) {
-                  reject(e)
-              } finally {
-                  try { await conn?.end() } catch { }
-                  ssh.end()
-              }
+          ; (async () => {
+            try {
+              conn = await mysql.createConnection({
+                user: cfg.user,
+                password: cfg.password,
+                database: cfg.database,
+                stream,
+                connectTimeout: 30000
+              })
+              const result = await fn(conn)
+              resolve(result)
+            } catch (e) {
+              reject(e)
+            } finally {
+              try { await conn?.end() } catch { }
+              ssh.end()
+            }
           })()
       })
     })

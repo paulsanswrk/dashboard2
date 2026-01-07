@@ -28,19 +28,18 @@ interface DebugConnectionConfig {
 
 /**
  * Load debug connection configuration from config file
- * Returns null if debug mode is disabled or config file doesn't exist
+ * Returns null if not in dev mode or config file doesn't exist
  */
 export async function loadDebugConfig(): Promise<DebugConnectionConfig['connection'] | null> {
   try {
-    // Check if debug mode is enabled
-    const debugEnv = process.env.DEBUG_ENV
-    if (!debugEnv || debugEnv.toLowerCase() !== 'true') {
+    // Only available in development
+    if (!import.meta.dev) {
       return null
     }
 
     // Load debug configuration file
     const configPath = path.join(process.cwd(), 'config', 'debug-connection.json')
-    
+
     if (!fs.existsSync(configPath)) {
       console.warn('Debug mode enabled but config/debug-connection.json not found')
       return null
@@ -65,11 +64,10 @@ export async function loadDebugConfig(): Promise<DebugConnectionConfig['connecti
 }
 
 /**
- * Check if debug mode is enabled
+ * Check if debug mode is enabled (dev environment)
  */
 export function isDebugMode(): boolean {
-  const debugEnv = process.env.DEBUG_ENV
-  return debugEnv && debugEnv.toLowerCase() === 'true'
+  return import.meta.dev
 }
 
 /**
@@ -77,7 +75,7 @@ export function isDebugMode(): boolean {
  * Returns connection info without sensitive data for debugging
  */
 export function getDebugInfo(): Record<string, any> | null {
-  if (!isDebugMode()) {
+  if (!import.meta.dev) {
     return null
   }
 

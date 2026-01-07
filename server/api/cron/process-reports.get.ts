@@ -45,8 +45,8 @@ export default defineEventHandler(async (event) => {
     const logAccumulator = new LogAccumulator()
 
     try {
-        // Bypass authentication in local development when DEBUG_ENV=true
-        if (process.env.DEBUG_ENV === 'true') {
+        // Bypass authentication in local development
+        if (import.meta.dev) {
             logAccumulator.addLog('debug', 'cron', 'Bypassing cron authentication for local development', {
                 url: event.node.req.url,
                 user_id: null

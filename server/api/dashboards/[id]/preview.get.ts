@@ -1,25 +1,26 @@
 // @ts-ignore Nuxt Supabase helper available at runtime
-import {serverSupabaseUser} from '#supabase/server'
-import {db} from '~/lib/db'
-import {charts, dashboardAccess, dashboards, dashboardTabs, dashboardWidgets, profiles} from '~/lib/db/schema'
-import {and, eq, or} from 'drizzle-orm'
-import {createHash} from 'crypto'
-import {withMySqlConnection, withMySqlConnectionConfig} from '../../../utils/mysqlClient'
-import {supabaseAdmin} from '../../supabase'
+import { serverSupabaseUser } from '#supabase/server'
+import { db } from '~/lib/db'
+import { charts, dashboardAccess, dashboards, dashboardTabs, dashboardWidgets, profiles } from '~/lib/db/schema'
+import { and, eq, or } from 'drizzle-orm'
+import { createHash } from 'crypto'
+import { withMySqlConnection } from '../../../utils/mysqlClient.dev'
+import { withMySqlConnectionConfig } from '../../../utils/mysqlClient'
+import { supabaseAdmin } from '../../supabase'
 
 export default defineEventHandler(async (event) => {
     async function loadConnectionConfigForDashboard(connectionId: number, dashboardOrgId: string) {
         try {
             // Verify the connection belongs to the dashboard org
-            const {data, error} = await supabaseAdmin
+            const { data, error } = await supabaseAdmin
                 .from('data_connections')
                 .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
                 .eq('id', Number(connectionId))
                 .single()
 
             if (error || !data || data.organization_id !== dashboardOrgId) {
-                console.error('[preview.get.ts] Connection access denied:', {error: error?.message, hasData: !!data, orgMatch: data?.organization_id === dashboardOrgId})
-                throw createError({statusCode: 403, statusMessage: 'Access to connection denied'})
+                console.error('[preview.get.ts] Connection access denied:', { error: error?.message, hasData: !!data, orgMatch: data?.organization_id === dashboardOrgId })
+                throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
             }
             return {
                 host: data.host,
@@ -39,7 +40,7 @@ export default defineEventHandler(async (event) => {
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[preview.get.ts] Error loading connection config:', e?.message || e)
-            throw createError({statusCode: 500, statusMessage: 'Failed to load connection config'})
+            throw createError({ statusCode: 500, statusMessage: 'Failed to load connection config' })
         }
     }
 
@@ -244,7 +245,7 @@ export default defineEventHandler(async (event) => {
                     try {
                         const sj = row.chartState as any
                         const internal = sj.internal || {}
-                        const publicState = {...sj}
+                        const publicState = { ...sj }
                         delete (publicState as any).internal
 
                         // Execute chart query server-side
@@ -266,7 +267,7 @@ export default defineEventHandler(async (event) => {
                                     try {
                                         const cfg = await loadConnectionConfigForDashboard(Number(connectionId), dashboard?.organizationId || '')
                                         const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                            const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
+                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
                                             return res as any[]
                                         })
                                         rows = resRows
@@ -277,7 +278,7 @@ export default defineEventHandler(async (event) => {
                                 } else {
                                     try {
                                         const resRows = await withMySqlConnection(async (conn) => {
-                                            const [res] = await conn.query({sql: safeSql, timeout: 10000} as any)
+                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
                                             return res as any[]
                                         })
                                         rows = resRows
@@ -286,7 +287,7 @@ export default defineEventHandler(async (event) => {
                                         meta.error = e?.message || 'query_failed'
                                     }
                                 }
-                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({key: k, label: k})) : []
+                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
                             } else {
                                 meta.error = 'no_sql_available'
                             }
@@ -302,7 +303,7 @@ export default defineEventHandler(async (event) => {
                             position: row.position,
                             configOverride: row.configOverride || {},
                             state: publicState,
-                            data: {columns, rows, meta}
+                            data: { columns, rows, meta }
                         })
                     } catch (e: any) {
                         console.error('[preview.get.ts] Error processing chart', row.chartId, ':', e?.message || e)
@@ -314,7 +315,7 @@ export default defineEventHandler(async (event) => {
                             position: row.position,
                             configOverride: row.configOverride || {},
                             state: {},
-                            data: {columns: [], rows: [], meta: {error: e?.message || 'chart_processing_failed'}}
+                            data: { columns: [], rows: [], meta: { error: e?.message || 'chart_processing_failed' } }
                         })
                     }
                 } else {

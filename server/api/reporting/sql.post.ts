@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { withMySqlConnection, withMySqlConnectionConfig } from '../../utils/mysqlClient'
+import { withMySqlConnection } from '../../utils/mysqlClient.dev'
+import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
 
