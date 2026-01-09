@@ -1706,7 +1706,7 @@ function renderChart() {
       textStyle: legendFont
     },
     grid: {
-      left: props.appearance?.legendPosition === 'left' ? '15%' : '3%',
+      left: props.appearance?.legendPosition === 'left' ? '15%' : '8%',
       right: props.appearance?.legendPosition === 'right' ? '15%' : '4%',
       bottom: (props.appearance?.legendPosition === 'bottom' || !props.appearance?.legendPosition) ? '15%' : '10%',
       top: 60 + (props.appearance?.titlePaddingBottom ?? 0),
@@ -1737,7 +1737,7 @@ function renderChart() {
       type: 'value',
       name: yAxisSettings.showTitle !== false ? (yAxisSettings.title || props.appearance?.yAxisLabel || '') : '',
       nameLocation: 'middle',
-      nameGap: 50,
+      nameGap: 70,
       nameTextStyle: getFontStyle(yAxisSettings.titleFont),
       min: yAxisSettings.scale?.min ?? 0,
       max: yAxisSettings.scale?.max ?? undefined,
@@ -1766,6 +1766,10 @@ function renderChart() {
         position: props.appearance?.labelsInside ? 'inside' : 'top',
         ...labelFont,
         formatter: (params: any) => {
+          // Hide labels for zero values to avoid clutter on stacked charts
+          if (params.value === 0 || params.value === null || params.value === undefined) {
+            return ''
+          }
           const dp = props.appearance?.numberFormat?.decimalPlaces ?? 0
           const ts = props.appearance?.numberFormat?.thousandsSeparator ?? true
           const prefix = props.appearance?.yAxis?.numberFormat?.prefix || ''
@@ -1778,7 +1782,11 @@ function renderChart() {
 
   // Handle stacking if needed (either via appearance or stacked chart type)
   if (props.appearance?.stacked || type === 'stacked') {
-    option.xAxis.boundaryGap = currentChartType !== 'bar'
+    // Keep boundaryGap true for bar/column charts (to offset from axis)
+    // Only set to false for line/area charts where we want points at edges
+    if (currentChartType === 'line') {
+      option.xAxis.boundaryGap = false
+    }
     seriesConfig.forEach((series: any, idx: number) => {
       series.stack = 'total'  // All series stack together
     })
