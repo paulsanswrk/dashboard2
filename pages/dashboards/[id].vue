@@ -486,6 +486,7 @@
                 :dashboard-filters="activeFilterConditions"
                 :tab-style="activeTabStyle"
                 :dashboard-width="dashboardWidth"
+                :dashboard-id="id"
                 ref="dashboardRef"
                 @edit-chart="editChart"
                 @rename-chart="startRenameChart"
@@ -1178,8 +1179,7 @@ async function load() {
         name: w.type === 'chart' ? w.name : (w.style?.content || 'Text'),
         position: w.position,
         state: w.type === 'chart' ? w.state : undefined,
-        preloadedColumns: w.type === 'chart' ? w.data?.columns : undefined,
-        preloadedRows: w.type === 'chart' ? w.data?.rows : undefined,
+        // Note: No preloaded data - charts fetch their own data progressively
         style: w.style || {},
         configOverride: w.configOverride || {}
       }))

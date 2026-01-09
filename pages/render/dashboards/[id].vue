@@ -8,6 +8,7 @@
         :loading="loading"
         :preview="true"
         :scaling-enabled="false"
+        :dashboard-id="id"
     />
   </div>
 </template>
@@ -34,8 +35,6 @@ interface Widget {
   name?: string
   position: any
   state?: any
-  preloadedColumns?: any[]
-  preloadedRows?: any[]
   style?: any
   configOverride?: any
 }
@@ -107,8 +106,7 @@ async function load() {
           name: widget.name || '',
           position: widget.position,
           state: widget.state,
-          preloadedColumns: widget.data?.columns,
-          preloadedRows: widget.data?.rows,
+          // Note: No preloaded data - charts fetch their own data progressively
           style: widget.style,
           configOverride: widget.configOverride
         })

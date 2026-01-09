@@ -2,14 +2,17 @@ import { defineEventHandler, getQuery } from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import { serverSupabaseUser } from '#supabase/server'
 import { supabaseAdmin } from '../../supabase'
-import { withMySqlConnection } from '../../../utils/mysqlClient.dev'
-import { withMySqlConnectionConfig } from '../../../utils/mysqlClient'
-import { loadConnectionConfigFromSupabase } from '../../../utils/connectionConfig'
 import { validateRenderContext } from '../../../utils/renderContext'
-import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../../utils/internalStorageQuery'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
+/**
+ * GET /api/dashboards/:id/full
+ * 
+ * Returns dashboard metadata, tabs, and widget configurations.
+ * Does NOT fetch chart data - charts should fetch their own data using
+ * /api/dashboards/:id/charts/:chartId/data for progressive loading.
+ */
 export default defineEventHandler(async (event) => {
     try {
         const id = event.context.params?.id as string
@@ -153,7 +156,7 @@ export default defineEventHandler(async (event) => {
             throw createError({ statusCode: 500, statusMessage: 'Failed to load dashboard widgets' })
         }
 
-        // Load charts
+        // Load charts (metadata only - no data fetching)
         const chartIds: number[] = (widgets || [])
             .filter((w: any) => w.type === 'chart' && w.chart_id != null)
             .map((l: any) => l.chart_id)
@@ -176,45 +179,7 @@ export default defineEventHandler(async (event) => {
             throw createError({ statusCode: 500, statusMessage: 'Failed to load charts' })
         }
 
-        async function loadConnectionConfigForOwner(connectionId: number) {
-            try {
-                // If same org as dashboard, reuse helper (enforces ownership/org on that helper)
-                if (sameOrg) {
-                    return await loadConnectionConfigFromSupabase(event, Number(connectionId))
-                }
-                // Public render path: verify the connection belongs to the dashboard org, then build cfg
-                const { data, error } = await supabaseAdmin
-                    .from('data_connections')
-                    .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
-                    .eq('id', Number(connectionId))
-                    .single()
-
-                if (error || !data || data.organization_id !== dashboard.organization_id) {
-                    throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
-                }
-                return {
-                    host: data.host,
-                    port: Number(data.port),
-                    user: data.username,
-                    password: data.password,
-                    database: data.database_name,
-                    useSshTunneling: !!data.use_ssh_tunneling,
-                    ssh: data.use_ssh_tunneling ? {
-                        host: data.ssh_host,
-                        port: Number(data.ssh_port),
-                        user: data.ssh_user,
-                        password: data.ssh_password || undefined,
-                        privateKey: data.ssh_private_key || undefined
-                    } : undefined
-                }
-            } catch (e: any) {
-                if (e.statusCode) throw e
-                console.error('[full.get.ts] Error in loadConnectionConfigForOwner:', e?.message || e)
-                throw createError({ statusCode: 500, statusMessage: 'Failed to load connection config' })
-            }
-        }
-
-        // Group links by tab
+        // Group widgets by tab
         const widgetsByTab: Record<string, any[]> = {}
         for (const widget of widgets || []) {
             if (!widgetsByTab[widget.tab_id]) {
@@ -223,149 +188,70 @@ export default defineEventHandler(async (event) => {
             widgetsByTab[widget.tab_id].push(widget)
         }
 
-        // Fetch external data for all charts in parallel (uses internal info server-side)
-        const tabTasks = tabs.map(async (tab: any) => {
+        // Build tab results with widgets (no data fetching for charts)
+        const tabResults = tabs.map((tab: any) => {
             const tabWidgets = widgetsByTab[tab.id] || []
-            const chartTasks = tabWidgets
-                .filter((lnk: any) => lnk.type === 'chart')
-                .map(async (lnk: any) => {
-                    try {
-                        const chart = chartsById[lnk.chart_id]
-                        if (!chart) {
-                            console.warn('[full.get.ts] Chart not found:', lnk.chart_id)
-                        }
-                        const sj = (chart?.state_json || {}) as any
-                        const internal = sj.internal || {}
-                        const effective = { ...sj, ...internal }
-                        delete (effective as any).internal
 
-                        // Prepare data using internal info
-                        let columns: any[] = []
-                        let rows: any[] = []
-                        const meta: Record<string, any> = {}
+            // Process chart widgets - return metadata only
+            const chartResults = tabWidgets
+                .filter((w: any) => w.type === 'chart')
+                .map((lnk: any) => {
+                    const chart = chartsById[lnk.chart_id]
+                    if (!chart) {
+                        console.warn('[full.get.ts] Chart not found:', lnk.chart_id)
+                    }
+                    const sj = (chart?.state_json || {}) as any
+                    const internal = sj.internal || {}
+                    const effective = { ...sj, ...internal }
+                    delete (effective as any).internal
 
-                        try {
-                            const sql = internal.actualExecutedSql || internal.sqlText || ''
-                            const sqlParams = internal.actualExecutedSqlParams || []
-                            const connectionId = internal.dataConnectionId ?? null
+                    // Build state for response: owner gets flattened full state; public gets only public subset
+                    const responseState = isOwner ? effective : sj
 
-                            if (sql) {
-                                let safeSql = sql.trim()
-                                if (!/\blimit\b/i.test(safeSql)) safeSql = `${safeSql} LIMIT 500`
-
-                                if (connectionId) {
-                                    try {
-                                        // Check if connection uses internal storage
-                                        const storageInfo = await loadInternalStorageInfo(Number(connectionId))
-
-                                        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-                                            console.log(`[full.get.ts] Using internal storage for chart ${lnk.chart_id}: ${storageInfo.schemaName}`)
-                                            rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql, sqlParams)
-                                        } else {
-                                            const cfg = await loadConnectionConfigForOwner(Number(connectionId))
-                                            const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                                const [res] = await conn.query(safeSql, sqlParams)
-                                                return res as any[]
-                                            })
-                                            rows = resRows
-                                        }
-                                    } catch (e: any) {
-                                        console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
-                                        throw e
-                                    }
-                                } else {
-                                    try {
-                                        const resRows = await withMySqlConnection(async (conn) => {
-                                            const [res] = await conn.query(safeSql, sqlParams)
-                                            return res as any[]
-                                        })
-                                        rows = resRows
-                                    } catch (e: any) {
-                                        console.error('[full.get.ts] Query error (chart', lnk.chart_id, '):', e?.message || e)
-                                        throw e
-                                    }
-                                }
-                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
-                            } else {
-                                // No SQL available, try to fetch data using dataset preview logic
-                                try {
-                                    const datasetId = internal.selectedDatasetId
-                                    if (datasetId) {
-                                        // For server-side rendering, we need to simulate the dataset preview
-                                        // For now, we'll leave this empty and let client-side handle it
-                                        // TODO: Implement server-side dataset preview
-                                        meta.error = 'client_side_fetch_required'
-                                    } else {
-                                        meta.error = 'no_dataset_or_sql'
-                                    }
-                                } catch (e: any) {
-                                    meta.error = e?.statusMessage || e?.message || 'dataset_preview_failed'
-                                }
-                            }
-                        } catch (e: any) {
-                            meta.error = e?.statusMessage || e?.message || 'query_failed'
-                        }
-
-                        // Build state for response: owner gets flattened full state; public gets only public subset
-                        const responseState = isOwner ? effective : sj // sj contains only public keys + internal hidden
-
-                        // Sanitize meta for public: do not include SQL
-                        if (!isOwner) delete (meta as any).sql
-
-                        return {
-                            id: lnk.chart_id,
-                            widgetId: lnk.id,
-                            name: chart?.name || '',
-                            position: lnk.position,
-                            configOverride: lnk.config_override || {},
-                            state: responseState,
-                            data: { columns, rows, meta }
-                        }
-                    } catch (e: any) {
-                        console.error('[full.get.ts] Fatal error processing chart', lnk.chart_id, ':', e?.message || e)
-                        // Return error state instead of throwing to prevent Promise.all from failing
-                        return {
-                            id: lnk.chart_id,
-                            widgetId: lnk.id,
-                            name: chartsById[lnk.chart_id]?.name || '',
-                            position: lnk.position,
-                            configOverride: lnk.config_override || {},
-                            state: {},
-                            data: { columns: [], rows: [], meta: { error: e?.statusMessage || e?.message || 'chart_processing_failed' } }
-                        }
+                    return {
+                        id: lnk.chart_id,
+                        widgetId: lnk.id,
+                        type: 'chart' as const,
+                        name: chart?.name || '',
+                        position: lnk.position,
+                        configOverride: lnk.config_override || {},
+                        state: responseState,
+                        style: lnk.style || {}
+                        // Note: No 'data' field - charts fetch their own data progressively
                     }
                 })
 
-            const chartResults = await Promise.all(chartTasks)
-
+            // Process text widgets
             const textResults = tabWidgets
                 .filter((w: any) => w.type === 'text')
                 .map((w: any) => ({
                     id: w.chart_id || null,
                     widgetId: w.id,
-                    type: 'text',
+                    type: 'text' as const,
                     position: w.position,
                     style: w.style || {},
                     configOverride: w.config_override || {}
                 }))
 
+            // Process image widgets
             const imageResults = tabWidgets
                 .filter((w: any) => w.type === 'image')
                 .map((w: any) => ({
                     id: w.chart_id || null,
                     widgetId: w.id,
-                    type: 'image',
+                    type: 'image' as const,
                     position: w.position,
                     style: w.style || {},
                     configOverride: w.config_override || {}
                 }))
 
+            // Process icon widgets
             const iconResults = tabWidgets
                 .filter((w: any) => w.type === 'icon')
                 .map((w: any) => ({
                     id: w.chart_id || null,
                     widgetId: w.id,
-                    type: 'icon',
+                    type: 'icon' as const,
                     position: w.position,
                     style: w.style || {},
                     configOverride: w.config_override || {}
@@ -378,21 +264,13 @@ export default defineEventHandler(async (event) => {
                 style: tab.style ?? {},
                 options: tab.options ?? {},
                 widgets: [
-                    ...chartResults.map((c) => ({ ...c, type: 'chart' })),
+                    ...chartResults,
                     ...textResults,
                     ...imageResults,
                     ...iconResults
                 ]
             }
         })
-
-        let tabResults: any[]
-        try {
-            tabResults = await Promise.all(tabTasks)
-        } catch (e: any) {
-            console.error('[full.get.ts] Error in Promise.all:', e?.message || e)
-            throw createError({ statusCode: 500, statusMessage: 'Failed to process tabs' })
-        }
 
         return {
             id: dashboard.id,
@@ -411,5 +289,3 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 500, statusMessage: 'Internal server error' })
     }
 })
-
-

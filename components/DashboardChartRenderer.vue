@@ -5,15 +5,23 @@
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       <span class="ml-3 text-gray-500">Loading chart...</span>
     </div>
-    <div v-else-if="error" class="p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded">
-      <strong>Chart Error:</strong> {{ error }}
-      <br><small>Chart Type: {{ chartType }}, State: {{ JSON.stringify(props.state, null, 2) }}</small>
+    <div v-else-if="error" class="flex items-center justify-center h-full p-4">
+      <div class="text-center max-w-sm">
+        <div class="text-3xl mb-3">⚠️</div>
+        <div class="text-gray-600 dark:text-gray-400 text-sm">{{ friendlyErrorMessage }}</div>
+        <button 
+          v-if="canRetry"
+          @click="loadData" 
+          class="mt-3 px-3 py-1.5 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded cursor-pointer transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
     </div>
     <div v-else-if="!rows || rows.length === 0" class="flex items-center justify-center h-full text-gray-500">
       <div class="text-center">
         <div class="text-lg mb-2">📊</div>
         <div>No data available</div>
-        <small class="text-xs">Chart Type: {{ chartType }}, Rows: {{ rows?.length || 0 }}</small>
       </div>
     </div>
     <div v-else>
@@ -31,6 +39,7 @@ import {computed, onMounted, ref, watch} from 'vue'
 import ReportingChart from './reporting/ReportingChart.vue'
 import ReportingPreview from './reporting/ReportingPreview.vue'
 import {useReportingService} from '../composables/useReportingService'
+import {CHART_DATA_TIMEOUT_MS} from '~/lib/dashboard-constants'
 
 import type {TabStyleOptions} from '~/types/tab-options'
 
@@ -50,6 +59,9 @@ const props = defineProps<{
   configOverride?: any
   dashboardFilters?: DashboardFilterCondition[]
   tabStyle?: TabStyleOptions
+  // New props for progressive loading
+  dashboardId?: string
+  chartId?: number
 }>()
 
 const { runPreview, runSql } = useReportingService()
@@ -58,6 +70,45 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
 const error = ref<string | null>(null)
 const loading = ref(true)
+const canRetry = ref(false)
+
+// Map technical errors to user-friendly messages
+const friendlyErrorMessage = computed(() => {
+  const err = error.value || ''
+  
+  // Network/connection errors
+  if (err.includes('NetworkError') || err.includes('no response') || err.includes('fetch failed')) {
+    return 'Unable to load chart data. The data source may be unavailable.'
+  }
+  if (err.includes('timeout') || err.includes('Timeout')) {
+    return 'The request took too long. The data source may be slow to respond.'
+  }
+  if (err.includes('ECONNREFUSED') || err.includes('ENOTFOUND')) {
+    return 'Unable to connect to the data source.'
+  }
+  
+  // Access errors
+  if (err.includes('403') || err.includes('Forbidden')) {
+    return 'You don\'t have permission to view this chart.'
+  }
+  if (err.includes('404') || err.includes('not found')) {
+    return 'Chart or data source not found.'
+  }
+  
+  // Query errors
+  if (err.includes('no_sql_available') || err.includes('Missing SQL')) {
+    return 'Chart configuration is incomplete.'
+  }
+  if (err.includes('no_connection_id')) {
+    return 'No data connection configured for this chart.'
+  }
+  if (err.includes('query_failed')) {
+    return 'Failed to execute the data query.'
+  }
+  
+  // Generic fallback - don't show technical details
+  return 'Unable to load chart data. Please try again later.'
+})
 
 function mergeAppearance(base: any, override: any) {
   return {
@@ -121,16 +172,88 @@ function getMergedFilters(chartFilters: any[]): any[] {
   return [...(chartFilters || []), ...dashFilters]
 }
 
+/**
+ * Fetch with timeout wrapper
+ */
+async function fetchWithTimeout<T>(url: string, options: any = {}): Promise<T> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), CHART_DATA_TIMEOUT_MS)
+  
+  try {
+    const res = await $fetch<T>(url, {
+      ...options,
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+    return res
+  } catch (e: any) {
+    clearTimeout(timeoutId)
+    if (e.name === 'AbortError') {
+      throw new Error('Request timeout - data source took too long to respond')
+    }
+    throw e
+  }
+}
+
+/**
+ * Fetch chart data from the dedicated chart data endpoint.
+ * This is used when dashboardId and chartId are provided for progressive loading.
+ */
+async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: string }> {
+  if (!props.dashboardId || !props.chartId) {
+    return { columns: [], rows: [], error: 'Missing dashboard or chart ID' }
+  }
+  
+  try {
+    const params: Record<string, string> = {}
+    if (props.dashboardFilters?.length) {
+      params.filterOverrides = JSON.stringify(props.dashboardFilters)
+    }
+    
+    const res = await fetchWithTimeout<{ columns: any[]; rows: any[]; meta?: { error?: string } }>(
+      `/api/dashboards/${props.dashboardId}/charts/${props.chartId}/data`,
+      { params }
+    )
+    
+    if (res.meta?.error) {
+      return { columns: res.columns || [], rows: res.rows || [], error: res.meta.error }
+    }
+    
+    return { columns: res.columns || [], rows: res.rows || [] }
+  } catch (e: any) {
+    console.error('[DashboardChartRenderer] Failed to fetch chart data:', e)
+    return { columns: [], rows: [], error: e?.statusMessage || e?.message || 'Failed to fetch chart data' }
+  }
+}
+
 async function loadData() {
   error.value = null
   loading.value = true
+  canRetry.value = false
+  
   try {
+    // Priority 1: Use preloaded data if available and no dashboard filters
     if (props.preloadedColumns && props.preloadedRows && !props.dashboardFilters?.length) {
       columns.value = props.preloadedColumns
       rows.value = props.preloadedRows
       loading.value = false
       return
     }
+    
+    // Priority 2: Use dedicated chart data endpoint if dashboardId and chartId are provided
+    if (props.dashboardId && props.chartId) {
+      const result = await fetchChartData()
+      columns.value = result.columns
+      rows.value = result.rows
+      if (result.error) {
+        error.value = result.error
+        canRetry.value = true
+      }
+      loading.value = false
+      return
+    }
+    
+    // Priority 3: Fall back to runSql/runPreview for backward compatibility
     const state = effectiveState.value || {}
 
     if (state.useSql) {
@@ -166,6 +289,7 @@ async function loadData() {
     loading.value = false
   } catch (e: any) {
     error.value = e?.statusMessage || e?.message || 'Failed to load chart data'
+    canRetry.value = true
     loading.value = false
   }
 }
@@ -182,5 +306,3 @@ watch(() => props.dashboardFilters, () => {
 
 <style scoped>
 </style>
-
-

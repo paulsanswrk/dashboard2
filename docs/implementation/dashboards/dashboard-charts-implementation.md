@@ -180,10 +180,12 @@ Lists dashboards owned by the authenticated user.
 
 #### `GET /api/dashboards/:id/full`
 
-Returns complete dashboard with all tabs and their charts. Returns `{ id, name, isPublic, createdAt, width?, height?, thumbnailUrl?, tabs: [{ id, name, position, charts: [...] }] }`.
+Returns dashboard metadata with all tabs and widget configurations. **Does NOT fetch chart data** - charts load their data progressively.
+
+Returns `{ id, name, isPublic, createdAt, width?, height?, thumbnailUrl?, tabs: [{ id, name, position, widgets: [...] }] }`.
 
 - **Authentication**: Required for private dashboards, public access for public dashboards
-- **Server Processing**: Loads dashboard, tabs, charts, and executes SQL queries in parallel
+- **Server Processing**: Loads dashboard, tabs, widgets, and chart configurations (no SQL queries)
 
 #### `PUT /api/dashboards`
 
@@ -197,18 +199,30 @@ Deletes a dashboard (owner-only).
 
 ### Dashboard Full Load API (`/api/dashboards/[id]/full`)
 
-Single endpoint that returns everything needed to render a multi-tab dashboard. Sensitive fields are stored under `state_json.internal` and are removed from the response if the user is not the owner.
+Returns dashboard structure and widget metadata for immediate rendering. Sensitive fields are stored under `state_json.internal` and are removed from the response if the user is not the owner.
 
 - Auth behavior:
-  - Public dashboards: response is public-safe (no internal fields), but includes chart data required for rendering.
-  - Private dashboards: only the owner may load; owner receives flattened state (public + internal fields for backward compatibility).
+  - Public dashboards: response is public-safe (no internal fields)
+  - Private dashboards: only the owner may load; owner receives flattened state (public + internal fields)
 - Server process:
-    1) Load dashboard, tabs, chart links, and charts from Supabase.
-    2) Use `state_json.internal` to execute external SQL for all charts in parallel across all tabs.
-  3) Return data; omit SQL and internal fields for non-owners.
-- Response structure: `{ id, name, isPublic, createdAt, tabs: [{ id, name, position, charts: [{ id, name, position, state, data: { columns, rows, meta? } }] }] }`
+    1) Load dashboard, tabs, widgets, and chart configurations from Supabase.
+    2) Return metadata immediately (no SQL execution).
+- Response structure: `{ id, name, isPublic, createdAt, tabs: [{ id, name, position, widgets: [{ widgetId, type, name, position, state, configOverride, style }] }] }`
 
-Note: Charts saved prior to this refactor (without `state_json.internal`) are not supported by this endpoint or the builder APIs.
+### Chart Data API (`/api/dashboards/[id]/charts/[chartId]/data`) - NEW
+
+Fetches data for a specific chart. Designed for progressive loading and future caching.
+
+- **Method**: GET
+- **Query Params**: `context?` (render context token), `filterOverrides?` (JSON array)
+- **Response**: `{ columns: [...], rows: [...], meta?: { error?: string } }`
+- **Server process**:
+    1) Validate dashboard access and chart ownership
+    2) Load chart SQL from `state_json.internal`
+    3) Execute query via connection config or internal storage
+    4) Return data or error
+
+Note: Charts saved prior to the internal refactor (without `state_json.internal`) are not supported.
 
 ## 🎨 Frontend Components
 
@@ -255,10 +269,20 @@ Multi-tab dashboard editor with integrated toolbar and unified widgets. Highligh
 - **Toolbar**: Edit/Done toggle, device previews, Auto Layout, Add Chart, Add Text, Show Options (sidebar toggle).
 - **Thumbnails**: Captured with `html-to-image` on save (width/height/thumbnail_url persisted).
 
-#### `DashboardChartRenderer.vue` (New)
-Renders saved chart state without builder controls. Props:
+#### `DashboardChartRenderer.vue`
+Renders saved chart state without builder controls. Supports progressive loading.
+
+Props:
 - `state`: saved chart state_json
-- `preloadedColumns?`, `preloadedRows?`: when provided (from the full endpoint), the component renders immediately without making client data requests.
+- `dashboardId?`: dashboard ID for on-demand data fetching
+- `chartId?`: chart ID for on-demand data fetching
+- `configOverride?`: per-instance appearance overrides
+- `dashboardFilters?`: applied dashboard-level filters
+- `tabStyle?`: tab-level style options
+
+Loading behavior:
+1. If `dashboardId` and `chartId` provided: fetches data from `/api/dashboards/:id/charts/:chartId/data`
+2. Otherwise: falls back to `useReportingService` composable
 
 #### Client plugin (New)
 - `plugins/vue3-grid-layout.client.ts` registers `GridLayout` and `GridItem` on the client to prevent `document is not defined` during SSR.
@@ -292,11 +316,13 @@ Renders saved chart state without builder controls. Props:
    - Restores all settings (SQL, filters, appearance, chart type)
    - Updates URL parameters for connection persistence
 
-### Dashboard Loading Process (Multi-Tab)
+### Dashboard Loading Process (Progressive)
 1. Client calls `GET /api/dashboards/[id]/full`.
-2. Server loads dashboard (including width/height/thumbnail), all tabs, chart links, and charts from Supabase.
-3. For each chart with SQL state across all tabs, server runs external queries in parallel using the saved `dataConnectionId` (LIMIT enforced; destructive statements blocked).
-4. Server returns a single payload with dashboard info, tabs array, and chart data organized by tab.
+2. Server loads dashboard metadata, tabs, widgets, and chart configurations from Supabase.
+3. Server returns immediately with dashboard structure (no SQL execution).
+4. Client renders dashboard layout with loading spinners for each chart.
+5. Each chart independently calls `GET /api/dashboards/[id]/charts/[chartId]/data`.
+6. Charts render as their data arrives - failing charts don't block others.
 
 ### Auto-Saving Process
 

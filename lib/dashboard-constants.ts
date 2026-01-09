@@ -32,3 +32,5 @@ export const DASHBOARD_WIDTH_PRESETS = [
     { label: 'Full HD (1920px)', value: 1920 },
 ] as const
 
+/** Timeout for chart data requests in milliseconds (30 seconds) */
+export const CHART_DATA_TIMEOUT_MS = 30000

@@ -76,8 +76,8 @@
                     <DashboardChartRenderer
                         :state="findChartState(item.i)"
                         :config-override="findConfigOverride(item.i)"
-                        :preloaded-columns="findChartColumns(item.i)"
-                        :preloaded-rows="findChartRows(item.i)"
+                        :dashboard-id="dashboardId"
+                        :chart-id="findChartId(item.i)"
                         :dashboard-filters="dashboardFilters"
                         :tab-style="tabStyle"
                     />
@@ -200,13 +200,16 @@ interface Props {
     values?: any[]
   }>
   tabStyle?: TabStyleOptions
+  /** Dashboard ID for progressive loading */
+  dashboardId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   preview: false,
   scalingEnabled: true,
   dashboardFilters: () => [],
-  tabStyle: () => ({})
+  tabStyle: () => ({}),
+  dashboardId: undefined
 })
 
 const emit = defineEmits<{
@@ -313,8 +316,7 @@ function findWidget(i: string): Widget | undefined {
 
 const findChartName = (i: string) => findWidget(i)?.name || 'Chart'
 const findChartState = (i: string) => findWidget(i)?.state || {}
-const findChartColumns = (i: string) => findWidget(i)?.preloadedColumns || undefined
-const findChartRows = (i: string) => findWidget(i)?.preloadedRows || undefined
+const findChartId = (i: string) => findWidget(i)?.chartId
 const findWidgetStyle = (i: string) => findWidget(i)?.style || {}
 const findConfigOverride = (i: string) => findWidget(i)?.configOverride || {}
 
