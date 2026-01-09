@@ -255,6 +255,7 @@ export default defineEventHandler(async (event) => {
 
                         try {
                             const sql = internal.actualExecutedSql || internal.sqlText || ''
+                            const sqlParams = internal.actualExecutedSqlParams || []
                             const connectionId = internal.dataConnectionId ?? null
 
 
@@ -267,7 +268,7 @@ export default defineEventHandler(async (event) => {
                                     try {
                                         const cfg = await loadConnectionConfigForDashboard(Number(connectionId), dashboard?.organizationId || '')
                                         const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
+                                            const [res] = await conn.query(safeSql, sqlParams)
                                             return res as any[]
                                         })
                                         rows = resRows
@@ -278,7 +279,7 @@ export default defineEventHandler(async (event) => {
                                 } else {
                                     try {
                                         const resRows = await withMySqlConnection(async (conn) => {
-                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
+                                            const [res] = await conn.query(safeSql, sqlParams)
                                             return res as any[]
                                         })
                                         rows = resRows

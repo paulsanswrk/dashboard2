@@ -177,6 +177,54 @@ The `ReportingZones.vue` component conditionally renders zones based on the curr
 - **URL synchronization** for shareable report states
 - **History management** with undo/redo functionality
 
+### Chart State Structure
+
+Charts store their complete configuration in `state_json`, which contains both public appearance settings and internal execution data:
+
+```typescript
+interface ChartStateJson {
+  chartType: string
+  appearance: {
+    chartTitle?: string
+    showLegend?: boolean
+    legendPosition?: 'top' | 'right' | 'bottom' | 'left'
+    palette?: string[]
+    stacked?: boolean
+    numberFormat?: { decimalPlaces?: number; thousandsSeparator?: boolean }
+    // ... additional appearance options
+  }
+  internal: {
+    dataConnectionId: number
+    selectedDatasetId: string
+    xDimensions: DimensionRef[]
+    yMetrics: MetricRef[]
+    breakdowns: DimensionRef[]
+    filters: FilterCondition[]
+    joins: JoinConfig[]
+    excludeNullsInDimensions: boolean
+    useSql: boolean
+    overrideSql: boolean
+    sqlText: string
+    actualExecutedSql: string        // Parameterized SQL with ? placeholders
+    actualExecutedSqlParams: any[]   // Parameter values for the SQL placeholders
+  }
+}
+```
+
+#### SQL Parameter Storage
+
+When charts are saved, both the parameterized SQL and its parameter values are stored:
+
+- **`actualExecutedSql`**: The SQL query template with `?` placeholders for parameterized values
+- **`actualExecutedSqlParams`**: Array of values corresponding to each `?` placeholder in order
+
+This enables proper execution when rendering dashboards, as the stored params are passed to the database driver alongside the SQL template.
+
+**Data Flow:**
+1. `preview.post.ts` generates SQL with params and returns both in response
+2. `ReportingBuilder.vue` stores both in chart state when saving
+3. Dashboard rendering endpoints (`full.get.ts`, `preview.get.ts`) extract both and execute: `conn.query(sql, params)`
+
 ### Data Flow Architecture
 
 ```

@@ -236,6 +236,7 @@
       :override-sql="overrideSql"
       :sql-text="sqlText"
       :actual-executed-sql="actualExecutedSql"
+      :actual-executed-sql-params="actualExecutedSqlParams"
       :chart-type="chartType"
       :capture-chart-meta="captureChartMeta"
       @close="openReports=false"
@@ -310,6 +311,7 @@ const useSql = ref(false)
 const overrideSql = ref(false)
 const sqlText = ref('')
 const actualExecutedSql = ref('')
+const actualExecutedSqlParams = ref<any[]>([])
 const chartTitle = ref('')
 
 // Debug panel state
@@ -766,6 +768,7 @@ async function onTestPreview() {
     serverError.value = (res.meta as any)?.error || null
     serverWarnings.value = ((res.meta as any)?.warnings as string[]) || []
     actualExecutedSql.value = (res.meta as any)?.sql || ''
+    actualExecutedSqlParams.value = (res.meta as any)?.sqlParams || []
     emit('preview-meta', { error: serverError.value, warnings: serverWarnings.value })
   } finally {
     loading.value = false
@@ -858,7 +861,9 @@ function onClearAll() {
   useSql.value = false
   overrideSql.value = false
   sqlText.value = ''
+  serverWarnings.value = []
   actualExecutedSql.value = ''
+  actualExecutedSqlParams.value = []
   chartTitle.value = ''
 }
 
@@ -868,6 +873,7 @@ function handleLoadChart(state: {
   overrideSql: boolean
   sqlText: string
   actualExecutedSql: string
+  actualExecutedSqlParams?: any[]
   chartType: string
 }) {
   // Set connection ID if provided
@@ -879,6 +885,7 @@ function handleLoadChart(state: {
   overrideSql.value = state.overrideSql
   sqlText.value = state.sqlText
   actualExecutedSql.value = state.actualExecutedSql
+  actualExecutedSqlParams.value = state.actualExecutedSqlParams || []
   chartType.value = state.chartType as typeof chartType.value
 }
 
@@ -888,6 +895,7 @@ function handleLoadChartState(state: {
   overrideSql: boolean
   sqlText: string
   actualExecutedSql: string
+  actualExecutedSqlParams?: any[]
   selectedDatasetId: string | null
   xDimensions: any[]
   yMetrics: any[]
@@ -908,6 +916,7 @@ function handleLoadChartState(state: {
   overrideSql.value = state.overrideSql
   sqlText.value = state.sqlText
   actualExecutedSql.value = state.actualExecutedSql
+  actualExecutedSqlParams.value = state.actualExecutedSqlParams || []
   chartType.value = state.chartType as typeof chartType.value
 
   // Set the report state values directly
@@ -1018,6 +1027,7 @@ async function saveExistingChart(): Promise<boolean> {
       overrideSql: overrideSql.value,
       sqlText: sqlText.value,
       actualExecutedSql: actualExecutedSql.value,
+      actualExecutedSqlParams: actualExecutedSqlParams.value,
       // Chart configuration
       chartType: chartType.value
     }
@@ -1081,6 +1091,7 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       overrideSql: overrideSql.value,
       sqlText: sqlText.value,
       actualExecutedSql: actualExecutedSql.value,
+      actualExecutedSqlParams: actualExecutedSqlParams.value,
       // Chart configuration
       chartType: chartType.value
     }
@@ -1185,6 +1196,7 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
       overrideSql: overrideSql.value,
       sqlText: sqlText.value,
       actualExecutedSql: actualExecutedSql.value,
+      actualExecutedSqlParams: actualExecutedSqlParams.value,
       // Chart configuration
       chartType: chartType.value
     }

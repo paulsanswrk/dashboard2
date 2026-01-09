@@ -246,6 +246,7 @@ export default defineEventHandler(async (event) => {
 
                         try {
                             const sql = internal.actualExecutedSql || internal.sqlText || ''
+                            const sqlParams = internal.actualExecutedSqlParams || []
                             const connectionId = internal.dataConnectionId ?? null
 
                             if (sql) {
@@ -259,11 +260,11 @@ export default defineEventHandler(async (event) => {
 
                                         if (storageInfo.useInternalStorage && storageInfo.schemaName) {
                                             console.log(`[full.get.ts] Using internal storage for chart ${lnk.chart_id}: ${storageInfo.schemaName}`)
-                                            rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql)
+                                            rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql, sqlParams)
                                         } else {
                                             const cfg = await loadConnectionConfigForOwner(Number(connectionId))
                                             const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                                const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
+                                                const [res] = await conn.query(safeSql, sqlParams)
                                                 return res as any[]
                                             })
                                             rows = resRows
@@ -275,7 +276,7 @@ export default defineEventHandler(async (event) => {
                                 } else {
                                     try {
                                         const resRows = await withMySqlConnection(async (conn) => {
-                                            const [res] = await conn.query({ sql: safeSql, timeout: 10000 } as any)
+                                            const [res] = await conn.query(safeSql, sqlParams)
                                             return res as any[]
                                         })
                                         rows = resRows

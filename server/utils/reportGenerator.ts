@@ -1,14 +1,14 @@
-import {createClient} from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import puppeteer from 'puppeteer-core'
 import Chromium from '@sparticuz/chromium'
-import {accessSync} from 'fs'
-import {generateRenderContext} from './renderContext'
-import {withMySqlConnectionConfig} from './mysqlClient'
-import {supabaseAdmin} from '../api/supabase'
-import {checkConnectionPermission} from './permissions'
-import {stringify} from 'csv-stringify/sync'
+import { accessSync } from 'fs'
+import { generateRenderContext } from './renderContext'
+import { withMySqlConnectionConfig } from './mysqlClient'
+import { supabaseAdmin } from '../api/supabase'
+import { checkConnectionPermission } from './permissions'
+import { stringify } from 'csv-stringify/sync'
 import archiver from 'archiver'
-import {PassThrough} from 'stream'
+import { PassThrough } from 'stream'
 import ExcelJS from 'exceljs'
 
 export interface ReportConfig {
@@ -148,7 +148,7 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
             renderUrl = `${config.public.siteUrl}/render/dashboards/${report.dashboard_id}?context=${encodeURIComponent(contextToken)}`
         } else if (report.scope === 'Single Tab' && report.tab_id) {
             // For single tab reports, we need to get the dashboard ID from the tab
-            const {data: tabData, error: tabError} = await supabase
+            const { data: tabData, error: tabError } = await supabase
                 .from('dashboard_tab')
                 .select('dashboard_id')
                 .eq('id', report.tab_id)
@@ -180,7 +180,7 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
                     const el = document.querySelector('[data-render-status]')
                     return el && el.getAttribute('data-render-status') === 'ready'
                 },
-                {timeout: 30000}
+                { timeout: 30000 }
             )
         } catch (e) {
             console.warn('Timeout waiting for render-status, proceeding with current content')
@@ -359,6 +359,7 @@ async function generateXLSAttachment(report: ReportConfig, supabase: any): Promi
             // Get chart state to extract SQL query
             const state = chart.state_json
             const sqlQuery = state.internal?.actualExecutedSql || state.internal?.sqlText || ''
+            const sqlParams = state.internal?.actualExecutedSqlParams || []
 
             let queryData: any[] = []
             let error: any = null
@@ -378,7 +379,7 @@ async function generateXLSAttachment(report: ReportConfig, supabase: any): Promi
                             const cfg = await loadConnectionConfigForReport(Number(connectionId), report.user_id)
                             const safeSql = applyTimeFrameFilter(sqlQuery, report.time_frame)
                             queryData = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                const [res] = await conn.query({sql: safeSql, timeout: 30000})
+                                const [res] = await conn.query(safeSql, sqlParams)
                                 return res as any[]
                             })
                         } catch (e: any) {
@@ -435,7 +436,7 @@ async function generateXLSAttachment(report: ReportConfig, supabase: any): Promi
  */
 async function getDashboardCharts(dashboardId: string, supabase: any): Promise<any[]> {
     // First get all tabs for this dashboard
-    const {data: tabs, error: tabsError} = await supabase
+    const { data: tabs, error: tabsError } = await supabase
         .from('dashboard_tab')
         .select('id')
         .eq('dashboard_id', dashboardId)
@@ -451,7 +452,7 @@ async function getDashboardCharts(dashboardId: string, supabase: any): Promise<a
 
     // Then get all chart widgets for these tabs
     const tabIds = tabs.map((tab: any) => tab.id)
-    const {data: widgets, error: widgetsError} = await supabase
+    const { data: widgets, error: widgetsError } = await supabase
         .from('dashboard_widgets')
         .select('chart_id, tab_id')
         .eq('dashboard_id', dashboardId)
@@ -468,7 +469,7 @@ async function getDashboardCharts(dashboardId: string, supabase: any): Promise<a
     }
 
     const chartIds = Array.from(new Set(widgets.map((w: any) => w.chart_id)))
-    const {data: charts, error: chartsError} = await supabase
+    const { data: charts, error: chartsError } = await supabase
         .from('charts')
         .select('id, name, state_json, data_connection_id')
         .in('id', chartIds)
@@ -485,7 +486,7 @@ async function getDashboardCharts(dashboardId: string, supabase: any): Promise<a
         chart_id: w.chart_id,
         charts: chartById[w.chart_id],
         tab_id: w.tab_id,
-        dashboard_tab: {name: tabById[w.tab_id]?.name || 'Unknown'}
+        dashboard_tab: { name: tabById[w.tab_id]?.name || 'Unknown' }
     }))
 }
 
@@ -493,7 +494,7 @@ async function getDashboardCharts(dashboardId: string, supabase: any): Promise<a
  * Get charts for a specific tab
  */
 async function getTabCharts(tabId: string, supabase: any): Promise<any[]> {
-    const {data: tab, error: tabError} = await supabase
+    const { data: tab, error: tabError } = await supabase
         .from('dashboard_tab')
         .select('id, name, dashboard_id')
         .eq('id', tabId)
@@ -504,7 +505,7 @@ async function getTabCharts(tabId: string, supabase: any): Promise<any[]> {
         throw new Error(`Failed to fetch tab: ${tabError?.message}`)
     }
 
-    const {data: widgets, error} = await supabase
+    const { data: widgets, error } = await supabase
         .from('dashboard_widgets')
         .select('chart_id, tab_id')
         .eq('tab_id', tabId)
@@ -521,7 +522,7 @@ async function getTabCharts(tabId: string, supabase: any): Promise<any[]> {
     }
 
     const chartIds = Array.from(new Set(widgets.map((w: any) => w.chart_id)))
-    const {data: charts, error: chartsError} = await supabase
+    const { data: charts, error: chartsError } = await supabase
         .from('charts')
         .select('id, name, state_json, data_connection_id')
         .in('id', chartIds)
@@ -537,7 +538,7 @@ async function getTabCharts(tabId: string, supabase: any): Promise<any[]> {
         chart_id: w.chart_id,
         charts: chartById[w.chart_id],
         tab_id: w.tab_id,
-        dashboard_tab: {name: tab.name}
+        dashboard_tab: { name: tab.name }
     }))
 }
 
@@ -547,7 +548,7 @@ async function getTabCharts(tabId: string, supabase: any): Promise<any[]> {
 async function loadConnectionConfigForReport(connectionId: number, reportUserId: string): Promise<any> {
     try {
         // Verify that the connection belongs to the report user
-        const {data, error} = await supabaseAdmin
+        const { data, error } = await supabaseAdmin
             .from('data_connections')
             .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, owner_id')
             .eq('id', connectionId)
@@ -631,6 +632,7 @@ async function generateIndividualChartCSVs(charts: any[], timeFrame: string, sup
             // Get chart state to extract SQL query
             const state = chart.state_json
             const sqlQuery = state.internal?.actualExecutedSql || state.internal?.sqlText || ''
+            const sqlParams = state.internal?.actualExecutedSqlParams || []
 
             if (sqlQuery) {
                 // Execute the chart's SQL query to get data
@@ -651,7 +653,7 @@ async function generateIndividualChartCSVs(charts: any[], timeFrame: string, sup
                             const cfg = await loadConnectionConfigForReport(Number(connectionId), reportUserId)
                             const safeSql = applyTimeFrameFilter(sqlQuery, timeFrame)
                             queryData = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                const [res] = await conn.query({sql: safeSql, timeout: 30000})
+                                const [res] = await conn.query(safeSql, sqlParams)
                                 return res as any[]
                             })
                         } catch (e: any) {
@@ -733,7 +735,7 @@ async function generateCSVZipFile(csvFiles: Array<{ filename: string, content: s
 
         // Create ZIP archive
         const archive = archiver('zip', {
-            zlib: {level: 9} // Maximum compression
+            zlib: { level: 9 } // Maximum compression
         })
 
         const buffers: Buffer[] = []
@@ -757,7 +759,7 @@ async function generateCSVZipFile(csvFiles: Array<{ filename: string, content: s
         // Add files to archive organized by tab directories
         for (const [tabDir, files] of Object.entries(filesByTab)) {
             for (const file of files) {
-                archive.append(file.content, {name: `${tabDir}/${file.filename}`})
+                archive.append(file.content, { name: `${tabDir}/${file.filename}` })
             }
         }
 
@@ -839,6 +841,7 @@ async function generateChartsCSV(charts: any[], timeFrame: string, supabase: any
             // Get chart state to extract SQL query
             const state = chart.state_json
             const sqlQuery = state.internal?.actualExecutedSql || state.internal?.sqlText || ''
+            const sqlParams = state.internal?.actualExecutedSqlParams || []
 
             if (sqlQuery) {
                 // Execute the chart's SQL query to get data
@@ -861,7 +864,7 @@ async function generateChartsCSV(charts: any[], timeFrame: string, supabase: any
                         const cfg = await loadConnectionConfigForReport(Number(connectionId), reportUserId)
                         const safeSql = applyTimeFrameFilter(sqlQuery, timeFrame)
                         queryData = await withMySqlConnectionConfig(cfg, async (conn) => {
-                            const [res] = await conn.query({sql: safeSql, timeout: 30000})
+                            const [res] = await conn.query(safeSql, sqlParams)
                             return res as any[]
                         })
                     } catch (e: any) {

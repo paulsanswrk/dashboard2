@@ -1,5 +1,5 @@
-import {computed, ref, watch} from 'vue'
-import {useRoute, useRouter} from '#imports'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from '#imports'
 
 export type ReportField = {
   fieldId: string
@@ -286,6 +286,14 @@ export function useReportState() {
     selectedDatasetIdRef.value = initial.selectedDatasetId
     xDimensionsRef.value = initial.xDimensions || []
     yMetricsRef.value = initial.yMetrics || []
+    breakdownsRef.value = initial.breakdowns || []
+    filtersRef.value = initial.filters || []
+    targetValueRef.value = initial.targetValue || null
+    locationRef.value = initial.location || null
+    crossTabDimensionRef.value = initial.crossTabDimension || null
+    excludeNullsInDimensionsRef.value = initial.excludeNullsInDimensions || false
+    appearanceRef.value = initial.appearance || {}
+    joinsRef.value = initial.joins || []
     pushHistory(false)
   }
 
@@ -348,10 +356,10 @@ export function useReportState() {
     if (zone === 'x') xDimensionsRef.value.push({ ...item })
     else if (zone === 'y') yMetricsRef.value.push({ ...item })
     else if (zone === 'breakdowns') breakdownsRef.value.push({ ...item })
-    else if (zone === 'filters') filtersRef.value.push({...item, operator: 'equals'} as FilterCondition)
-    else if (zone === 'targetValue') targetValueRef.value = {...item} as MetricRef
-    else if (zone === 'location') locationRef.value = {...item} as DimensionRef
-    else if (zone === 'crossTab') crossTabDimensionRef.value = {...item} as DimensionRef
+    else if (zone === 'filters') filtersRef.value.push({ ...item, operator: 'equals' } as FilterCondition)
+    else if (zone === 'targetValue') targetValueRef.value = { ...item } as MetricRef
+    else if (zone === 'location') locationRef.value = { ...item } as DimensionRef
+    else if (zone === 'crossTab') crossTabDimensionRef.value = { ...item } as DimensionRef
   }
 
   function removeFromZone(zone: ZoneType, index: number) {
@@ -388,19 +396,19 @@ export function useReportState() {
 
   function updateFieldInZone(zone: ZoneType, index: number, updates: Partial<MetricRef & DimensionRef & FilterCondition>) {
     if (zone === 'x' && xDimensionsRef.value[index]) {
-      xDimensionsRef.value[index] = {...xDimensionsRef.value[index], ...updates}
+      xDimensionsRef.value[index] = { ...xDimensionsRef.value[index], ...updates }
     } else if (zone === 'y' && yMetricsRef.value[index]) {
-      yMetricsRef.value[index] = {...yMetricsRef.value[index], ...updates}
+      yMetricsRef.value[index] = { ...yMetricsRef.value[index], ...updates }
     } else if (zone === 'breakdowns' && breakdownsRef.value[index]) {
-      breakdownsRef.value[index] = {...breakdownsRef.value[index], ...updates}
+      breakdownsRef.value[index] = { ...breakdownsRef.value[index], ...updates }
     } else if (zone === 'filters' && filtersRef.value[index]) {
-      filtersRef.value[index] = {...filtersRef.value[index], ...updates} as FilterCondition
+      filtersRef.value[index] = { ...filtersRef.value[index], ...updates } as FilterCondition
     } else if (zone === 'targetValue' && targetValueRef.value) {
-      targetValueRef.value = {...targetValueRef.value, ...updates} as MetricRef
+      targetValueRef.value = { ...targetValueRef.value, ...updates } as MetricRef
     } else if (zone === 'location' && locationRef.value) {
-      locationRef.value = {...locationRef.value, ...updates} as DimensionRef
+      locationRef.value = { ...locationRef.value, ...updates } as DimensionRef
     } else if (zone === 'crossTab' && crossTabDimensionRef.value) {
-      crossTabDimensionRef.value = {...crossTabDimensionRef.value, ...updates} as DimensionRef
+      crossTabDimensionRef.value = { ...crossTabDimensionRef.value, ...updates } as DimensionRef
     }
   }
 
@@ -436,7 +444,7 @@ export function useReportState() {
     },
     updateJoin(index: number, updates: Partial<JoinRef>) {
       if (joinsRef.value[index]) {
-        joinsRef.value[index] = {...joinsRef.value[index], ...updates}
+        joinsRef.value[index] = { ...joinsRef.value[index], ...updates }
       }
     },
     reorderJoin(from: number, to: number) {

@@ -50,6 +50,7 @@ const props = defineProps<{
   overrideSql: boolean
   sqlText: string
   actualExecutedSql: string
+  actualExecutedSqlParams?: any[]
   chartType: string
   captureChartMeta?: () => Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }>
 }>()
@@ -61,6 +62,7 @@ const emit = defineEmits<{
     overrideSql: boolean
     sqlText: string
     actualExecutedSql: string
+    actualExecutedSqlParams?: any[]
     chartType: string
   }): void
 }>()
@@ -92,6 +94,7 @@ async function saveCurrent() {
     overrideSql: props.overrideSql,
     sqlText: props.sqlText,
     actualExecutedSql: props.actualExecutedSql,
+    actualExecutedSqlParams: props.actualExecutedSqlParams || [],
     // Chart configuration
     chartType: props.chartType
   }
@@ -126,6 +129,7 @@ async function load(id: number) {
     overrideSql: s.overrideSql || false,
     sqlText: s.sqlText || '',
     actualExecutedSql: s.actualExecutedSql || '',
+    actualExecutedSqlParams: s.actualExecutedSqlParams || [],
     chartType: s.chartType || 'table'
   })
 

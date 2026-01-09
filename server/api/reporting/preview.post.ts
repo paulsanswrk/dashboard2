@@ -464,7 +464,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const executionMs = Date.now() - start
-    const meta: Record<string, any> = { executionMs, sql: finalSql }
+    const meta: Record<string, any> = { executionMs, sql: finalSql, sqlParams: params }
     return {
       columns,
       rows,

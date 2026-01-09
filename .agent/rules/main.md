@@ -20,3 +20,6 @@ We are on WSL 2.
 Every button should have a background or outline, cursor: pointer and change its look on hover.
 
 We use Drizzle for server-side Supabase queries. Schema is defined in lib/db/schema.ts.
+
+Supabase project id is bnhhjzcitgaczpojzkxd
+
