@@ -5,9 +5,6 @@
 import { loadDebugConfig } from './debugConfig.dev'
 import { withMySqlConnectionConfig, type MySqlConnectionConfig } from './mysqlClient'
 
-// Re-export production exports
-export { withMySqlConnectionConfig, type MySqlConnectionConfig } from './mysqlClient'
-
 /**
  * Load MySQL config from debug-connection.json (dev only)
  */

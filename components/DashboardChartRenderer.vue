@@ -39,6 +39,7 @@ import {computed, onMounted, ref, watch} from 'vue'
 import ReportingChart from './reporting/ReportingChart.vue'
 import ReportingPreview from './reporting/ReportingPreview.vue'
 import {useReportingService} from '../composables/useReportingService'
+import {withChartDataConcurrency} from '../composables/useChartConcurrency'
 import {CHART_DATA_TIMEOUT_MS} from '~/lib/dashboard-constants'
 
 import type {TabStyleOptions} from '~/types/tab-options'
@@ -198,6 +199,7 @@ async function fetchWithTimeout<T>(url: string, options: any = {}): Promise<T> {
 /**
  * Fetch chart data from the dedicated chart data endpoint.
  * This is used when dashboardId and chartId are provided for progressive loading.
+ * Uses concurrency limiting to prevent overwhelming the database.
  */
 async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: string }> {
   if (!props.dashboardId || !props.chartId) {
@@ -205,21 +207,24 @@ async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: 
   }
   
   try {
-    const params: Record<string, string> = {}
-    if (props.dashboardFilters?.length) {
-      params.filterOverrides = JSON.stringify(props.dashboardFilters)
-    }
+    // Use concurrency limiter to prevent too many simultaneous requests
+    return await withChartDataConcurrency(props.dashboardId, async () => {
+      const params: Record<string, string> = {}
+      if (props.dashboardFilters?.length) {
+        params.filterOverrides = JSON.stringify(props.dashboardFilters)
+      }
+      
+      const res = await fetchWithTimeout<{ columns: any[]; rows: any[]; meta?: { error?: string } }>(
+        `/api/dashboards/${props.dashboardId}/charts/${props.chartId}/data`,
+        { params }
+      )
+      
+      if (res.meta?.error) {
+        return { columns: res.columns || [], rows: res.rows || [], error: res.meta.error }
+      }
     
-    const res = await fetchWithTimeout<{ columns: any[]; rows: any[]; meta?: { error?: string } }>(
-      `/api/dashboards/${props.dashboardId}/charts/${props.chartId}/data`,
-      { params }
-    )
-    
-    if (res.meta?.error) {
-      return { columns: res.columns || [], rows: res.rows || [], error: res.meta.error }
-    }
-    
-    return { columns: res.columns || [], rows: res.rows || [] }
+      return { columns: res.columns || [], rows: res.rows || [] }
+    })
   } catch (e: any) {
     console.error('[DashboardChartRenderer] Failed to fetch chart data:', e)
     return { columns: [], rows: [], error: e?.statusMessage || e?.message || 'Failed to fetch chart data' }
