@@ -916,6 +916,13 @@ const nextStep = async () => {
 
 const createdConnectionId = ref(null)
 
+// Dynamic page title based on whether editing or creating new connection
+usePageTitle(
+  computed(() => createdConnectionId.value ? 'Edit Connection' : 'New Connection'),
+  computed(() => form.value.internalName || null)
+)
+
+
 async function finishWizard() {
   if (!createdConnectionId.value) return
   navigateTo(`/schema-editor?id=${createdConnectionId.value}`)

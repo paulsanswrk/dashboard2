@@ -243,6 +243,10 @@ const currentChartType = ref<string>('bar')
 const showEditJoinPathModal = ref(false)
 const showTablePreviewModal = ref(false)
 const previewTableName = ref('')
+const chartName = ref<string | null>(null)
+
+// Dynamic page title with chart name
+usePageTitle('Chart Builder', chartName)
 
 // Computed list of available table names from datasets
 const availableTableNames = computed(() => datasets.value.map(ds => ds.name))
@@ -711,6 +715,7 @@ onMounted(async () => {
       const chart = await getChart(editingChartId.value)
       if (chart?.state) {
         // Include chart name from the main chart object
+        chartName.value = chart.name || null
         await loadChartFromState({...chart.state, chartName: chart.name})
       }
     } catch (error) {

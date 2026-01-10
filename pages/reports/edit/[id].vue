@@ -53,6 +53,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const report = ref(null)
 
+// Dynamic page title with report name
+usePageTitle('Edit Report', computed(() => report.value?.name || null))
+
 const loadReport = async () => {
   try {
     loading.value = true

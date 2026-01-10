@@ -612,9 +612,11 @@ const canEditDashboard = computed(() => {
 })
 const isEditableSession = computed(() => isEditMode.value && canEditDashboard.value)
 
-useHead(() => ({
-  title: isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'
-}))
+// Dynamic page title with dashboard name
+usePageTitle(
+  computed(() => isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'),
+  dashboardName
+)
 
 
 watch(
