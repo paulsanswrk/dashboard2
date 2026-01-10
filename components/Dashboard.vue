@@ -180,11 +180,11 @@ interface GridConfig {
 }
 
 interface Props {
-  device: 'desktop' | 'tablet' | 'mobile'
-  layout: any[]
-  gridConfig: GridConfig
-  widgets: Widget[]
-  loading: boolean
+  device?: 'desktop' | 'tablet' | 'mobile'
+  layout?: any[]
+  gridConfig?: GridConfig
+  widgets?: Widget[]
+  loading?: boolean
   preview?: boolean
   selectedTextId?: string
   /** Whether to enable scaling to fit container (default: true for display, false for PDF rendering) */
@@ -205,6 +205,30 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  device: 'desktop',
+  layout: () => [],
+  gridConfig: () => ({
+    colNum: 12,
+    rowHeight: 30,
+    maxRows: Infinity,
+    margin: [10, 10] as [number, number],
+    isDraggable: true,
+    isResizable: true,
+    isMirrored: false,
+    isBounded: false,
+    autoSize: true,
+    verticalCompact: true,
+    restoreOnDrag: false,
+    preventCollision: false,
+    useCssTransforms: true,
+    useStyleCursor: true,
+    transformScale: 1,
+    responsive: false,
+    breakpoints: { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 },
+    cols: { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }
+  }),
+  widgets: () => [],
+  loading: false,
   preview: false,
   scalingEnabled: true,
   dashboardFilters: () => [],

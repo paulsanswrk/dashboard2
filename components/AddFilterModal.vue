@@ -275,12 +275,16 @@ interface EditingFilter {
   currentValue: any
 }
 
-const props = defineProps<{
-  open: boolean
-  dashboardId: string
-  connections: Connection[]
+const props = withDefaults(defineProps<{
+  open?: boolean
+  dashboardId?: string
+  connections?: Connection[]
   editingFilter?: EditingFilter | null
-}>()
+}>(), {
+  open: false,
+  dashboardId: '',
+  connections: () => []
+})
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void

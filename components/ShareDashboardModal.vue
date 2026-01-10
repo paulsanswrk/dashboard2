@@ -260,11 +260,11 @@ const props = defineProps({
   },
   dashboardId: {
     type: String,
-    required: true
+    default: ''
   },
   dashboardName: {
     type: String,
-    required: true
+    default: ''
   }
 })
 

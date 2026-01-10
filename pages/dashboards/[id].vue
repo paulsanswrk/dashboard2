@@ -612,12 +612,6 @@ const canEditDashboard = computed(() => {
 })
 const isEditableSession = computed(() => isEditMode.value && canEditDashboard.value)
 
-// Dynamic page title with dashboard name
-usePageTitle(
-  computed(() => isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'),
-  dashboardName
-)
-
 
 watch(
     () => ({edit: isEditMode.value, role: userProfile.value?.role}),
@@ -658,6 +652,12 @@ const tabLayouts = reactive<Record<string, any[]>>({})
 const initialTabLayouts = ref<Record<string, any[]>>({})
 const dashboardWidth = ref<number | undefined>(undefined)
 const loading = ref(true)
+
+// Dynamic page title with dashboard name (must be after dashboardName is defined)
+usePageTitle(
+  computed(() => isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'),
+  dashboardName
+)
 
 const showRenameModal = ref(false)
 const showDeleteModal = ref(false)

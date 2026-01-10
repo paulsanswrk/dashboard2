@@ -46,7 +46,7 @@ type ZoneConfig = {
 | **pivot**     | ✅ "Columns"        | ✅ "Values"               | ✅ "Rows"          | ❌                | ❌            | ✅ "Cross Tab Dimension" |
 | **pie**       | ✅ "Divide By"      | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       |
 | **donut**     | ✅ "Divide By"      | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       |
-| **funnel**    | ✅ "Stages"         | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       |
+| **funnel**    | ❌                  | ✅ "Stages"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
 | **map**       | ❌                  | ✅ "Measure"              | ✅ "Break Down By" | ❌                | ✅ "Location" | ❌                       |
 | **column**    | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
 | **bar**       | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
@@ -106,9 +106,11 @@ type ZoneConfig = {
 
 Zone naming follows the original Optiqo app at `admin.optiqo.report/#charts`:
 
+
 | Original Name        | Our Implementation                     |
 |----------------------|----------------------------------------|
 | MEASURE              | `yLabel: 'Measure'`                    |
+| STAGES (Funnel)      | `yLabel: 'Stages'`                     |
 | TARGET VALUE         | `targetValueLabel: 'Target Value'`     |
 | DIVIDE BY            | `xLabel: 'Divide By'`                  |
 | LOCATION             | `locationLabel: 'Location'`            |
@@ -117,3 +119,14 @@ Zone naming follows the original Optiqo app at `admin.optiqo.report/#charts`:
 | COLUMNS (TEXT)       | `xLabel: 'Columns (Text)'`             |
 | COLUMNS (AGGREGATED) | `yLabel: 'Columns (Aggregated)'`       |
 | FILTER BY            | Always "Filter By"                     |
+
+## Chart-Specific Zone Notes
+
+### Funnel Chart
+
+The funnel chart zone configuration matches the original Optiqo system:
+
+- **Stages** (yMetrics): Drop a **value field** (numeric measure) here. This determines the size of each funnel stage.
+- **Break Down By** (breakdowns): Drop a **category field** here. This creates the individual funnel sections with labels.
+
+The X-axis zone is hidden for funnel charts since the category comes from the Break Down By zone.

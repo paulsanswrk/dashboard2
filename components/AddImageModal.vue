@@ -146,10 +146,12 @@ interface DashboardImage {
 }
 
 interface Props {
-  open: boolean
+  open?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  open: false
+})
 
 const emit = defineEmits<{
   'update:open': [value: boolean]

@@ -161,7 +161,7 @@ interface ZoneConfig {
 | Bar/Column/Line/Area | ✅ X-Axis | ✅ Y-Axis | ✅ Break Down By | ❌ |
 | Stacked/Waterfall | ✅ X-Axis | ✅ Y-Axis | ✅ Break Down By | ❌ |
 | Pie/Donut | ✅ Divide By | ✅ Measure | ❌ | ❌ |
-| Funnel | ✅ Stages | ✅ Measure | ✅ Break Down By | ❌ |
+| Funnel | ❌ | ✅ Stages | ✅ Break Down By | ❌ |
 | Map | ❌ | ✅ Measure | ✅ Break Down By | ✅ Location |
 | Scatter | ✅ X-Axis | ✅ Y-Axis | ✅ Break Down By | ❌ |
 | Bubble | ✅ Category | ✅ Bubble Size | ✅ Break Down By | ❌ |

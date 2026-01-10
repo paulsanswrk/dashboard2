@@ -200,6 +200,9 @@ const appearanceRef = ref<ReportState['appearance']>({
 })
 const joinsRef = ref<JoinRef[]>([])
 
+// Track if state has been initialized from URL to prevent re-initialization
+let initialized = false
+
 // History stack
 type Snapshot = ReportState
 const historyStack: Snapshot[] = []
@@ -280,21 +283,24 @@ export function useReportState() {
   const route = useRoute()
   const router = useRouter()
 
-  // Initialize from URL if available
-  const initial = decodeState((route.query.r as string) || null)
-  if (initial) {
-    selectedDatasetIdRef.value = initial.selectedDatasetId
-    xDimensionsRef.value = initial.xDimensions || []
-    yMetricsRef.value = initial.yMetrics || []
-    breakdownsRef.value = initial.breakdowns || []
-    filtersRef.value = initial.filters || []
-    targetValueRef.value = initial.targetValue || null
-    locationRef.value = initial.location || null
-    crossTabDimensionRef.value = initial.crossTabDimension || null
-    excludeNullsInDimensionsRef.value = initial.excludeNullsInDimensions || false
-    appearanceRef.value = initial.appearance || {}
-    joinsRef.value = initial.joins || []
-    pushHistory(false)
+  // Initialize from URL only once (prevents re-triggering watchers when composable is called by multiple components)
+  if (!initialized) {
+    const initial = decodeState((route.query.r as string) || null)
+    if (initial) {
+      selectedDatasetIdRef.value = initial.selectedDatasetId
+      xDimensionsRef.value = initial.xDimensions || []
+      yMetricsRef.value = initial.yMetrics || []
+      breakdownsRef.value = initial.breakdowns || []
+      filtersRef.value = initial.filters || []
+      targetValueRef.value = initial.targetValue || null
+      locationRef.value = initial.location || null
+      crossTabDimensionRef.value = initial.crossTabDimension || null
+      excludeNullsInDimensionsRef.value = initial.excludeNullsInDimensions || false
+      appearanceRef.value = initial.appearance || {}
+      joinsRef.value = initial.joins || []
+      pushHistory(false)
+    }
+    initialized = true
   }
 
   const state = computed<ReportState>(() => ({

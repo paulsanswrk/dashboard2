@@ -1,5 +1,9 @@
 /**
  * Renderer for Funnel charts.
+ * 
+ * In the original Optiqo system:
+ * - Stages (yMetrics) = Value/measure field - determines the SIZE of each stage
+ * - Break Down By (breakdowns) = Category field - creates the funnel sections/names
  */
 
 import { BaseChartRenderer } from './BaseChartRenderer'
@@ -9,14 +13,19 @@ export class FunnelChartRenderer extends BaseChartRenderer {
     readonly chartTypes = ['funnel']
 
     buildOption(context: ChartRenderContext): ChartRenderResult {
-        const { appearance, rows, columns, xDimensions, yMetrics } = context
+        const { appearance, rows, columns, breakdowns } = context
 
-        const xKey = xDimensions?.[0]?.fieldId
-        const yKey = yMetrics?.[0]?.fieldId
+        // Get category key from breakdowns (Break Down By zone - creates funnel sections)
+        const categoryKey = breakdowns?.[0]?.fieldId
+
+        // Get metric column key using the helper (handles aggregation prefixes like avg_, sum_, etc.)
+        // This comes from yMetrics which is labeled as "Stages" in the UI
+        const aliases = this.getMetricAliases(columns)
+        const metricKey = aliases[0]
 
         // Fallback for SQL-based charts
-        const nameCol = xKey || (columns.length > 0 ? columns[0].key : null)
-        const valueCol = yKey || (columns.length > 1 ? columns[1].key : columns[0]?.key)
+        const nameCol = categoryKey || (columns.length > 0 ? columns[0].key : null)
+        const valueCol = metricKey || (columns.length > 1 ? columns[1].key : columns[0]?.key)
 
         if (!nameCol || !valueCol || !rows.length) {
             return { option: this.buildEmptyOption(appearance) }
@@ -26,7 +35,7 @@ export class FunnelChartRenderer extends BaseChartRenderer {
         const dp = appearance?.numberFormat?.decimalPlaces ?? 0
         const ts = appearance?.numberFormat?.thousandsSeparator ?? true
 
-        // Create funnel data - sort by value descending for proper funnel shape
+        // Create funnel data - sort by value descending for proper funnel shape (largest at top)
         const funnelData = rows
             .map((row, index) => {
                 const rowData = typeof row === 'object' && row !== null ? row : {}
