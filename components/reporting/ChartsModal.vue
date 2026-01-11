@@ -68,7 +68,7 @@ const emit = defineEmits<{
 }>()
 
 const { listCharts, getChart, createChart, deleteChart } = useChartsService()
-const {selectedDatasetId, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, syncUrlNow} = useReportState()
+const {selectedDatasetId, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, sizeValue, syncUrlNow} = useReportState()
 
 const charts = ref<Array<{ id: number; name: string; updatedAt?: string }>>([])
 const newName = ref('')
@@ -87,6 +87,7 @@ async function saveCurrent() {
     xDimensions: xDimensions.value,
     yMetrics: yMetrics.value,
     breakdowns: breakdowns.value,
+    sizeValue: sizeValue.value,  // For bubble chart SIZE zone
     excludeNullsInDimensions: excludeNullsInDimensions.value,
     appearance: appearance.value,
     // SQL configuration
@@ -119,6 +120,7 @@ async function load(id: number) {
   xDimensions.value = s.xDimensions || []
   yMetrics.value = s.yMetrics || []
   breakdowns.value = s.breakdowns || []
+  sizeValue.value = s.sizeValue || null  // For bubble chart SIZE zone
   excludeNullsInDimensions.value = !!s.excludeNullsInDimensions
   appearance.value = s.appearance || {}
 

@@ -105,6 +105,7 @@ export interface ChartRenderContext {
     xDimensions: ReportField[]
     breakdowns: ReportField[]
     yMetrics: ReportField[]
+    sizeValue?: ReportField   // For bubble chart SIZE zone
     appearance?: AppearanceConfig
     isDark: boolean
 }

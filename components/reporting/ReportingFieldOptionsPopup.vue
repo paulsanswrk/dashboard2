@@ -45,8 +45,8 @@
 
     <!-- Content -->
     <div class="p-3 space-y-4">
-      <!-- Aggregation Options (for Y metrics only) -->
-      <div v-if="zone === 'y' && isNumericField">
+      <!-- Aggregation Options (for Y metrics, size, and target value zones) -->
+      <div v-if="isMetricZone && isNumericField">
         <label class="block text-[11px] font-bold text-neutral-500 dark:text-neutral-400 mb-3 uppercase tracking-wider">Aggregation Type</label>
         <div class="grid grid-cols-4 gap-0 border border-neutral-200 dark:border-dark-lighter rounded overflow-hidden">
           <button
@@ -85,8 +85,8 @@
         </div>
       </div>
 
-      <!-- Aggregation for TEXT fields in Y metrics -->
-      <div v-if="zone === 'y' && isTextField">
+      <!-- Aggregation for TEXT fields in metric zones -->
+      <div v-if="isMetricZone && isTextField">
         <label class="block text-[11px] font-bold text-neutral-500 dark:text-neutral-400 mb-3 uppercase tracking-wider">Aggregation Type</label>
         <div class="grid grid-cols-2 gap-0 border border-neutral-200 dark:border-dark-lighter rounded overflow-hidden">
           <button
@@ -312,7 +312,7 @@
 import {computed, nextTick, ref, watch} from 'vue'
 import type {DimensionRef, MetricRef, ReportField} from '../../composables/useReportState'
 
-type ZoneType = 'x' | 'y' | 'breakdowns'
+type ZoneType = 'x' | 'y' | 'breakdowns' | 'targetValue' | 'sizeValue'
 
 const props = defineProps<{
   visible: boolean
@@ -455,6 +455,9 @@ const isNumericField = computed(() => numericTypes.some(t => fieldType.value.inc
 const isTextField = computed(() => textTypes.some(t => fieldType.value.includes(t)))
 const isDateField = computed(() => dateTypes.some(t => fieldType.value.includes(t)))
 
+// Metric zones need aggregation options (y, sizeValue, targetValue)
+const isMetricZone = computed(() => props.zone === 'y' || props.zone === 'sizeValue' || props.zone === 'targetValue')
+
 const filteredDistinctValues = computed(() => {
   if (!filterSearch.value) return distinctValues.value
   const search = filterSearch.value.toLowerCase()
@@ -564,7 +567,7 @@ function apply() {
     label: localLabel.value || undefined
   }
 
-  if (props.zone === 'y') {
+  if (isMetricZone.value) {
     updates.aggregation = localAggregation.value
   }
 

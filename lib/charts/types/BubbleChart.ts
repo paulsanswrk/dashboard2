@@ -1,4 +1,4 @@
-import {type OnboardingStep, OptiqoChart, type ZoneConfig} from '../OptiqoChart'
+import { type OnboardingStep, OptiqoChart, type ZoneConfig } from '../OptiqoChart'
 
 export class BubbleChart extends OptiqoChart {
     readonly type = 'bubble'
@@ -13,17 +13,21 @@ export class BubbleChart extends OptiqoChart {
             showTargetValue: false,
             showLocation: false,
             showCrossTab: false,
-            xLabel: 'Category',
-            yLabel: 'Bubble Size',
-            breakdownLabel: 'Break Down By'
+            showSize: true,
+            xLabel: 'X-Axis',
+            yLabel: 'Y-Axis',
+            breakdownLabel: 'Break Down By',
+            sizeLabel: 'Size'
         }
     }
 
+
+
     getOnboardingSteps(): OnboardingStep[] {
         return [
-            {fieldType: 'value field', action: 'to define bubble sizes', zone: 'Bubble Size'},
-            {fieldType: 'category field', action: 'to define categories', zone: 'Category'},
-            {fieldType: 'category field', action: 'to break down into series', zone: 'Break Down By', isOptional: true}
+            { fieldType: 'value field', action: 'to set Y-axis values', zone: 'Y-Axis' },
+            { fieldType: 'category field', action: 'to set X-axis categories', zone: 'X-Axis' },
+            { fieldType: 'value field', action: 'to define bubble sizes', zone: 'Size', isOptional: true }
         ]
     }
 

@@ -91,6 +91,37 @@
       </template>
     </div>
 
+    <!-- Size Zone (for Bubble chart) - single field slot -->
+    <div v-if="zoneConfig.showSize" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDropSingleZone('sizeValue')">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="i-heroicons-cursor-arrow-ripple" class="w-4 h-4 text-neutral-300"/>
+          {{ zoneConfig.sizeLabel || 'Size' }}
+        </span>
+      </div>
+      <template v-if="sizeValue">
+        <div
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
+            @click="openPopup('sizeValue', 0, $event)"
+            data-zone-item="sizeValue"
+        >
+          <div class="pr-6">
+            <div class="text-sm">{{ sizeValue.label || sizeValue.name }}</div>
+            <div class="text-xs text-neutral-300">
+              <template v-if="sizeValue.table">{{ sizeValue.table }}</template>
+              <template v-if="sizeValue.aggregation"><span v-if="sizeValue.table"> • </span>{{ formatAggregation(sizeValue.aggregation) }}</template>
+            </div>
+          </div>
+          <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('sizeValue', 0)" aria-label="Remove" data-remove>
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+          </button>
+        </div>
+      </template>
+      <template v-else>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
+      </template>
+    </div>
+
     <!-- Breakdowns Zone -->
     <div v-if="zoneConfig.showBreakdowns" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('breakdowns')">
       <div class="flex items-center justify-between mb-1">
@@ -302,12 +333,14 @@ type ZoneConfig = {
   showTargetValue: boolean
   showLocation: boolean
   showCrossTab: boolean
+  showSize?: boolean
   xLabel?: string
   yLabel?: string
   breakdownLabel?: string
   targetValueLabel?: string
   locationLabel?: string
   crossTabLabel?: string
+  sizeLabel?: string
 }
 
 const props = defineProps<{
@@ -322,7 +355,7 @@ const emit = defineEmits<{
 
 const {
   xDimensions, yMetrics, breakdowns, filters,
-  targetValue, location, crossTabDimension,
+  targetValue, location, crossTabDimension, sizeValue,
   addToZone, removeFromZone, moveInZone, updateFieldInZone, syncUrlNow
 } = useReportState()
 
@@ -336,6 +369,7 @@ const hasMultipleTables = computed(() => {
   if (targetValue.value?.table) tables.add(targetValue.value.table)
   if (location.value?.table) tables.add(location.value.table)
   if (crossTabDimension.value?.table) tables.add(crossTabDimension.value.table)
+  if (sizeValue.value?.table) tables.add(sizeValue.value.table)
   return tables.size > 1
 })
 
@@ -392,6 +426,8 @@ function openPopup(zone: ZoneType, index: number, event: MouseEvent) {
     activeField.value = location.value ?? null
   } else if (zone === 'crossTab') {
     activeField.value = crossTabDimension.value ?? null
+  } else if (zone === 'sizeValue') {
+    activeField.value = sizeValue.value ?? null
   }
 
   activeZone.value = zone
@@ -532,8 +568,8 @@ function onDrop(zone: ZoneType) {
   } catch {}
 }
 
-// Drop handler for single-value zones (targetValue, location, crossTab)
-function onDropSingleZone(zone: 'targetValue' | 'location' | 'crossTab') {
+// Drop handler for single-value zones (targetValue, location, crossTab, sizeValue)
+function onDropSingleZone(zone: 'targetValue' | 'location' | 'crossTab' | 'sizeValue') {
   const dropEvent = event as DragEvent
   const dt = dropEvent.dataTransfer
   if (!dt) return
@@ -556,6 +592,8 @@ function onDropSingleZone(zone: 'targetValue' | 'location' | 'crossTab') {
           newField = location.value ?? null
         } else if (zone === 'crossTab') {
           newField = crossTabDimension.value ?? null
+        } else if (zone === 'sizeValue') {
+          newField = sizeValue.value ?? null
         }
 
         if (newField) {

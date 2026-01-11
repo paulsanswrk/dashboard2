@@ -43,7 +43,7 @@ export type FilterCondition = ReportField & {
   valueTo?: string  // For "between" operator
 }
 
-export type ZoneType = 'x' | 'y' | 'breakdowns' | 'filters' | 'targetValue' | 'location' | 'crossTab'
+export type ZoneType = 'x' | 'y' | 'breakdowns' | 'filters' | 'targetValue' | 'location' | 'crossTab' | 'sizeValue'
 
 type ReportState = {
   selectedDatasetId: string | null
@@ -51,10 +51,10 @@ type ReportState = {
   yMetrics: MetricRef[]
   breakdowns: DimensionRef[]
   filters: FilterCondition[]
-  // New zones for alignment with original app
   targetValue?: MetricRef | null       // For number, gauge charts
   location?: DimensionRef | null       // For map charts
   crossTabDimension?: DimensionRef | null  // For table, pivot charts
+  sizeValue?: MetricRef | null         // For bubble chart SIZE zone
   excludeNullsInDimensions?: boolean
   appearance?: {
     // General
@@ -186,6 +186,7 @@ const filtersRef = ref<FilterCondition[]>([])
 const targetValueRef = ref<MetricRef | null>(null)
 const locationRef = ref<DimensionRef | null>(null)
 const crossTabDimensionRef = ref<DimensionRef | null>(null)
+const sizeValueRef = ref<MetricRef | null>(null)
 const excludeNullsInDimensionsRef = ref<boolean>(false)
 const appearanceRef = ref<ReportState['appearance']>({
   chartTitle: '',
@@ -222,6 +223,7 @@ function snapshot(): Snapshot {
     targetValue: targetValueRef.value,
     location: locationRef.value,
     crossTabDimension: crossTabDimensionRef.value,
+    sizeValue: sizeValueRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
     appearance: appearanceRef.value,
     joins: joinsRef.value
@@ -256,6 +258,7 @@ function applySnapshot(s: Snapshot) {
   targetValueRef.value = s.targetValue || null
   locationRef.value = s.location || null
   crossTabDimensionRef.value = s.crossTabDimension || null
+  sizeValueRef.value = s.sizeValue || null
   excludeNullsInDimensionsRef.value = !!s.excludeNullsInDimensions
   appearanceRef.value = s.appearance || {}
   joinsRef.value = s.joins || []
@@ -295,6 +298,7 @@ export function useReportState() {
       targetValueRef.value = initial.targetValue || null
       locationRef.value = initial.location || null
       crossTabDimensionRef.value = initial.crossTabDimension || null
+      sizeValueRef.value = initial.sizeValue || null
       excludeNullsInDimensionsRef.value = initial.excludeNullsInDimensions || false
       appearanceRef.value = initial.appearance || {}
       joinsRef.value = initial.joins || []
@@ -312,6 +316,7 @@ export function useReportState() {
     targetValue: targetValueRef.value,
     location: locationRef.value,
     crossTabDimension: crossTabDimensionRef.value,
+    sizeValue: sizeValueRef.value,
     excludeNullsInDimensions: excludeNullsInDimensionsRef.value,
     appearance: appearanceRef.value,
     joins: joinsRef.value
@@ -366,6 +371,7 @@ export function useReportState() {
     else if (zone === 'targetValue') targetValueRef.value = { ...item } as MetricRef
     else if (zone === 'location') locationRef.value = { ...item } as DimensionRef
     else if (zone === 'crossTab') crossTabDimensionRef.value = { ...item } as DimensionRef
+    else if (zone === 'sizeValue') sizeValueRef.value = { ...item } as MetricRef
   }
 
   function removeFromZone(zone: ZoneType, index: number) {
@@ -376,11 +382,12 @@ export function useReportState() {
     else if (zone === 'targetValue') targetValueRef.value = null
     else if (zone === 'location') locationRef.value = null
     else if (zone === 'crossTab') crossTabDimensionRef.value = null
+    else if (zone === 'sizeValue') sizeValueRef.value = null
   }
 
   function moveInZone(zone: ZoneType, from: number, to: number) {
     // New single-value zones don't support reordering
-    if (zone === 'targetValue' || zone === 'location' || zone === 'crossTab') return
+    if (zone === 'targetValue' || zone === 'location' || zone === 'crossTab' || zone === 'sizeValue') return
     if (zone === 'x') {
       const arr = xDimensionsRef.value
       const [it] = arr.splice(from, 1)
@@ -415,6 +422,8 @@ export function useReportState() {
       locationRef.value = { ...locationRef.value, ...updates } as DimensionRef
     } else if (zone === 'crossTab' && crossTabDimensionRef.value) {
       crossTabDimensionRef.value = { ...crossTabDimensionRef.value, ...updates } as DimensionRef
+    } else if (zone === 'sizeValue' && sizeValueRef.value) {
+      sizeValueRef.value = { ...sizeValueRef.value, ...updates } as MetricRef
     }
   }
 
@@ -428,6 +437,7 @@ export function useReportState() {
     targetValue: targetValueRef,
     location: locationRef,
     crossTabDimension: crossTabDimensionRef,
+    sizeValue: sizeValueRef,
     excludeNullsInDimensions: excludeNullsInDimensionsRef,
     appearance: appearanceRef,
     joins: joinsRef,

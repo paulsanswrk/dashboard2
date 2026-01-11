@@ -226,6 +226,7 @@
                    ref="chartComponentRef"
                    :columns="columns" :rows="rows"
                    :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
+                   :size-value="sizeValue"
                    :chart-type="chartType" :appearance="appearance" :loading="loading"/>
       </div>
     </div>
@@ -281,7 +282,7 @@ const emit = defineEmits<{
 }>()
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId, setSelectedDatasetId } = useReportingService()
-const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions} = useReportState()
+const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions, sizeValue} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
 const nuxtApp = useNuxtApp()
@@ -760,6 +761,7 @@ async function onTestPreview() {
       breakdowns: breakdowns.value,
       filters: filters.value,
       joins: joins.value as any,
+      sizeValue: sizeValue.value,  // For bubble chart SIZE zone
       limit: 100,
       connectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId()
     })
@@ -901,6 +903,7 @@ function handleLoadChartState(state: {
   yMetrics: any[]
   breakdowns: any[]
   filters?: any[]
+  sizeValue?: any  // For bubble chart SIZE zone
   excludeNullsInDimensions: boolean
   appearance: any
   chartType: string
@@ -924,6 +927,7 @@ function handleLoadChartState(state: {
   yMetrics.value = state.yMetrics || []
   breakdowns.value = state.breakdowns || []
   filters.value = state.filters || []
+  sizeValue.value = state.sizeValue || null  // For bubble chart SIZE zone
   excludeNullsInDimensions.value = state.excludeNullsInDimensions || false
   appearance.value = state.appearance || {}
 

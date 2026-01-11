@@ -64,6 +64,7 @@ interface ChartRenderContext {
     xDimensions: ReportField[]
     breakdowns: ReportField[]
     yMetrics: ReportField[]
+    sizeValue?: ReportField  // For bubble chart SIZE zone
     appearance?: AppearanceConfig
     isDark: boolean
 }
@@ -146,9 +147,11 @@ interface ZoneConfig {
   showTargetValue: boolean
   showLocation: boolean
   showCrossTab: boolean
+  showSize?: boolean        // For bubble chart SIZE zone
   xLabel?: string
   yLabel?: string
   breakdownLabel?: string
+  sizeLabel?: string        // Label for SIZE zone
 }
 ```
 
@@ -164,7 +167,7 @@ interface ZoneConfig {
 | Funnel | ❌ | ✅ Stages | ✅ Break Down By | ❌ |
 | Map | ❌ | ✅ Measure | ✅ Break Down By | ✅ Location |
 | Scatter | ✅ X-Axis | ✅ Y-Axis | ✅ Break Down By | ❌ |
-| Bubble | ✅ Category | ✅ Bubble Size | ✅ Break Down By | ❌ |
+| Bubble | ✅ X-Axis | ✅ Y-Axis | ✅ Break Down By | ✅ Size |
 | Treemap | ✅ Divide By | ✅ Measure | ✅ Break Down By | ❌ |
 | Sankey | ✅ Source | ✅ Target | ✅ Values | ❌ |
 | Radar/BoxPlot | ✅ X-Axis | ✅ Y-Axis | ✅ Break Down By | ❌ |

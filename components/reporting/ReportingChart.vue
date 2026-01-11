@@ -35,6 +35,7 @@ const props = defineProps<{
   xDimensions: ReportField[]
   breakdowns: ReportField[]
   yMetrics: ReportField[]
+  sizeValue?: ReportField
   appearance?: {
     // General
     fontFamily?: string
@@ -176,6 +177,7 @@ function renderChart() {
     xDimensions: props.xDimensions,
     breakdowns: props.breakdowns,
     yMetrics: props.yMetrics,
+    sizeValue: props.sizeValue,
     appearance: props.appearance,
     isDark: isDark.value
   }
@@ -234,7 +236,7 @@ onMounted(async () => {
   renderChart()
 })
 
-watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.appearance, isDark.value], () => {
+watch(() => [props.chartType, props.columns, props.rows, props.xDimensions, props.breakdowns, props.yMetrics, props.sizeValue, props.appearance, isDark.value], () => {
   renderChart()
 }, { deep: true })
 

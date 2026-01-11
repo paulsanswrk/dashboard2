@@ -551,6 +551,7 @@ async function loadChartFromState(state: any) {
       yMetrics: state.yMetrics || [],
       filters: state.filters || [],
       breakdowns: state.breakdowns || [],
+      sizeValue: state.sizeValue || null,  // For bubble chart SIZE zone
       excludeNullsInDimensions: !!state.excludeNullsInDimensions,
       appearance: state.appearance || {},
       chartType: state.chartType || 'bar',

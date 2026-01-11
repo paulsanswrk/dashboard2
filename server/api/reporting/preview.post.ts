@@ -34,6 +34,7 @@ type PreviewRequest = {
   limit?: number
   connectionId?: number
   excludeNullsInDimensions?: boolean
+  sizeValue?: MetricRef  // For bubble chart SIZE zone
 }
 
 function isSafeIdentifier(name: string | undefined): name is string {
@@ -82,7 +83,11 @@ export default defineEventHandler(async (event) => {
       columns: 'id, organization_id, auto_join_info'
     })
     const dims: DimensionRef[] = [...(body.xDimensions || []), ...(body.breakdowns || [])]
-    const metrics: MetricRef[] = body.yMetrics || []
+    const metrics: MetricRef[] = [...(body.yMetrics || [])]
+    // Include sizeValue as a metric if provided (for bubble chart SIZE zone)
+    if (body.sizeValue) {
+      metrics.push(body.sizeValue)
+    }
 
     // Build SELECT parts
     const selectParts: string[] = []

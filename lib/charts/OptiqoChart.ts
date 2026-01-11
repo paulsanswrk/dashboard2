@@ -11,13 +11,16 @@ export interface ZoneConfig {
     showTargetValue: boolean
     showLocation: boolean
     showCrossTab: boolean
+    showSize?: boolean           // For bubble chart SIZE zone
     xLabel?: string
     yLabel?: string
     breakdownLabel?: string
     targetValueLabel?: string
     locationLabel?: string
     crossTabLabel?: string
+    sizeLabel?: string           // Label for SIZE zone
 }
+
 
 export interface OnboardingStep {
     fieldType: 'value field' | 'category field'

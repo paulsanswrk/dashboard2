@@ -4,7 +4,7 @@ This document describes the zone configuration system that maps chart types to t
 
 ## Zone Types
 
-The reporting builder supports **7 zone types**:
+The reporting builder supports **8 zone types**:
 
 | Zone          | Storage | Purpose                                         |
 |---------------|---------|-------------------------------------------------|
@@ -15,6 +15,7 @@ The reporting builder supports **7 zone types**:
 | `targetValue` | Single  | Target/comparison value (Number/Gauge/KPI)      |
 | `location`    | Single  | Geographic field (Map)                          |
 | `crossTab`    | Single  | Cross-tab dimension (Table/Pivot)               |
+| `sizeValue`   | Single  | Size metric for bubble charts                   |
 
 ## Zone Configuration per Chart Type
 
@@ -26,41 +27,43 @@ type ZoneConfig = {
   showTargetValue: boolean
   showLocation: boolean
   showCrossTab: boolean
+  showSize?: boolean         // For bubble chart SIZE zone
   xLabel?: string
   yLabel?: string
   breakdownLabel?: string
   targetValueLabel?: string
   locationLabel?: string
   crossTabLabel?: string
+  sizeLabel?: string         // Label for SIZE zone
 }
 ```
 
 ### Configuration Matrix
 
-| Chart Type    | X Zone             | Y Zone                   | Breakdown         | Target           | Location     | CrossTab                |
+| Chart Type    | X Zone             | Y Zone                   | Breakdown         | Target           | Location     | CrossTab                | Size     |
 |---------------|--------------------|--------------------------|-------------------|------------------|--------------|-------------------------|
-| **number**    | ❌                  | ✅ "Measure"              | ❌                 | ✅ "Target Value" | ❌            | ❌                       |
-| **gauge**     | ❌                  | ✅ "Measure"              | ❌                 | ✅ "Target Value" | ❌            | ❌                       |
-| **kpi**       | ❌                  | ✅ "Measure"              | ❌                 | ✅ "Target Value" | ❌            | ❌                       |
-| **table**     | ✅ "Columns (Text)" | ✅ "Columns (Aggregated)" | ❌                 | ❌                | ❌            | ✅ "Cross Tab Dimension" |
-| **pivot**     | ✅ "Columns"        | ✅ "Values"               | ✅ "Rows"          | ❌                | ❌            | ✅ "Cross Tab Dimension" |
-| **pie**       | ✅ "Divide By"      | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       |
-| **donut**     | ✅ "Divide By"      | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       |
-| **funnel**    | ❌                  | ✅ "Stages"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
-| **map**       | ❌                  | ✅ "Measure"              | ✅ "Break Down By" | ❌                | ✅ "Location" | ❌                       |
-| **column**    | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
-| **bar**       | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
-| **stacked**   | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
-| **line**      | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
-| **area**      | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       |
-| **boxplot**   | ✅ "X-Axis"         | ✅ "Y-Axis"               | ❌                 | ❌                | ❌            | ❌                       |
-| **scatter**   | ✅ "X-Axis"         | ✅ "Y-Axis"               | ❌                 | ❌                | ❌            | ❌                       |
-| **bubble**    | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Size"          | ❌                | ❌            | ❌                       |
-| **treemap**   | ✅ "Hierarchy"      | ❌                        | ✅ "Size Values"   | ❌                | ❌            | ❌                       |
-| **sankey**    | ✅ "Source"         | ✅ "Target"               | ❌                 | ❌                | ❌            | ❌                       |
-| **radar**     | ✅ "Dimensions"     | ✅ "Values"               | ✅ "Series"        | ❌                | ❌            | ❌                       |
-| **waterfall** | ✅ "Categories"     | ✅ "Values"               | ❌                 | ❌                | ❌            | ❌                       |
-| **wordcloud** | ✅ "Words"          | ✅ "Size Values"          | ❌                 | ❌                | ❌            | ❌                       |
+| **number**    | ❌                  | ✅ "Measure"              | ❌                 | ✅ "Target Value" | ❌            | ❌                       | ❌        |
+| **gauge**     | ❌                  | ✅ "Measure"              | ❌                 | ✅ "Target Value" | ❌            | ❌                       | ❌        |
+| **kpi**       | ❌                  | ✅ "Measure"              | ❌                 | ✅ "Target Value" | ❌            | ❌                       | ❌        |
+| **table**     | ✅ "Columns (Text)" | ✅ "Columns (Aggregated)" | ❌                 | ❌                | ❌            | ✅ "Cross Tab Dimension" | ❌        |
+| **pivot**     | ✅ "Columns"        | ✅ "Values"               | ✅ "Rows"          | ❌                | ❌            | ✅ "Cross Tab Dimension" | ❌        |
+| **pie**       | ✅ "Divide By"      | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       | ❌        |
+| **donut**     | ✅ "Divide By"      | ✅ "Measure"              | ❌                 | ❌                | ❌            | ❌                       | ❌        |
+| **funnel**    | ❌                  | ✅ "Stages"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ❌        |
+| **map**       | ❌                  | ✅ "Measure"              | ✅ "Break Down By" | ❌                | ✅ "Location" | ❌                       | ❌        |
+| **column**    | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ❌        |
+| **bar**       | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ❌        |
+| **stacked**   | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ❌        |
+| **line**      | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ❌        |
+| **area**      | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ❌        |
+| **boxplot**   | ✅ "X-Axis"         | ✅ "Y-Axis"               | ❌                 | ❌                | ❌            | ❌                       | ❌        |
+| **scatter**   | ✅ "X-Axis"         | ✅ "Y-Axis"               | ❌                 | ❌                | ❌            | ❌                       | ❌        |
+| **bubble**    | ✅ "X-Axis"         | ✅ "Y-Axis"               | ✅ "Break Down By" | ❌                | ❌            | ❌                       | ✅ "Size" |
+| **treemap**   | ✅ "Hierarchy"      | ❌                        | ✅ "Size Values"   | ❌                | ❌            | ❌                       | ❌        |
+| **sankey**    | ✅ "Source"         | ✅ "Target"               | ❌                 | ❌                | ❌            | ❌                       | ❌        |
+| **radar**     | ✅ "Dimensions"     | ✅ "Values"               | ✅ "Series"        | ❌                | ❌            | ❌                       | ❌        |
+| **waterfall** | ✅ "Categories"     | ✅ "Values"               | ❌                 | ❌                | ❌            | ❌                       | ❌        |
+| **wordcloud** | ✅ "Words"          | ✅ "Size Values"          | ❌                 | ❌                | ❌            | ❌                       | ❌        |
 
 ## Implementation Files
 
@@ -68,8 +71,8 @@ type ZoneConfig = {
 
 **`composables/useReportState.ts`**
 
-- Defines `ZoneType` union type
-- Stores zone refs: `xDimensions`, `yMetrics`, `breakdowns`, `filters`, `targetValue`, `location`, `crossTabDimension`
+- Defines `ZoneType` union type: `'x' | 'y' | 'breakdowns' | 'filters' | 'targetValue' | 'location' | 'crossTab' | 'sizeValue'`
+- Stores zone refs: `xDimensions`, `yMetrics`, `breakdowns`, `filters`, `targetValue`, `location`, `crossTabDimension`, `sizeValue`
 - Provides functions: `addToZone`, `removeFromZone`, `moveInZone`, `updateFieldInZone`
 
 ### Zone Configuration
@@ -96,11 +99,12 @@ type ZoneConfig = {
 - Support drag-and-drop reordering
 - Display as list with remove buttons
 
-### Single-Value Zones (targetValue, location, crossTab)
+### Single-Value Zones (targetValue, location, crossTab, sizeValue)
 
 - Accept one field only (replaces existing)
 - No reordering support
 - Display as single item with remove button
+- `sizeValue` is shown only for bubble charts
 
 ## Alignment with Original App
 
@@ -130,3 +134,14 @@ The funnel chart zone configuration matches the original Optiqo system:
 - **Break Down By** (breakdowns): Drop a **category field** here. This creates the individual funnel sections with labels.
 
 The X-axis zone is hidden for funnel charts since the category comes from the Break Down By zone.
+
+### Bubble Chart
+
+The bubble chart matches the original Optiqo app with dedicated zones:
+
+- **Y-Axis** (yMetrics): Drop a **value field** for the bubble's Y position and default sizing.
+- **X-Axis** (xDimensions): Drop a **category field** for the bubble's X position (categories).
+- **Size** (sizeValue): Drop a **value field** to control bubble sizes. When empty, sizes default to Y-Axis values.
+- **Break Down By** (breakdowns): Drop a **category field** for series coloring.
+
+Bubbles display value labels inside and scale between 40-150 pixels.
