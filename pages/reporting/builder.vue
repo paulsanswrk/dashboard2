@@ -115,7 +115,7 @@
                         @click="selectDataset(ds.id)"
                       >
                         <span class="truncate">{{ ds.label || ds.name }}</span>
-                        <Icon :name="expandedDatasetId === ds.id ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-4 h-4"/>
+                        <Icon :name="isDatasetExpanded(ds.id) ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'" class="w-4 h-4"/>
                       </button>
                       <button
                         @click.stop="openTablePreview(ds.name)"
@@ -126,7 +126,7 @@
                       </button>
                     </div>
 
-                    <div v-if="expandedDatasetId === ds.id" class="p-3 bg-transparent">
+                    <div v-if="isDatasetExpanded(ds.id)" class="p-3 bg-transparent">
                       <ReportingSchemaPanel v-if="columnsByDataset[ds.id]?.length" :fields="columnsByDataset[ds.id]" :dataset-name="ds.name"/>
                       <div v-else class="text-sm text-neutral-500">No columns available</div>
                     </div>
@@ -237,7 +237,7 @@ const connections = ref<Array<{ id: number; internal_name: string }>>([])
 const connectionId = ref<number | null>(null)
 const editingChartId = ref<number | null>(null)
 const dashboardId = ref<string | null>(null)
-const {selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql} = useReportState()
+const {selectedDatasetId: selectedIdState, setSelectedDatasetId: setReportSelectedDatasetId, joins, xDimensions, yMetrics, breakdowns, sizeValue, excludeNullsInDimensions, appearance, useSql, overrideSql, sqlText, actualExecutedSql} = useReportState()
 const reportingBuilderRef = ref<any>(null)
 const currentChartType = ref<string>('bar')
 const showEditJoinPathModal = ref(false)
@@ -266,7 +266,33 @@ function onPreviewMeta(p: { error: string | null; warnings: string[] }) {
 const connectionsLoading = ref(true)
 const datasetsLoading = ref(false)
 const schemaLoading = ref(false)
-const expandedDatasetId = ref<string | null>(null)
+const manuallyExpandedDatasets = ref<Set<string>>(new Set())
+
+// Compute which tables have fields in any zone (xDimensions, yMetrics, breakdowns, sizeValue)
+const tablesInZones = computed(() => {
+  const tables = new Set<string>()
+  for (const d of xDimensions.value) {
+    if (d.table) tables.add(d.table)
+  }
+  for (const m of yMetrics.value) {
+    if (m.table) tables.add(m.table)
+  }
+  for (const b of breakdowns.value) {
+    if (b.table) tables.add(b.table)
+  }
+  if (sizeValue.value?.table) {
+    tables.add(sizeValue.value.table)
+  }
+  return tables
+})
+
+// Check if a dataset should be expanded (either manually expanded or has fields in zones)
+function isDatasetExpanded(id: string): boolean {
+  // Find dataset name from id
+  const ds = datasets.value.find(d => d.id === id)
+  const tableName = ds?.name || id
+  return manuallyExpandedDatasets.value.has(id) || tablesInZones.value.has(tableName)
+}
 
 // Preloaded columns cache: populated when connection is selected
 const columnsByDataset = ref<Record<string, any[]>>({})
@@ -402,19 +428,18 @@ function stopResize() {
 }
 
 function selectDataset(id: string) {
-  // Toggle collapse if the same dataset is clicked
-  if (expandedDatasetId.value === id) {
-    expandedDatasetId.value = null
-    setSelectedDatasetId(null)
-    setReportSelectedDatasetId(null)
+  // Toggle manual expansion
+  if (manuallyExpandedDatasets.value.has(id)) {
+    manuallyExpandedDatasets.value.delete(id)
+    // Only clear selected dataset if no tables in zones
+    if (!isDatasetExpanded(id)) {
+      setSelectedDatasetId(null)
+      setReportSelectedDatasetId(null)
+    }
     return
   }
-  // If selecting a different dataset, collapse current columns first
-  if (expandedDatasetId.value && expandedDatasetId.value !== id) {
-    expandedDatasetId.value = null
-    schema.value = []
-  }
-  expandedDatasetId.value = id
+  // Add to manually expanded
+  manuallyExpandedDatasets.value.add(id)
   setSelectedDatasetId(id)
   setReportSelectedDatasetId(id)
 }
@@ -472,7 +497,7 @@ watch(connectionId, async (id) => {
   window.history.replaceState({}, '', url.toString())
   // reload datasets and preload full schema for this connection
   datasetsLoading.value = true
-  expandedDatasetId.value = null
+  manuallyExpandedDatasets.value.clear()
   schema.value = []
   columnsByDataset.value = {}
   allRelationships.value = []

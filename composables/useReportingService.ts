@@ -48,17 +48,22 @@ export function useReportingService() {
       // Prefer explicit payload.connectionId; otherwise fall back to selectedConnectionId
       connectionId: payload?.connectionId ?? selectedConnectionId.value ?? null
     }
-    return await $fetch<PreviewResponse>("/api/reporting/preview", { method: "POST", body })
+    console.log('[runPreview] Making API call, datasetId:', body.datasetId, 'timestamp:', Date.now())
+    return await $fetch<PreviewResponse>("/api/reporting/preview", {
+      method: "POST",
+      body,
+      timeout: 60000  // 60 seconds
+    })
   }
 
   async function runSql(sql: string, limit?: number, connectionId?: number | null): Promise<PreviewResponse> {
-    return await $fetch<PreviewResponse>("/api/reporting/sql", { 
-      method: "POST", 
-      body: { 
-        sql, 
+    return await $fetch<PreviewResponse>("/api/reporting/sql", {
+      method: "POST",
+      body: {
+        sql,
         limit,
         connectionId: connectionId ?? selectedConnectionId.value ?? null
-      } 
+      }
     })
   }
 

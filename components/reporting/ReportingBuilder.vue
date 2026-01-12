@@ -320,6 +320,7 @@ const debugPanelOpen = ref(false)
 const debugJsonConfig = ref('')
 const debugConfigError = ref('')
 const debugConfigSuccess = ref('')
+const skipAutoPreview = ref(false)  // Flag to prevent watcher from firing during debug config apply
 
 const chartTypes = [
   {value: 'table', label: 'Table', icon: 'i-heroicons-table-cells'},
@@ -742,6 +743,9 @@ function getUrlConnectionId(): number | null {
 }
 
 async function onTestPreview() {
+  console.log('[Preview] onTestPreview called, skipAutoPreview:', skipAutoPreview.value)
+  console.trace('[Preview] Call stack:')
+  
   // Determine datasetId: use selectedDatasetId if set, otherwise use first table from X dimensions
   let datasetId = selectedDatasetId.value
   if (!datasetId && xDimensions.value.length > 0) {
@@ -795,6 +799,7 @@ const canAutoPreview = computed(() => {
 watch([xDimensions, yMetrics, breakdowns, filters, joins], async () => {
   if (!canAutoPreview.value) return
   if (useSql.value) return
+  if (skipAutoPreview.value) return  // Skip during debug config apply to prevent double request
   await onTestPreview()
 }, { deep: true })
 
@@ -1394,6 +1399,8 @@ function applyDebugConfig() {
         if (oldType !== chartType.value) changes.push(`chartType: ${oldType} → ${chartType.value}`)
       }
     }
+    // Prevent watcher from firing during zone updates (we'll do an explicit preview after)
+    skipAutoPreview.value = true
     
     // Apply zones - use spread to create new array references for Vue reactivity
     if (Array.isArray(config.xDimensions)) {
@@ -1489,15 +1496,27 @@ function applyDebugConfig() {
     console.log('[Debug Config] Applied config:', { config, changes, canAutoPreview: canAutoPreview.value, connectionId })
     
     // Auto-run preview/SQL after applying config
+    // Note: We explicitly run preview here regardless of useSql state, 
+    // because the user is applying a builder config (not SQL override mode)
     nextTick(async () => {
-      if (useSql.value && overrideSql.value && sqlText.value.trim()) {
-        await onRunSql(true)
-      } else if (canAutoPreview.value) {
-        console.log('[Debug Config] Running preview...')
-        await onTestPreview()
-        console.log('[Debug Config] Preview complete, rows:', rows.value.length)
-      } else {
-        console.log('[Debug Config] Skipping preview - canAutoPreview is false')
+      try {
+        if (overrideSql.value && sqlText.value.trim()) {
+          // If SQL override mode is enabled with actual SQL, run the SQL
+          await onRunSql(true)
+        } else {
+          // Otherwise, run the builder preview (generate SQL from zones)
+          const hasData = xDimensions.value.length > 0 || yMetrics.value.length > 0
+          if (hasData) {
+            console.log('[Debug Config] Running preview...')
+            await onTestPreview()
+            console.log('[Debug Config] Preview complete, rows:', rows.value.length)
+          } else {
+            console.log('[Debug Config] Skipping preview - no data configured')
+          }
+        }
+      } finally {
+        // Re-enable auto preview watcher
+        skipAutoPreview.value = false
       }
     })
     

@@ -82,6 +82,8 @@ export default defineEventHandler(async (event) => {
     const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
       columns: 'id, organization_id, auto_join_info'
     })
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auth check complete`)
+
     const dims: DimensionRef[] = [...(body.xDimensions || []), ...(body.breakdowns || [])]
     const metrics: MetricRef[] = [...(body.yMetrics || [])]
     // Include sizeValue as a metric if provided (for bubble chart SIZE zone)
@@ -285,6 +287,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const tableNames = Array.from(allTables)
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: SQL building started`)
     console.log(`[PREVIEW_AUTO_JOIN] Tables involved in query:`, tableNames)
 
     // Build JOIN clauses (MySQL)
@@ -367,6 +370,7 @@ export default defineEventHandler(async (event) => {
       } catch (error) {
         console.error(`[PREVIEW_AUTO_JOIN] Failed to compute auto-join:`, error)
       }
+      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auto-join complete`)
     }
 
     // Fallback to manual joins if provided
@@ -448,8 +452,11 @@ export default defineEventHandler(async (event) => {
       return { columns, rows: [], meta: metaPre }
     }
 
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: SQL built, checking storage info`)
+
     // Check if connection uses internal storage
     const storageInfo = await loadInternalStorageInfo(connectionId)
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Storage info loaded, useInternal=${storageInfo.useInternalStorage}`)
 
     let rows: any[]
     let finalSql = sql
@@ -461,9 +468,14 @@ export default defineEventHandler(async (event) => {
       rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
     } else {
       // Fall back to MySQL query
+      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Loading MySQL config...`)
       const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
+      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL config loaded, executing query...`)
+      console.log(`[PREVIEW_TIMING] SQL: ${sql.substring(0, 200)}...`)
       rows = await withMySqlConnectionConfig(cfg, async (conn) => {
+        console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL connection acquired, running query...`)
         const [res] = await conn.query(sql, params)
+        console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Query returned ${(res as any[]).length} rows`)
         return res as any[]
       })
     }
