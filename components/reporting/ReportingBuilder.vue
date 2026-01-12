@@ -986,34 +986,6 @@ async function captureChartMeta(): Promise<{ width?: number | null; height?: num
   return {width: width ?? null, height: height ?? null, thumbnailBase64: thumbnailBase64 ?? null}
 }
 
-/**
- * Convert pixel dimensions to grid layout units for dashboard positioning.
- * Dashboard grid uses colNum: 12 and rowHeight: 30.
- */
-function pixelDimensionsToGridUnits(width?: number | null, height?: number | null): { w: number; h: number } {
-  const ROW_HEIGHT = 30
-  const COL_NUM = 12
-  const CONTAINER_WIDTH = 1200 // Approximate dashboard container width
-
-  // Default fallback values (increased h from 4 to 8 for better visibility)
-  const DEFAULT_W = 6
-  const DEFAULT_H = 8
-
-  // Calculate grid width (w) - map pixel width to grid columns
-  let w = DEFAULT_W
-  if (width && width > 0) {
-    const fraction = Math.min(width / CONTAINER_WIDTH, 1)
-    w = Math.max(2, Math.min(COL_NUM, Math.round(fraction * COL_NUM)))
-  }
-
-  // Calculate grid height (h) - convert pixels to row units
-  let h = DEFAULT_H
-  if (height && height > 0) {
-    h = Math.max(4, Math.ceil(height / ROW_HEIGHT))
-  }
-
-  return { w, h }
-}
 
 async function saveExistingChart(): Promise<boolean> {
   if (!props.editingChartId) return false
@@ -1146,14 +1118,13 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
       throw new Error('Invalid destination or missing dashboard ID')
     }
 
-    // Create the dashboard-report relationship with position based on chart dimensions
-    const { w, h } = pixelDimensionsToGridUnits(chartMeta.width, chartMeta.height)
+    // Create the dashboard-report relationship with position based on chart dimensions (pixels)
     const position = {
-      x: 0,
-      y: 0,
-      w,
-      h,
-      i: chartResult.chartId.toString()
+      left: 0,
+      top: 0,
+      width: chartMeta.width || 600,
+      height: chartMeta.height || 240,
+      i: String(chartResult.chartId)
     }
 
     await createDashboardReport({
@@ -1226,14 +1197,13 @@ async function saveNewChartDirectlyToDashboard(): Promise<boolean> {
       throw new Error('Failed to save chart')
     }
 
-    // Calculate grid position from captured chart dimensions
-    const { w, h } = pixelDimensionsToGridUnits(chartMeta.width, chartMeta.height)
+    // Calculate pixel position from captured chart dimensions
     const position = {
-      x: 0,
-      y: 0,
-      w,
-      h,
-      i: chartResult.chartId.toString()
+      left: 0,
+      top: 0,
+      width: chartMeta.width || 600,
+      height: chartMeta.height || 240,
+      i: String(chartResult.chartId)
     }
 
     await createDashboardReport({

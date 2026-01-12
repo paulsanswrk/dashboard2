@@ -625,6 +625,8 @@ watch(
 const {getDashboardFull, updateDashboard, listDashboards: listDashboardsLite} = useDashboardsService()
 const { listCharts, updateChart, deleteChart: deleteChartApi } = useChartsService()
 const {recordAction, undo, redo, canUndo, canRedo} = useDashboardHistory()
+import { calculateAutoLayout, type PixelPosition } from '~/lib/dashboard-layout-utils'
+import { DASHBOARD_WIDTH } from '~/lib/dashboard-constants'
 
 const dashboardName = ref('')
 const initialDashboardName = ref('')
@@ -973,22 +975,19 @@ function getDefaultTextStyle() {
   }
 }
 
-function areLayoutsEqual(a: any[] = [], b: any[] = []) {
-  if (a.length !== b.length) return false
-  const sortLayout = (layout: any[]) => [...layout].sort((x, y) => String(x.i).localeCompare(String(y.i)))
-  const sortedA = sortLayout(a)
-  const sortedB = sortLayout(b)
+function areLayoutsEqual(layout1: any[], layout2: any[]) {
+  if (layout1.length !== layout2.length) return false
   const toNum = (v: any) => {
     const n = Number(v)
     return Number.isFinite(n) ? n : 0
   }
-  return sortedA.every((item, idx) => {
-    const match = sortedB[idx]
-    return !!match &&
-        toNum(item.x) === toNum(match.x) &&
-        toNum(item.y) === toNum(match.y) &&
-        toNum(item.w) === toNum(match.w) &&
-        toNum(item.h) === toNum(match.h) &&
+  return layout1.every(item => {
+    const match = layout2.find(m => String(m.i) === String(item.i))
+    if (!match) return false
+    return toNum(item.left) === toNum(match.left) &&
+        toNum(item.top) === toNum(match.top) &&
+        toNum(item.width) === toNum(match.width) &&
+        toNum(item.height) === toNum(match.height) &&
         String(item.i) === String(match.i)
   })
 }
@@ -997,10 +996,10 @@ function buildLayoutFromTab(tabId: string) {
   const tab = tabs.value.find(t => t.id === tabId)
   if (!tab) return []
   return tab.widgets.map(w => ({
-    x: w.position?.x ?? 0,
-    y: w.position?.y ?? 0,
-    w: w.position?.w ?? 4,
-    h: w.position?.h ?? 8,
+    left: w.position?.left ?? 0,
+    top: w.position?.top ?? 0,
+    width: w.position?.width ?? 400,
+    height: w.position?.height ?? 240,
     i: String(w.widgetId)
   }))
 }
@@ -1034,15 +1033,10 @@ watch(gridLayout, (layout) => {
 }, {deep: true})
 
 function handleLayoutUpdate(newLayout: any[]) {
-  console.log('[Page] handleLayoutUpdate called with', newLayout?.length, 'items')
-  if (!activeTabId.value) return
-
   const targetTabId = activeTabId.value
 
-  // IMPORTANT: Compare against the baseline (initialTabLayouts), NOT gridLayout.value
-  // The gridLayout prop is mutated directly by vue3-grid-layout during drag/resize,
-  // so gridLayout.value already equals newLayout by the time this event fires.
-  const baselineLayout = cloneLayout(initialTabLayouts.value[targetTabId] || [])
+  // Compare against the baseline (initialTabLayouts)
+  const baselineLayout = JSON.parse(JSON.stringify(initialTabLayouts.value[targetTabId] || []))
 
   console.log('[Page] Comparing: baseline has', baselineLayout.length, 'items, new has', newLayout.length)
 
@@ -1092,7 +1086,7 @@ watch(tabLayouts, (layouts) => {
               .filter((item) => !isTempWidgetId(String(item.i)))
               .map((item) => ({
                 widgetId: String(item.i),
-                position: {x: item.x, y: item.y, w: item.w, h: item.h}
+                position: {left: item.left, top: item.top, width: item.width, height: item.height}
               }))
       )
       await updateDashboard({
@@ -1121,28 +1115,29 @@ function selectTab(tabId: string) {
 }
 
 function autoLayout() {
-  const colNum = gridConfig.colNum
-  const sortedItems = [...gridLayout.value].sort((a, b) => a.y - b.y || a.x - b.x)
-  let currentX = 0
-  let currentY = 0
-  let maxHeightInRow = 0
+  const widgets = gridLayout.value.map(item => ({
+    id: String(item.i),
+    position: {
+      left: item.left,
+      top: item.top,
+      width: item.width,
+      height: item.height
+    }
+  }))
 
-  sortedItems.forEach((item) => {
-    const defaultWidth = Math.min(6, colNum)
-    item.w = Math.max(1, Math.min(defaultWidth, colNum))
-    if (!item.h || item.h < 1) {
-      item.h = 8
+  const result = calculateAutoLayout(widgets, dashboardWidth.value || DASHBOARD_WIDTH)
+  
+  // Update gridLayout.value with results
+  result.forEach(res => {
+    const item = gridLayout.value.find(i => String(i.i) === res.id)
+    if (item) {
+      item.left = res.position.left
+      item.top = res.position.top
     }
-    if (currentX + item.w > colNum) {
-      currentX = 0
-      currentY += maxHeightInRow
-      maxHeightInRow = 0
-    }
-    item.x = currentX
-    item.y = currentY
-    maxHeightInRow = Math.max(maxHeightInRow, item.h)
-    currentX += item.w
   })
+
+  // Trigger layout update
+  handleLayoutUpdate([...gridLayout.value])
 }
 
 function editChart(chartId: string) {
@@ -1229,10 +1224,12 @@ async function save() {
   saving.value = true
   try {
     const layoutPayload = Object.values(tabLayouts).flatMap((layoutArr) =>
-        (layoutArr || []).map((item) => ({
-          widgetId: String(item.i),
-          position: {x: item.x, y: item.y, w: item.w, h: item.h}
-        }))
+        (layoutArr || [])
+            .filter((item) => !isTempWidgetId(String(item.i)))
+            .map((item) => ({
+              widgetId: String(item.i),
+              position: {left: item.left, top: item.top, width: item.width, height: item.height}
+            }))
     )
     const snapshot = await captureDashboardThumbnail()
     await updateDashboard({
@@ -1708,8 +1705,8 @@ async function addTextBlock() {
   if (!targetTabId) return
 
   const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
-  const nextY = currentLayout.length ? Math.max(...currentLayout.map(item => item.y + item.h)) : 0
-  const newPosition = {x: 0, y: nextY, w: 6, h: 2}
+  const nextY = currentLayout.length ? Math.max(...currentLayout.map(item => item.top + item.height)) : 0
+  const newPosition = {left: 0, top: nextY, width: 600, height: 60}
   const baseStyle = getDefaultTextStyle()
 
   // Generate a temporary widget ID for immediate UI update
@@ -1817,8 +1814,8 @@ async function handleImageSelected(image: DashboardImage) {
   if (!targetTabId) return
 
   const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
-  const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.y + item.h)) : 0
-  const newPosition = {x: 0, y: nextY, w: 6, h: 4}
+  const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.top + item.height)) : 0
+  const newPosition = {left: 0, top: nextY, width: 600, height: 300}
   const imageStyle = {
     imageUrl: image.url,
     objectFit: 'contain',
@@ -1974,7 +1971,7 @@ async function handleDeleteWidget(widgetId: string) {
         // Using heuristics: type + position.
         const t = tabs.value.find(t => t.id === deletedData.tabId)
         if (!t) return
-        const w = t.widgets.find(w => w.type === deletedData.type && w.position.x === deletedData.position.x && w.position.y === deletedData.position.y)
+        const w = t.widgets.find(w => w.type === deletedData.type && w.position.left === deletedData.position.left && w.position.top === deletedData.position.top)
         if (w) await deleteWidgetInternal(w.widgetId)
       }
     })
@@ -2312,8 +2309,8 @@ async function handleIconSelected(icon: { iconName: string; color: string; size:
 
   // Create a new icon widget
   const currentLayout = tabLayouts[targetTabId] || buildLayoutFromTab(targetTabId)
-  const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.y + item.h)) : 0
-  const newPosition = {x: 0, y: nextY, w: 2, h: 2}
+  const nextY = currentLayout.length ? Math.max(...currentLayout.map((item: any) => item.top + item.height)) : 0
+  const newPosition = {left: 0, top: nextY, width: 200, height: 100}
   const iconStyle = {
     iconName: icon.iconName,
     color: icon.color,
@@ -2498,7 +2495,8 @@ async function addChartToDashboard(chartId: number) {
       return
     }
 
-    const newPosition = { x: 0, y: Math.max(...gridLayout.value.map(item => item.y + item.h), 0), w: 6, h: 8 }
+    const nextY = gridLayout.value.length ? Math.max(...gridLayout.value.map(item => item.top + item.height)) : 0
+    const newPosition = { left: 0, top: nextY, width: 600, height: 240 }
 
     await $fetch(`/api/dashboard-tabs`, {
       method: 'POST',

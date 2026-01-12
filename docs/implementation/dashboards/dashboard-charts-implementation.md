@@ -11,8 +11,10 @@ This document outlines the implementation of multi-tab dashboard charts function
 - **Multi-Tab Dashboard Organization**: Create dashboards with multiple tabs, each containing charts with custom positioning
 - **Dashboard Thumbnails**: Dashboards capture PNG thumbnails on save (client-side snapshot) and store width/height
 - **Tab Management**: Create, rename, and delete dashboard tabs with full CRUD operations
-- **Vue Grid Layout Integration**: Charts are positioned using Vue Grid Layout for responsive dashboard layouts
+- **Free Positioning Layout**: Widgets can be placed anywhere on a fixed-width canvas (1200px) with absolute pixel coordinates.
 - **Auto-saving**: Dashboard changes (name, layout, widget properties) are automatically saved with debouncing
+- **Auto Layout**: Automatically arrange widgets to prevent overlaps and flow them left-to-right.
+- **Dotted Grid**: Visual alignment guidance in edit mode.
 - **Complete State Preservation**: All chart state (SQL, filters, appearance, chart type) is preserved
 - **Flexible Reporting**: Generate reports for entire dashboards or specific tabs
 
@@ -85,7 +87,7 @@ CREATE TABLE public.dashboard_widgets (
 
 - `type`: widget flavor (`chart`, `text`, `image`, `icon`)
 - `chart_id`: set when `type='chart'`
-- `position`: Vue Grid Layout position data `{x,y,w,h,minW?,minH?}`
+- `position`: Absolute pixel coordinates `{left: number, top: number, width: number, height: number}`
 - `style`: widget-specific style payload (e.g., text formatting)
 - `config_override`: per-instance overrides (charts)
 - `z_index`, `is_locked`: layering and lock state
@@ -263,7 +265,7 @@ Multi-tab dashboard editor with integrated toolbar and unified widgets. Highligh
 - **Sidebar**: `WidgetOptionsSidebar` swaps panels by widget type (text/chart); per-widget menus removed.
 - **Text blocks**: Inline editable content; sidebar controls (font, size, padding, colors, shape, shadow, alignment); compact defaults (h=2).
 - **Chart blocks**: Inline title editing (debounced save); actions handled in the sidebar.
-- **Grid**: Vue Grid Layout; reduced min item height for compact widgets; drag/resize only in edit mode.
+- **Layout**: Custom free-positioning implementation; drag and 8-handle resize handles; dotted grid background for alignment.
 - **Tab Management**: Create, rename, delete tabs; outlined navigation.
 - **Auto-saving**: Dashboard name changes and widget layout changes are automatically saved with 500ms debouncing.
 - **Toolbar**: Edit/Done toggle, device previews, Auto Layout, Add Chart, Add Text, Show Options (sidebar toggle).
@@ -284,8 +286,8 @@ Loading behavior:
 1. If `dashboardId` and `chartId` provided: fetches data from `/api/dashboards/:id/charts/:chartId/data`
 2. Otherwise: falls back to `useReportingService` composable
 
-#### Client plugin (New)
-- `plugins/vue3-grid-layout.client.ts` registers `GridLayout` and `GridItem` on the client to prevent `document is not defined` during SSR.
+#### Dashboard Layout Utilities
+- `lib/dashboard-layout-utils.ts` contains the pixel-based `calculateAutoLayout` algorithm and coordinate clamping.
 
 ## 🔄 Data Flow
 
@@ -295,12 +297,10 @@ Loading behavior:
 3. Selects destination (New Dashboard or Existing Dashboard Tab)
 4. System:
    - Captures chart dimensions (width/height) from the rendered preview
-   - Converts pixel dimensions to grid units using `pixelDimensionsToGridUnits()`:
-     - Width (w): Maps pixel width to grid columns (1-12) based on container width ratio
-     - Height (h): Converts pixel height to row units (pixels ÷ 30px row height, minimum 4 rows)
+   - Sets initial position at the bottom of the dashboard with captured pixel dimensions.
    - Saves complete chart state to `charts` table (including width/height for thumbnails)
    - Creates new dashboard/tab if selected
-   - Creates entry in `dashboard_widgets` linking chart to tab with calculated positioning
+   - Creates entry in `dashboard_widgets` linking chart to tab with absolute pixel positioning
    - Shows success confirmation
 
 ### Tab Management Process
@@ -416,7 +416,7 @@ Full-load specifics:
 - **Caching Strategy**: Potential for caching frequently accessed charts
 - **Debounced Auto-saving**: Changes are automatically saved with 200-500ms debouncing to reduce server load while maintaining responsiveness
 - **Parallel Server Fetch**: The full-load endpoint executes external SQL for all charts concurrently to reduce TTFB.
-- **SSR Safety**: Grid layout is registered in a client-only plugin and rendered inside `ClientOnly` to avoid accessing `document` during SSR.
+- **Pixel-based Layout**: Avoiding grid calculation overhead and providing more precise control.
 
 ## 🧪 Testing Coverage
 

@@ -94,7 +94,7 @@ export class PivotChartRenderer extends BaseChartRenderer {
                 left: '15%',
                 right: '10%',
                 top: '10%',
-                bottom: '15%'
+                bottom: '25%'
             },
             xAxis: {
                 type: 'category',
@@ -119,7 +119,7 @@ export class PivotChartRenderer extends BaseChartRenderer {
                 calculable: true,
                 orient: 'horizontal',
                 left: 'center',
-                bottom: '0%',
+                bottom: 5,
                 inRange: {
                     color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695']
                 }

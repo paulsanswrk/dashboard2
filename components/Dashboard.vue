@@ -1,10 +1,18 @@
 <template>
-  <div ref="containerRef" class="relative w-full min-h-full border rounded bg-white dark:bg-gray-900 p-3 overflow-hidden" @click="handleContainerClick">
+  <div 
+    ref="containerRef" 
+    class="relative w-full min-h-full border rounded bg-white dark:bg-gray-900 overflow-hidden" 
+    :class="{'edit-mode-grid': !preview}"
+    @click="handleContainerClick"
+    @mousemove="handleGlobalMouseMove"
+    @mouseup="handleGlobalMouseUp"
+    @mouseleave="handleGlobalMouseUp"
+  >
     <!-- Device width indicator overlay - only show for tablet/mobile -->
-    <div v-if="!loading && device !== 'desktop'" class="absolute inset-3 pointer-events-none z-10 flex">
+    <div v-if="!loading && device !== 'desktop'" class="absolute inset-0 pointer-events-none z-10 flex px-3">
       <!-- Left overlay -->
       <div
-          class="bg-black/10"
+          class="bg-black/5"
           :style="{ width: leftOverlayWidth }"
       ></div>
       <!-- Center transparent area (for preview content) -->
@@ -14,7 +22,7 @@
       ></div>
       <!-- Right overlay (mirrors left) -->
       <div
-          class="bg-black/10"
+          class="bg-black/5"
           :style="{ width: leftOverlayWidth }"
       ></div>
     </div>
@@ -23,119 +31,122 @@
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
       <span class="ml-3 text-gray-500">Loading dashboard...</span>
     </div>
+
     <!-- Wrapper uses relative positioning and sets the visual height after scaling -->
-    <!-- The inner scaled container is absolute so its original large size doesn't affect layout -->
     <div v-else class="relative" :style="wrapperStyle">
       <div class="absolute top-0 left-0" :style="[scaledContainerStyle, {
         fontFamily: tabStyle?.fontFamily,
         backgroundColor: tabStyle?.backgroundColor
       }]">
-        <ClientOnly>
-          <GridLayout
-              :layout="layout"
-              :col-num="gridConfig.colNum"
-              :row-height="gridConfig.rowHeight"
-              :max-rows="gridConfig.maxRows"
-              :margin="gridConfig.margin"
-              :is-draggable="gridConfig.isDraggable && !preview"
-              :is-resizable="gridConfig.isResizable && !preview"
-              :is-mirrored="gridConfig.isMirrored"
-              :is-bounded="gridConfig.isBounded"
-              :auto-size="gridConfig.autoSize"
-              :vertical-compact="gridConfig.verticalCompact"
-              :restore-on-drag="gridConfig.restoreOnDrag"
-              :prevent-collision="gridConfig.preventCollision"
-              :use-css-transforms="gridConfig.useCssTransforms"
-              :use-style-cursor="gridConfig.useStyleCursor && !preview"
-              :transform-scale="gridConfig.transformScale"
-              :responsive="gridConfig.responsive"
-              :breakpoints="gridConfig.breakpoints"
-              :cols="gridConfig.cols"
-              @layout-updated="onLayoutUpdated"
+        <!-- Widget Container -->
+        <div class="relative w-full h-full p-3">
+          <div 
+            v-for="item in layout" 
+            :key="item.i"
+            class="absolute transition-shadow transition-[border-color]"
+            :class="{
+              'ring-2 ring-blue-500 z-30': isSelected(item.i),
+              'hover:ring-1 hover:ring-gray-300': !isSelected(item.i) && !preview,
+              'cursor-move': !preview && !isResizing
+            }"
+            :style="{
+              left: `${item.left}px`,
+              top: `${item.top}px`,
+              width: `${item.width}px`,
+              height: `${item.height}px`
+            }"
+            @mousedown="!preview && handleWidgetMouseDown($event, item.i)"
           >
-            <GridItem v-for="item in layout" :key="item.i" :x="item.x" :y="item.y" :w="item.w" :h="item.h" :i="item.i">
-              <template v-if="findWidget(item.i)?.type === 'chart'">
-                <UCard
-                    :class="['h-full w-full transition-shadow', {'ring-2 ring-orange-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900': isSelected(item.i), 'cursor-pointer': !preview}]"
-                    :ui="{ body: { padding: 'sm:p-2 p-2' } }"
-                    :style="[getWidgetContainerStyle(item.i), {
-                      backgroundColor: tabStyle?.chartBackground
-                    }]"
-                    @click.stop="!preview && handleSelectText(item.i)"
-                >
-                  <div class="mb-2">
-                    <input
-                        :value="findChartName(item.i)"
-                        class="w-full !bg-transparent text-sm font-semibold px-0 py-0 focus:outline-none focus:ring-0 focus:border-transparent"
-                        :readonly="preview"
-                        @focus.stop="!preview && handleSelectText(item.i)"
-                        @input="onChartNameInput(item.i, $event)"
-                    />
-                  </div>
-                  <div class="h-full">
-                    <DashboardChartRenderer
-                        :state="findChartState(item.i)"
-                        :config-override="findConfigOverride(item.i)"
-                        :dashboard-id="dashboardId"
-                        :chart-id="findChartId(item.i)"
-                        :dashboard-filters="dashboardFilters"
-                        :tab-style="tabStyle"
-                    />
-                  </div>
-                </UCard>
-              </template>
-              <template v-else-if="findWidget(item.i)?.type === 'text'">
-                <div
-                    class="h-full w-full relative rounded-md p-2"
-                    :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
-                    :style="getWidgetContainerStyle(item.i)"
-                    @click.stop="!preview && handleSelectText(item.i)"
-                >
-                  <DashboardTextWidget
-                      :style-props="findWidgetStyle(item.i)"
-                      class="h-full w-full"
-                      :readonly="preview"
-                      @update:content="handleUpdateTextContent(item.i, $event)"
-                  />
-                </div>
-              </template>
-              <template v-else-if="findWidget(item.i)?.type === 'image'">
-                <div
-                    class="h-full w-full relative rounded-md overflow-hidden"
-                    :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
-                    :style="getWidgetContainerStyle(item.i)"
-                    @click.stop="!preview && handleSelectText(item.i)"
-                >
-                  <DashboardImageWidget
-                      :style-props="findWidgetStyle(item.i)"
-                      :edit-mode="!preview"
-                      class="h-full w-full"
-                  />
-                </div>
-              </template>
-              <template v-else-if="findWidget(item.i)?.type === 'icon'">
-                <div
-                    class="h-full w-full relative rounded-md overflow-hidden"
-                    :class="{'ring-2 ring-orange-400': isSelected(item.i), 'cursor-pointer': !preview}"
-                    :style="getWidgetContainerStyle(item.i)"
-                    @click.stop="!preview && handleSelectText(item.i)"
-                >
-                  <DashboardIconWidget
-                      :style-props="findWidgetStyle(item.i)"
-                      :edit-mode="!preview"
-                      class="h-full w-full"
-                  />
-                </div>
-              </template>
-              <template v-else>
-                <div class="h-full flex items-center justify-center text-sm text-gray-500">
-                  Unsupported widget
-                </div>
-              </template>
+            <!-- Selection Highlight & Handles -->
+            <template v-if="isSelected(item.i) && !preview">
+              <!-- 8 Resize Handles -->
+              <div v-for="h in RESIZE_HANDLES" :key="h"
+                :class="['resize-handle', `handle-${h}`]"
+                @mousedown.stop="handleResizeMouseDown($event, item.i, h)"
+              ></div>
+            </template>
 
-            </GridItem>
-          </GridLayout>
-        </ClientOnly>
+            <!-- Widget Content -->
+            <template v-if="findWidget(item.i)?.type === 'chart'">
+              <UCard
+                  class="h-full w-full pointer-events-auto"
+                  :ui="{ body: { padding: 'sm:p-2 p-2' } }"
+                  :style="[getWidgetContainerStyle(item.i), {
+                    backgroundColor: tabStyle?.chartBackground
+                  }]"
+                  @click.stop="!preview && handleSelectText(item.i)"
+              >
+                <div class="mb-2">
+                  <input
+                      :value="findChartName(item.i)"
+                      class="w-full !bg-transparent text-sm font-semibold px-0 py-0 focus:outline-none focus:ring-0 focus:border-transparent"
+                      :readonly="preview"
+                      @focus.stop="!preview && handleSelectText(item.i)"
+                      @input="onChartNameInput(item.i, $event)"
+                  />
+                </div>
+                <div class="h-full pointer-events-none">
+                  <DashboardChartRenderer
+                      :state="findChartState(item.i)"
+                      :config-override="findConfigOverride(item.i)"
+                      :dashboard-id="dashboardId"
+                      :chart-id="findChartId(item.i)"
+                      :dashboard-filters="dashboardFilters"
+                      :tab-style="tabStyle"
+                  />
+                </div>
+              </UCard>
+            </template>
+            <template v-else-if="findWidget(item.i)?.type === 'text'">
+              <div
+                  class="h-full w-full relative rounded-md p-2 pointer-events-auto"
+                  :class="{'ring-2 ring-blue-500': isSelected(item.i)}"
+                  :style="getWidgetContainerStyle(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
+              >
+                <DashboardTextWidget
+                    :style-props="findWidgetStyle(item.i)"
+                    class="h-full w-full"
+                    :readonly="preview"
+                    @update:content="handleUpdateTextContent(item.i, $event)"
+                />
+              </div>
+            </template>
+            <template v-else-if="findWidget(item.i)?.type === 'image'">
+              <div
+                  class="h-full w-full relative rounded-md overflow-hidden pointer-events-auto"
+                  :class="{'ring-2 ring-blue-500': isSelected(item.i)}"
+                  :style="getWidgetContainerStyle(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
+              >
+                <DashboardImageWidget
+                    :style-props="findWidgetStyle(item.i)"
+                    :edit-mode="!preview"
+                    class="h-full w-full"
+                />
+              </div>
+            </template>
+            <template v-else-if="findWidget(item.i)?.type === 'icon'">
+              <div
+                  class="h-full w-full relative rounded-md overflow-hidden pointer-events-auto"
+                  :class="{'ring-2 ring-blue-500': isSelected(item.i)}"
+                  :style="getWidgetContainerStyle(item.i)"
+                  @click.stop="!preview && handleSelectText(item.i)"
+              >
+                <DashboardIconWidget
+                    :style-props="findWidgetStyle(item.i)"
+                    :edit-mode="!preview"
+                    class="h-full w-full"
+                />
+              </div>
+            </template>
+            <template v-else>
+              <div class="h-full flex items-center justify-center text-sm text-gray-500 bg-gray-50 rounded">
+                Unsupported widget
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -145,6 +156,9 @@
 import {DASHBOARD_WIDTH, DEVICE_PREVIEW_WIDTHS} from '~/lib/dashboard-constants'
 import type {TabStyleOptions} from '~/types/tab-options'
 
+const RESIZE_HANDLES = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'] as const
+type ResizeDir = typeof RESIZE_HANDLES[number]
+
 interface Widget {
   widgetId: string
   type: 'chart' | 'text' | 'image' | 'icon'
@@ -152,81 +166,27 @@ interface Widget {
   name?: string
   position: any
   state?: any
-  preloadedColumns?: any[]
-  preloadedRows?: any[]
   style?: any
   configOverride?: any
-}
-
-interface GridConfig {
-  colNum: number
-  rowHeight: number
-  maxRows: number | typeof Infinity
-  margin: [number, number]
-  isDraggable: boolean
-  isResizable: boolean
-  isMirrored: boolean
-  isBounded: boolean
-  autoSize: boolean
-  verticalCompact: boolean
-  restoreOnDrag: boolean
-  preventCollision: boolean
-  useCssTransforms: boolean
-  useStyleCursor: boolean
-  transformScale: number
-  responsive: boolean
-  breakpoints: Record<string, number>
-  cols: Record<string, number>
 }
 
 interface Props {
   device?: 'desktop' | 'tablet' | 'mobile'
   layout?: any[]
-  gridConfig?: GridConfig
   widgets?: Widget[]
   loading?: boolean
   preview?: boolean
   selectedTextId?: string
-  /** Whether to enable scaling to fit container (default: true for display, false for PDF rendering) */
   scalingEnabled?: boolean
-  /** Custom dashboard width in pixels (defaults to DASHBOARD_WIDTH constant) */
   dashboardWidth?: number
-  dashboardFilters?: Array<{
-    fieldId: string
-    table: string
-    type: string
-    operator: string
-    value: any
-    values?: any[]
-  }>
+  dashboardFilters?: any[]
   tabStyle?: TabStyleOptions
-  /** Dashboard ID for progressive loading */
   dashboardId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   device: 'desktop',
   layout: () => [],
-  gridConfig: () => ({
-    colNum: 12,
-    rowHeight: 30,
-    maxRows: Infinity,
-    margin: [10, 10] as [number, number],
-    isDraggable: true,
-    isResizable: true,
-    isMirrored: false,
-    isBounded: false,
-    autoSize: true,
-    verticalCompact: true,
-    restoreOnDrag: false,
-    preventCollision: false,
-    useCssTransforms: true,
-    useStyleCursor: true,
-    transformScale: 1,
-    responsive: false,
-    breakpoints: { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 },
-    cols: { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }
-  }),
   widgets: () => [],
   loading: false,
   preview: false,
@@ -249,133 +209,97 @@ const emit = defineEmits<{
   'deselect': []
 }>()
 
-// Container ref for measuring available width
+// Interaction State
+const isDragging = ref(false)
+const isResizing = ref(false)
+const activeWidgetId = ref<string | null>(null)
+const resizeDir = ref<ResizeDir | null>(null)
+const startMouseX = ref(0)
+const startMouseY = ref(0)
+const startWidgetPos = ref({ left: 0, top: 0, width: 0, height: 0 })
+
+// Container & Scaling
 const containerRef = ref<HTMLElement | null>(null)
 const containerWidth = ref(0)
-const dashboardHeight = ref(0)
 
-// Measure container width on mount and resize
 onMounted(() => {
   updateContainerWidth()
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', updateContainerWidth)
-  }
+  window.addEventListener('resize', updateContainerWidth)
 })
 
 onUnmounted(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', updateContainerWidth)
-  }
+  window.removeEventListener('resize', updateContainerWidth)
 })
 
 function updateContainerWidth() {
   if (containerRef.value) {
-    // Account for padding (p-3 = 12px on each side)
-    containerWidth.value = containerRef.value.clientWidth - 24
+    containerWidth.value = containerRef.value.clientWidth
   }
 }
 
-// Also update when container ref changes
-watch(containerRef, () => {
-  updateContainerWidth()
-})
-
-// Get the dashboard canvas width based on device and custom dashboard width
 const previewWidth = computed(() => {
   if (props.device === 'mobile') return DEVICE_PREVIEW_WIDTHS.mobile
   if (props.device === 'tablet') return DEVICE_PREVIEW_WIDTHS.tablet
   return props.dashboardWidth || DASHBOARD_WIDTH
 })
 
-// Calculate scale factor to fit dashboard in available space
-// Scales both up and down to fill the container without dead zones
 const scale = computed(() => {
   if (!props.scalingEnabled || containerWidth.value === 0) return 1
   return containerWidth.value / previewWidth.value
 })
 
-// Style for the scaled dashboard container
-// Position is set by template class (absolute), this just handles width and transform
-const scaledContainerStyle = computed(() => {
-  const s = scale.value
-  // When scale is 1, no transform needed
-  if (s === 1) {
-    return {
-      width: `${previewWidth.value}px`,
-      zIndex: 20,
-    }
-  }
-  // When scaling, set width to desired preview width but transform it
-  return {
-    width: `${previewWidth.value}px`,
-    zIndex: 20,
-    transform: `scale(${s})`,
-    transformOrigin: 'top left',
-  }
-})
+const DASHBOARD_HEIGHT = 2000 // Substantial default height
 
-// Wrapper style to constrain the scaled content and prevent horizontal scroll
-// The wrapper has explicit dimensions matching the visually scaled size
+const scaledContainerStyle = computed(() => ({
+  width: `${previewWidth.value}px`,
+  minHeight: `${DASHBOARD_HEIGHT}px`,
+  transform: scale.value !== 1 ? `scale(${scale.value})` : undefined,
+  transformOrigin: 'top left',
+  zIndex: 20
+}))
+
+
 const wrapperStyle = computed(() => {
   const s = scale.value
-  // Use 100% width of parent (which is constrained by CSS)
-  // Height is auto to flow with content, but we use min-height for safety
+  // Find bottom-most widget to determine minimum height
+  const maxY = props.layout.reduce((acc, item) => Math.max(acc, item.top + item.height), 0)
+  const calculatedHeight = Math.max(DASHBOARD_HEIGHT, maxY + 100)
+  
   return {
     width: '100%',
-    minHeight: '400px',
+    height: `${calculatedHeight * s}px`,
   }
 })
 
-// Calculate the left overlay width for the device preview indicator
-const leftOverlayWidth = computed(() => {
-  // The container has p-3 (12px) padding on each side, so inner width is containerWidth - 24px
-  // The preview is centered, so left overlay = (innerWidth - previewWidth) / 2
-  // But since we're using flexbox within the padded area, we can use percentages
-  return `calc((100% - ${previewWidth.value}px) / 2)`
-})
+const leftOverlayWidth = computed(() => `calc((100% - ${previewWidth.value}px) / 2)`)
 
+// Widget Helpers
 function findWidget(i: string): Widget | undefined {
   return props.widgets.find((w) => String(w.widgetId) === i)
 }
-
 const findChartName = (i: string) => findWidget(i)?.name || 'Chart'
 const findChartState = (i: string) => findWidget(i)?.state || {}
 const findChartId = (i: string) => findWidget(i)?.chartId
 const findWidgetStyle = (i: string) => findWidget(i)?.style || {}
 const findConfigOverride = (i: string) => findWidget(i)?.configOverride || {}
 
-// Helper to compute border style for widget wrappers
-function getWidgetBorderStyle(i: string): Record<string, string> {
+function getWidgetContainerStyle(i: string): Record<string, string> {
   const style = findWidgetStyle(i)
   const borderWidth = style.borderWidth ?? 0
-  if (borderWidth <= 0) return {}
-
-  const borderColor = style.borderColor || '#e5e7eb' // gray-200
+  const borderColor = style.borderColor || '#e5e7eb'
   const borderStyle = style.borderStyle || 'solid'
-  return {
-    border: `${borderWidth}px ${borderStyle} ${borderColor}`
+  
+  const res: Record<string, string> = {}
+  if (borderWidth > 0) {
+    res.border = `${borderWidth}px ${borderStyle} ${borderColor}`
+  } else if (!props.preview && !isSelected(i)) {
+    res.border = '1px dashed #d1d5db'
   }
+  return res
 }
 
-// Helper to get combined container styles (edit mode indicator + custom border)
-function getWidgetContainerStyle(i: string): Record<string, string> {
-  const customBorder = getWidgetBorderStyle(i)
-
-  // In edit mode (not preview), show thin dashed border as visual indicator
-  // unless widget has a custom border
-  if (!props.preview && !customBorder.border) {
-    return {
-      border: '1px dashed #d1d5db' // gray-300 thin dashed border
-    }
-  }
-
-  return customBorder
-}
-
-// Handle click on container (empty space) to deselect widget
-function handleContainerClick(e: MouseEvent) {
-  // Only deselect in edit mode
-  if (props.preview) return
+function handleContainerClick() {
+  if (props.preview || isDragging.value || isResizing.value) return
   emit('deselect')
 }
 
@@ -383,37 +307,97 @@ function isSelected(widgetId: string) {
   return props.selectedTextId != null && props.selectedTextId === widgetId
 }
 
-function handleEditChart(widgetId: string) {
-  const widget = findWidget(widgetId)
-  if (widget?.chartId != null) {
-    emit('edit-chart', String(widget.chartId))
+// Global Mouse Handlers
+function handleGlobalMouseMove(e: MouseEvent) {
+  if (!isDragging.value && !isResizing.value) return
+  
+  const dx = (e.clientX - startMouseX.value) / scale.value
+  const dy = (e.clientY - startMouseY.value) / scale.value
+  
+  const item = props.layout.find(i => i.i === activeWidgetId.value)
+  if (!item) return
+
+  if (isDragging.value) {
+    item.left = Math.round(startWidgetPos.value.left + dx)
+    item.top = Math.round(startWidgetPos.value.top + dy)
+  } else if (isResizing.value && resizeDir.value) {
+    const minSize = 40
+    const dir = resizeDir.value
+    
+    if (dir.includes('e')) {
+      item.width = Math.max(minSize, Math.round(startWidgetPos.value.width + dx))
+    }
+    if (dir.includes('s')) {
+      item.height = Math.max(minSize, Math.round(startWidgetPos.value.height + dy))
+    }
+    if (dir.includes('w')) {
+      const newWidth = Math.max(minSize, startWidgetPos.value.width - dx)
+      if (newWidth > minSize) {
+        item.width = Math.round(newWidth)
+        item.left = Math.round(startWidgetPos.value.left + dx)
+      }
+    }
+    if (dir.includes('n')) {
+      const newHeight = Math.max(minSize, startWidgetPos.value.height - dy)
+      if (newHeight > minSize) {
+        item.height = Math.round(newHeight)
+        item.top = Math.round(startWidgetPos.value.top + dy)
+      }
+    }
   }
 }
 
-function handleRenameChart(widgetId: string) {
-  const widget = findWidget(widgetId)
-  if (widget?.chartId != null) {
-    emit('rename-chart', String(widget.chartId))
+function handleGlobalMouseUp() {
+  if (isDragging.value || isResizing.value) {
+    emit('update:layout', [...props.layout])
   }
+  isDragging.value = false
+  isResizing.value = false
+  activeWidgetId.value = null
+  resizeDir.value = null
 }
 
-function handleDeleteChart(widgetId: string) {
-  const widget = findWidget(widgetId)
-  if (widget?.chartId != null) {
-    emit('delete-chart', String(widget.chartId))
+// Drag & Resize Start
+function handleWidgetMouseDown(e: MouseEvent, widgetId: string) {
+  if (props.preview) return
+  
+  // If clicking on a handle, let the handle logic take over
+  if ((e.target as HTMLElement).classList.contains('resize-handle')) return
+
+  isDragging.value = true
+  activeWidgetId.value = widgetId
+  startMouseX.value = e.clientX
+  startMouseY.value = e.clientY
+  
+  const item = props.layout.find(i => i.i === widgetId)
+  if (item) {
+    startWidgetPos.value = { 
+      left: item.left, 
+      top: item.top, 
+      width: item.width, 
+      height: item.height 
+    }
   }
-}
-
-function handleEditText(widgetId: string) {
-  emit('edit-text', widgetId)
-}
-
-function handleDeleteWidget(widgetId: string) {
-  emit('delete-widget', widgetId)
-}
-
-function handleSelectText(widgetId: string) {
+  
   emit('select-text', widgetId)
+}
+
+function handleResizeMouseDown(e: MouseEvent, widgetId: string, dir: ResizeDir) {
+  isResizing.value = true
+  activeWidgetId.value = widgetId
+  resizeDir.value = dir
+  startMouseX.value = e.clientX
+  startMouseY.value = e.clientY
+  
+  const item = props.layout.find(i => i.i === widgetId)
+  if (item) {
+    startWidgetPos.value = { 
+      left: item.left, 
+      top: item.top, 
+      width: item.width, 
+      height: item.height 
+    }
+  }
 }
 
 function handleUpdateTextContent(widgetId: string, content: string) {
@@ -425,71 +409,41 @@ function onChartNameInput(widgetId: string, e: Event) {
   emit('rename-chart-inline', widgetId, value)
 }
 
-function getMenuItems(widgetId: string) {
-  const widget = findWidget(widgetId)
-  if (!widget) return []
-  if (widget.type === 'chart') return getChartMenuItems(widgetId)
-  if (widget.type === 'text') return getTextMenuItems(widgetId)
-  return getTextMenuItems(widgetId)
-}
-
-
-function getChartMenuItems(chartId: string) {
-  return [
-    [{
-      label: 'Edit Chart',
-      icon: 'i-heroicons-document-text',
-      class: 'cursor-pointer',
-      onClick: () => handleEditChart(chartId),
-    }],
-    [{
-      label: 'Rename Chart',
-      icon: 'i-heroicons-pencil',
-      class: 'cursor-pointer',
-      onClick: () => handleRenameChart(chartId)
-    }],
-    [{
-      label: 'Delete Chart',
-      icon: 'i-heroicons-trash',
-      class: 'cursor-pointer',
-      onClick: () => handleDeleteChart(chartId)
-    }]
-  ]
-}
-
-function getTextMenuItems(widgetId: string) {
-  return [
-    [{
-      label: 'Edit Text',
-      icon: 'i-heroicons-pencil-square',
-      class: 'cursor-pointer',
-      onClick: () => handleEditText(widgetId),
-    }],
-    [{
-      label: 'Delete',
-      icon: 'i-heroicons-trash',
-      class: 'cursor-pointer',
-      onClick: () => handleDeleteWidget(widgetId)
-    }]
-  ]
-}
-
-function onLayoutUpdated(newLayout: any[]) {
-  console.log('[Dashboard.vue] onLayoutUpdated received from GridLayout:', newLayout?.length, 'items')
-  emit('update:layout', newLayout)
+function handleSelectText(widgetId: string) {
+  emit('select-text', widgetId)
 }
 </script>
 
 <style scoped>
-:deep(.vue-grid-layout) {
-  min-height: 300px;
+.edit-mode-grid {
+  background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
-:deep(.vue-grid-item) {
-  min-height: 60px !important; /* Allow smaller widgets (esp. text) */
+.dark .edit-mode-grid {
+  background-image: radial-gradient(#374151 1px, transparent 1px);
 }
 
-:deep(.vue-resizable-handle) {
-  z-index: 10; /* Ensure resizer is visible */
+.resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #3b82f6; /* blue-500 */
+  border: 1px solid white;
+  z-index: 40;
+}
+
+.handle-nw { top: -4px; left: -4px; cursor: nw-resize; }
+.handle-n { top: -4px; left: calc(50% - 4px); cursor: n-resize; }
+.handle-ne { top: -4px; right: -4px; cursor: ne-resize; }
+.handle-w { top: calc(50% - 4px); left: -4px; cursor: w-resize; }
+.handle-e { top: calc(50% - 4px); right: -4px; cursor: e-resize; }
+.handle-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+.handle-s { bottom: -4px; left: calc(50% - 4px); cursor: s-resize; }
+.handle-se { bottom: -4px; right: -4px; cursor: se-resize; }
+
+/* Pointer events management */
+:deep(.dashboard-chart-renderer) {
+  pointer-events: none;
 }
 </style>
