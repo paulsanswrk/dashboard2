@@ -543,9 +543,10 @@ const zoneConfig = computed((): ZoneConfig => {
     case 'sankey':
       return {
         ...defaultConfig,
-        showBreakdowns: false,
+        showBreakdowns: true,  // Enable Values zone for flow widths
         xLabel: 'Source',
-        yLabel: 'Target'
+        yLabel: 'Target',
+        breakdownLabel: 'Values'
       }
 
       // Radar
