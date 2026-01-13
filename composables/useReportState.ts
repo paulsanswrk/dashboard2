@@ -45,6 +45,20 @@ export type FilterCondition = ReportField & {
 
 export type ZoneType = 'x' | 'y' | 'breakdowns' | 'filters' | 'targetValue' | 'location' | 'crossTab' | 'sizeValue'
 
+export type SeriesConfig = {
+  color?: string
+  visualizationType?: 'default' | 'bar' | 'line' | 'area'
+  smoothing?: 'sharp' | 'smooth'
+  lineStyle?: 'solid' | 'dashed' | 'dotted'
+  markerStyle?: 'none' | 'circle' | 'square' | 'diamond' | 'triangle'
+  showOnSecondaryAxis?: boolean
+  showLabels?: boolean
+  showLabelsPercent?: boolean
+  showLabelBackground?: boolean
+  labelFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+  showTrendLine?: boolean
+}
+
 type ReportState = {
   selectedDatasetId: string | null
   xDimensions: DimensionRef[]
@@ -144,10 +158,14 @@ type ReportState = {
     dateFormat?: string
     palette?: string[]
     stacked?: boolean
+
+    // Per-series options (keyed by series name)
+    seriesOptions?: Record<string, SeriesConfig>
   }
   joins?: JoinRef[]
   filters?: FilterCondition[]
 }
+
 
 function encodeState(state: ReportState): string {
   try {

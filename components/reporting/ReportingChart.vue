@@ -106,11 +106,26 @@ const props = defineProps<{
     dateFormat?: string
     palette?: string[]
     stacked?: boolean
+    // Per-series options
+    seriesOptions?: Record<string, {
+      color?: string
+      visualizationType?: 'default' | 'bar' | 'line' | 'area'
+      smoothing?: 'sharp' | 'smooth'
+      lineStyle?: 'solid' | 'dashed' | 'dotted'
+      markerStyle?: 'none' | 'circle' | 'square' | 'diamond' | 'triangle'
+      showOnSecondaryAxis?: boolean
+      showLabels?: boolean
+      showLabelsPercent?: boolean
+      showLabelBackground?: boolean
+      labelFont?: { color?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean }
+      showTrendLine?: boolean
+    }>
   }
 }>()
 
 const emit = defineEmits<{
   (e: 'drill', payload: { xValue: string | number; seriesName?: string; datasetIndex: number; index: number }): void
+  (e: 'series-click', payload: { seriesName: string; seriesIndex: number }): void
 }>()
 
 const chartRef: Ref<HTMLDivElement | null> = ref(null)
@@ -188,13 +203,23 @@ function renderChart() {
   // Apply the option to the chart
   chartInstance.setOption(option)
 
-  // Set up click handler if provided
+  // Set up click handler for drill events if provided by renderer
   if (clickHandler) {
     const emitFn: ChartEmitFunction = (event, payload) => {
       emit(event, payload)
     }
     chartInstance.on('click', (params: any) => clickHandler(params, emitFn, context))
   }
+
+  // Set up series-click handler for series options panel
+  chartInstance.on('click', (params: any) => {
+    if (params.seriesName) {
+      emit('series-click', {
+        seriesName: params.seriesName,
+        seriesIndex: params.seriesIndex ?? 0
+      })
+    }
+  })
 }
 
 /**

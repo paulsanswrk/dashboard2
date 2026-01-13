@@ -31,7 +31,7 @@ export class CartesianChartRenderer extends BaseChartRenderer {
         // Create series configurations
         const seriesConfig = series.map((s, idx) => {
             const color = palette[idx % palette.length]
-            const baseConfig: any = {
+            let baseConfig: any = {
                 name: s.name,
                 type: echartsType,
                 data: s.data,
@@ -54,6 +54,9 @@ export class CartesianChartRenderer extends BaseChartRenderer {
             } else {
                 baseConfig.barWidth = '60%'
             }
+
+            // Apply per-series overrides from series options panel
+            baseConfig = this.applySeriesOverrides(baseConfig, s.name, appearance, palette, idx)
 
             return baseConfig
         })
@@ -172,6 +175,29 @@ export class CartesianChartRenderer extends BaseChartRenderer {
             seriesConfig.forEach((s: any) => {
                 s.stack = 'total'
             })
+        }
+
+        // Check if any series uses secondary axis and add it if needed
+        const hasSecondaryAxis = seriesConfig.some((s: any) => s.yAxisIndex === 1)
+        if (hasSecondaryAxis) {
+            // Convert yAxis to array with primary and secondary axes
+            const primaryAxis = option.yAxis
+            option.yAxis = [
+                primaryAxis,
+                {
+                    type: 'value',
+                    name: '',
+                    nameLocation: 'middle',
+                    nameGap: 70,
+                    position: 'right',
+                    axisLabel: {
+                        show: yAxisSettings.showLabels !== false,
+                        ...this.getFontStyle(yAxisSettings.labelFont),
+                        formatter: (value: number) => `${prefix}${this.formatNumber(value, dp, ts)}${suffix}`
+                    },
+                    splitLine: { show: false }
+                }
+            ]
         }
 
         // Handle horizontal bar chart - swap x and y axes

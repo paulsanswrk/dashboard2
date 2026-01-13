@@ -170,13 +170,22 @@
             @toggle-sidebar="sidebarVisible = !sidebarVisible"
             @preview-meta="onPreviewMeta"
             @chart-type-change="currentChartType = $event"
+            @series-click="onSeriesClick"
           />
         </ClientOnly>
       </div>
     </template>
 
     <template #right>
-      <div class="p-4 space-y-4 relative text-gray-900 dark:text-white">
+      <!-- Series Options Panel (when a series is selected) -->
+      <SeriesOptionsPanel
+        v-if="selectedSeries"
+        :series-name="selectedSeries.name"
+        :chart-type="currentChartType"
+        @close="selectedSeries = null"
+      />
+      <!-- Chart Config Editor (default) -->
+      <div v-else class="p-4 space-y-4 relative text-gray-900 dark:text-white">
         <!-- Close button in top right corner -->
         <button
           @click="sidebarVisible = !sidebarVisible"
@@ -221,6 +230,7 @@ import ReportingZones from '../../components/reporting/ReportingZones.vue'
 import EditJoinPathModal from '../../components/reporting/EditJoinPathModal.vue'
 import TablePreviewModal from '../../components/reporting/TablePreviewModal.vue'
 import ChartConfigEditor from '../../components/reporting/ChartConfigEditor.vue'
+import SeriesOptionsPanel from '../../components/reporting/SeriesOptionsPanel.vue'
 import ReportingJoinsImplicit from '../../components/reporting/ReportingJoinsImplicit.vue'
 import {useReportingService} from '../../composables/useReportingService'
 import {useChartsService} from '../../composables/useChartsService'
@@ -247,6 +257,15 @@ const chartName = ref<string | null>(null)
 
 // Dynamic page title with chart name
 usePageTitle('Chart Builder', chartName)
+
+// Selected series for series options panel
+const selectedSeries = ref<{ name: string; index: number } | null>(null)
+
+// Handle series click from chart
+function onSeriesClick(payload: { seriesName: string; seriesIndex: number }) {
+  selectedSeries.value = { name: payload.seriesName, index: payload.seriesIndex }
+  sidebarVisible.value = true
+}
 
 // Computed list of available table names from datasets
 const availableTableNames = computed(() => datasets.value.map(ds => ds.name))

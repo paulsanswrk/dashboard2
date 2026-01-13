@@ -54,6 +54,21 @@ export interface AxisConfig {
     }
 }
 
+/** Per-series customization options */
+export interface SeriesConfig {
+    color?: string
+    visualizationType?: 'default' | 'bar' | 'line' | 'area'
+    smoothing?: 'sharp' | 'smooth'
+    lineStyle?: 'solid' | 'dashed' | 'dotted'
+    markerStyle?: 'none' | 'circle' | 'square' | 'diamond' | 'triangle'
+    showOnSecondaryAxis?: boolean
+    showLabels?: boolean
+    showLabelsPercent?: boolean
+    showLabelBackground?: boolean
+    labelFont?: FontStyle
+    showTrendLine?: boolean
+}
+
 /** Full appearance configuration */
 export interface AppearanceConfig {
     // General
@@ -95,7 +110,11 @@ export interface AppearanceConfig {
     dateFormat?: string
     palette?: string[]
     stacked?: boolean
+
+    // Per-series options (keyed by series name)
+    seriesOptions?: Record<string, SeriesConfig>
 }
+
 
 /** Context passed to chart renderers */
 export interface ChartRenderContext {

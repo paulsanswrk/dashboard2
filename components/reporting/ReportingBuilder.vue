@@ -227,7 +227,8 @@
                    :columns="columns" :rows="rows"
                    :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
                    :size-value="sizeValue"
-                   :chart-type="chartType" :appearance="appearance" :loading="loading"/>
+                   :chart-type="chartType" :appearance="appearance" :loading="loading"
+                   @series-click="$emit('series-click', $event)"/>
       </div>
     </div>
     <ChartsModal
@@ -279,6 +280,7 @@ const emit = defineEmits<{
   'toggle-sidebar': []
   'preview-meta': [{ error: string | null; warnings: string[] }]
   'chart-type-change': [chartType: string]
+  'series-click': [{ seriesName: string; seriesIndex: number }]
 }>()
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId, setSelectedDatasetId } = useReportingService()

@@ -10,6 +10,7 @@ import type {
     Column,
     FontStyle,
     ReportField,
+    SeriesConfig,
     SeriesData
 } from './types'
 
@@ -270,4 +271,75 @@ export abstract class BaseChartRenderer {
             containLabel: true
         }
     }
+
+    /**
+     * Get per-series configuration options
+     */
+    protected getSeriesConfig(seriesName: string, appearance?: AppearanceConfig): SeriesConfig {
+        return appearance?.seriesOptions?.[seriesName] ?? {}
+    }
+
+    /**
+     * Apply series-specific overrides to a series option object
+     */
+    protected applySeriesOverrides(
+        seriesOption: Record<string, any>,
+        seriesName: string,
+        appearance?: AppearanceConfig,
+        palette?: string[],
+        seriesIndex: number = 0
+    ): Record<string, any> {
+        const config = this.getSeriesConfig(seriesName, appearance)
+        const colors = palette || this.getPalette(appearance)
+
+        // Apply color override
+        if (config.color) {
+            seriesOption.itemStyle = { ...seriesOption.itemStyle, color: config.color }
+        } else if (!seriesOption.itemStyle?.color) {
+            seriesOption.itemStyle = { ...seriesOption.itemStyle, color: colors[seriesIndex % colors.length] }
+        }
+
+        // Apply line-specific options
+        if (config.smoothing === 'smooth') {
+            seriesOption.smooth = true
+        } else if (config.smoothing === 'sharp') {
+            seriesOption.smooth = false
+        }
+
+        if (config.lineStyle) {
+            const lineTypes: Record<string, string> = { solid: 'solid', dashed: 'dashed', dotted: 'dotted' }
+            seriesOption.lineStyle = { ...seriesOption.lineStyle, type: lineTypes[config.lineStyle] }
+        }
+
+        if (config.markerStyle) {
+            const symbols: Record<string, string> = {
+                none: 'none', circle: 'circle', square: 'rect',
+                diamond: 'diamond', triangle: 'triangle'
+            }
+            seriesOption.symbol = symbols[config.markerStyle] || 'circle'
+        }
+
+        // Apply secondary axis
+        if (config.showOnSecondaryAxis) {
+            seriesOption.yAxisIndex = 1
+        }
+
+        // Apply label overrides
+        if (config.showLabels !== undefined || config.showLabelsPercent !== undefined) {
+            const showLabels = config.showLabels || config.showLabelsPercent
+            seriesOption.label = {
+                ...seriesOption.label,
+                show: showLabels,
+                ...(config.labelFont && this.getFontStyle(config.labelFont)),
+                ...(config.showLabelBackground && {
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    padding: [2, 4],
+                    borderRadius: 2
+                })
+            }
+        }
+
+        return seriesOption
+    }
 }
+
