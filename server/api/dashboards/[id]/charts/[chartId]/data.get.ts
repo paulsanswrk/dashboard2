@@ -6,8 +6,10 @@ import { withMySqlConnectionConfig } from '../../../../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../../../../utils/connectionConfig'
 import { validateRenderContext } from '../../../../../utils/renderContext'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../../../../utils/internalStorageQuery'
+import { injectFiltersIntoSql, type FilterOverride } from '../../../../../utils/filterInjection'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
+
 
 /**
  * GET /api/dashboards/:id/charts/:chartId/data
@@ -38,7 +40,7 @@ export default defineEventHandler(async (event) => {
     const isRenderContext = contextToken ? validateRenderContext(contextToken) : false
 
     // Parse filter overrides if provided
-    let filterOverrides: any[] = []
+    let filterOverrides: FilterOverride[] = []
     if (filterOverridesParam) {
         try {
             filterOverrides = JSON.parse(filterOverridesParam)
@@ -174,52 +176,97 @@ export default defineEventHandler(async (event) => {
             let safeSql = sql.trim()
             if (!/\blimit\b/i.test(safeSql)) safeSql = `${safeSql} LIMIT 500`
 
+            // Store original SQL for fallback
+            const originalSql = safeSql
+            let filterResult: any = { sql: safeSql, appliedFilters: 0, skippedFilters: 0, skippedReasons: [] }
+
+            // Apply filter overrides to the SQL
+            if (filterOverrides.length > 0 && connectionId) {
+                filterResult = injectFiltersIntoSql(safeSql, filterOverrides, Number(connectionId))
+                safeSql = filterResult.sql
+
+                if (filterResult.appliedFilters > 0) {
+                    console.log('[chart-data] Applied', filterResult.appliedFilters, 'filters to chart', chartId)
+                    meta.filtersApplied = filterResult.appliedFilters
+                }
+                if (filterResult.skippedFilters > 0) {
+                    console.log('[chart-data] Skipped', filterResult.skippedFilters, 'filters for chart', chartId)
+                    meta.filtersSkipped = filterResult.skippedFilters
+                }
+            }
+
             if (connectionId) {
                 // Check if connection uses internal storage
                 const storageInfo = await loadInternalStorageInfo(Number(connectionId))
 
-                if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-                    console.log(`[chart-data] Using internal storage for chart ${chartId}: ${storageInfo.schemaName}`)
-                    rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql, sqlParams)
-                } else {
-                    // Load connection config
-                    let cfg: any
-                    if (sameOrg) {
-                        cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
+                // Helper function to execute query with fallback
+                async function executeQuery(querySql: string): Promise<any[]> {
+                    if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+                        console.log(`[chart-data] Using internal storage for chart ${chartId}: ${storageInfo.schemaName}`)
+                        return await executeInternalStorageQuery(storageInfo.schemaName, querySql, sqlParams)
                     } else {
-                        // Public render path: verify the connection belongs to the dashboard org
-                        const { data, error } = await supabaseAdmin
-                            .from('data_connections')
-                            .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
-                            .eq('id', Number(connectionId))
-                            .single()
+                        // Load connection config
+                        let cfg: any
+                        if (sameOrg) {
+                            cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
+                        } else {
+                            // Public render path: verify the connection belongs to the dashboard org
+                            const { data, error } = await supabaseAdmin
+                                .from('data_connections')
+                                .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
+                                .eq('id', Number(connectionId))
+                                .single()
 
-                        if (error || !data || data.organization_id !== dashboard.organization_id) {
-                            throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
+                            if (error || !data || data.organization_id !== dashboard.organization_id) {
+                                throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
+                            }
+                            cfg = {
+                                host: data.host,
+                                port: Number(data.port),
+                                user: data.username,
+                                password: data.password,
+                                database: data.database_name,
+                                useSshTunneling: !!data.use_ssh_tunneling,
+                                ssh: data.use_ssh_tunneling ? {
+                                    host: data.ssh_host,
+                                    port: Number(data.ssh_port),
+                                    user: data.ssh_user,
+                                    password: data.ssh_password || undefined,
+                                    privateKey: data.ssh_private_key || undefined
+                                } : undefined
+                            }
                         }
-                        cfg = {
-                            host: data.host,
-                            port: Number(data.port),
-                            user: data.username,
-                            password: data.password,
-                            database: data.database_name,
-                            useSshTunneling: !!data.use_ssh_tunneling,
-                            ssh: data.use_ssh_tunneling ? {
-                                host: data.ssh_host,
-                                port: Number(data.ssh_port),
-                                user: data.ssh_user,
-                                password: data.ssh_password || undefined,
-                                privateKey: data.ssh_private_key || undefined
-                            } : undefined
-                        }
+
+                        return await withMySqlConnectionConfig(cfg, async (conn) => {
+                            const [res] = await conn.query(querySql, sqlParams)
+                            return res as any[]
+                        })
                     }
-
-                    const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                        const [res] = await conn.query(safeSql, sqlParams)
-                        return res as any[]
-                    })
-                    rows = resRows
                 }
+
+                // Try filtered query first, fallback to original if it fails
+                try {
+                    rows = await executeQuery(safeSql)
+                } catch (filterError: any) {
+                    if (filterResult.appliedFilters > 0) {
+                        // Filtered query failed, try original
+                        console.warn('[chart-data] Filtered query failed for chart', chartId, ':', filterError?.message)
+                        console.log('[chart-data] Falling back to unfiltered query')
+
+                        try {
+                            rows = await executeQuery(originalSql)
+                            meta.filterWarning = 'Filter could not be applied to this chart'
+                            meta.filterError = filterError?.message
+                        } catch (originalError: any) {
+                            // Both failed, throw the original error
+                            throw originalError
+                        }
+                    } else {
+                        // No filters were applied, just throw
+                        throw filterError
+                    }
+                }
+
                 columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
             } else {
                 // No connection ID - should not happen for saved charts
@@ -232,6 +279,7 @@ export default defineEventHandler(async (event) => {
         console.error('[chart-data] Query error for chart', chartId, ':', e?.message || e)
         meta.error = e?.statusMessage || e?.message || 'query_failed'
     }
+
 
     return {
         columns,

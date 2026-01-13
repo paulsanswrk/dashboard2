@@ -85,7 +85,7 @@
                       @input="onChartNameInput(item.i, $event)"
                   />
                 </div>
-                <div class="h-full pointer-events-none">
+                <div class="h-full">
                   <DashboardChartRenderer
                       :state="findChartState(item.i)"
                       :config-override="findConfigOverride(item.i)"

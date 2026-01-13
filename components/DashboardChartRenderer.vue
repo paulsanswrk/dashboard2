@@ -1,5 +1,10 @@
 <template>
-  <div class="w-full h-full">
+  <div class="w-full h-full relative">
+    <!-- Filter Warning Banner -->
+    <div v-if="filterWarning" class="absolute top-0 left-0 right-0 z-10 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-1">
+      <span>⚠️</span>
+      <span>{{ filterWarning }}</span>
+    </div>
 
     <div v-if="loading" class="flex items-center justify-center h-full">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -22,9 +27,10 @@
       <div class="text-center">
         <div class="text-lg mb-2">📊</div>
         <div>No data available</div>
+        <div v-if="hasActiveFilters" class="text-xs mt-1 text-gray-400">Try adjusting your filters</div>
       </div>
     </div>
-    <div v-else>
+    <div v-else :class="{'pt-6': filterWarning}">
       <component :is="chartComponent" :key="chartType"
                  :loading="loading"
                  :columns="columns" :rows="rows"
@@ -72,6 +78,10 @@ const columns = ref<Array<{ key: string; label: string }>>([])
 const error = ref<string | null>(null)
 const loading = ref(true)
 const canRetry = ref(false)
+const filterWarning = ref<string | null>(null)
+const filtersApplied = ref(0)
+
+const hasActiveFilters = computed(() => props.dashboardFilters && props.dashboardFilters.length > 0)
 
 // Map technical errors to user-friendly messages
 const friendlyErrorMessage = computed(() => {
@@ -201,7 +211,7 @@ async function fetchWithTimeout<T>(url: string, options: any = {}): Promise<T> {
  * This is used when dashboardId and chartId are provided for progressive loading.
  * Uses concurrency limiting to prevent overwhelming the database.
  */
-async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: string }> {
+async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: string; filterWarning?: string }> {
   if (!props.dashboardId || !props.chartId) {
     return { columns: [], rows: [], error: 'Missing dashboard or chart ID' }
   }
@@ -214,7 +224,11 @@ async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: 
         params.filterOverrides = JSON.stringify(props.dashboardFilters)
       }
       
-      const res = await fetchWithTimeout<{ columns: any[]; rows: any[]; meta?: { error?: string } }>(
+      const res = await fetchWithTimeout<{ 
+        columns: any[]; 
+        rows: any[]; 
+        meta?: { error?: string; filterWarning?: string; filtersApplied?: number; filtersSkipped?: number } 
+      }>(
         `/api/dashboards/${props.dashboardId}/charts/${props.chartId}/data`,
         { params }
       )
@@ -223,13 +237,18 @@ async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: 
         return { columns: res.columns || [], rows: res.rows || [], error: res.meta.error }
       }
     
-      return { columns: res.columns || [], rows: res.rows || [] }
+      return { 
+        columns: res.columns || [], 
+        rows: res.rows || [],
+        filterWarning: res.meta?.filterWarning
+      }
     })
   } catch (e: any) {
     console.error('[DashboardChartRenderer] Failed to fetch chart data:', e)
     return { columns: [], rows: [], error: e?.statusMessage || e?.message || 'Failed to fetch chart data' }
   }
 }
+
 
 async function loadData() {
   error.value = null
@@ -250,6 +269,7 @@ async function loadData() {
       const result = await fetchChartData()
       columns.value = result.columns
       rows.value = result.rows
+      filterWarning.value = result.filterWarning || null
       if (result.error) {
         error.value = result.error
         canRetry.value = true
@@ -257,6 +277,7 @@ async function loadData() {
       loading.value = false
       return
     }
+
     
     // Priority 3: Fall back to runSql/runPreview for backward compatibility
     const state = effectiveState.value || {}

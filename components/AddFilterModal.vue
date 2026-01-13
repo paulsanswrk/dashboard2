@@ -1,10 +1,10 @@
 <template>
-  <UModal v-model:open="internalOpen" size="xl">
+  <UModal v-model:open="internalOpen" class="!max-w-5xl" :ui="{ content: 'sm:max-w-5xl' }">
     <template #header>
       <h3 class="text-lg font-semibold">{{ isEditMode ? 'Edit Filter' : 'Create Filter' }}</h3>
     </template>
     <template #body>
-      <div class="grid grid-cols-2 gap-4 min-h-[400px]">
+      <div class="grid grid-cols-2 gap-4 min-h-[400px] w-[900px]">
         <!-- Left pane: Data source and field selection -->
         <div class="border rounded-md dark:border-gray-700 overflow-hidden flex flex-col">
           <div class="px-3 py-2 font-medium bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
@@ -95,7 +95,7 @@
             <!-- Filter name -->
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Filter Name</label>
-              <UInput v-model="filterName" placeholder="Enter filter name..."/>
+              <UInput v-model="filterName" placeholder="Enter filter name..." class="w-full"/>
             </div>
 
             <!-- Filter mode tabs based on field type -->
@@ -117,7 +117,7 @@
                 <div class="flex items-center gap-2">
                   <UCheckbox v-model="selectAllValues" @change="toggleSelectAll"/>
                   <div class="relative flex-1">
-                    <UInput v-model="valueSearch" placeholder="Search values..." size="sm"/>
+                    <UInput v-model="valueSearch" placeholder="Search values..." size="sm" class="w-full"/>
                   </div>
                 </div>
 
@@ -164,7 +164,7 @@
                     <option value="not_equal">are not equal to</option>
                   </select>
                 </div>
-                <UInput v-model="textRuleValue" placeholder="Enter expression..."/>
+                <UInput v-model="textRuleValue" placeholder="Enter expression..." class="w-full"/>
               </div>
 
               <!-- CONSTRAINT mode (numeric) -->
