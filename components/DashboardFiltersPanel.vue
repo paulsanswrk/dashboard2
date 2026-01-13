@@ -51,31 +51,27 @@
         <div class="p-2">
           <!-- VALUES mode -->
           <template v-if="filter.filterMode === 'values'">
-            <!-- Active filter indicator -->
-            <div v-if="hasActiveValue(filter)" class="mb-2 flex items-center gap-2 text-xs">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                Active: {{ getActiveValueCount(filter) }} selected
-              </span>
-            </div>
-            <div v-else class="mb-2 text-xs text-gray-400 italic">
-              No values selected (filter inactive)
-            </div>
-            
-            <!-- Values list -->
-            <div class="max-h-32 overflow-y-auto space-y-1 border dark:border-gray-700 rounded p-1">
+            <!-- Each value as a toggleable condition -->
+            <div class="space-y-1.5">
               <label
                   v-for="val in getFilterValues(filter)"
                   :key="val"
-                  class="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-1 py-0.5 rounded"
-                  :class="{'bg-green-50 dark:bg-green-900/20': isValueSelected(filter, val)}"
+                  class="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-2 py-1.5 rounded border transition-colors"
+                  :class="isValueSelected(filter, val) 
+                    ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20' 
+                    : 'border-gray-200 dark:border-gray-700'"
               >
                 <UCheckbox
                     :model-value="isValueSelected(filter, val)"
                     @update:model-value="(checked) => toggleFilterValue(filter, val, checked)"
                 />
-                <span class="truncate">{{ val ?? '(null)' }}</span>
+                <span class="font-mono text-gray-600 dark:text-gray-300">
+                  {{ filter.fieldTable }}.{{ filter.fieldId }} = '{{ val ?? 'null' }}'
+                </span>
               </label>
+            </div>
+            <div v-if="getFilterValues(filter).length === 0" class="text-xs text-gray-400 italic py-2">
+              No values configured
             </div>
           </template>
 

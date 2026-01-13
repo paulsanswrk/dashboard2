@@ -103,9 +103,16 @@ export function extractTableAliases(sql: string): Map<string, string> {
         .replace(/\s+/g, ' ')
         .trim()
 
-    // Pattern to match: table_name alias or table_name AS alias
-    // Handles: FROM employees e, JOIN departments d ON, JOIN salaries AS s ON
-    const tableAliasPattern = /\b(?:FROM|JOIN)\s+[`"]?([\w.]+)[`"]?\s+(?:AS\s+)?([a-zA-Z][\w]*)\b(?=\s+(?:ON|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|WHERE|GROUP|ORDER|HAVING|LIMIT|,|$)|\s*,)/gi
+    // SQL keywords that cannot be aliases
+    const sqlKeywords = new Set([
+        'on', 'join', 'left', 'right', 'inner', 'outer', 'cross', 'full', 'natural',
+        'where', 'group', 'order', 'having', 'limit', 'union', 'intersect', 'except',
+        'and', 'or', 'as', 'select', 'from', 'set', 'values', 'into', 'using'
+    ])
+
+    // Pattern to match: FROM/JOIN table_name [AS] alias
+    // More permissive pattern that we then validate
+    const tableAliasPattern = /\b(?:FROM|JOIN)\s+[`"]?([\w.]+)[`"]?\s+(?:AS\s+)?([a-zA-Z][\w]*)\b/gi
 
     let match
     while ((match = tableAliasPattern.exec(normalizedSql)) !== null) {
@@ -113,8 +120,7 @@ export function extractTableAliases(sql: string): Map<string, string> {
         const alias = match[2]
 
         // Skip if alias is a SQL keyword
-        const sqlKeywords = ['on', 'join', 'left', 'right', 'inner', 'outer', 'cross', 'where', 'group', 'order', 'having', 'limit', 'and', 'or', 'as']
-        if (sqlKeywords.includes(alias.toLowerCase())) {
+        if (sqlKeywords.has(alias.toLowerCase())) {
             continue
         }
 
