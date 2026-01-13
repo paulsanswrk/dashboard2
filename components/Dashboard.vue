@@ -2,7 +2,6 @@
   <div 
     ref="containerRef" 
     class="relative w-full min-h-full border rounded bg-white dark:bg-gray-900 overflow-hidden" 
-    :class="{'edit-mode-grid': !preview}"
     @click="handleContainerClick"
     @mousemove="handleGlobalMouseMove"
     @mouseup="handleGlobalMouseUp"
@@ -34,12 +33,17 @@
 
     <!-- Wrapper uses relative positioning and sets the visual height after scaling -->
     <div v-else class="relative" :style="wrapperStyle">
-      <div class="absolute top-0 left-0" :style="[scaledContainerStyle, {
-        fontFamily: tabStyle?.fontFamily,
-        backgroundColor: tabStyle?.backgroundColor
-      }]">
+      <div 
+        class="absolute top-0 left-0" 
+        :class="{'edit-mode-grid': !preview}"
+        :style="[scaledContainerStyle, {
+          fontFamily: tabStyle?.fontFamily,
+          backgroundColor: tabStyle?.backgroundColor || undefined
+        }]"
+      >
         <!-- Widget Container -->
         <div class="relative w-full h-full p-3">
+
           <div 
             v-for="item in layout" 
             :key="item.i"

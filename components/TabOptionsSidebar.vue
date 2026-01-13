@@ -53,14 +53,28 @@
               class="w-8 h-8 rounded border border-gray-300 dark:border-gray-600 cursor-pointer disabled:opacity-50"
           />
           <UInput
-              :model-value="localStyle.backgroundColor || '#ffffff'"
+              :model-value="localStyle.backgroundColor || ''"
               @update:model-value="updateStyle('backgroundColor', $event)"
               :disabled="readonly"
               size="xs"
               class="flex-1"
+              placeholder="transparent"
           />
+          <button
+              v-if="localStyle.backgroundColor"
+              @click="updateStyle('backgroundColor', '')"
+              :disabled="readonly"
+              class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors cursor-pointer disabled:opacity-50"
+              title="Reset to transparent"
+          >
+            <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+          </button>
+        </div>
+        <div v-if="!localStyle.backgroundColor" class="text-[10px] text-gray-400 italic">
+          Transparent (grid visible in edit mode)
         </div>
       </div>
+
 
       <!-- Font Family -->
       <div class="space-y-1">

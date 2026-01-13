@@ -11,10 +11,12 @@
 import { describe, it, expect } from 'vitest'
 import {
     extractTablesFromSql,
+    extractTableAliases,
     shouldApplyFilter,
     injectFiltersIntoSql,
     type FilterOverride
 } from '../../server/utils/filterInjection'
+
 
 // Helper to create a filter
 function createFilter(fieldId: string, table: string, value: any, operator = 'equals'): FilterOverride {
@@ -100,7 +102,73 @@ describe('extractTablesFromSql', () => {
     })
 })
 
+describe('extractTableAliases', () => {
+    it('should extract alias from simple FROM clause', () => {
+        const sql = 'SELECT * FROM employees e'
+        const aliases = extractTableAliases(sql)
+        expect(aliases.get('employees')).toBe('e')
+    })
+
+    it('should extract alias with AS keyword', () => {
+        const sql = 'SELECT * FROM employees AS emp'
+        const aliases = extractTableAliases(sql)
+        expect(aliases.get('employees')).toBe('emp')
+    })
+
+    it('should extract multiple aliases from JOIN query', () => {
+        const sql = `
+            SELECT e.emp_no, d.dept_name 
+            FROM employees e
+            INNER JOIN dept_emp de ON e.emp_no = de.emp_no
+            LEFT JOIN departments d ON de.dept_no = d.dept_no
+        `
+        const aliases = extractTableAliases(sql)
+        expect(aliases.get('employees')).toBe('e')
+        expect(aliases.get('dept_emp')).toBe('de')
+        expect(aliases.get('departments')).toBe('d')
+    })
+
+    it('should return empty map for query without aliases', () => {
+        const sql = 'SELECT * FROM employees'
+        const aliases = extractTableAliases(sql)
+        expect(aliases.size).toBe(0)
+    })
+
+    it('should handle schema-prefixed tables', () => {
+        const sql = 'SELECT * FROM conn_4f2aa5cf.employees e'
+        const aliases = extractTableAliases(sql)
+        expect(aliases.get('employees')).toBe('e')
+    })
+
+    it('should not treat SQL keywords as aliases', () => {
+        const sql = 'SELECT * FROM employees WHERE gender = "M"'
+        const aliases = extractTableAliases(sql)
+        // 'WHERE' should not be captured as an alias
+        expect(aliases.get('employees')).toBeUndefined()
+    })
+
+    it('should extract aliases from complex real-world query', () => {
+        const sql = `
+            SELECT 
+                d.dept_name,
+                ROUND(AVG(s.salary), 2) as avg_salary
+            FROM departments d
+            INNER JOIN dept_emp de ON d.dept_no = de.dept_no
+            INNER JOIN employees e ON de.emp_no = e.emp_no
+            INNER JOIN salaries s ON e.emp_no = s.emp_no
+            WHERE s.to_date = '9999-01-01'
+            GROUP BY d.dept_name
+        `
+        const aliases = extractTableAliases(sql)
+        expect(aliases.get('departments')).toBe('d')
+        expect(aliases.get('dept_emp')).toBe('de')
+        expect(aliases.get('employees')).toBe('e')
+        expect(aliases.get('salaries')).toBe('s')
+    })
+})
+
 describe('shouldApplyFilter', () => {
+
     it('should return true when filter table is in SQL', () => {
         const sql = 'SELECT * FROM employees'
         const filter = createFilter('gender', 'employees', 'M')
@@ -194,9 +262,10 @@ describe('injectFiltersIntoSql - Aggregate Queries', () => {
         const result = injectFiltersIntoSql(sql, [filter])
 
         expect(result.appliedFilters).toBe(1)
-        expect(result.sql).toContain("`employees`.`gender` = 'M'")
+        // Uses alias 'e' from 'employees e'
+        expect(result.sql).toContain("`e`.`gender` = 'M'")
         // Filter should be before GROUP BY
-        expect(result.sql).toMatch(/WHERE.*`employees`\.`gender`.*GROUP BY/is)
+        expect(result.sql).toMatch(/WHERE.*`e`\.`gender`.*GROUP BY/is)
     })
 
     it('should handle COUNT with filters', () => {
@@ -247,7 +316,8 @@ describe('injectFiltersIntoSql - Complex Joins', () => {
         const result = injectFiltersIntoSql(sql, [filter])
 
         expect(result.appliedFilters).toBe(1)
-        expect(result.sql).toContain("`departments`.`dept_name` = 'Sales'")
+        // Uses alias 'd' from 'departments d'
+        expect(result.sql).toContain("`d`.`dept_name` = 'Sales'")
     })
 
     it('should apply multiple filters from different tables', () => {
@@ -264,8 +334,9 @@ describe('injectFiltersIntoSql - Complex Joins', () => {
         const result = injectFiltersIntoSql(sql, filters)
 
         expect(result.appliedFilters).toBe(2)
-        expect(result.sql).toContain("`employees`.`gender` = 'M'")
-        expect(result.sql).toContain("`departments`.`dept_name` = 'Sales'")
+        // Uses aliases 'e' and 'd'
+        expect(result.sql).toContain("`e`.`gender` = 'M'")
+        expect(result.sql).toContain("`d`.`dept_name` = 'Sales'")
         expect(result.sql).toContain('AND')
     })
 })
@@ -323,7 +394,8 @@ describe('injectFiltersIntoSql - Window Functions', () => {
         const result = injectFiltersIntoSql(sql, [filter])
 
         expect(result.appliedFilters).toBe(1)
-        expect(result.sql).toContain("`employees`.`gender` = 'M'")
+        // Uses alias 'e' from 'employees e'
+        expect(result.sql).toContain("`e`.`gender` = 'M'")
     })
 
     it('should inject filter before window function ORDER BY', () => {
@@ -339,7 +411,8 @@ describe('injectFiltersIntoSql - Window Functions', () => {
         const result = injectFiltersIntoSql(sql, [filter])
 
         expect(result.appliedFilters).toBe(1)
-        expect(result.sql).toContain("`employees`.`gender` = 'F'")
+        // Uses alias 'e' from 'employees e'
+        expect(result.sql).toContain("`e`.`gender` = 'F'")
     })
 })
 
@@ -472,7 +545,8 @@ describe('injectFiltersIntoSql - Real World Queries', () => {
         expect(result.appliedFilters).toBe(1)
         // Should add AND to existing WHERE
         expect(result.sql).toContain("to_date = '9999-01-01'")
-        expect(result.sql).toContain("`employees`.`gender` = 'M'")
+        // Uses alias 'e' from 'employees e'
+        expect(result.sql).toContain("`e`.`gender` = 'M'")
         expect(result.sql).toContain('AND')
         // Filter should be before GROUP BY
         expect(result.sql).toMatch(/WHERE.*AND.*GROUP BY/is)
@@ -511,7 +585,8 @@ describe('injectFiltersIntoSql - Real World Queries', () => {
         const result = injectFiltersIntoSql(sql, filters)
 
         expect(result.appliedFilters).toBe(2)
-        expect(result.sql).toContain("`employees`.`gender` = 'F'")
+        // Uses aliases 'e' and 'd'
+        expect(result.sql).toContain("`e`.`gender` = 'F'")
         expect(result.sql).toContain("IN ('Sales', 'Marketing')")
     })
 })

@@ -137,8 +137,24 @@ injectFiltersIntoSql(sql: string, filters: FilterOverride[], chartConnectionId?:
 2. **Connection Matching**: Filter is skipped if it targets a different data connection
 3. **Position**: WHERE clause is injected **before** GROUP BY, HAVING, ORDER BY, or LIMIT
 4. **Existing WHERE**: If query has WHERE, filter is added with AND
+5. **Table Aliases**: When SQL uses aliases (e.g., `employees e`), filters use the alias (`e.gender`) instead of the full table name
+
+#### Table Alias Handling
+
+The filter injection automatically detects table aliases in SQL queries and uses them:
+
+```sql
+-- Original query with aliases
+SELECT e.first_name FROM employees e JOIN departments d ON ...
+
+-- Filter on 'employees.gender' becomes:
+WHERE `e`.`gender` = 'M'  -- Uses alias 'e', not 'employees'
+```
+
+This prevents "Unknown column" errors that occur when the full table name is used in queries that define aliases.
 
 #### Example
+
 
 **Original SQL:**
 ```sql

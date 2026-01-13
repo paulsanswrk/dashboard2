@@ -89,6 +89,48 @@ function extractTableName(tableRef: string): string | null {
 }
 
 /**
+ * Extract table aliases from SQL query.
+ * Returns a map of table name (lowercase) -> alias.
+ * Example: "FROM employees e JOIN departments d" -> { "employees": "e", "departments": "d" }
+ */
+export function extractTableAliases(sql: string): Map<string, string> {
+    const aliases = new Map<string, string>()
+
+    // Normalize SQL: remove comments and extra whitespace
+    const normalizedSql = sql
+        .replace(/--.*$/gm, '') // Remove single-line comments
+        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    // Pattern to match: table_name alias or table_name AS alias
+    // Handles: FROM employees e, JOIN departments d ON, JOIN salaries AS s ON
+    const tableAliasPattern = /\b(?:FROM|JOIN)\s+[`"]?([\w.]+)[`"]?\s+(?:AS\s+)?([a-zA-Z][\w]*)\b(?=\s+(?:ON|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|WHERE|GROUP|ORDER|HAVING|LIMIT|,|$)|\s*,)/gi
+
+    let match
+    while ((match = tableAliasPattern.exec(normalizedSql)) !== null) {
+        let tableName = match[1]
+        const alias = match[2]
+
+        // Skip if alias is a SQL keyword
+        const sqlKeywords = ['on', 'join', 'left', 'right', 'inner', 'outer', 'cross', 'where', 'group', 'order', 'having', 'limit', 'and', 'or', 'as']
+        if (sqlKeywords.includes(alias.toLowerCase())) {
+            continue
+        }
+
+        // Handle schema.table -> table
+        if (tableName.includes('.')) {
+            const parts = tableName.split('.')
+            tableName = parts[parts.length - 1]
+        }
+
+        aliases.set(tableName.toLowerCase(), alias)
+    }
+
+    return aliases
+}
+
+/**
  * Check if a filter should be applied to the given SQL.
  * Returns true if the filter's table is found in the SQL.
  */
@@ -125,12 +167,22 @@ function escapeValue(value: any, type: string): string {
 /**
  * Build a WHERE condition for a single filter.
  * Uses table-qualified column names for proper resolution.
+ * If tableAliases map is provided, uses the alias instead of full table name.
  */
-function buildFilterCondition(filter: FilterOverride): string | null {
+function buildFilterCondition(filter: FilterOverride, tableAliases?: Map<string, string>): string | null {
     const { fieldId, table, type, operator, value, values } = filter
 
+    // Use alias if available, otherwise use full table name
+    let tableRef = table
+    if (table && tableAliases) {
+        const alias = tableAliases.get(table.toLowerCase())
+        if (alias) {
+            tableRef = alias
+        }
+    }
+
     // Use table-qualified column name
-    const column = table ? `\`${table}\`.\`${fieldId}\`` : `\`${fieldId}\``
+    const column = tableRef ? `\`${tableRef}\`.\`${fieldId}\`` : `\`${fieldId}\``
 
     // Handle array values (e.g., multi-select)
     const effectiveValues = values && values.length > 0 ? values : (Array.isArray(value) ? value : [value])
@@ -210,27 +262,32 @@ function buildFilterCondition(filter: FilterOverride): string | null {
 /**
  * Find the position to inject WHERE/AND clause in SQL.
  * Returns the index right before GROUP BY, HAVING, ORDER BY, LIMIT, or end of query.
+ * Ignores keywords that appear inside OVER(...) clauses for window functions.
  */
 function findInjectionPoint(sql: string): { index: number; hasWhere: boolean } {
-    const upperSql = sql.toUpperCase()
+    // Remove content inside OVER(...) to avoid matching ORDER BY in window functions
+    // This creates a "cleaned" version for position finding only
+    const cleanedSql = sql.replace(/OVER\s*\([^)]*\)/gi, 'OVER()')
 
-    // Check if WHERE already exists
-    const whereMatch = upperSql.match(/\bWHERE\b/)
+    // Check if WHERE already exists (in cleaned SQL)
+    const whereMatch = cleanedSql.toUpperCase().match(/\bWHERE\b/)
     const hasWhere = !!whereMatch
 
-    // Find the first occurrence of GROUP BY, HAVING, ORDER BY, LIMIT, or UNION
+    // Find the first occurrence of GROUP BY, HAVING, ORDER BY, LIMIT, or UNION in cleaned SQL
     const endKeywords = [
-        { keyword: 'GROUP BY', pattern: /\bGROUP\s+BY\b/i },
-        { keyword: 'HAVING', pattern: /\bHAVING\b/i },
-        { keyword: 'ORDER BY', pattern: /\bORDER\s+BY\b/i },
-        { keyword: 'LIMIT', pattern: /\bLIMIT\b/i },
-        { keyword: 'UNION', pattern: /\bUNION\b/i },
+        { keyword: 'GROUP BY', pattern: /\bGROUP\s+BY\b/gi },
+        { keyword: 'HAVING', pattern: /\bHAVING\b/gi },
+        { keyword: 'ORDER BY', pattern: /\bORDER\s+BY\b/gi },
+        { keyword: 'LIMIT', pattern: /\bLIMIT\b/gi },
+        { keyword: 'UNION', pattern: /\bUNION\b/gi },
     ]
 
     let earliestIndex = sql.length
 
     for (const { pattern } of endKeywords) {
-        const match = sql.match(pattern)
+        // Reset lastIndex for global patterns
+        pattern.lastIndex = 0
+        const match = pattern.exec(cleanedSql)
         if (match && match.index !== undefined && match.index < earliestIndex) {
             earliestIndex = match.index
         }
@@ -264,6 +321,9 @@ export function injectFiltersIntoSql(
         return result
     }
 
+    // Extract table aliases from SQL (e.g., "employees e" -> { "employees": "e" })
+    const tableAliases = extractTableAliases(sql)
+
     const applicableConditions: string[] = []
 
     for (const filter of filters) {
@@ -283,13 +343,14 @@ export function injectFiltersIntoSql(
             continue
         }
 
-        // Build the condition
-        const condition = buildFilterCondition(filter)
+        // Build the condition (using alias if available)
+        const condition = buildFilterCondition(filter, tableAliases)
         if (condition) {
             applicableConditions.push(condition)
             result.appliedFilters++
         }
     }
+
 
     // If no conditions apply, return original SQL
     if (applicableConditions.length === 0) {

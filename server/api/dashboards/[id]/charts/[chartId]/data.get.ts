@@ -249,14 +249,18 @@ export default defineEventHandler(async (event) => {
                     rows = await executeQuery(safeSql)
                 } catch (filterError: any) {
                     if (filterResult.appliedFilters > 0) {
-                        // Filtered query failed, try original
-                        console.warn('[chart-data] Filtered query failed for chart', chartId, ':', filterError?.message)
+                        // Filtered query failed, try original - log full details for debugging
+                        console.warn('[chart-data] Filtered query failed for chart', chartId)
+                        console.warn('[chart-data] Error:', filterError?.message)
+                        console.warn('[chart-data] Filtered SQL:', safeSql)
+                        console.warn('[chart-data] Applied filters:', JSON.stringify(filterOverrides, null, 2))
                         console.log('[chart-data] Falling back to unfiltered query')
 
                         try {
                             rows = await executeQuery(originalSql)
                             meta.filterWarning = 'Filter could not be applied to this chart'
                             meta.filterError = filterError?.message
+
                         } catch (originalError: any) {
                             // Both failed, throw the original error
                             throw originalError

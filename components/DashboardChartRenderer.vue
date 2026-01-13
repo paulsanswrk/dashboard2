@@ -323,11 +323,20 @@ async function loadData() {
 onMounted(loadData)
 
 // Reload data when dashboard filters change
-watch(() => props.dashboardFilters, () => {
-  if (props.dashboardFilters !== undefined) {
+// Use a computed signature to only reload when active filter values actually change
+const activeFilterSignature = computed(() => {
+  const activeFilters = (props.dashboardFilters || []).filter(f => 
+    f.value != null || (f.values && f.values.length > 0)
+  )
+  return JSON.stringify(activeFilters)
+})
+
+watch(activeFilterSignature, (newSig, oldSig) => {
+  if (newSig !== oldSig) {
     loadData()
   }
-}, { deep: true })
+})
+
 </script>
 
 <style scoped>
