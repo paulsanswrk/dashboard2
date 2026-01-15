@@ -78,13 +78,20 @@
               v-for="(tab, index) in tabs"
               :key="tab.id"
               @click="selectTab(tab.id)"
+              :draggable="isEditableSession"
+              @dragstart="handleTabDragStart($event, index)"
+              @dragover.prevent="handleTabDragOver($event, index)"
+              @drop="handleTabDrop($event, index)"
+              @dragend="handleTabDragEnd"
               :class="[
               'px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-2 border-b-2 cursor-pointer',
               activeTabId === tab.id
                 ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 font-semibold'
-                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50',
+              dragOverTabIndex === index && isEditableSession ? 'ring-2 ring-orange-400' : ''
             ]"
           >
+            <Icon v-if="isEditableSession" name="i-heroicons-bars-2" class="w-3 h-3 opacity-50 cursor-grab"/>
             <span>{{ tab.name }}</span>
 
             <!-- Dropdown menu for tab actions -->
@@ -655,6 +662,10 @@ const initialTabLayouts = ref<Record<string, any[]>>({})
 const dashboardWidth = ref<number | undefined>(undefined)
 const loading = ref(true)
 
+// Tab drag-and-drop state
+const draggedTabIndex = ref<number | null>(null)
+const dragOverTabIndex = ref<number | null>(null)
+
 // Dynamic page title with dashboard name (must be after dashboardName is defined)
 usePageTitle(
   computed(() => isEditableSession.value ? 'Edit Dashboard' : 'Dashboard'),
@@ -769,7 +780,6 @@ function scheduleWidgetHistoryRecording(widgetId: string, changeType: string) {
       return
     }
 
-    console.log('[Page] Recording', changeType, 'history for widget', widgetId)
 
     const capturedBaselineStyle = JSON.parse(JSON.stringify(baselineStyle))
     const capturedBaselineConfig = JSON.parse(JSON.stringify(baselineConfig))
@@ -1038,15 +1048,12 @@ function handleLayoutUpdate(newLayout: any[]) {
   // Compare against the baseline (initialTabLayouts)
   const baselineLayout = JSON.parse(JSON.stringify(initialTabLayouts.value[targetTabId] || []))
 
-  console.log('[Page] Comparing: baseline has', baselineLayout.length, 'items, new has', newLayout.length)
 
   // Check if actually different from baseline
   if (areLayoutsEqual(baselineLayout, newLayout)) {
-    console.log('[Page] Layouts are equal - no change to record')
     return
   }
 
-  console.log('[Page] Layouts differ - recording action')
 
   // Update the current gridLayout ref
   gridLayout.value = cloneLayout(newLayout)
@@ -1180,7 +1187,7 @@ async function load() {
         style: w.style || {},
         configOverride: w.configOverride || {}
       }))
-    }))
+    })).sort((a, b) => a.position - b.position)
 
     setLayoutsFromTabs(true)
 
@@ -1212,6 +1219,31 @@ async function loadConnections() {
 onMounted(async () => {
   await loadUserProfile()
   await Promise.all([load(), loadConnections()])
+
+  // Add keyboard event handler for Delete key
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Only handle Delete/Backspace in edit mode
+    if (!isEditableSession.value) return
+    
+    // Don't delete if user is typing in an input or contenteditable
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+    
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const widgetId = selectedTextWidgetId.value
+      if (widgetId) {
+        e.preventDefault()
+        handleDeleteWidget(widgetId)
+      }
+    }
+  }
+  
+  window.addEventListener('keydown', handleKeyDown)
+  
+  // Cleanup on unmount
+  onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleKeyDown)
+  })
 })
 
 onBeforeRouteLeave((to, from) => {
@@ -1420,7 +1452,6 @@ function startEditText(widgetId: string) {
     widgetId,
     style: JSON.parse(JSON.stringify(widget.style || {}))
   }
-  console.log('[Page] startEditText: captured baseline for widget', widgetId, baselineWidgetStyle.value.style)
 }
 
 function updateTextContent(widgetId: string, content: string) {
@@ -1480,7 +1511,6 @@ async function renameChartInline(widgetId: string, name: string) {
 
     if (baselineName === currentName) return
 
-    console.log('[Page] Recording Chart Title Change history')
 
     const capturedOldName = baselineName
     const capturedNewName = currentName
@@ -1535,36 +1565,27 @@ watch(textForm, (val) => {
   // Debounced history recording - record action after user stops making changes
   if (styleChangeHistoryTimer) clearTimeout(styleChangeHistoryTimer)
   styleChangeHistoryTimer = setTimeout(() => {
-    console.log('[Page] Style debounce timer fired for widget', targetWidgetId)
-    console.log('[Page] baselineWidgetStyle:', baselineWidgetStyle.value)
 
     // Only record if we have a baseline and it's for the right widget
     if (!baselineWidgetStyle.value || baselineWidgetStyle.value.widgetId !== targetWidgetId) {
-      console.log('[Page] No baseline or wrong widget - skipping')
       return
     }
 
     // Look up the widget FRESH inside the timer (not from closure)
     const currentWidget = tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === targetWidgetId)
     if (!currentWidget) {
-      console.log('[Page] Widget not found - skipping')
       return
     }
 
     const currentStyle = JSON.parse(JSON.stringify(currentWidget.style || {}))
     const baselineStyle = baselineWidgetStyle.value.style
 
-    console.log('[Page] Comparing styles:')
-    console.log('[Page]   baseline:', JSON.stringify(baselineStyle))
-    console.log('[Page]   current:', JSON.stringify(currentStyle))
 
     // Skip if no actual change from baseline
     if (JSON.stringify(baselineStyle) === JSON.stringify(currentStyle)) {
-      console.log('[Page] Styles are equal - no change to record')
       return
     }
 
-    console.log('[Page] Recording style change history')
 
     // Capture values for closure
     const capturedBaseline = JSON.parse(JSON.stringify(baselineStyle))
@@ -1646,7 +1667,6 @@ watch(dashboardName, (newName) => {
 
     if (baselineName === currentName) return
 
-    console.log('[Page] Recording Dashboard Name Change history')
 
     const capturedOldName = baselineName
     const capturedNewName = currentName
@@ -1725,13 +1745,28 @@ async function addTextBlock() {
   const tab = tabs.value.find(t => t.id === targetTabId)
   if (tab) {
     tab.widgets.push(newWidget)
-    // Update layout
-    tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+    // Append new widget to existing layout instead of rebuilding entire layout
+    const newLayoutItem = {
+      left: newPosition.left,
+      top: newPosition.top,
+      width: newPosition.width,
+      height: newPosition.height,
+      i: String(tempWidgetId)
+    }
+    const currentLayout = tabLayouts[targetTabId] || []
+    tabLayouts[targetTabId] = [...currentLayout, newLayoutItem]
     gridLayout.value = cloneLayout(tabLayouts[targetTabId])
   }
 
   // Select the widget for editing immediately
   startEditText(tempWidgetId)
+
+  // Focus the text widget so user can start typing immediately
+  await nextTick()
+  const widgetEl = document.querySelector(`[data-widget-id="${tempWidgetId}"] [contenteditable="true"]`) as HTMLElement
+  if (widgetEl) {
+    widgetEl.focus()
+  }
 
   // Persist to server in background
   try {
@@ -1750,10 +1785,13 @@ async function addTextBlock() {
       const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
       if (widgetIndex >= 0) {
         tab.widgets[widgetIndex].widgetId = res.widgetId
-        // Update layout with the new widget ID
-        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
-        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
-        initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        // Update layout item ID without rebuilding entire layout
+        const layoutItemIndex = tabLayouts[targetTabId].findIndex(item => item.i === String(tempWidgetId))
+        if (layoutItemIndex >= 0) {
+          tabLayouts[targetTabId][layoutItemIndex].i = String(res.widgetId)
+          gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+          initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        }
         if (selectedTextWidgetId.value === tempWidgetId) {
           selectedTextWidgetId.value = res.widgetId
         }
@@ -1839,7 +1877,16 @@ async function handleImageSelected(image: DashboardImage) {
   const tab = tabs.value.find(t => t.id === targetTabId)
   if (tab) {
     tab.widgets.push(newWidget)
-    tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+    // Append new widget to existing layout instead of rebuilding entire layout
+    const newLayoutItem = {
+      left: newPosition.left,
+      top: newPosition.top,
+      width: newPosition.width,
+      height: newPosition.height,
+      i: String(tempWidgetId)
+    }
+    const currentLayout = tabLayouts[targetTabId] || []
+    tabLayouts[targetTabId] = [...currentLayout, newLayoutItem]
     gridLayout.value = cloneLayout(tabLayouts[targetTabId])
   }
 
@@ -1862,9 +1909,13 @@ async function handleImageSelected(image: DashboardImage) {
       const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
       if (widgetIndex >= 0) {
         tab.widgets[widgetIndex].widgetId = res.widgetId
-        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
-        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
-        initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        // Update layout item ID without rebuilding entire layout
+        const layoutItemIndex = tabLayouts[targetTabId].findIndex(item => item.i === String(tempWidgetId))
+        if (layoutItemIndex >= 0) {
+          tabLayouts[targetTabId][layoutItemIndex].i = String(res.widgetId)
+          gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+          initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        }
         if (selectedTextWidgetId.value === tempWidgetId) {
           selectedTextWidgetId.value = res.widgetId
         }
@@ -1930,7 +1981,11 @@ async function deleteWidgetInternal(widgetId: string): Promise<any | null> {
         }
         
         tab.widgets.splice(idx, 1)
-        tabLayouts[activeTabId.value] = cloneLayout(buildLayoutFromTab(activeTabId.value))
+        // Remove layout item directly instead of rebuilding entire layout
+        const layoutItemIndex = tabLayouts[activeTabId.value].findIndex(item => item.i === String(widgetId))
+        if (layoutItemIndex >= 0) {
+          tabLayouts[activeTabId.value].splice(layoutItemIndex, 1)
+        }
         gridLayout.value = cloneLayout(tabLayouts[activeTabId.value])
 
         if (selectedTextWidgetId.value === widgetId) {
@@ -2070,7 +2125,6 @@ function updateTabStyle(newStyle: any) {
 
     if (JSON.stringify(baselineStyle) === JSON.stringify(currentStyle)) return
 
-    console.log('[Page] Recording Tab Style Change history')
 
     const capturedOldStyle = JSON.parse(JSON.stringify(baselineStyle))
     const capturedNewStyle = JSON.parse(JSON.stringify(currentStyle))
@@ -2123,7 +2177,6 @@ function updateDashboardWidth(newWidth: number) {
   saveDashboardWidthTimer = setTimeout(async () => {
     try {
       await updateDashboard(id.value, { width: newWidth })
-      console.log('[Page] Dashboard width saved:', newWidth)
     } catch (error) {
       console.error('Failed to save dashboard width', error)
     }
@@ -2336,7 +2389,16 @@ async function handleIconSelected(icon: { iconName: string; color: string; size:
   const tab = tabs.value.find(t => t.id === targetTabId)
   if (tab) {
     tab.widgets.push(newWidget)
-    tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+    // Append new widget to existing layout instead of rebuilding entire layout
+    const newLayoutItem = {
+      left: newPosition.left,
+      top: newPosition.top,
+      width: newPosition.width,
+      height: newPosition.height,
+      i: String(tempWidgetId)
+    }
+    const currentLayout = tabLayouts[targetTabId] || []
+    tabLayouts[targetTabId] = [...currentLayout, newLayoutItem]
     gridLayout.value = cloneLayout(tabLayouts[targetTabId])
   }
 
@@ -2359,9 +2421,13 @@ async function handleIconSelected(icon: { iconName: string; color: string; size:
       const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
       if (widgetIndex >= 0) {
         tab.widgets[widgetIndex].widgetId = res.widgetId
-        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
-        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
-        initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        // Update layout item ID without rebuilding entire layout
+        const layoutItemIndex = tabLayouts[targetTabId].findIndex(item => item.i === String(tempWidgetId))
+        if (layoutItemIndex >= 0) {
+          tabLayouts[targetTabId][layoutItemIndex].i = String(res.widgetId)
+          gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+          initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        }
         if (selectedTextWidgetId.value === tempWidgetId) {
           selectedTextWidgetId.value = res.widgetId
         }
@@ -2567,6 +2633,62 @@ function availableChartById(chartId: number) {
   return availableCharts.value.find(c => c.id === chartId)
 }
 
+// Tab drag-and-drop handlers
+function handleTabDragStart(e: DragEvent, index: number) {
+  if (!isEditableSession.value) return
+  draggedTabIndex.value = index
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function handleTabDragOver(e: DragEvent, index: number) {
+  if (!isEditableSession.value || draggedTabIndex.value === null) return
+  dragOverTabIndex.value = index
+}
+
+async function handleTabDrop(e: DragEvent, targetIndex: number) {
+  if (!isEditableSession.value || draggedTabIndex.value === null) return
+  
+  const sourceIndex = draggedTabIndex.value
+  if (sourceIndex === targetIndex) {
+    draggedTabIndex.value = null
+    dragOverTabIndex.value = null
+    return
+  }
+
+  // Reorder tabs locally
+  const movedTab = tabs.value.splice(sourceIndex, 1)[0]
+  tabs.value.splice(targetIndex, 0, movedTab)
+
+  // Update positions for all tabs
+  tabs.value.forEach((tab, idx) => {
+    tab.position = idx
+  })
+
+  draggedTabIndex.value = null
+  dragOverTabIndex.value = null
+
+  // Persist new positions to server
+  try {
+    await Promise.all(
+      tabs.value.map((tab, idx) =>
+        $fetch('/api/dashboards/tabs', {
+          method: 'PUT',
+          body: { tabId: tab.id, position: idx }
+        })
+      )
+    )
+  } catch (error) {
+    console.error('Failed to save tab order:', error)
+  }
+}
+
+function handleTabDragEnd() {
+  draggedTabIndex.value = null
+  dragOverTabIndex.value = null
+}
+
 // Tab operations
 function getTabMenuItems(tab: any) {
   return [
@@ -2611,6 +2733,12 @@ async function createTab() {
     })
 
     await load()
+
+    // Select the newly created tab (it's the last one by position)
+    if (tabs.value.length > 0) {
+      const lastTab = tabs.value[tabs.value.length - 1]
+      selectTab(lastTab.id)
+    }
 
     showCreateTabModal.value = false
     createTabForm.name = ''

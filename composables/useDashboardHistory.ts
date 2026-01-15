@@ -1,4 +1,4 @@
-import {computed, ref} from 'vue'
+import { computed, ref } from 'vue'
 
 export interface DashboardAction {
     type: string
@@ -17,8 +17,6 @@ export function useDashboardHistory() {
     const canRedo = computed(() => currentIndex.value < history.value.length - 1)
 
     function recordAction(action: Omit<DashboardAction, 'timestamp'>) {
-        console.log('[DashboardHistory] recordAction called:', action.type)
-        console.log('[DashboardHistory] Before: history.length =', history.value.length, 'currentIndex =', currentIndex.value)
 
         // If we are not at the end of history, discard future actions
         if (currentIndex.value < history.value.length - 1) {
@@ -30,8 +28,6 @@ export function useDashboardHistory() {
             timestamp: Date.now()
         })
         currentIndex.value++
-
-        console.log('[DashboardHistory] After: history.length =', history.value.length, 'currentIndex =', currentIndex.value, 'canUndo =', currentIndex.value >= 0)
 
         // Limit history size if needed (e.g., 50 actions)
         if (history.value.length > 50) {

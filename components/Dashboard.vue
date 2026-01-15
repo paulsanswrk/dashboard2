@@ -48,6 +48,7 @@
           <div 
             v-for="item in layout" 
             :key="item.i"
+            :data-widget-id="item.i"
             class="absolute transition-shadow transition-[border-color] dashboard-widget"
             :class="{
               'ring-2 ring-blue-500 z-30': isSelected(item.i),

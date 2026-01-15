@@ -40,8 +40,17 @@
       </div>
       <div>
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Background</label>
-        <input v-model="localForm.background" type="color" class="mt-1 w-full h-10 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer"/>
+        <input v-model="localForm.background" type="color" class="mt-1 w-full h-10 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer" :disabled="localForm.transparentBackground"/>
       </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <input
+          type="checkbox"
+          id="transparentBg"
+          v-model="localForm.transparentBackground"
+          class="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+      />
+      <label for="transparentBg" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">Transparent background</label>
     </div>
     <div class="flex items-center gap-2">
       <button
