@@ -196,7 +196,7 @@ async function loadDashboardFromResponse(res: any) {
   widgets.value = allWidgets.map((w: any) => ({
     widgetId: w.widgetId,
     type: w.type,
-    chartId: w.type === 'chart' ? w.id : undefined,
+    chartId: w.type === 'chart' ? w.chartId : undefined,
     name: w.name,
     position: w.position,
     state: w.state,
