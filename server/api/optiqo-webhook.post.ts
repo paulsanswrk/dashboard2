@@ -132,14 +132,18 @@ export default defineEventHandler(async (event) => {
         }
 
         // Log the webhook (optional)
-        await supabase.from('webhook_logs').insert({
-            operation,
-            table_name: table,
-            target_table: targetTable,
-            tenant_id,
-            success: true,
-            duration_ms: Date.now() - startTime,
-        }).catch(() => { }) // Don't fail if logging fails
+        try {
+            await supabase.from('webhook_logs').insert({
+                operation,
+                table_name: table,
+                target_table: targetTable,
+                tenant_id,
+                success: true,
+                duration_ms: Date.now() - startTime,
+            })
+        } catch (e) {
+            console.error('Failed to log webhook:', e)
+        }
 
         return {
             received: true,
@@ -147,6 +151,24 @@ export default defineEventHandler(async (event) => {
         }
     } catch (error: any) {
         console.error('Webhook error:', error)
+
+        // Log error if possible
+        try {
+            const rawBody = await readRawBody(event)
+            const body = JSON.parse(rawBody || '{}')
+            const targetTable = TABLE_MAPPING[body.table]
+
+            await supabase.from('webhook_logs').insert({
+                operation: body.operation,
+                table_name: body.table,
+                target_table: targetTable,
+                tenant_id: body.tenant_id,
+                success: false,
+                error_message: error.message,
+                duration_ms: Date.now() - startTime,
+            })
+        } catch (e) { }
+
         throw createError({
             statusCode: 500,
             message: error.message
