@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, inject, onMounted, ref, watch, type Ref} from 'vue'
 import ReportingChart from './reporting/ReportingChart.vue'
 import ReportingPreview from './reporting/ReportingPreview.vue'
 import {useReportingService} from '../composables/useReportingService'
@@ -72,6 +72,9 @@ const props = defineProps<{
 }>()
 
 const { runPreview, runSql } = useReportingService()
+
+// Inject render context token from parent (used in PDF render mode)
+const renderContextToken = inject<Ref<string | undefined>>('renderContextToken', ref(undefined))
 
 const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
@@ -230,7 +233,10 @@ async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: 
         meta?: { error?: string; filterWarning?: string; filtersApplied?: number; filtersSkipped?: number } 
       }>(
         `/api/dashboards/${props.dashboardId}/charts/${props.chartId}/data`,
-        { params }
+        { params: {
+          ...params,
+          ...(renderContextToken?.value ? { context: renderContextToken.value } : {})
+        } }
       )
       
       if (res.meta?.error) {

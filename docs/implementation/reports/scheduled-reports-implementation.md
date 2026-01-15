@@ -679,6 +679,14 @@ export function useScheduledReportsService() {
 - Auto-width buttons that size to content
 - Improved accessibility with proper button semantics
 
+### 11. Double Execution on Send Now Button
+**Issue:** Clicking "Send Now" was triggering two separate API calls, producing duplicate emails (one with empty PDF due to render timeout)
+**Solution:**
+- Added `type="button"` to "Send Now" and "Cancel" buttons to prevent form submission
+- Added `@click.prevent` modifier to explicitly prevent default behavior
+- Implemented early return guard checking `sendingNow.value` before initiating API call
+- The root cause was that buttons inside `<form>` elements default to `type="submit"`, causing both the click handler and form submit handler to fire
+
 ## Future Enhancements
 
 ### Vercel Cron Integration

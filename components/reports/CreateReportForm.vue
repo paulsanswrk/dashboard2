@@ -313,19 +313,34 @@
       <!-- Form Actions -->
       <div class="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
         <UButton
+          type="button"
           variant="outline"
           color="gray"
           :ui="{ base: 'cursor-pointer bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors' }"
           @click="$emit('cancel')"
-          :disabled="saving"
+          :disabled="saving || sendingNow"
         >
           Cancel
+        </UButton>
+        <UButton
+          v-if="props.editingReport"
+          type="button"
+          variant="outline"
+          color="blue"
+          :ui="{ base: 'cursor-pointer bg-white dark:bg-gray-800 border border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors' }"
+          :loading="sendingNow"
+          :disabled="saving || sendingNow"
+          @click.prevent="sendReportNow"
+        >
+          <UIcon name="i-heroicons-paper-airplane" class="w-4 h-4 mr-1" />
+          Send Now
         </UButton>
         <UButton
           type="submit"
           color="orange"
           :ui="{ base: 'cursor-pointer bg-orange-500 hover:bg-orange-600 text-white focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors' }"
           :loading="saving"
+          :disabled="sendingNow"
         >
           {{ props.editingReport ? 'Update Scheduled Report' : 'Create Scheduled Report' }}
         </UButton>
@@ -373,6 +388,7 @@ const reportForm = ref({
 
 // UI state
 const saving = ref(false)
+const sendingNow = ref(false)
 const contentLoading = ref(false)
 const hasSubmitted = ref(false)
 const recipients = ref([''])
@@ -615,6 +631,37 @@ const getFormatIcon = (formatValue: string) => {
       return 'i-heroicons-document-text' // More specific PDF-like document icon
     default:
       return 'i-heroicons-document'
+  }
+}
+
+// Send report immediately
+const sendReportNow = async () => {
+  if (sendingNow.value || !props.editingReport?.id) return
+  
+  sendingNow.value = true
+  try {
+    const response = await $fetch(`/api/reports/${props.editingReport.id}/send-now`, {
+      method: 'POST'
+    })
+    
+    if (response.success) {
+      toast.add({
+        title: 'Report Sent',
+        description: 'The report has been queued for immediate delivery.',
+        color: 'green'
+      })
+    } else {
+      throw new Error(response.message || 'Failed to send report')
+    }
+  } catch (error: any) {
+    console.error('Error sending report:', error)
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to send report. Please try again.',
+      color: 'red'
+    })
+  } finally {
+    sendingNow.value = false
   }
 }
 

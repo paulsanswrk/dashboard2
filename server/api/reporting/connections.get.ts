@@ -20,10 +20,8 @@ export interface ConnectionWithUsage {
 export default defineEventHandler(async (event): Promise<ConnectionWithUsage[]> => {
     const ctx = await AuthHelper.requireAuthContext(event)
 
-    // Build where clause based on role
-    const whereClause = ctx.role === 'SUPERADMIN'
-        ? undefined
-        : eq(dataConnections.organizationId, ctx.organizationId!)
+    // Build where clause based on role - SUPERADMINs are also restricted to their org context
+    const whereClause = eq(dataConnections.organizationId, ctx.organizationId!)
 
     // Get all connections for the user
     const connections = await db

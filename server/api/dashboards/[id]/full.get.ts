@@ -205,8 +205,9 @@ export default defineEventHandler(async (event) => {
                     const effective = { ...sj, ...internal }
                     delete (effective as any).internal
 
-                    // Build state for response: owner gets flattened full state; public gets only public subset
-                    const responseState = isOwner ? effective : sj
+                    // Build state for response: always use flattened state so breakdowns etc. are accessible
+                    // (Previously public got nested internal which broke chart rendering)
+                    const responseState = effective
 
                     return {
                         id: lnk.chart_id,

@@ -33,6 +33,7 @@
 
 - `organization_id` is NOT NULL; creation/update/delete requires org membership (Admins/Editors).
 - Access to connection details during render/preview is allowed only when the dashboard/requesting user is in the same org.
+- **Strict Organization Isolation**: Superadmins are restricted to viewing and using only data connections belonging to their current organization context. This prevents cross-organization data leakage and configuration errors.
 
 ## Reports
 

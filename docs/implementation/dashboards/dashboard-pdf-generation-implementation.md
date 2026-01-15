@@ -53,8 +53,14 @@ pages/render/dashboards/[id].vue                # Render page component
 
 ### Key Configuration Constants
 
+The PDF dimensions are derived from `lib/dashboard-constants.ts` to ensure consistency:
+
 ```typescript
-const PDF_PAGE_WIDTH = 1800 // pixels (fixed width for viewport and PDF)
+import { DASHBOARD_WIDTH, DASHBOARD_PDF_MARGINS } from '~/lib/dashboard-constants'
+
+// DASHBOARD_WIDTH = 1200
+// DASHBOARD_PDF_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 }
+const PDF_PAGE_WIDTH = DASHBOARD_WIDTH + DASHBOARD_PDF_MARGINS.left + DASHBOARD_PDF_MARGINS.right // 1240px
 ```
 
 ### Puppeteer Browser Configuration
@@ -72,16 +78,28 @@ const PDF_PAGE_WIDTH = 1800 // pixels (fixed width for viewport and PDF)
 
 ### Dynamic Height Calculation
 
-```typescript
-// Get the actual body height and calculate PDF height with margins
-const bodyHeight = await page.evaluate(() => {
-  return document.body.scrollHeight
-})
+The PDF height is calculated dynamically by precisely measuring the bounding boxes of all dashboard widgets:
 
-const marginTop = 20 // px
-const marginBottom = 20 // px
-const pdfHeight = bodyHeight + marginTop + marginBottom
+```typescript
+// Get the precise height based on widget positions
+const pdfHeight = await page.evaluate(() => {
+  const widgets = document.querySelectorAll('.dashboard-widget')
+  if (widgets.length === 0) {
+    return document.body.scrollHeight
+  }
+  
+  let maxBottom = 0
+  widgets.forEach(el => {
+    const rect = el.getBoundingClientRect()
+    const bottom = rect.top + rect.height + window.scrollY
+    if (bottom > maxBottom) maxBottom = bottom
+  })
+  
+  return maxBottom + 20 // Add small buffer
+})
 ```
+
+This approach ensures PDFs are sized precisely to content with minimal whitespace.
 
 ### PDF Generation Settings
 
@@ -91,10 +109,10 @@ const pdf = await page.pdf({
   width: `${PDF_PAGE_WIDTH}px`,
   printBackground: true,
   margin: {
-    top: '20px',
-    right: '20px',
-    bottom: '20px',
-    left: '20px'
+    top: `${DASHBOARD_PDF_MARGINS.top}px`,
+    right: `${DASHBOARD_PDF_MARGINS.right}px`,
+    bottom: `${DASHBOARD_PDF_MARGINS.bottom}px`,
+    left: `${DASHBOARD_PDF_MARGINS.left}px`
   },
   preferCSSPageSize: false,
 })
@@ -148,6 +166,24 @@ event.node.res.setHeader('Content-Type', 'application/pdf')
 event.node.res.setHeader('Content-Disposition', `attachment; filename="${dashboard.name.replace(/[^a-z0-9]/gi, '_')}.pdf"`)
 ```
 
+## Widget Border Handling
+
+The PDF generation includes intelligent border handling for different widget types:
+
+### Default 1px Borders (Charts, Text, Images)
+All chart, text, and image widgets receive a default 1px solid border (`#e5e7eb`) to ensure visibility in the PDF output. This addresses an issue where Nuxt UI's default styling wasn't consistently rendering borders.
+
+### Icon Widgets (No Borders)
+Icon widgets are explicitly excluded from border application to prevent visual clutter. The `getWidgetContainerStyle` function checks the widget type and:
+- Applies `border: none` for icons in preview/PDF mode
+- Only applies borders to icons if explicitly configured via styleProps
+
+### Authentication Bypass
+The `/render` routes are configured as public routes to allow Puppeteer to access dashboard content without authentication:
+- Added to `middleware/auth.ts` public routes array
+- Excluded from Supabase redirect options in `nuxt.config.ts`
+- Context tokens (AES-256-GCM encrypted) provide secure access authorization
+
 ## Benefits
 
 ### Advantages Over Previous Implementation
@@ -192,9 +228,10 @@ event.node.res.setHeader('Content-Disposition', `attachment; filename="${dashboa
 
 ### PDF Dimensions
 
-- **Width**: Fixed at 1800px (configurable via `PDF_PAGE_WIDTH`)
+- **Width**: Calculated from `DASHBOARD_WIDTH + margins` (1200 + 40 = 1240px)
 - **Height**: Dynamic based on content + margins
-- **Margins**: 20px on all sides (configurable)
+- **Margins**: Configurable via `DASHBOARD_PDF_MARGINS` (default 20px on all sides)
+- **Constants Source**: `lib/dashboard-constants.ts`
 
 ### Browser Arguments
 

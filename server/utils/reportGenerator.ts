@@ -10,6 +10,7 @@ import { stringify } from 'csv-stringify/sync'
 import archiver from 'archiver'
 import { PassThrough } from 'stream'
 import ExcelJS from 'exceljs'
+import { DASHBOARD_WIDTH, DASHBOARD_PDF_MARGINS } from '../../lib/dashboard-constants'
 
 export interface ReportConfig {
     id: string
@@ -132,9 +133,42 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
 
         const page = await browser.newPage()
 
+        // Fetch dashboard width from database
+        let dashboardWidth = DASHBOARD_WIDTH // Default fallback
+        if (report.dashboard_id) {
+            const { data: dashboard } = await supabase
+                .from('dashboards')
+                .select('width')
+                .eq('id', report.dashboard_id)
+                .single()
+            if (dashboard?.width) {
+                dashboardWidth = dashboard.width
+            }
+        } else if (report.tab_id) {
+            // For single tab, get dashboard via tab
+            const { data: tabData } = await supabase
+                .from('dashboard_tab')
+                .select('dashboard_id')
+                .eq('id', report.tab_id)
+                .single()
+            if (tabData?.dashboard_id) {
+                const { data: dashboard } = await supabase
+                    .from('dashboards')
+                    .select('width')
+                    .eq('id', tabData.dashboard_id)
+                    .single()
+                if (dashboard?.width) {
+                    dashboardWidth = dashboard.width
+                }
+            }
+        }
+
+        // Calculate PDF dimensions from dashboard width
+        const pdfPageWidth = dashboardWidth + DASHBOARD_PDF_MARGINS.left + DASHBOARD_PDF_MARGINS.right
+
         // Set viewport for PDF generation
         await page.setViewport({
-            width: 1800,
+            width: pdfPageWidth,
             height: 1000,
             deviceScaleFactor: 2
         })
@@ -189,25 +223,36 @@ async function generatePDFAttachment(report: ReportConfig, supabase: any): Promi
         // Additional wait for charts to render after data is loaded
         await new Promise(resolve => setTimeout(resolve, 2000))
 
-        // Get the actual body height
-        const bodyHeight = await page.evaluate(() => {
-            return document.body.scrollHeight
+        // Get the precise used height by measuring all widgets
+        const contentHeight = await page.evaluate(() => {
+            const widgets = document.querySelectorAll('.dashboard-widget');
+            if (widgets.length === 0) return 100; // Fallback for empty dashboard
+
+            let maxBottom = 0;
+            widgets.forEach(w => {
+                const rect = w.getBoundingClientRect();
+                // Get bottom relative to the top of the body
+                const bottom = rect.bottom + window.scrollY;
+                if (bottom > maxBottom) maxBottom = bottom;
+            });
+            return maxBottom;
         })
 
-        const marginTop = 20
-        const marginBottom = 20
-        const pdfHeight = bodyHeight + marginTop + marginBottom
+        const marginTop = DASHBOARD_PDF_MARGINS.top
+        const marginBottom = DASHBOARD_PDF_MARGINS.bottom
+        // Add a small extra buffer (20px) to the content height to avoid any tight cuts
+        const pdfHeight = contentHeight + marginTop + marginBottom + 20
 
-        // Generate PDF
+        // Generate PDF - single continuous page matching content height
         const pdf = await page.pdf({
+            width: `${pdfPageWidth}px`,
             height: `${pdfHeight}px`,
-            width: '1800px',
             printBackground: true,
             margin: {
-                top: '20px',
-                right: '20px',
-                bottom: '20px',
-                left: '20px'
+                top: `${DASHBOARD_PDF_MARGINS.top}px`,
+                right: `${DASHBOARD_PDF_MARGINS.right}px`,
+                bottom: `${DASHBOARD_PDF_MARGINS.bottom}px`,
+                left: `${DASHBOARD_PDF_MARGINS.left}px`
             },
             preferCSSPageSize: false,
         })

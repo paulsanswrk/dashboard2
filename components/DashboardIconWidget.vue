@@ -36,10 +36,7 @@ const containerStyle = computed(() => {
   const s = props.styleProps || {}
   return {
     borderRadius: `${s.borderRadius || 0}px`,
-    backgroundColor: s.backgroundColor || 'transparent',
-    border: s.borderWidth && s.borderWidth > 0
-        ? `${s.borderWidth}px ${s.borderStyle || 'solid'} ${s.borderColor || '#ccc'}`
-        : 'none'
+    backgroundColor: s.backgroundColor || 'transparent'
   }
 })
 

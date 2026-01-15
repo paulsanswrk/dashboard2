@@ -1146,6 +1146,12 @@ async function handleSaveToDashboard(data: { saveAsName: string; selectedDestina
     // Close modal after showing toast
     openSelectBoard.value = false
 
+    // Navigate to the dashboard (with tab if specified)
+    const dashboardUrl = data.selectedTabId 
+      ? `/dashboards/${dashboardId}?tab=${data.selectedTabId}`
+      : `/dashboards/${dashboardId}`
+    await navigateTo(dashboardUrl)
+
   } catch (error) {
     console.error('Failed to save chart to dashboard:', error)
     toast.add({

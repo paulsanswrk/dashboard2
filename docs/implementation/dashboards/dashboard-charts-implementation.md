@@ -442,5 +442,11 @@ Full-load specifics:
 
 **Implementation Date**: October 29, 2025
 **Auto-saving Enhancement**: December 12, 2025
+**PDF Border & Height Optimization**: January 15, 2026
 **Status**: ✅ Complete and Ready for Production
 **Migration Status**: Comprehensive migration applied, cleanup migration pending
+
+### Recent Updates (January 2026)
+- **Precise PDF Height**: Widget-based bounding box measurement for minimal whitespace
+- **Smart Widget Borders**: Different handling for chart/text (default 1px) vs icon (no border) widgets
+- **Authentication Bypass**: Proper `/render` route exclusions for PDF generator access

@@ -1,19 +1,27 @@
 <template>
   <div :data-render-status="renderStatus">
-    <Dashboard
-        device="desktop"
-        :layout="gridLayout"
-        :grid-config="gridConfig"
-        :widgets="widgets"
-        :loading="loading"
-        :preview="true"
-        :scaling-enabled="false"
-        :dashboard-id="id"
-    />
+    <!-- Render each tab -->
+    <div 
+      v-for="tab in tabs" 
+      :key="tab.id"
+    >
+      <Dashboard
+          device="desktop"
+          :layout="tab.layout"
+          :widgets="tab.widgets"
+          :loading="loading"
+          :preview="true"
+          :scaling-enabled="false"
+          :dashboard-id="id"
+          :dashboard-width="dashboardWidth"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { DASHBOARD_WIDTH } from '~/lib/dashboard-constants'
+
 definePageMeta({
   layout: 'empty'
 })
@@ -39,53 +47,22 @@ interface Widget {
   configOverride?: any
 }
 
-const widgets = ref<Widget[]>([])
-const gridLayout = ref<any[]>([])
+interface TabData {
+  id: string
+  widgets: Widget[]
+  layout: Array<{ i: string; left: number; top: number; width: number; height: number }>
+}
+
+const tabs = ref<TabData[]>([])
+const dashboardWidth = ref<number>(DASHBOARD_WIDTH)
 const loading = ref(true)
+
+// Get context token from URL and provide it to child components
+const renderContextToken = computed(() => route.query.context as string | undefined)
+provide('renderContextToken', renderContextToken)
 
 // Render status for PDF generation to wait on
 const renderStatus = computed(() => loading.value ? 'loading' : 'ready')
-
-// Grid configuration for render (read-only)
-const gridConfig = reactive({
-  // Basic layout properties
-  colNum: 12,
-  rowHeight: 30,
-  maxRows: Infinity,
-  margin: [20, 20] as [number, number],
-
-  // Behavior properties (disabled for render)
-  isDraggable: false,
-  isResizable: false,
-  isMirrored: false,
-  isBounded: false,
-
-  // Layout properties
-  autoSize: true,
-  verticalCompact: true,
-  restoreOnDrag: false,
-  preventCollision: false,
-
-  // Performance properties
-  useCssTransforms: true,
-  useStyleCursor: false, // Disabled for render
-  transformScale: 1,
-
-  // Responsive properties
-  responsive: true,
-  breakpoints: {lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0},
-  cols: {lg: 12, md: 10, sm: 6, xs: 4, xxs: 2}
-})
-
-function fromPositions() {
-  gridLayout.value = widgets.value.map(w => ({
-    x: w.position?.x ?? 0,
-    y: w.position?.y ?? 0,
-    w: w.position?.w ?? 4,
-    h: w.position?.h ?? 8,
-    i: String(w.widgetId)
-  }))
-}
 
 async function load() {
   loading.value = true
@@ -94,27 +71,51 @@ async function load() {
     const contextToken = route.query.context as string | undefined
     const res = await getDashboardFull(id.value, contextToken)
 
-    // Flatten all widgets from all tabs
-    const allWidgets: Widget[] = []
+    // Set dashboard width from response
+    dashboardWidth.value = res.width || DASHBOARD_WIDTH
+
+    // Build tabs array - each tab gets its own widgets and layout
+    const tabsData: TabData[] = []
+
     for (const tab of res.tabs || []) {
+      const tabWidgets: Widget[] = []
+      const tabLayout: Array<{ i: string; left: number; top: number; width: number; height: number }> = []
+
       for (const widget of (tab.widgets || [])) {
+        const position = widget.position || {}
+
         // Map API response to Widget interface
-        allWidgets.push({
+        tabWidgets.push({
           widgetId: String(widget.widgetId),
           type: widget.type as 'chart' | 'text',
           chartId: widget.id,
           name: widget.name || '',
-          position: widget.position,
+          position: position,
           state: widget.state,
-          // Note: No preloaded data - charts fetch their own data progressively
           style: widget.style,
           configOverride: widget.configOverride
+        })
+
+        // Build layout for this widget
+        tabLayout.push({
+          left: position.left ?? 0,
+          top: position.top ?? 0,
+          width: position.width ?? 400,
+          height: position.height ?? 240,
+          i: String(widget.widgetId)
+        })
+      }
+
+      if (tabWidgets.length > 0) {
+        tabsData.push({
+          id: tab.id,
+          widgets: tabWidgets,
+          layout: tabLayout
         })
       }
     }
 
-    widgets.value = allWidgets
-    fromPositions()
+    tabs.value = tabsData
   } finally {
     loading.value = false
   }
@@ -122,3 +123,5 @@ async function load() {
 
 onMounted(load)
 </script>
+
+

@@ -207,8 +207,49 @@ export default defineEventHandler(async (event) => {
                     } else {
                         // Load connection config
                         let cfg: any
-                        if (sameOrg) {
-                            cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
+                        if (sameOrg || isRenderContext) {
+                            // For same-org users OR trusted render context, load connection directly
+                            if (isRenderContext) {
+                                // In render context, load connection using service role
+                                const { data, error } = await supabaseAdmin
+                                    .from('data_connections')
+                                    .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
+                                    .eq('id', Number(connectionId))
+                                    .single()
+
+                                if (error || !data) {
+                                    console.error('[chart-data] Failed to load connection for render context:', error)
+                                    throw createError({ statusCode: 403, statusMessage: 'Connection not found' })
+                                }
+
+                                // Verify connection belongs to same org as dashboard
+                                if (data.organization_id !== dashboard.organization_id) {
+                                    console.error('[chart-data] Render context: connection org mismatch', {
+                                        connectionOrg: data.organization_id,
+                                        dashboardOrg: dashboard.organization_id,
+                                        connectionId: connectionId
+                                    })
+                                    throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
+                                }
+
+                                cfg = {
+                                    host: data.host,
+                                    port: Number(data.port),
+                                    user: data.username,
+                                    password: data.password,
+                                    database: data.database_name,
+                                    useSshTunneling: !!data.use_ssh_tunneling,
+                                    ssh: data.use_ssh_tunneling ? {
+                                        host: data.ssh_host,
+                                        port: Number(data.ssh_port),
+                                        user: data.ssh_user,
+                                        password: data.ssh_password || undefined,
+                                        privateKey: data.ssh_private_key || undefined
+                                    } : undefined
+                                }
+                            } else {
+                                cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
+                            }
                         } else {
                             // Public render path: verify the connection belongs to the dashboard org
                             const { data, error } = await supabaseAdmin
@@ -218,6 +259,12 @@ export default defineEventHandler(async (event) => {
                                 .single()
 
                             if (error || !data || data.organization_id !== dashboard.organization_id) {
+                                console.error('[chart-data] Access denied to connection', {
+                                    error,
+                                    connectionOrg: data?.organization_id,
+                                    dashboardOrg: dashboard.organization_id,
+                                    connectionId: connectionId
+                                })
                                 throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
                             }
                             cfg = {

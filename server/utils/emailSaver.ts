@@ -9,6 +9,9 @@
  *
  * This will save all emails sent via SendGrid to the specified directory
  * in .eml format, which can be opened with most email clients for inspection.
+ * 
+ * In development mode (NODE_ENV !== 'production'), emails are automatically
+ * saved to the 'dev-emails' directory instead of being sent via SendGrid.
  */
 
 import nodemailer from 'nodemailer'
@@ -30,9 +33,11 @@ export interface EmailData {
 
 /**
  * Save email to local file in .eml format for development testing
+ * @param emailData - The email data to save
+ * @param directory - Optional directory to save to (overrides SAVE_EMAILS_TO env var)
  */
-export async function saveEmailLocally(emailData: EmailData): Promise<void> {
-    const saveEmailsTo = process.env.SAVE_EMAILS_TO
+export async function saveEmailLocally(emailData: EmailData, directory?: string): Promise<void> {
+    const saveEmailsTo = directory || process.env.SAVE_EMAILS_TO
 
     if (!saveEmailsTo) {
         return // No local saving configured
@@ -40,7 +45,7 @@ export async function saveEmailLocally(emailData: EmailData): Promise<void> {
 
     try {
         // Create directory if it doesn't exist
-        await fs.promises.mkdir(saveEmailsTo, {recursive: true})
+        await fs.promises.mkdir(saveEmailsTo, { recursive: true })
 
         // Generate filename with timestamp and subject
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -81,3 +86,4 @@ export async function saveEmailLocally(emailData: EmailData): Promise<void> {
         // Don't throw - we don't want local saving to break email sending
     }
 }
+

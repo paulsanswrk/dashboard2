@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the comprehensive charts implementation for the Optiqo dashboard, featuring Apache ECharts with support for 21 different chart types, an intelligent adaptive zone system, and a **polymorphic renderer architecture**.
+This document describes the comprehensive charts implementation for the Optiqo dashboard, featuring Apache ECharts with support for 21 different chart types, an intelligent adaptive zone system, a **polymorphic renderer architecture**, and **per-series customization** via the Series Options Panel.
 
 ## Architecture
 
@@ -42,13 +42,18 @@ abstract class BaseChartRenderer {
     abstract readonly chartTypes: string[]
     abstract buildOption(context: ChartRenderContext): ChartRenderResult
     
-    // Shared utilities
+    // Formatting utilities
     protected formatNumber(value: number, decimalPlaces: number, thousandsSeparator: boolean): string
     protected getPalette(appearance?: AppearanceConfig): string[]
     protected getFontStyle(font?: FontStyle): Record<string, any>
+    
+    // Data extraction
     protected getCategories(rows, xDimensions, columns): string[]
     protected getSeriesData(rows, xDimensions, breakdowns, columns, chartType): SeriesData[]
-    // ... more utilities
+    
+    // Per-series customization
+    protected getSeriesConfig(seriesName: string, appearance?: AppearanceConfig): SeriesConfig
+    protected applySeriesOverrides(seriesOption, seriesName, appearance?, palette?, seriesIndex?): Record<string, any>
 }
 ```
 
@@ -107,6 +112,60 @@ registerRenderer(new MyNewChartRenderer())
 ```
 
 3. Add to the `chartType` prop union in `ReportingChart.vue`
+
+---
+
+## Series Options Panel
+
+### Overview
+
+Click on any chart series element (bar, line, pie slice, etc.) to open the **Series Options Panel** for per-series customization.
+
+### Components
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| SeriesOptionsPanel.vue | `components/reporting/` | Sidebar UI for series config |
+| ReportingChart.vue | `components/reporting/` | Emits `series-click` event |
+| builder.vue | `pages/reporting/` | Handles event, toggles panel |
+
+### SeriesConfig Type
+
+```typescript
+interface SeriesConfig {
+    color?: string
+    visualizationType?: 'default' | 'bar' | 'line' | 'area'
+    smoothing?: 'sharp' | 'smooth'
+    lineStyle?: 'solid' | 'dashed' | 'dotted'
+    markerStyle?: 'none' | 'circle' | 'square' | 'diamond' | 'triangle'
+    showOnSecondaryAxis?: boolean
+    showLabels?: boolean
+    showLabelBackground?: boolean
+    labelFont?: FontStyle
+    showTrendLine?: boolean
+}
+```
+
+### Event Flow
+
+1. User clicks chart series element
+2. `ReportingChart.vue` emits `series-click` with `{ seriesName, seriesIndex }`
+3. `ReportingBuilder.vue` forwards event to `builder.vue`
+4. `builder.vue` shows `SeriesOptionsPanel` in right sidebar
+5. Panel updates `appearance.seriesOptions[seriesName]`
+6. Chart re-renders with overrides via `applySeriesOverrides()`
+
+### Applying Overrides in Renderers
+
+```typescript
+// In CartesianChartRenderer.ts
+const seriesConfig = series.map((s, idx) => {
+    let baseConfig = { name: s.name, type: echartsType, data: s.data, ... }
+    // Apply per-series customization
+    baseConfig = this.applySeriesOverrides(baseConfig, s.name, appearance, palette, idx)
+    return baseConfig
+})
+```
 
 ---
 
@@ -180,12 +239,14 @@ interface ZoneConfig {
 
 ### ReportingChart.vue
 
-Primary chart rendering component (~230 lines):
+Primary chart rendering component (~270 lines):
 
 - Uses polymorphic renderer lookup
 - ECharts initialization and cleanup
 - ResizeObserver for responsive behavior
 - Click event delegation to renderers
+- Emits `series-click` for Series Options Panel
+- Supports `seriesOptions` in appearance config
 
 ### lib/charts/
 
@@ -219,6 +280,7 @@ interface ChartStateJson {
     palette?: string[]
     stacked?: boolean
     numberFormat?: { decimalPlaces?: number; thousandsSeparator?: boolean }
+    seriesOptions?: Record<string, SeriesConfig>  // Per-series customization
   }
   internal: {
     dataConnectionId: number
@@ -268,3 +330,6 @@ interface ChartStateJson {
 - Intelligent zone adaptation
 - Clean separation of concerns
 - Better maintainability
+- **Per-series customization via Series Options Panel**
+- **Secondary Y-axis support**
+

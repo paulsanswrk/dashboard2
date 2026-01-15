@@ -78,15 +78,17 @@
   <Dashboard
       v-else
       device="desktop"
-      :layout="gridLayout"
-      :grid-config="gridConfig"
+      :layout="pixelLayout"
       :widgets="widgets"
       :loading="loading"
       :preview="true"
+      :dashboard-width="dashboardWidth"
   />
 </template>
 
 <script setup lang="ts">
+import { DASHBOARD_WIDTH } from '~/lib/dashboard-constants'
+
 definePageMeta({
   layout: 'empty'
 })
@@ -105,7 +107,8 @@ useHead({
 const {getDashboardPreview} = useDashboardsService()
 
 const widgets = ref<Array<{ widgetId: string; type: string; chartId?: number; name?: string; position: any; state?: any; preloadedColumns?: any[]; preloadedRows?: any[] }>>([])
-const gridLayout = ref<any[]>([])
+const pixelLayout = ref<any[]>([])
+const dashboardWidth = ref<number>(DASHBOARD_WIDTH)
 const loading = ref(true)
 const error = ref<{ title: string; message: string } | null>(null)
 const showPasswordPrompt = ref(false)
@@ -114,43 +117,16 @@ const verifying = ref(false)
 const passwordError = ref('')
 const dashboardData = ref<any>(null)
 
-// Grid configuration for preview (read-only)
-const gridConfig = reactive({
-  // Basic layout properties
-  colNum: 12,
-  rowHeight: 30,
-  maxRows: Infinity,
-  margin: [20, 20],
-
-  // Behavior properties (disabled for preview)
-  isDraggable: false,
-  isResizable: false,
-  isMirrored: false,
-  isBounded: false,
-
-  // Layout properties
-  autoSize: true,
-  verticalCompact: true,
-  restoreOnDrag: false,
-  preventCollision: false,
-
-  // Performance properties
-  useCssTransforms: true,
-  useStyleCursor: false, // Disabled for preview
-  transformScale: 1,
-
-  // Responsive properties
-  responsive: true,
-  breakpoints: {lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0},
-  cols: {lg: 12, md: 10, sm: 6, xs: 4, xxs: 2}
-})
-
-function fromPositions() {
-  gridLayout.value = widgets.value.map(w => ({
-    x: w.position?.x ?? 0,
-    y: w.position?.y ?? 0,
-    w: w.position?.w ?? 4,
-    h: w.position?.h ?? 8,
+/**
+ * Build pixel-based layout from widget positions
+ * The position data is stored as {left, top, width, height} in the database
+ */
+function buildLayoutFromWidgets() {
+  pixelLayout.value = widgets.value.map(w => ({
+    left: w.position?.left ?? 0,
+    top: w.position?.top ?? 0,
+    width: w.position?.width ?? 400,
+    height: w.position?.height ?? 240,
     i: w.widgetId
   }))
 }
@@ -227,7 +203,7 @@ async function loadDashboardFromResponse(res: any) {
     preloadedColumns: w.data?.columns,
     preloadedRows: w.data?.rows
   }))
-  fromPositions()
+  buildLayoutFromWidgets()
   loading.value = false
 }
 

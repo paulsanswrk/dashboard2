@@ -140,9 +140,6 @@ const containerStyle = computed(() => {
   return {
     borderRadius: `${s.borderRadius || 0}px`,
     backgroundColor: s.backgroundColor || 'transparent',
-    border: s.borderWidth && s.borderWidth > 0
-        ? `${s.borderWidth}px ${s.borderStyle || 'solid'} ${s.borderColor || '#ccc'}`
-        : 'none',
     boxShadow: getShadowCSS(s.shadowSize, s.shadowPosition, s.shadowColor),
     cursor: s.linkEnabled && hasLink.value ? 'pointer' : 'default',
     position: 'relative' as const

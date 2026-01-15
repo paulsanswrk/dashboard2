@@ -1,7 +1,8 @@
 <template>
   <div 
     ref="containerRef" 
-    class="relative w-full min-h-full border rounded bg-white dark:bg-gray-900 overflow-hidden" 
+    class="relative w-full bg-white dark:bg-gray-900 overflow-hidden" 
+    :class="{'border rounded': !preview}" 
     @click="handleContainerClick"
     @mousemove="handleGlobalMouseMove"
     @mouseup="handleGlobalMouseUp"
@@ -47,7 +48,7 @@
           <div 
             v-for="item in layout" 
             :key="item.i"
-            class="absolute transition-shadow transition-[border-color]"
+            class="absolute transition-shadow transition-[border-color] dashboard-widget"
             :class="{
               'ring-2 ring-blue-500 z-30': isSelected(item.i),
               'hover:ring-1 hover:ring-gray-300': !isSelected(item.i) && !preview,
@@ -74,7 +75,7 @@
             <template v-if="findWidget(item.i)?.type === 'chart'">
               <UCard
                   class="h-full w-full pointer-events-auto"
-                  :ui="{ body: { padding: 'sm:p-2 p-2' } }"
+                  :ui="getChartCardUi(item.i)"
                   :style="[getWidgetContainerStyle(item.i), {
                     backgroundColor: tabStyle?.chartBackground
                   }]"
@@ -252,26 +253,41 @@ const scale = computed(() => {
   return containerWidth.value / previewWidth.value
 })
 
-const DASHBOARD_HEIGHT = 2000 // Substantial default height
+const DASHBOARD_MIN_HEIGHT = 2000
 
-const scaledContainerStyle = computed(() => ({
-  width: `${previewWidth.value}px`,
-  minHeight: `${DASHBOARD_HEIGHT}px`,
-  transform: scale.value !== 1 ? `scale(${scale.value})` : undefined,
-  transformOrigin: 'top left',
-  zIndex: 20
-}))
+const calculatedHeight = computed(() => {
+  const maxY = props.layout.reduce((acc, item) => Math.max(acc, item.top + item.height), 0)
+  if (props.preview) {
+    // Add a small buffer for shadows or tight borders, but much smaller than edit mode
+    return Math.max(10, maxY + 40)
+  }
+  return Math.max(DASHBOARD_MIN_HEIGHT, maxY + 100)
+})
+
+const scaledContainerStyle = computed(() => {
+  const style: any = {
+    width: `${previewWidth.value}px`,
+    transform: scale.value !== 1 ? `scale(${scale.value})` : undefined,
+    transformOrigin: 'top left',
+    zIndex: 20,
+    border: (!props.preview) ? '1px solid #e5e7eb' : 'none'
+  }
+
+  if (props.preview) {
+    style.height = `${calculatedHeight.value}px`
+  } else {
+    style.minHeight = `${calculatedHeight.value}px`
+  }
+
+  return style
+})
 
 
 const wrapperStyle = computed(() => {
   const s = scale.value
-  // Find bottom-most widget to determine minimum height
-  const maxY = props.layout.reduce((acc, item) => Math.max(acc, item.top + item.height), 0)
-  const calculatedHeight = Math.max(DASHBOARD_HEIGHT, maxY + 100)
-  
   return {
     width: '100%',
-    height: `${calculatedHeight * s}px`,
+    height: `${calculatedHeight.value * s}px`,
   }
 })
 
@@ -288,18 +304,65 @@ const findWidgetStyle = (i: string) => findWidget(i)?.style || {}
 const findConfigOverride = (i: string) => findWidget(i)?.configOverride || {}
 
 function getWidgetContainerStyle(i: string): Record<string, string> {
-  const style = findWidgetStyle(i)
-  const borderWidth = style.borderWidth ?? 0
+  const widget = findWidget(i)
+  const style = widget?.style || {}
+  const widgetType = widget?.type
+  
+  const res: Record<string, string> = {}
+  
+  // For icon widgets, only apply border if explicitly set by user
+  // Icons typically should not have container borders
+  if (widgetType === 'icon') {
+    if (style.borderWidth && style.borderWidth > 0) {
+      const borderColor = style.borderColor || '#e5e7eb'
+      const borderStyle = style.borderStyle || 'solid'
+      res.border = `${style.borderWidth}px ${borderStyle} ${borderColor}`
+    } else if (props.preview) {
+      // In preview/PDF mode, explicitly set no border
+      res.border = 'none'
+    }
+    // In edit mode, show dashed border as guide when no border is set
+    if (!props.preview && !isSelected(i) && (!style.borderWidth || style.borderWidth === 0)) {
+      res.border = '1px dashed #d1d5db'
+    }
+    return res
+  }
+  
+  // For other widget types, apply default 1px border
+  let borderWidth = style.borderWidth ?? 1
   const borderColor = style.borderColor || '#e5e7eb'
   const borderStyle = style.borderStyle || 'solid'
   
-  const res: Record<string, string> = {}
-  if (borderWidth > 0) {
-    res.border = `${borderWidth}px ${borderStyle} ${borderColor}`
-  } else if (!props.preview && !isSelected(i)) {
+  // If borderWidth is 0, we'll still use 1px as a workaround for PDF consistency
+  if (borderWidth === 0) borderWidth = 1
+
+  res.border = `${borderWidth}px ${borderStyle} ${borderColor}`
+
+  // Apply dashed border only in edit mode when not selected (as a visual guide)
+  if (!props.preview && !isSelected(i) && style.borderWidth === 0) {
     res.border = '1px dashed #d1d5db'
   }
+  
   return res
+}
+
+function getChartCardUi(i: string) {
+  const style = findWidgetStyle(i)
+  // We're now defaulting to 1px, so borderWidth should effectively be at least 1
+  const borderWidth = style.borderWidth ?? 1
+  
+  // Base padding config
+  const ui: any = {
+    body: { padding: 'sm:p-2 p-2' }
+  }
+  
+  // Always remove default Nuxt UI styling so our custom border logic applies cleanly
+  ui.ring = ''
+  ui.shadow = ''
+  ui.divide = ''
+  // Keep rounded as it usually comes from our style_json anyway
+  
+  return ui
 }
 
 function handleContainerClick() {

@@ -34,7 +34,7 @@ export default defineNuxtConfig({
             login: '/login',
             callback: '/auth/callback',
             exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password',
-                '/auth/callback', '/render/**', '/dashboards/preview/**']
+                '/auth/callback', '/render/**', '/render', '/dashboards/preview/**']
         },
         // Explicitly set the URL and key
         url: process.env.SUPABASE_URL,

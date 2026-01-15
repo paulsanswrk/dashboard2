@@ -1,7 +1,7 @@
-import {supabaseAdmin} from '../api/supabase'
-import {db} from '../../lib/db'
-import {dashboardAccess, dashboards, profiles} from '../../lib/db/schema'
-import {and, eq} from 'drizzle-orm'
+import { supabaseAdmin } from '../api/supabase'
+import { db } from '../../lib/db'
+import { dashboardAccess, dashboards, profiles } from '../../lib/db/schema'
+import { and, eq } from 'drizzle-orm'
 
 /**
  * Check if a user has permission to use a specific data connection
@@ -12,7 +12,7 @@ import {and, eq} from 'drizzle-orm'
 export async function checkConnectionPermission(connectionId: number, userId: string): Promise<boolean> {
     try {
         // First, get the connection details
-        const {data: connection, error: connectionError} = await supabaseAdmin
+        const { data: connection, error: connectionError } = await supabaseAdmin
             .from('data_connections')
             .select('owner_id, organization_id')
             .eq('id', connectionId)
@@ -31,7 +31,7 @@ export async function checkConnectionPermission(connectionId: number, userId: st
         // Check organization-based access
         if (connection.organization_id) {
             // Get user's profile to check organization membership and role
-            const {data: profile, error: profileError} = await supabaseAdmin
+            const { data: profile, error: profileError } = await supabaseAdmin
                 .from('profiles')
                 .select('organization_id, role')
                 .eq('user_id', userId)
@@ -118,8 +118,8 @@ export async function checkDashboardPermission(dashboardId: string, userId?: str
         }
 
         // 2. SUPERADMIN and ADMIN in the same organization have access
-        if (userProfile && (userProfile.role === 'SUPERADMIN' ||
-            (userProfile.role === 'ADMIN' && userProfile.organizationId === dashboard.organizationId))) {
+        // Strict org isolation: SUPERADMINs are also restricted to their org context
+        if (userProfile && ['SUPERADMIN', 'ADMIN'].includes(userProfile.role) && userProfile.organizationId === dashboard.organizationId) {
             return true
         }
 
@@ -192,8 +192,8 @@ export async function checkEditPermission(dashboardId: string, userId: string): 
             .then(rows => rows[0])
 
         // SUPERADMIN and ADMIN in the same organization have edit access
-        if (userProfile && (userProfile.role === 'SUPERADMIN' ||
-            (userProfile.role === 'ADMIN' && userProfile.organizationId === dashboard.organizationId))) {
+        // Strict org isolation: SUPERADMINs are also restricted to their org context
+        if (userProfile && ['SUPERADMIN', 'ADMIN'].includes(userProfile.role) && userProfile.organizationId === dashboard.organizationId) {
             return true
         }
 
