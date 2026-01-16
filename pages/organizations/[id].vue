@@ -123,7 +123,7 @@
           </template>
 
           <div v-if="internalUsers?.length > 0" class="space-y-3 max-h-96 overflow-y-auto pr-1">
-            <div v-for="profile in internalUsers" :key="profile.user_id"
+            <div v-for="profile in internalUsers" :key="profile.userId"
                  class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
@@ -149,7 +149,7 @@
                     class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
                     @click="deleteUser(profile)"
                     :disabled="isDeletingUser"
-                    :loading="isDeletingUser && deletingUserId === profile.user_id"
+                    :loading="isDeletingUser && deletingUserId === profile.userId"
                 >
                   <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                 </UButton>
@@ -213,7 +213,7 @@
                     class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
                     @click="deleteViewer(viewer)"
                     :disabled="isDeletingViewer"
-                    :loading="isDeletingViewer && deletingViewerId === viewer.user_id"
+                    :loading="isDeletingViewer && deletingViewerId === viewer.userId"
                 >
                   <Icon name="i-heroicons-trash" class="w-4 h-4"/>
                 </UButton>
@@ -567,7 +567,7 @@ const allViewers = computed(() => {
   const viewersFromProfiles = (organization.value.profiles || [])
       .filter(profile => profile.role === 'VIEWER')
       .map(profile => ({
-        user_id: profile.user_id,
+        userId: profile.userId,
         first_name: profile.first_name,
         last_name: profile.last_name,
         viewer_type: profile.viewer_type || 'Viewer',
@@ -580,7 +580,7 @@ const allViewers = computed(() => {
   // Combine both sources and remove duplicates
   const allViewers = [...viewersFromProfiles, ...viewersFromViewersTable]
   const uniqueViewers = allViewers.filter((viewer, index, self) =>
-      index === self.findIndex(v => v.user_id === viewer.user_id)
+      index === self.findIndex(v => v.userId === viewer.userId)
   )
 
   return uniqueViewers
@@ -877,7 +877,7 @@ const confirmDeleteUser = async () => {
 
   try {
     isDeletingUser.value = true
-    deletingUserId.value = userToDelete.value.user_id
+    deletingUserId.value = userToDelete.value.userId
     const toast = useToast()
 
     const accessToken = await getAccessToken()
@@ -885,7 +885,7 @@ const confirmDeleteUser = async () => {
       throw new Error('No access token available')
     }
 
-    const response = await $fetch(`/api/users/${userToDelete.value.user_id}`, {
+    const response = await $fetch(`/api/users/${userToDelete.value.userId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -936,7 +936,7 @@ const confirmDeleteViewer = async () => {
 
   try {
     isDeletingViewer.value = true
-    deletingViewerId.value = viewerToDelete.value.user_id
+    deletingViewerId.value = viewerToDelete.value.userId
     const toast = useToast()
 
     const accessToken = await getAccessToken()
@@ -945,7 +945,7 @@ const confirmDeleteViewer = async () => {
     }
 
     // Use the existing viewers API endpoint which handles both types
-    const response = await $fetch(`/api/viewers/${viewerToDelete.value.user_id}`, {
+    const response = await $fetch(`/api/viewers/${viewerToDelete.value.userId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`

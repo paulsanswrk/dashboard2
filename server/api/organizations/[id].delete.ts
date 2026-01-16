@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       throw createError({
         statusCode: 401,
@@ -54,8 +54,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Check if user is admin
-    if (profileData.role !== 'ADMIN') {
+    // Check if user is admin or superadmin
+    if (profileData.role !== 'ADMIN' && profileData.role !== 'SUPERADMIN') {
       throw createError({
         statusCode: 403,
         statusMessage: 'Only admins can delete organizations'
@@ -97,18 +97,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Delete all viewers in the organization
-    const { error: viewersError } = await supabase
-      .from('viewers')
-      .delete()
-      .eq('organization_id', organizationId)
-
-    if (viewersError) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: `Failed to delete organization viewers: ${viewersError.message}`
-      })
-    }
+    // Note: Viewers are now stored in profiles table with role=VIEWER, 
+    // so they are already deleted with the profiles delete above
 
     // Delete all dashboards created by users in this organization
     const { data: orgUsers } = await supabase

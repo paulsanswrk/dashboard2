@@ -29,10 +29,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       setResponseStatus(event, 401)
       return {
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    if (profileData.role !== 'ADMIN') {
+    if (profileData.role !== 'ADMIN' && profileData.role !== 'SUPERADMIN') {
       setResponseStatus(event, 403)
       return {
         success: false,
@@ -101,7 +101,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Create organization error:', error)
-    
+
     setResponseStatus(event, 500)
     return {
       success: false,

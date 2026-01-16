@@ -17,7 +17,7 @@ This document describes the implementation of the Organizations Management funct
 ### 2. Authentication & Security
 - **Authorization Header Pattern**: Uses `Bearer` token authentication instead of cookies
 - **Service Role Access**: Leverages Supabase service role for database operations
-- **Role-Based Access**: ADMIN users can see all organizations, others see only their own
+- **Role-Based Access**: SUPERADMIN and ADMIN users can see and manage all organizations, others see only their own
 - **Token Validation**: Proper JWT token verification with `supabase.auth.getUser()`
 
 ### 3. User Experience Enhancements

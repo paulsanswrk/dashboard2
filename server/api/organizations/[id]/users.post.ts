@@ -31,10 +31,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       setResponseStatus(event, 401)
       return {
@@ -100,8 +100,9 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Only ADMIN users can add users to any organization, others can only add to their own
-    if (profile.role !== 'ADMIN' && profile.organization_id !== organizationId) {
+    // SUPERADMIN and ADMIN users can add users to any organization, others can only add to their own
+    const canManageAnyOrg = profile.role === 'SUPERADMIN' || profile.role === 'ADMIN'
+    if (!canManageAnyOrg && profile.organization_id !== organizationId) {
       setResponseStatus(event, 403)
       return {
         success: false,
@@ -157,10 +158,10 @@ export default defineEventHandler(async (event) => {
     // Get site URL from runtime config
     const config = useRuntimeConfig()
     const siteUrl = config.public.siteUrl || 'http://localhost:3000'
-    
+
     // Generate magic link for the new user
     const magicLink = generateMagicLink(newUserId, email, siteUrl)
-    
+
     // Send invitation email with magic link
     try {
       const emailTemplate = generateUserInvitationWithMagicLinkTemplate({
@@ -172,9 +173,9 @@ export default defineEventHandler(async (event) => {
         confirmationUrl: magicLink,
         siteUrl: siteUrl
       })
-      
+
       const emailSent = await sendEmail(email, emailTemplate)
-      
+
       if (!emailSent) {
         console.warn('Failed to send invitation email to user:', email)
       }
@@ -202,7 +203,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Create user error:', error)
-    
+
     setResponseStatus(event, 500)
     return {
       success: false,

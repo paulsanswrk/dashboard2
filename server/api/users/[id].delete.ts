@@ -29,10 +29,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       setResponseStatus(event, 401)
       return {
@@ -61,10 +61,10 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Get user's organization from profiles table
+    // Get user's profile (organization_id and role)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('organization_id')
+      .select('organization_id, role')
       .eq('user_id', userId)
       .single()
 
@@ -76,7 +76,10 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    if (!profile.organization_id) {
+    // SUPERADMIN can manage users in any organization
+    const isSuperAdmin = profile.role === 'SUPERADMIN'
+
+    if (!isSuperAdmin && !profile.organization_id) {
       setResponseStatus(event, 400)
       return {
         success: false,
@@ -84,13 +87,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Check if target user exists and belongs to the same organization
-    const { data: existingUser, error: userError } = await supabase
+    // Check if target user exists (for SUPERADMIN, no org filter; for others, filter by same org)
+    let targetUserQuery = supabase
       .from('profiles')
       .select('user_id, organization_id')
       .eq('user_id', targetUserId)
-      .eq('organization_id', profile.organization_id)
-      .single()
+
+    if (!isSuperAdmin) {
+      targetUserQuery = targetUserQuery.eq('organization_id', profile.organization_id)
+    }
+
+    const { data: existingUser, error: userError } = await targetUserQuery.single()
 
     if (userError) {
       if (userError.code === 'PGRST116') {
@@ -107,12 +114,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Delete the user profile
-    const { error: deleteError } = await supabase
+    // Delete the user profile (SUPERADMIN can delete any user, others only in their org)
+    let deleteQuery = supabase
       .from('profiles')
       .delete()
       .eq('user_id', targetUserId)
-      .eq('organization_id', profile.organization_id)
+
+    if (!isSuperAdmin) {
+      deleteQuery = deleteQuery.eq('organization_id', profile.organization_id)
+    }
+
+    const { error: deleteError } = await deleteQuery
 
     if (deleteError) {
       console.error('Error deleting user:', deleteError)
@@ -131,7 +143,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Delete user error:', error)
-    
+
     setResponseStatus(event, 500)
     return {
       success: false,
