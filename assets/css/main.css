@@ -1048,7 +1048,7 @@ input[type="email"],
 input[type="password"],
 input[type="number"] {
     min-height: 2.5rem;
-    @apply px-3 py-2;
+    /*@apply px-3 py-2;*/
 }
 
 /* Checkbox styling improvements */

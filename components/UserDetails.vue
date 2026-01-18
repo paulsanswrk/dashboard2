@@ -11,6 +11,28 @@
     </div>
     <UCard>
       <div class="p-4 lg:p-6 space-y-4">
+        
+        <!-- User Header with Avatar -->
+        <div class="flex items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <div class="w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+            {{ getUserInitials(selectedUser.firstName, selectedUser.lastName) }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
+              {{ selectedUser.firstName || '' }} {{ selectedUser.lastName || '' }}
+            </h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ selectedUser.email }}</p>
+            <div class="flex items-center gap-2 mt-1">
+              <UBadge :color="getRoleBadgeColor(selectedUser.role)" variant="soft" size="xs">
+                {{ selectedUser.role }}
+              </UBadge>
+              <UBadge v-if="selectedUser.organizationName" color="gray" variant="soft" size="xs">
+                {{ selectedUser.organizationName }}
+              </UBadge>
+            </div>
+          </div>
+        </div>
+        
         <UFormField label="First Name">
           <UInput v-model="selectedUser.firstName"
                   class="w-full"
@@ -119,4 +141,22 @@ const availableRoles = computed(() => {
   // Filter roles based on hierarchy (can only assign roles equal to or lower than own role)
   return allRoles.filter(role => roleHierarchy[role.value] <= currentUserLevel)
 })
+
+// Helper function to get user initials
+const getUserInitials = (firstName, lastName) => {
+  const first = (firstName || '')[0] || ''
+  const last = (lastName || '')[0] || ''
+  return (first + last).toUpperCase() || '?'
+}
+
+// Helper function to get role badge color
+const getRoleBadgeColor = (role) => {
+  const colors = {
+    'SUPERADMIN': 'red',
+    'ADMIN': 'orange',
+    'EDITOR': 'blue',
+    'VIEWER': 'gray'
+  }
+  return colors[role] || 'gray'
+}
 </script>

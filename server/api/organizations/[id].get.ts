@@ -1,25 +1,25 @@
 // @ts-ignore Nuxt Supabase helper available at runtime
-import {serverSupabaseUser} from '#supabase/server'
-import {db} from '~/lib/db'
-import {dashboards, organizations, profiles} from '~/lib/db/schema'
-import {eq, sql} from 'drizzle-orm'
+import { serverSupabaseUser } from '#supabase/server'
+import { db } from '~/lib/db'
+import { dashboards, organizations, profiles } from '~/lib/db/schema'
+import { and, eq, sql } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   try {
-      const user = await serverSupabaseUser(event)
-      if (!user) {
-          throw createError({statusCode: 401, statusMessage: 'Unauthorized'})
+    const user = await serverSupabaseUser(event)
+    if (!user) {
+      throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
     }
 
-      // Get user profile to check role and permissions
-      const userProfile = await db
-          .select()
-          .from(profiles)
-          .where(eq(profiles.userId, user.id))
-          .limit(1)
-          .then(rows => rows[0])
+    // Get user profile to check role and permissions
+    const userProfile = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, user.id))
+      .limit(1)
+      .then(rows => rows[0])
 
-      if (!userProfile) {
+    if (!userProfile) {
       throw createError({
         statusCode: 404,
         statusMessage: 'User profile not found'
@@ -35,85 +35,96 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-      // Check if user can access this organization
-      if (userProfile.role !== 'SUPERADMIN' && userProfile.organizationId !== organizationId) {
-          throw createError({
-              statusCode: 403,
-              statusMessage: 'Access denied to this organization'
-          })
-      }
+    // Check if user can access this organization
+    if (userProfile.role !== 'SUPERADMIN' && userProfile.organizationId !== organizationId) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Access denied to this organization'
+      })
+    }
 
-      // Get organization
-      const organization = await db
-          .select()
-          .from(organizations)
-          .where(eq(organizations.id, organizationId))
-          .limit(1)
-          .then(rows => rows[0])
+    // Get organization
+    const organization = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1)
+      .then(rows => rows[0])
 
-      if (!organization) {
-          throw createError({
-              statusCode: 404,
-              statusMessage: 'Organization not found'
-          })
-      }
+    if (!organization) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Organization not found'
+      })
+    }
 
-      // Get counts using SQL aggregation
-      const [counts] = await db
-          .select({
-              profileCount: sql<number>`count(distinct
+    // Get counts using SQL aggregation
+    const countsResult = await db
+      .select({
+        profileCount: sql<number>`count(distinct
               ${profiles.userId}
               )`,
-              viewerCount: sql<number>`count(distinct CASE WHEN ${profiles.role} = 'VIEWER' THEN ${profiles.userId} END)`,
-              dashboardCount: sql<number>`count(distinct
+        viewerCount: sql<number>`count(distinct CASE WHEN ${profiles.role} = 'VIEWER' THEN ${profiles.userId} END)`,
+        dashboardCount: sql<number>`count(distinct
               ${dashboards.id}
               )`
-          })
-          .from(organizations)
-          .leftJoin(profiles, eq(organizations.id, profiles.organizationId))
-          .leftJoin(dashboards, eq(organizations.id, dashboards.organizationId))
-          .where(eq(organizations.id, organizationId))
-          .groupBy(organizations.id)
+      })
+      .from(organizations)
+      .leftJoin(profiles, eq(organizations.id, profiles.organizationId))
+      .leftJoin(dashboards, eq(organizations.id, dashboards.organizationId))
+      .where(eq(organizations.id, organizationId))
+      .groupBy(organizations.id)
 
-      // Get organization profiles (users)
-      const orgProfiles = await db
-          .select({
-              userId: profiles.userId,
-              firstName: profiles.firstName,
-              lastName: profiles.lastName,
-              role: profiles.role,
-              createdAt: profiles.createdAt
-          })
-          .from(profiles)
-          .where(eq(profiles.organizationId, organizationId))
-          .orderBy(profiles.createdAt)
+    const counts = countsResult[0]
 
-      // Get organization viewers
-      const orgViewers = await db
-          .select({
-              userId: profiles.userId,
-              firstName: profiles.firstName,
-              lastName: profiles.lastName,
-              viewerType: profiles.viewerType,
-              groupName: profiles.groupName,
-              createdAt: profiles.createdAt
-          })
-          .from(profiles)
-          .where(eq(profiles.organizationId, organizationId))
-          .where(eq(profiles.role, 'VIEWER'))
-          .orderBy(profiles.createdAt)
+    // Get organization profiles (users) - use raw SQL subquery for email since Drizzle
+    // incorrectly quotes schema-qualified table names ("auth.users" instead of "auth"."users")
+    const orgProfiles = await db
+      .select({
+        userId: profiles.userId,
+        email: sql<string>`(SELECT email FROM auth.users WHERE id = ${profiles.userId})`,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        role: profiles.role,
+        createdAt: profiles.createdAt
+      })
+      .from(profiles)
+      .where(eq(profiles.organizationId, organizationId))
+      .orderBy(profiles.createdAt)
 
-      // Build response
+    // Get organization viewers - use raw SQL subquery for email
+    const orgViewers = await db
+      .select({
+        userId: profiles.userId,
+        email: sql<string>`(SELECT email FROM auth.users WHERE id = ${profiles.userId})`,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        viewerType: profiles.viewerType,
+        groupName: profiles.groupName,
+        createdAt: profiles.createdAt
+      })
+      .from(profiles)
+      .where(and(
+        eq(profiles.organizationId, organizationId),
+        eq(profiles.role, 'VIEWER')
+      ))
+      .orderBy(profiles.createdAt)
+
+    // Build response with null-safe access
+    const profileCount = counts?.profileCount ?? 0
+    const viewerCount = counts?.viewerCount ?? 0
+    const dashboardCount = counts?.dashboardCount ?? 0
+
     const organizationWithCounts = {
       ...organization,
-        user_count: (counts?.profileCount || 0) + (counts?.viewerCount || 0),
-        profile_count: counts?.profileCount || 0,
-        viewer_count: counts?.viewerCount || 0,
-        dashboards_count: counts?.dashboardCount || 0,
-        licenses: organization.viewerCount || 0,
-        status: 'active',
-        profiles: orgProfiles || [],
-        viewers: orgViewers || []
+      user_count: profileCount + viewerCount,
+      profile_count: profileCount,
+      viewer_count: viewerCount,
+      dashboards_count: dashboardCount,
+      licenses: organization.viewerCount || 0,
+      status: 'active',
+      profiles: orgProfiles || [],
+      viewers: orgViewers || []
     }
 
     return {

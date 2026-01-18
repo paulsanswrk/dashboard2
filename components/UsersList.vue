@@ -10,15 +10,18 @@
       </div>
       <div class="col-span-5 font-medium text-gray-700 dark:text-gray-300">
         <div class="flex items-center gap-1">
-          Email
+          User
           <Icon name="i-heroicons-chevron-up-down" class="w-4 h-4"/>
         </div>
       </div>
-      <div class="col-span-6 font-medium text-gray-700 dark:text-gray-300">
+      <div class="col-span-3 font-medium text-gray-700 dark:text-gray-300">
         <div class="flex items-center gap-1">
-          Name
+          Role
           <Icon name="i-heroicons-chevron-up-down" class="w-4 h-4"/>
         </div>
+      </div>
+      <div class="col-span-3 font-medium text-gray-700 dark:text-gray-300 hidden sm:block">
+        Organization
       </div>
     </div>
 
@@ -36,11 +39,29 @@
           @click.stop
         />
       </div>
-      <div class="col-span-5 text-sm text-gray-900 dark:text-gray-100 truncate">
-        {{ user.email }}
+      <div class="col-span-5">
+        <div class="flex items-center gap-3">
+          <!-- Avatar with initials -->
+          <div class="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+            {{ getUserInitials(user.firstName, user.lastName) }}
+          </div>
+          <div class="min-w-0">
+            <div class="font-medium text-gray-900 dark:text-gray-100 truncate">
+              {{ user.name || 'No name' }}
+            </div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {{ user.email }}
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="col-span-6 text-sm text-gray-900 dark:text-gray-100 truncate">
-        {{ user.name || 'No name' }}
+      <div class="col-span-3 flex items-center">
+        <UBadge :color="getRoleBadgeColor(user.role)" variant="soft" size="xs">
+          {{ user.role }}
+        </UBadge>
+      </div>
+      <div class="col-span-3 flex items-center text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:flex">
+        {{ user.organizationName || '—' }}
       </div>
     </div>
   </div>
@@ -89,5 +110,23 @@ const toggleSelectAll = (checked) => {
 
 const toggleUserSelection = (userId, checked) => {
   emit('toggleUserSelection', userId, checked)
+}
+
+// Helper function to get user initials
+const getUserInitials = (firstName, lastName) => {
+  const first = (firstName || '')[0] || ''
+  const last = (lastName || '')[0] || ''
+  return (first + last).toUpperCase() || '?'
+}
+
+// Helper function to get role badge color
+const getRoleBadgeColor = (role) => {
+  const colors = {
+    'SUPERADMIN': 'red',
+    'ADMIN': 'orange',
+    'EDITOR': 'blue',
+    'VIEWER': 'gray'
+  }
+  return colors[role] || 'gray'
 }
 </script>

@@ -11,6 +11,12 @@ export const verifyRecaptcha = async (token: string, action?: string): Promise<b
         return true
     }
 
+    // Bypass reCAPTCHA in test mode (Playwright, Jest, etc.)
+    if (process.env.NODE_ENV === 'test') {
+        console.log('🧪 reCAPTCHA verification BYPASSED (NODE_ENV=test)')
+        return true
+    }
+
     if (!config.private.recaptchaSecretKey) {
         console.warn('reCAPTCHA secret key not configured')
         return true // Allow in development if not configured

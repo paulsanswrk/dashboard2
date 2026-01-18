@@ -26,7 +26,7 @@
       <!-- Organization Details -->
       <div v-else-if="organization" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 items-start">
         <!-- Organization Overview -->
-        <UCard class="bg-white dark:bg-gray-800">
+        <UCard class="bg-white dark:bg-gray-800 2xl:col-span-2">
           <template #header>
             <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
               Organization Overview
@@ -34,13 +34,11 @@
           </template>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-
-
             <div class="text-center">
               <div class="flex items-center justify-center w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full mx-auto mb-3">
                 <Icon name="i-heroicons-user-group" class="w-6 h-6 text-green-600 dark:text-green-300"/>
               </div>
-              <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.profile_count || 0 }}</div>
+              <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ internalUsers?.length || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Internal Users</div>
             </div>
 
@@ -48,7 +46,7 @@
               <div class="flex items-center justify-center w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full mx-auto mb-3">
                 <Icon name="i-heroicons-eye" class="w-6 h-6 text-purple-600 dark:text-purple-300"/>
               </div>
-              <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ organization.viewer_count || 0 }}</div>
+              <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ allViewers?.length || 0 }}</div>
               <div class="text-sm text-gray-500 dark:text-gray-400">Viewers</div>
             </div>
 
@@ -103,127 +101,276 @@
         </UCard>
 
         <!-- Users Section -->
-        <UCard class="bg-white dark:bg-gray-800">
+        <UCard class="bg-white dark:bg-gray-800 lg:col-span-1 user-card-container">
           <template #header>
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-                Internal Users ({{ internalUsers?.length || 0 }})
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+                Internal Users ({{ filteredInternalUsers?.length || 0 }})
               </h3>
-              <UButton
-                  color="orange"
-                  size="sm"
-                  class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
-                  @click="openAddUserModal"
-                  :disabled="isLoading"
-              >
-                <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
-                Add User
-              </UButton>
-            </div>
-          </template>
-
-          <div v-if="internalUsers?.length > 0" class="space-y-3 max-h-96 overflow-y-auto pr-1">
-            <div v-for="profile in internalUsers" :key="profile.userId"
-                 class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                  <Icon name="i-heroicons-user" class="w-4 h-4 text-gray-600 dark:text-gray-300"/>
-                </div>
-                <div>
-                  <div class="font-medium text-gray-900 dark:text-white">
-                    {{ profile.first_name }} {{ profile.last_name }}
-                  </div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ profile.role }}
-                  </div>
-                </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="text-sm text-gray-500 dark:text-gray-400">
-                  {{ formatDate(profile.createdAt, true) }}
-                </div>
-                <UButton
-                    variant="ghost"
+              <div class="flex items-center gap-2 flex-wrap">
+                <UInput
+                    v-model="userSearchQuery"
+                    placeholder="Search users..."
                     size="sm"
-                    color="red"
-                    class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
-                    @click="deleteUser(profile)"
-                    :disabled="isDeletingUser"
-                    :loading="isDeletingUser && deletingUserId === profile.userId"
+                    class="w-40 md:w-48 search-input"
+                    :disabled="isLoading"
+                    :ui="{ padding: { sm: 'ps-9' } }"
                 >
-                  <Icon name="i-heroicons-trash" class="w-4 h-4"/>
+                  <template #leading>
+                    <Icon name="i-heroicons-magnifying-glass" class="w-4 h-4 text-gray-400" />
+                  </template>
+                  <template #trailing>
+                    <UButton
+                        v-if="userSearchQuery"
+                        color="gray"
+                        variant="link"
+                        icon="i-heroicons-x-mark"
+                        :padded="false"
+                        @click="userSearchQuery = ''"
+                        class="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    />
+                  </template>
+                </UInput>
+                <UButton
+                    color="orange"
+                    size="sm"
+                    class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer whitespace-nowrap"
+                    @click="openAddUserModal"
+                    :disabled="isLoading"
+                >
+                  <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+                  Add User
                 </UButton>
               </div>
             </div>
+          </template>
+
+          <!-- Bulk Actions Bar -->
+          <div v-if="selectedUsers.length > 0" class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-between">
+            <span class="text-sm text-blue-700 dark:text-blue-300">{{ selectedUsers.length }} user(s) selected</span>
+            <div class="flex gap-2">
+              <UButton size="xs" color="red" variant="soft" @click="bulkDeleteUsers" :loading="isBulkDeleting">
+                <Icon name="i-heroicons-trash" class="w-3 h-3 mr-1"/>
+                Delete Selected
+              </UButton>
+              <UButton size="xs" variant="ghost" @click="clearUserSelection">
+                Clear
+              </UButton>
+            </div>
+          </div>
+
+          <div v-if="filteredInternalUsers?.length > 0" class="users-list-container space-y-2 max-h-96 overflow-y-auto pr-1">
+            <div v-for="profile in filteredInternalUsers" :key="profile.userId"
+                 class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+              <!-- Responsive row: stack on small screens, row on larger -->
+              <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                <!-- Left: Checkbox + Avatar + Name/Email -->
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                   <UCheckbox
+                       color="primary"
+                      :model-value="selectedUsers.includes(profile.userId)"
+                      @update:model-value="toggleUserSelection(profile.userId)"
+                      class="flex-shrink-0 -ml-0.5 user-checkbox"
+                      :ui="{ border: 'border-gray-300 dark:border-gray-500' }"
+                  />
+                  <div class="w-9 h-9 md:w-10 md:h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-semibold text-xs md:text-sm flex-shrink-0 -ml-1">
+                    {{ getUserInitials(profile.firstName, profile.lastName) }}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">
+                      {{ profile.firstName || '' }} {{ profile.lastName || '' }}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {{ profile.email || 'No email' }}
+                    </div>
+                  </div>
+                </div>
+                <!-- Right: Badge + Date + Actions -->
+                <div class="flex items-center gap-2 flex-shrink-0 ml-11 md:ml-0">
+                  <UBadge :color="profile.role === 'ADMIN' ? 'orange' : 'gray'" variant="soft" size="xs" class="whitespace-nowrap">
+                    {{ profile.role }}
+                  </UBadge>
+                  <div class="user-date text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {{ formatDate(profile.createdAt, true) }}
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <UButton
+                        variant="ghost"
+                        size="xs"
+                        color="gray"
+                        class="hover:bg-gray-200 dark:hover:bg-gray-500 cursor-pointer"
+                        @click="editUser(profile)"
+                        :disabled="isEditingUser"
+                    >
+                      <Icon name="i-heroicons-pencil" class="w-4 h-4"/>
+                    </UButton>
+                    <UButton
+                        variant="ghost"
+                        size="xs"
+                        color="red"
+                        class="hover:bg-red-50 hover:text-red-700 cursor-pointer"
+                        @click="deleteUser(profile)"
+                        :disabled="isDeletingUser"
+                        :loading="isDeletingUser && deletingUserId === profile.userId"
+                    >
+                      <Icon name="i-heroicons-trash" class="w-4 h-4"/>
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="userSearchQuery && internalUsers?.length > 0" class="text-center py-8">
+            <Icon name="i-heroicons-magnifying-glass" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
+            <p class="text-gray-500 dark:text-gray-400 mb-2">No users match "{{ userSearchQuery }}"</p>
+            <UButton size="sm" variant="ghost" @click="userSearchQuery = ''">Clear search</UButton>
           </div>
 
           <div v-else class="text-center py-8">
             <Icon name="i-heroicons-user-group" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
-            <p class="text-gray-500 dark:text-gray-400">No internal users found</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">No internal users found</p>
+            <UButton
+                color="orange"
+                size="sm"
+                class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer"
+                @click="openAddUserModal"
+            >
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+              Add First User
+            </UButton>
           </div>
         </UCard>
 
         <!-- Viewers Section -->
-        <UCard class="bg-white dark:bg-gray-800">
+        <UCard class="bg-white dark:bg-gray-800 lg:col-span-1 user-card-container">
           <template #header>
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
-                Viewers ({{ allViewers?.length || 0 }})
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+                Viewers ({{ filteredViewers?.length || 0 }})
               </h3>
-              <UButton
-                  color="purple"
-                  size="sm"
-                  class="bg-purple-500 hover:bg-purple-600 text-white cursor-pointer"
-                  @click="openAddViewerModal"
-                  :disabled="isLoading"
-              >
-                <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
-                Add Viewer
-              </UButton>
+              <div class="flex items-center gap-2 flex-wrap">
+                <UInput
+                    v-model="viewerSearchQuery"
+                    placeholder="Search viewers..."
+                    size="sm"
+                    class="w-40 md:w-48 search-input"
+                    :disabled="isLoading"
+                    :ui="{ padding: { sm: 'ps-9' } }"
+                >
+                  <template #leading>
+                    <Icon name="i-heroicons-magnifying-glass" class="w-4 h-4 text-gray-400" />
+                  </template>
+                  <template #trailing>
+                    <UButton
+                        v-if="viewerSearchQuery"
+                        color="gray"
+                        variant="link"
+                        icon="i-heroicons-x-mark"
+                        :padded="false"
+                        @click="viewerSearchQuery = ''"
+                        class="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    />
+                  </template>
+                </UInput>
+                <UButton
+                    color="purple"
+                    size="sm"
+                    class="bg-purple-500 hover:bg-purple-600 text-white cursor-pointer whitespace-nowrap"
+                    @click="openAddViewerModal"
+                    :disabled="isLoading"
+                >
+                  <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+                  Add Viewer
+                </UButton>
+              </div>
             </div>
           </template>
 
-          <div v-if="allViewers?.length > 0" class="space-y-3 max-h-96 overflow-y-auto pr-1">
-            <div v-for="viewer in allViewers" :key="viewer.user_id"
-                 class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
-                  <Icon name="i-heroicons-eye" class="w-4 h-4 text-purple-600 dark:text-purple-300"/>
-                </div>
-                <div>
-                  <div class="font-medium text-gray-900 dark:text-white">
-                    {{ viewer.first_name }} {{ viewer.last_name }}
+          <!-- Bulk Actions Bar -->
+          <div v-if="selectedViewers.length > 0" class="mb-4 p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg flex items-center justify-between">
+            <span class="text-sm text-purple-700 dark:text-purple-300">{{ selectedViewers.length }} viewer(s) selected</span>
+            <div class="flex gap-2">
+              <UButton size="xs" color="red" variant="soft" @click="bulkDeleteViewers" :loading="isBulkDeleting">
+                <Icon name="i-heroicons-trash" class="w-3 h-3 mr-1"/>
+                Delete Selected
+              </UButton>
+              <UButton size="xs" variant="ghost" @click="clearViewerSelection">
+                Clear
+              </UButton>
+            </div>
+          </div>
+
+          <div v-if="filteredViewers?.length > 0" class="users-list-container space-y-2 max-h-96 overflow-y-auto pr-1">
+            <div v-for="viewer in filteredViewers" :key="viewer.userId"
+                 class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+              <!-- Responsive row: stack on small screens, row on larger -->
+              <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                <!-- Left: Checkbox + Avatar + Name/Email -->
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                   <UCheckbox
+                      :model-value="selectedViewers.includes(viewer.userId)"
+                      @update:model-value="toggleViewerSelection(viewer.userId)"
+                      class="flex-shrink-0 -ml-0.5 user-checkbox"
+                      :ui="{ border: 'border-gray-300 dark:border-gray-500' }"
+                  />
+                  <div class="w-9 h-9 md:w-10 md:h-10 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-xs md:text-sm flex-shrink-0 -ml-1">
+                    {{ getUserInitials(viewer.firstName, viewer.lastName) }}
                   </div>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">
+                  <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">
+                      {{ viewer.firstName || '' }} {{ viewer.lastName || '' }}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {{ viewer.email || 'No email' }}
+                    </div>
+                  </div>
+                </div>
+                <!-- Right: Badge + Date + Actions -->
+                <div class="flex items-center gap-2 flex-shrink-0 ml-11 md:ml-0">
+                  <UBadge color="purple" variant="soft" size="xs" class="whitespace-nowrap">
                     {{ viewer.viewer_type || 'Viewer' }}
-                    <span v-if="viewer.group_name" class="ml-2 px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs">
-                      {{ viewer.group_name }}
-                    </span>
+                  </UBadge>
+                  <UBadge v-if="viewer.group_name" color="gray" variant="soft" size="xs" class="whitespace-nowrap">
+                    {{ viewer.group_name }}
+                  </UBadge>
+                  <div class="user-date text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {{ formatDate(viewer.createdAt, true) }}
                   </div>
+                  <UButton
+                      variant="ghost"
+                      size="xs"
+                      color="red"
+                      class="hover:bg-red-50 hover:text-red-700 cursor-pointer"
+                      @click="deleteViewer(viewer)"
+                      :disabled="isDeletingViewer"
+                      :loading="isDeletingViewer && deletingViewerId === viewer.userId"
+                  >
+                    <Icon name="i-heroicons-trash" class="w-4 h-4"/>
+                  </UButton>
                 </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="text-sm text-gray-500 dark:text-gray-400">
-                  {{ formatDate(viewer.createdAt, true) }}
-                </div>
-                <UButton
-                    variant="ghost"
-                    size="sm"
-                    color="red"
-                    class="hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer"
-                    @click="deleteViewer(viewer)"
-                    :disabled="isDeletingViewer"
-                    :loading="isDeletingViewer && deletingViewerId === viewer.userId"
-                >
-                  <Icon name="i-heroicons-trash" class="w-4 h-4"/>
-                </UButton>
               </div>
             </div>
           </div>
 
+          <div v-else-if="viewerSearchQuery && allViewers?.length > 0" class="text-center py-8">
+            <Icon name="i-heroicons-magnifying-glass" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
+            <p class="text-gray-500 dark:text-gray-400 mb-2">No viewers match "{{ viewerSearchQuery }}"</p>
+            <UButton size="sm" variant="ghost" @click="viewerSearchQuery = ''">Clear search</UButton>
+          </div>
+
           <div v-else class="text-center py-8">
             <Icon name="i-heroicons-eye" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
-            <p class="text-gray-500 dark:text-gray-400">No viewers found</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">No viewers found</p>
+            <UButton
+                color="purple"
+                size="sm"
+                class="bg-purple-500 hover:bg-purple-600 text-white cursor-pointer"
+                @click="openAddViewerModal"
+            >
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+              Add First Viewer
+            </UButton>
           </div>
         </UCard>
 
@@ -541,6 +688,20 @@ const viewerForm = ref({
 const userToDelete = ref(null)
 const viewerToDelete = ref(null)
 
+// Search and filter states
+const userSearchQuery = ref('')
+const viewerSearchQuery = ref('')
+
+// Bulk selection states
+const selectedUsers = ref([])
+const selectedViewers = ref([])
+const isBulkDeleting = ref(false)
+
+// Edit states
+const isEditingUser = ref(false)
+const showEditUserModal = ref(false)
+const editingUser = ref(null)
+
 // Role options
 const userRoleOptions = [
   {label: 'Editor', value: 'EDITOR'},
@@ -568,23 +729,80 @@ const allViewers = computed(() => {
       .filter(profile => profile.role === 'VIEWER')
       .map(profile => ({
         userId: profile.userId,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        viewer_type: profile.viewer_type || 'Viewer',
-        group_name: profile.group_name || null,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: profile.email,
+        viewer_type: profile.viewerType || 'Viewer',
+        group_name: profile.groupName || null,
         createdAt: profile.createdAt
       }))
 
   const viewersFromViewersTable = organization.value.viewers || []
 
   // Combine both sources and remove duplicates
-  const allViewers = [...viewersFromProfiles, ...viewersFromViewersTable]
-  const uniqueViewers = allViewers.filter((viewer, index, self) =>
+  const combined = [...viewersFromProfiles, ...viewersFromViewersTable]
+  const uniqueViewers = combined.filter((viewer, index, self) =>
       index === self.findIndex(v => v.userId === viewer.userId)
   )
 
   return uniqueViewers
 })
+
+// Filtered internal users (for search)
+const filteredInternalUsers = computed(() => {
+  if (!userSearchQuery.value) return internalUsers.value
+  const query = userSearchQuery.value.toLowerCase()
+  return internalUsers.value.filter(profile => {
+    const fullName = `${profile.firstName || ''} ${profile.lastName || ''}`.toLowerCase()
+    const email = (profile.email || '').toLowerCase()
+    return fullName.includes(query) || email.includes(query)
+  })
+})
+
+// Filtered viewers (for search)
+const filteredViewers = computed(() => {
+  if (!viewerSearchQuery.value) return allViewers.value
+  const query = viewerSearchQuery.value.toLowerCase()
+  return allViewers.value.filter(viewer => {
+    const fullName = `${viewer.firstName || ''} ${viewer.lastName || ''}`.toLowerCase()
+    const email = (viewer.email || '').toLowerCase()
+    return fullName.includes(query) || email.includes(query)
+  })
+})
+
+// Helper function to get user initials
+const getUserInitials = (firstName, lastName) => {
+  const first = (firstName || '')[0] || ''
+  const last = (lastName || '')[0] || ''
+  return (first + last).toUpperCase() || '?'
+}
+
+// Bulk selection functions
+const toggleUserSelection = (userId) => {
+  const index = selectedUsers.value.indexOf(userId)
+  if (index === -1) {
+    selectedUsers.value.push(userId)
+  } else {
+    selectedUsers.value.splice(index, 1)
+  }
+}
+
+const clearUserSelection = () => {
+  selectedUsers.value = []
+}
+
+const toggleViewerSelection = (userId) => {
+  const index = selectedViewers.value.indexOf(userId)
+  if (index === -1) {
+    selectedViewers.value.push(userId)
+  } else {
+    selectedViewers.value.splice(index, 1)
+  }
+}
+
+const clearViewerSelection = () => {
+  selectedViewers.value = []
+}
 
 // Get access token for API calls
 const getAccessToken = async () => {
@@ -872,6 +1090,64 @@ const deleteUser = (profile) => {
   showDeleteUserModal.value = true
 }
 
+// Edit user function
+const editUser = (profile) => {
+  // Navigate to users page with edit modal or open inline edit
+  navigateTo(`/users?edit=${profile.userId}`)
+}
+
+// Bulk delete users
+const bulkDeleteUsers = async () => {
+  if (selectedUsers.value.length === 0) return
+  
+  const toast = useToast()
+  const confirmed = confirm(`Are you sure you want to delete ${selectedUsers.value.length} user(s)? This action cannot be undone.`)
+  
+  if (!confirmed) return
+  
+  try {
+    isBulkDeleting.value = true
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    let successCount = 0
+    let errorCount = 0
+    
+    for (const userId of selectedUsers.value) {
+      try {
+        await $fetch(`/api/users/${userId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+        successCount++
+      } catch (e) {
+        errorCount++
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.add({
+        title: 'Users Deleted',
+        description: `Successfully deleted ${successCount} user(s)${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+        color: successCount === selectedUsers.value.length ? 'success' : 'warning'
+      })
+      await loadOrganizationDetails()
+    }
+    
+    clearUserSelection()
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to delete users',
+      color: 'error'
+    })
+  } finally {
+    isBulkDeleting.value = false
+  }
+}
+
 const confirmDeleteUser = async () => {
   if (!userToDelete.value) return
 
@@ -929,6 +1205,58 @@ const cancelDeleteUser = () => {
 const deleteViewer = (viewer) => {
   viewerToDelete.value = viewer
   showDeleteViewerModal.value = true
+}
+
+// Bulk delete viewers
+const bulkDeleteViewers = async () => {
+  if (selectedViewers.value.length === 0) return
+  
+  const toast = useToast()
+  const confirmed = confirm(`Are you sure you want to delete ${selectedViewers.value.length} viewer(s)? This action cannot be undone.`)
+  
+  if (!confirmed) return
+  
+  try {
+    isBulkDeleting.value = true
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      throw new Error('No access token available')
+    }
+    
+    let successCount = 0
+    let errorCount = 0
+    
+    for (const userId of selectedViewers.value) {
+      try {
+        await $fetch(`/api/viewers/${userId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+        successCount++
+      } catch (e) {
+        errorCount++
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.add({
+        title: 'Viewers Deleted',
+        description: `Successfully deleted ${successCount} viewer(s)${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+        color: successCount === selectedViewers.value.length ? 'success' : 'warning'
+      })
+      await loadOrganizationDetails()
+    }
+    
+    clearViewerSelection()
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to delete viewers',
+      color: 'error'
+    })
+  } finally {
+    isBulkDeleting.value = false
+  }
 }
 
 const confirmDeleteViewer = async () => {
@@ -995,3 +1323,34 @@ definePageMeta({
   middleware: 'auth'
 })
 </script>
+
+<style scoped>
+/* Container query support for responsive cards */
+.users-list-container {
+  container-type: inline-size;
+  container-name: users-list;
+}
+
+/* Hide date when container is narrow (< 350px) */
+@container users-list (max-width: 350px) {
+  .user-date {
+    display: none;
+  }
+}
+
+/* Also hide date on small container widths (350-450px) for better spacing */
+@container users-list (min-width: 351px) and (max-width: 450px) {
+  .user-date {
+    display: none;
+  }
+}
+
+/* Make checkboxes visible in dark mode */
+:deep(.user-checkbox input) {
+  border-color: #9ca3af !important; /* gray-400 */
+}
+
+.dark :deep(.user-checkbox input) {
+  border-color: #6b7280 !important; /* gray-500 */
+}
+</style>
