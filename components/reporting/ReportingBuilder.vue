@@ -343,7 +343,7 @@ const chartTypes = [
   {value: 'boxplot', label: 'Box Plot', icon: 'i-heroicons-bars-3'},
   {value: 'waterfall', label: 'Waterfall', icon: 'i-heroicons-bars-arrow-down'},
   {value: 'treemap', label: 'Treemap', icon: 'i-heroicons-squares-plus'},
-  {value: 'sankey', label: 'Sankey', icon: 'i-heroicons-arrows-right-left'},
+  // {value: 'sankey', label: 'Sankey', icon: 'i-heroicons-arrows-right-left'}, // Temporarily hidden
   {value: 'pivot', label: 'Pivot', icon: 'i-heroicons-view-columns'},
   {value: 'wordcloud', label: 'Word Cloud', icon: 'i-heroicons-cloud'}
 ]

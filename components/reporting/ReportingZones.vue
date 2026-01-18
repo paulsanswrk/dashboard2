@@ -12,6 +12,45 @@
       </button>
     </div>
 
+    <!-- Y Metrics Zone -->
+    <div v-if="zoneConfig.showYMetrics" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-medium flex items-center gap-2">
+          <Icon name="i-heroicons-squares-2x2" class="w-4 h-4 text-neutral-300"/>
+          {{ zoneConfig.yLabel || 'Y (Metrics)' }}
+        </span>
+      </div>
+      <template v-if="yMetrics.length">
+        <ul class="space-y-1" @dragover.prevent @drop="onListDrop('y')">
+          <li
+            v-for="(m, i) in yMetrics"
+            :key="m.fieldId"
+            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
+            draggable="true"
+            @dragstart="onDragItemStart('y', i)"
+            @dragover.prevent
+            @drop="onDragItemDrop('y', i)"
+            @click="openPopup('y', i, $event)"
+            data-zone-item="y"
+          >
+            <div class="pr-6">
+              <div class="text-sm">{{ m.label || m.name }}</div>
+              <div class="text-xs text-neutral-300">
+                <template v-if="m.table">{{ m.table }}</template>
+                <template v-if="m.aggregation"><span v-if="m.table"> • </span>{{ formatAggregation(m.aggregation) }}</template>
+              </div>
+            </div>
+            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('y', i)" aria-label="Remove" data-remove>
+              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
+            </button>
+          </li>
+        </ul>
+      </template>
+      <template v-else>
+        <div class="text-neutral-400 text-sm">Drag a field here</div>
+      </template>
+    </div>
+
     <!-- X Dimensions Zone -->
     <div v-if="zoneConfig.showXDimensions" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('x')">
       <div class="flex items-center justify-between mb-1">
@@ -42,45 +81,6 @@
               </div>
             </div>
             <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('x', i)" aria-label="Remove" data-remove>
-              <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
-            </button>
-          </li>
-        </ul>
-      </template>
-      <template v-else>
-        <div class="text-neutral-400 text-sm">Drag a field here</div>
-      </template>
-    </div>
-
-    <!-- Y Metrics Zone -->
-    <div v-if="zoneConfig.showYMetrics" class="p-3 border border-dark-lighter rounded bg-dark-light text-white" @dragover.prevent @drop="onDrop('y')">
-      <div class="flex items-center justify-between mb-1">
-        <span class="font-medium flex items-center gap-2">
-          <Icon name="i-heroicons-squares-2x2" class="w-4 h-4 text-neutral-300"/>
-          {{ zoneConfig.yLabel || 'Y (Metrics)' }}
-        </span>
-      </div>
-      <template v-if="yMetrics.length">
-        <ul class="space-y-1" @dragover.prevent @drop="onListDrop('y')">
-          <li
-            v-for="(m, i) in yMetrics"
-            :key="m.fieldId"
-            class="px-2 py-1 bg-dark-lighter border border-dark rounded flex items-start justify-between text-white relative cursor-pointer hover:border-primary-400 transition-colors"
-            draggable="true"
-            @dragstart="onDragItemStart('y', i)"
-            @dragover.prevent
-            @drop="onDragItemDrop('y', i)"
-            @click="openPopup('y', i, $event)"
-            data-zone-item="y"
-          >
-            <div class="pr-6">
-              <div class="text-sm">{{ m.label || m.name }}</div>
-              <div class="text-xs text-neutral-300">
-                <template v-if="m.table">{{ m.table }}</template>
-                <template v-if="m.aggregation"><span v-if="m.table"> • </span>{{ formatAggregation(m.aggregation) }}</template>
-              </div>
-            </div>
-            <button class="absolute top-1 right-1 text-neutral-400 hover:text-red-400 cursor-pointer" @click.stop="remove('y', i)" aria-label="Remove" data-remove>
               <Icon name="i-heroicons-x-mark" class="w-4 h-4"/>
             </button>
           </li>
