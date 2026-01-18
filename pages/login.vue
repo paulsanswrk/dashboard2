@@ -14,12 +14,6 @@
         <h2 class="mt-6 mb-4 text-center text-3xl font-heading text-gray-900 dark:text-white tracking-tight">
           Sign in to Optiqo
         </h2>
-        <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-300">
-          Or
-          <NuxtLink to="/signup" class="font-medium text-primary hover:text-primary-600">
-            create a new account
-          </NuxtLink>
-        </p>
       </div>
       
       <UCard class="mt-8 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">

@@ -33,7 +33,7 @@ export default defineNuxtConfig({
         redirectOptions: {
             login: '/login',
             callback: '/auth/callback',
-            exclude: ['/', '/login', '/signup', '/forgot-password', '/reset-password',
+            exclude: ['/', '/login', '/forgot-password', '/reset-password',
                 '/auth/callback', '/render/**', '/render', '/dashboards/preview/**']
         },
         // Explicitly set the URL and key

@@ -1,7 +1,6 @@
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
   '/login',
-  '/signup',
   '/forgot-password',
   '/reset-password',
   '/dashboards/preview',

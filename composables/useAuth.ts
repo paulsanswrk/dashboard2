@@ -1,5 +1,5 @@
-import {computed, ref, watch} from 'vue'
-import {getRedirectPathFromProfile} from '~/server/utils/redirectUtils'
+import { computed, ref, watch } from 'vue'
+import { getRedirectPathFromProfile } from '~/server/utils/redirectUtils'
 
 export interface Organization {
   id: string
@@ -15,7 +15,7 @@ export interface UserProfile {
   firstName: string
   lastName: string
   organizationId: string | null
-    role: 'SUPERADMIN' | 'ADMIN' | 'EDITOR' | 'VIEWER'
+  role: 'SUPERADMIN' | 'ADMIN' | 'EDITOR' | 'VIEWER'
   organization?: Organization
   avatar_url?: string | null
   created_at: string
@@ -37,20 +37,20 @@ export const useAuth = () => {
   const isAuthenticated = computed(() => !!user.value)
 
   const isAdmin = computed(() => {
-      return userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN'
+    return userProfile.value?.role === 'ADMIN' || userProfile.value?.role === 'SUPERADMIN'
   })
 
-    const isSuperAdmin = computed(() => {
-        return userProfile.value?.role === 'SUPERADMIN'
-    })
+  const isSuperAdmin = computed(() => {
+    return userProfile.value?.role === 'SUPERADMIN'
+  })
 
-    const isEditor = computed(() => {
-        return userProfile.value?.role === 'EDITOR'
-    })
+  const isEditor = computed(() => {
+    return userProfile.value?.role === 'EDITOR'
+  })
 
-    const isViewer = computed(() => {
-        return userProfile.value?.role === 'VIEWER'
-    })
+  const isViewer = computed(() => {
+    return userProfile.value?.role === 'VIEWER'
+  })
 
   // Clear messages
   const clearMessages = () => {
@@ -73,101 +73,68 @@ export const useAuth = () => {
     }, 5000)
   }
 
-    // Helper to extract clean error message
-    const extractErrorMessage = (err: any): string => {
-        // Check if it's a specific API error response with statusMessage
-        if (err.response?._data?.statusMessage) {
-            return err.response._data.statusMessage
-        }
-
-        // Check if it's a specific API error response with message
-        if (err.response?._data?.message) {
-            return err.response._data.message
-        }
-
-        // Fallback to standard error message
-        const message = err.message || 'An unknown error occurred'
-
-        // Clean up "FetchError: " prefix if present
-        return message.replace(/^FetchError: /, '')
+  // Helper to extract clean error message
+  const extractErrorMessage = (err: any): string => {
+    // Check if it's a specific API error response with statusMessage
+    if (err.response?._data?.statusMessage) {
+      return err.response._data.statusMessage
     }
 
-  // Sign up with organization
-    const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string, recaptchaToken?: string) => {
-    try {
-      loading.value = true
-      clearMessages()
-
-        // Call server-side API for registration with reCAPTCHA verification
-        const response = await $fetch('/api/auth/register', {
-            method: 'POST',
-            body: {
-                email,
-                password,
-                firstName,
-                lastName,
-                role,
-                organizationName,
-                recaptchaToken
-        }
-      })
-
-        if (response.success) {
-            setMessage('Account created successfully! Please check your email for verification.', 'success')
-        return { success: true, requiresEmailConfirmation: true }
-        } else {
-            throw new Error(response.error || 'Registration failed')
-      }
-    } catch (err: any) {
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
-    } finally {
-      loading.value = false
+    // Check if it's a specific API error response with message
+    if (err.response?._data?.message) {
+      return err.response._data.message
     }
+
+    // Fallback to standard error message
+    const message = err.message || 'An unknown error occurred'
+
+    // Clean up "FetchError: " prefix if present
+    return message.replace(/^FetchError: /, '')
   }
 
+
+
   // Sign in
-    const signIn = async (email: string, password: string, recaptchaToken?: string) => {
+  const signIn = async (email: string, password: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔐 Client: Starting login for email:', email)
 
-        // Call server-side API for authentication with reCAPTCHA verification
-        const response = await $fetch('/api/auth/login', {
-            method: 'POST',
-            body: {
-                email,
-                password,
-                recaptchaToken
-            }
+      // Call server-side API for authentication with reCAPTCHA verification
+      const response = await $fetch('/api/auth/login', {
+        method: 'POST',
+        body: {
+          email,
+          password,
+          recaptchaToken
+        }
       })
 
-        if (response.success) {
-            setMessage('Login successful!', 'success')
+      if (response.success) {
+        setMessage('Login successful!', 'success')
 
-            // Set the client-side session using tokens from server response
-            if (response.session?.access_token && response.session?.refresh_token) {
-                await supabase.auth.setSession({
-                    access_token: response.session.access_token,
-                    refresh_token: response.session.refresh_token
-                })
-            }
+        // Set the client-side session using tokens from server response
+        if (response.session?.access_token && response.session?.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: response.session.access_token,
+            refresh_token: response.session.refresh_token
+          })
+        }
 
-            return {
-                user: response.user,
-                success: true
-            }
-        } else {
-            throw new Error(response.error || 'Login failed')
+        return {
+          user: response.user,
+          success: true
+        }
+      } else {
+        throw new Error(response.error || 'Login failed')
       }
     } catch (err: any) {
       console.log('❌ Client: Login error:', err)
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
@@ -190,11 +157,11 @@ export const useAuth = () => {
       setMessage('Signed out successfully', 'success')
       return { success: true }
     } catch (err: any) {
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
       // Clear state even if API call fails
       userProfile.value = null
-        return {success: false, error: message}
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
@@ -226,8 +193,8 @@ export const useAuth = () => {
       }
     } catch (err: any) {
       console.error('Error in createUserProfile:', err)
-        const message = extractErrorMessage(err)
-        throw new Error(message)
+      const message = extractErrorMessage(err)
+      throw new Error(message)
     }
   }
 
@@ -243,15 +210,15 @@ export const useAuth = () => {
           organization:organizations(*)
         `)
         .eq('user_id', user.value.id)
-          .maybeSingle()
+        .maybeSingle()
 
       if (profileError) throw profileError
 
-        if (!data) {
-            console.warn('User profile not found:', user.value.id)
-            userProfile.value = null
-            return null
-        }
+      if (!data) {
+        console.warn('User profile not found:', user.value.id)
+        userProfile.value = null
+        return null
+      }
 
       // Transform database fields to frontend format
       const transformedProfile = {
@@ -301,8 +268,8 @@ export const useAuth = () => {
   const canInviteUsers = computed(() => {
     if (!userProfile.value) return false
 
-      // Only admins and superadmins can invite users
-      return userProfile.value.role === 'ADMIN' || userProfile.value.role === 'SUPERADMIN'
+    // Only admins and superadmins can invite users
+    return userProfile.value.role === 'ADMIN' || userProfile.value.role === 'SUPERADMIN'
   })
 
   // Centralized redirect function based on user role
@@ -369,9 +336,9 @@ export const useAuth = () => {
       setMessage('Profile updated successfully!', 'success')
       return { success: true, profile: transformedData }
     } catch (err: any) {
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
@@ -398,9 +365,9 @@ export const useAuth = () => {
       return { success: true }
     } catch (err: any) {
       console.error('❌ [STEP 3] Password update error:', err)
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
@@ -443,9 +410,9 @@ export const useAuth = () => {
 
       return result
     } catch (err: any) {
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
@@ -468,9 +435,9 @@ export const useAuth = () => {
 
       return result
     } catch (err: any) {
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
@@ -492,131 +459,91 @@ export const useAuth = () => {
       setMessage('Confirmation email sent!', 'success')
       return { success: true }
     } catch (err: any) {
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
   }
 
   // Reset password
-    const resetPassword = async (email: string, recaptchaToken?: string) => {
+  const resetPassword = async (email: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔑 [STEP 1] Starting password reset for email:', email)
 
-        // Call server-side API for password reset with reCAPTCHA verification
-        const response = await $fetch('/api/auth/reset-password', {
-            method: 'POST',
-            body: {
-                email,
-                recaptchaToken
-            }
+      // Call server-side API for password reset with reCAPTCHA verification
+      const response = await $fetch('/api/auth/reset-password', {
+        method: 'POST',
+        body: {
+          email,
+          recaptchaToken
+        }
       })
 
-        if (response.success) {
-            console.log('✅ [STEP 1] Password reset email sent successfully')
-            setMessage(response.message || 'Password reset email sent! Check your email for instructions.', 'success')
+      if (response.success) {
+        console.log('✅ [STEP 1] Password reset email sent successfully')
+        setMessage(response.message || 'Password reset email sent! Check your email for instructions.', 'success')
 
-            return {
-                success: true,
-                message: response.message || 'Password reset email sent! Check your email for instructions.'
-            }
-        } else {
-            throw new Error(response.error || 'Failed to send password reset email')
+        return {
+          success: true,
+          message: response.message || 'Password reset email sent! Check your email for instructions.'
+        }
+      } else {
+        throw new Error(response.error || 'Failed to send password reset email')
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Password reset error:', err)
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
   }
 
   // Sign in with magic link
-    const signInWithMagicLink = async (email: string, recaptchaToken?: string) => {
+  const signInWithMagicLink = async (email: string, recaptchaToken?: string) => {
     try {
       loading.value = true
       clearMessages()
 
       console.log('🔗 [STEP 1] Starting magic link sign in for email:', email)
 
-        // Call server-side API for magic link with reCAPTCHA verification
-        const response = await $fetch('/api/auth/magic-link', {
-            method: 'POST',
-            body: {
-                email,
-                recaptchaToken
+      // Call server-side API for magic link with reCAPTCHA verification
+      const response = await $fetch('/api/auth/magic-link', {
+        method: 'POST',
+        body: {
+          email,
+          recaptchaToken
         }
       })
 
-        if (response.success) {
-            console.log('✅ [STEP 1] Magic link sent successfully')
-            setMessage(response.message || 'Magic link sent! Please check your email and click the link to sign in.', 'success')
+      if (response.success) {
+        console.log('✅ [STEP 1] Magic link sent successfully')
+        setMessage(response.message || 'Magic link sent! Please check your email and click the link to sign in.', 'success')
 
-            return {
-                success: true,
-                message: response.message || 'Magic link sent! Please check your email and click the link to sign in.'
-            }
-        } else {
-            throw new Error(response.error || 'Failed to send magic link')
+        return {
+          success: true,
+          message: response.message || 'Magic link sent! Please check your email and click the link to sign in.'
+        }
+      } else {
+        throw new Error(response.error || 'Failed to send magic link')
       }
     } catch (err: any) {
       console.error('❌ [STEP 1] Magic link error:', err)
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
+      const message = extractErrorMessage(err)
+      setMessage(message, 'error')
+      return { success: false, error: message }
     } finally {
       loading.value = false
     }
   }
 
-  // Sign up with magic link (for new users)
-    const signUpWithMagicLink = async (email: string, firstName: string, lastName: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR', organizationName?: string, recaptchaToken?: string) => {
-    try {
-      loading.value = true
-      clearMessages()
 
-      console.log('🔗 [STEP 1] Starting magic link sign up for email:', email)
-
-        // Call server-side API for magic link registration with reCAPTCHA verification
-        const response = await $fetch('/api/auth/magic-link-signup', {
-            method: 'POST',
-            body: {
-                email,
-                firstName,
-                lastName,
-                role,
-                organizationName,
-                recaptchaToken
-        }
-      })
-
-        if (response.success) {
-            console.log('✅ [STEP 1] Magic link sent successfully for sign up')
-            setMessage(response.message || 'Magic link sent! Please check your email and click the link to complete your registration.', 'success')
-
-            return {
-                success: true,
-                message: response.message || 'Magic link sent! Please check your email and click the link to complete your registration.'
-            }
-        } else {
-            throw new Error(response.error || 'Failed to send magic link')
-      }
-    } catch (err: any) {
-      console.error('❌ [STEP 1] Magic link sign up error:', err)
-        const message = extractErrorMessage(err)
-        setMessage(message, 'error')
-        return {success: false, error: message}
-    } finally {
-      loading.value = false
-    }
-  }
 
   // Watch for user changes and load profile
   watch(user, async (newUser) => {
@@ -635,20 +562,18 @@ export const useAuth = () => {
     error: computed(() => error.value),
     success: computed(() => success.value),
 
-      // Computed
+    // Computed
     isAuthenticated,
     isAdmin,
-      isSuperAdmin,
-      isEditor,
-      isViewer,
+    isSuperAdmin,
+    isEditor,
+    isViewer,
     canInviteUsers,
 
-      // Methods
-    signUp,
+    // Methods
     signIn,
     signOut,
     signInWithMagicLink,
-    signUpWithMagicLink,
     fetchUserProfile,
     createUserProfile,
     getUserProfile,
