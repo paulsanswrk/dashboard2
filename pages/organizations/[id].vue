@@ -374,7 +374,98 @@
           </div>
         </UCard>
 
+        <!-- Data Connections Section -->
+        <UCard class="bg-white dark:bg-gray-800 lg:col-span-1 2xl:col-span-2">
+          <template #header>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
+                Data Connections ({{ dataConnections?.length || 0 }})
+              </h3>
+              <UButton
+                color="blue"
+                size="sm"
+                class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer whitespace-nowrap"
+                @click="openAddConnectionModal"
+                :disabled="isLoading"
+              >
+                <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+                Add Connection
+              </UButton>
+            </div>
+          </template>
+
+          <div v-if="dataConnections?.length > 0" class="space-y-2 max-h-96 overflow-y-auto pr-1">
+            <div v-for="connection in dataConnections" :key="connection.id"
+                 class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+              <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div :class="[
+                    'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                    connection.database_type === 'internal' 
+                      ? 'bg-blue-100 dark:bg-blue-900' 
+                      : 'bg-orange-100 dark:bg-orange-900'
+                  ]">
+                    <Icon 
+                      :name="connection.database_type === 'internal' ? 'i-heroicons-cloud' : 'i-heroicons-circle-stack'" 
+                      :class="[
+                        'w-5 h-5',
+                        connection.database_type === 'internal' 
+                          ? 'text-blue-600 dark:text-blue-300' 
+                          : 'text-orange-600 dark:text-orange-300'
+                      ]"
+                    />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-gray-900 dark:text-white truncate">
+                      {{ connection.internal_name }}
+                    </div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {{ connection.database_type === 'internal' ? 'Internal Data Source' : `${connection.database_name} @ ${connection.host}` }}
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0 ml-13 md:ml-0">
+                  <UBadge 
+                    :color="connection.database_type === 'internal' ? 'info' : 'warning'" 
+                    variant="soft" 
+                    size="xs"
+                  >
+                    {{ connection.database_type === 'internal' ? 'Internal' : 'MySQL' }}
+                  </UBadge>
+                  <div class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {{ formatDate(connection.created_at, true) }}
+                  </div>
+                  <UButton
+                    variant="ghost"
+                    size="xs"
+                    color="gray"
+                    class="hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
+                    @click="editConnection(connection)"
+                  >
+                    <Icon name="i-heroicons-pencil-square" class="w-4 h-4"/>
+                  </UButton>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="text-center py-8">
+            <Icon name="i-heroicons-circle-stack" class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4"/>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">No data connections configured</p>
+            <UButton
+              color="blue"
+              size="sm"
+              class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+              @click="openAddConnectionModal"
+            >
+              <Icon name="i-heroicons-plus" class="w-4 h-4 mr-1"/>
+              Add First Connection
+            </UButton>
+          </div>
+        </UCard>
+
         <!-- License Management Card -->
+
         <UCard v-if="false" class="bg-white dark:bg-gray-800">
           <template #header>
             <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
@@ -475,6 +566,15 @@
                   class="w-full"
               />
             </UFormField>
+
+            <div class="flex items-center gap-2 pt-2">
+              <UCheckbox
+                v-model="userForm.sendInvitationEmail"
+                color="primary"
+                :ui="{ border: 'border-gray-300 dark:border-gray-500' }"
+              />
+              <span class="text-sm text-gray-700 dark:text-gray-300">Send invitation email</span>
+            </div>
 
             <div class="flex justify-end gap-3 pt-4">
               <UButton variant="ghost" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="closeAddUserModal">Cancel</UButton>
@@ -624,6 +724,97 @@
         </template>
       </UModal>
 
+      <!-- Add Connection Modal -->
+      <UModal v-model:open="showAddConnectionModal">
+        <template #header>
+          <h3 class="text-lg font-heading font-semibold tracking-tight text-gray-900 dark:text-white">
+            Add Data Connection
+          </h3>
+        </template>
+
+        <template #body>
+          <div class="space-y-4">
+            <!-- Data Source Type Selector -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Connection Type
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <div 
+                  class="p-3 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
+                  :class="connectionForm.databaseType !== 'internal' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700'"
+                  @click="selectConnectionType('mysql')"
+                >
+                  <div class="flex items-center gap-2">
+                    <Icon name="i-heroicons-circle-stack" class="w-6 h-6 text-orange-500"/>
+                    <span class="font-medium text-gray-900 dark:text-white">MySQL</span>
+                  </div>
+                </div>
+                <div 
+                  class="p-3 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
+                  :class="connectionForm.databaseType === 'internal' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'"
+                  @click="selectConnectionType('internal')"
+                >
+                  <div class="flex items-center gap-2">
+                    <Icon name="i-heroicons-cloud" class="w-6 h-6 text-blue-500"/>
+                    <span class="font-medium text-gray-900 dark:text-white">Internal</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Connection Name (both types) -->
+            <UFormField label="Connection Name" required>
+              <UInput v-model="connectionForm.internalName" placeholder="e.g., My Database" class="w-full"/>
+            </UFormField>
+
+            <!-- MySQL-specific fields -->
+            <template v-if="connectionForm.databaseType !== 'internal'">
+              <UFormField label="Database Name" required>
+                <UInput v-model="connectionForm.databaseName" placeholder="e.g., analytics_db" class="w-full"/>
+              </UFormField>
+              <UFormField label="Host" required>
+                <UInput v-model="connectionForm.host" placeholder="e.g., db.example.com" class="w-full"/>
+              </UFormField>
+              <div class="grid grid-cols-2 gap-4">
+                <UFormField label="Username" required>
+                  <UInput v-model="connectionForm.username" class="w-full"/>
+                </UFormField>
+                <UFormField label="Port">
+                  <UInput v-model="connectionForm.port" type="number" class="w-full"/>
+                </UFormField>
+              </div>
+              <UFormField label="Password" required>
+                <UInput v-model="connectionForm.password" type="password" class="w-full"/>
+              </UFormField>
+            </template>
+
+            <!-- Internal source info -->
+            <UAlert 
+              v-else
+              color="info" 
+              variant="soft"
+              title="Internal Data Source"
+              description="Connects to the Optiqo Flow internal database. No additional configuration needed."
+            />
+
+            <div class="flex justify-end gap-3 pt-4">
+              <UButton variant="ghost" @click="showAddConnectionModal = false" :disabled="isSavingConnection">
+                Cancel
+              </UButton>
+              <UButton
+                color="primary"
+                @click="saveConnection"
+                :loading="isSavingConnection"
+                class="bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+              >
+                Create Connection
+              </UButton>
+            </div>
+          </div>
+        </template>
+      </UModal>
+
       <template #fallback>
         <!-- Server-side fallback -->
         <div class="flex justify-center items-center py-12">
@@ -673,7 +864,8 @@ const userForm = ref({
   email: '',
   firstName: '',
   lastName: '',
-  role: 'EDITOR'
+  role: 'EDITOR',
+  sendInvitationEmail: true
 })
 
 const viewerForm = ref({
@@ -687,6 +879,21 @@ const viewerForm = ref({
 // User to delete
 const userToDelete = ref(null)
 const viewerToDelete = ref(null)
+
+// Data connections state
+const dataConnections = ref([])
+const showAddConnectionModal = ref(false)
+const connectionForm = ref({
+  internalName: '',
+  databaseType: 'mysql',
+  databaseName: '',
+  host: '',
+  username: '',
+  password: '',
+  port: 3306,
+  serverTime: 'GMT+00:00'
+})
+const isSavingConnection = ref(false)
 
 // Search and filter states
 const userSearchQuery = ref('')
@@ -867,6 +1074,132 @@ const loadOrganizationDetails = async () => {
   }
 }
 
+// Load data connections for this organization
+const loadDataConnections = async () => {
+  try {
+    const accessToken = await getAccessToken()
+    if (!accessToken) return
+    
+    const response = await $fetch(`/api/organizations/${organizationId}/connections`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    
+    if (response.success) {
+      dataConnections.value = response.connections || []
+    }
+  } catch (error) {
+    console.error('Error loading data connections:', error)
+  }
+}
+
+// Open add connection modal
+const openAddConnectionModal = () => {
+  connectionForm.value = {
+    internalName: '',
+    databaseType: 'mysql',
+    databaseName: '',
+    host: '',
+    username: '',
+    password: '',
+    port: 3306,
+    serverTime: 'GMT+00:00'
+  }
+  showAddConnectionModal.value = true
+}
+
+// Select database type for connection form
+const selectConnectionType = (type) => {
+  connectionForm.value.databaseType = type
+}
+
+// Save new connection
+const saveConnection = async () => {
+  const toast = useToast()
+  
+  // Validate required fields
+  if (!connectionForm.value.internalName?.trim()) {
+    toast.add({
+      title: 'Validation Error',
+      description: 'Please enter a connection name',
+      color: 'red'
+    })
+    return
+  }
+  
+  try {
+    isSavingConnection.value = true
+    const accessToken = await getAccessToken()
+    
+    const payload = {
+      internalName: connectionForm.value.internalName,
+      databaseType: connectionForm.value.databaseType,
+      storageLocation: connectionForm.value.databaseType === 'internal' ? 'internal' : 'remote',
+      organizationId: organizationId // Use the organization from the route, not the logged-in user's org
+    }
+    
+    // For internal sources, set placeholder values
+    if (connectionForm.value.databaseType === 'internal') {
+      payload.databaseName = 'optiqoflow'
+      payload.host = 'internal'
+      payload.username = 'service_role'
+      payload.password = 'internal'
+      payload.port = 5432
+      payload.serverTime = 'GMT+00:00'
+    } else {
+      // For MySQL, require additional fields
+      if (!connectionForm.value.host?.trim() || !connectionForm.value.databaseName?.trim()) {
+        toast.add({
+          title: 'Validation Error',
+          description: 'Please fill in all required database fields',
+          color: 'red'
+        })
+        return
+      }
+      payload.databaseName = connectionForm.value.databaseName
+      payload.host = connectionForm.value.host
+      payload.username = connectionForm.value.username
+      payload.password = connectionForm.value.password
+      payload.port = connectionForm.value.port || 3306
+      payload.serverTime = connectionForm.value.serverTime || 'GMT+00:00'
+    }
+    
+    const response = await $fetch('/api/reporting/connections', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: payload
+    })
+    
+    if (response.success) {
+      toast.add({
+        title: 'Success',
+        description: response.isExisting ? 'Connection already exists' : 'Connection created successfully',
+        color: 'green'
+      })
+      showAddConnectionModal.value = false
+      await loadDataConnections()
+    }
+  } catch (error) {
+    console.error('Error saving connection:', error)
+    toast.add({
+      title: 'Error',
+      description: error.message || 'Failed to save connection',
+      color: 'red'
+    })
+  } finally {
+    isSavingConnection.value = false
+  }
+}
+
+// Edit connection - redirect to integration wizard
+const editConnection = (connection) => {
+  navigateTo(`/integration-wizard?edit=${connection.id}`)
+}
+
 // Update licenses
 const updateLicenses = async () => {
   try {
@@ -1001,7 +1334,8 @@ const addUser = async () => {
         email: userForm.value.email,
         firstName: userForm.value.firstName,
         lastName: userForm.value.lastName,
-        role: userForm.value.role
+        role: userForm.value.role,
+        sendInvitationEmail: userForm.value.sendInvitationEmail
       }
     })
 
@@ -1316,6 +1650,7 @@ const cancelDeleteViewer = () => {
 // Load organization details on mount
 onMounted(() => {
   loadOrganizationDetails()
+  loadDataConnections()
 })
 
 // Page meta

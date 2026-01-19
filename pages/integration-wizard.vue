@@ -32,7 +32,9 @@
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
-            <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Please enter your data source credentials below</h2>
+            <h2 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+              {{ form.databaseType === 'internal' ? 'Configure Internal Data Source' : 'Please enter your data source credentials below' }}
+            </h2>
             <div class="flex flex-col gap-2">
               <!-- Show debug badges only when in debug mode -->
               <div v-if="debugMode" class="flex items-center gap-2">
@@ -45,8 +47,8 @@
                 </UBadge>
               </div>
 
-              <!-- Connection Examples Dropdown - Superadmin only -->
-              <div v-if="isSuperAdmin && connectionExamples.length > 0" class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <!-- Connection Examples Dropdown - Superadmin only (MySQL only) -->
+              <div v-if="isSuperAdmin && connectionExamples.length > 0 && form.databaseType !== 'internal'" class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Quick Fill a demo connection:
                 </label>
@@ -75,7 +77,53 @@
         </template>
         
         <div class="space-y-6">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Data Source Type Selector -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Select Data Source Type
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- MySQL Card -->
+              <div 
+                class="relative p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
+                :class="form.databaseType !== 'internal' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'"
+                @click="selectDatabaseType('mysql')"
+              >
+                <div class="flex flex-col items-center text-center">
+                  <div class="w-16 h-16 mb-3 flex items-center justify-center">
+                    <Icon name="i-heroicons-circle-stack" class="w-12 h-12 text-orange-500"/>
+                  </div>
+                  <h3 class="font-semibold text-gray-900 dark:text-white">MySQL / MariaDB</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Connect to an external MySQL database</p>
+                </div>
+                <div v-if="form.databaseType !== 'internal'" class="absolute top-2 right-2">
+                  <Icon name="i-heroicons-check-circle-solid" class="w-6 h-6 text-orange-500"/>
+                </div>
+              </div>
+              
+              <!-- Internal Data Source Card -->
+              <div 
+                class="relative p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
+                :class="form.databaseType === 'internal' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'"
+                @click="selectDatabaseType('internal')"
+              >
+                <div class="flex flex-col items-center text-center">
+                  <div class="w-16 h-16 mb-3 flex items-center justify-center">
+                    <Icon name="i-heroicons-cloud" class="w-12 h-12 text-blue-500"/>
+                  </div>
+                  <h3 class="font-semibold text-gray-900 dark:text-white">Internal Data Source</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Use Optiqo Flow internal database</p>
+                </div>
+                <div v-if="form.databaseType === 'internal'" class="absolute top-2 right-2">
+                  <Icon name="i-heroicons-check-circle-solid" class="w-6 h-6 text-blue-500"/>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MySQL Configuration Form -->
+          <div v-if="form.databaseType !== 'internal'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
             <!-- Left Column - Form Fields -->
             <div class="space-y-4">
               <UFormField label="Internal Name" required class="text-gray-900 dark:text-white">
@@ -253,7 +301,35 @@
             </div>
           </div>
 
-          <!-- Error Summary -->
+          <!-- Internal Data Source Form -->
+          <div v-else class="space-y-6">
+            <UAlert 
+              color="info" 
+              variant="soft"
+              title="Internal Data Source"
+              description="Connect to the Optiqo Flow internal database. No external credentials are required - the connection is handled automatically."
+            />
+            
+            <div class="max-w-md">
+              <UFormField label="Connection Name" required class="text-gray-900 dark:text-white">
+                <UInput
+                  id="input-internal-name"
+                  v-model="form.internalName"
+                  :error="errors.internalName"
+                  placeholder="e.g., Optiqo Flow Data"
+                  class="w-full"
+                  @focus="focusedField = 'internalName'"
+                />
+                <template #help>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    A friendly name to identify this data source in your reports and dashboards.
+                  </p>
+                </template>
+              </UFormField>
+            </div>
+          </div>
+
+
           <div v-if="showErrors && validationErrors.length > 0" class="mt-4">
             <div class="bg-red-50 border border-red-200 rounded-md p-4">
               <div class="flex">
@@ -329,7 +405,9 @@
               Back
             </UButton>
             <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <!-- Test Connection button - MySQL only -->
               <UButton
+                v-if="form.databaseType !== 'internal'"
                 @click="testConnection"
                 :loading="isTestingConnection"
                 :disabled="isTestingConnection"
@@ -340,10 +418,11 @@
                 <Icon name="i-heroicons-play" class="w-4 h-4 mr-2"/>
                 Test Connection
               </UButton>
+              <!-- Save button - different logic for internal vs MySQL -->
               <UButton
                 v-if="!createdConnectionId"
                 @click="nextStep"
-                :disabled="!connectionTestResult?.success || saving"
+                :disabled="(form.databaseType !== 'internal' && !connectionTestResult?.success) || saving || !form.internalName.trim()"
                 :loading="saving"
                 class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white cursor-pointer"
                 color="green"
@@ -360,6 +439,7 @@
               </UButton>
             </div>
           </div>
+
         </div>
       </UCard>
     </div>
@@ -439,7 +519,8 @@ const connectionTestResult = ref(null)
 const saving = ref(false)
 
 const databaseTypes = [
-  { label: 'MySQL', value: 'mysql' }
+  { label: 'MySQL', value: 'mysql' },
+  { label: 'Internal', value: 'internal' }
 ]
 
 const sshAuthMethods = [
@@ -827,42 +908,84 @@ const goBack = () => {
   navigateTo('/data-sources')
 }
 
+// Select data source type (MySQL or Internal)
+const selectDatabaseType = (type) => {
+  if (type === 'internal') {
+    // Set internal data source
+    form.value.databaseType = 'internal'
+    // Clear any previous connection test result
+    connectionTestResult.value = null
+  } else {
+    // Set MySQL as default
+    form.value.databaseType = 'mysql'
+  }
+}
+
 const nextStep = async () => {
-  if (!connectionTestResult.value?.success) {
+  // For MySQL connections, require successful connection test
+  if (form.value.databaseType !== 'internal' && !connectionTestResult.value?.success) {
     showErrors.value = true
     validationErrors.value = ['Please test the connection successfully before proceeding']
     return
   }
 
-  // Validate form before creating connection
-  if (!(await validateForm())) {
-    showErrors.value = true
-    return
+  // For internal sources, just validate the name
+  if (form.value.databaseType === 'internal') {
+    if (!form.value.internalName.trim()) {
+      showErrors.value = true
+      validationErrors.value = ['Please provide a connection name']
+      return
+    }
+  } else {
+    // Validate form before creating connection (MySQL)
+    if (!(await validateForm())) {
+      showErrors.value = true
+      return
+    }
   }
+
 
   saving.value = true
   try {
+    // Build payload differently for internal vs MySQL sources
+    const isInternal = form.value.databaseType === 'internal'
+    
     const payload = {
       internalName: form.value.internalName,
-      databaseName: form.value.databaseName,
       databaseType: form.value.databaseType,
-      host: form.value.host,
-      username: form.value.username,
-      password: form.value.password,
-      port: form.value.port,
-      jdbcParams: form.value.jdbcParams,
-      serverTime: form.value.serverTime,
-      useSshTunneling: form.value.useSshTunneling,
       storageLocation: form.value.storageLocation
     }
-    if (form.value.useSshTunneling) {
-      payload.sshAuthMethod = form.value.sshAuthMethod
-      payload.sshPort = form.value.sshPort
-      payload.sshUser = form.value.sshUser
-      payload.sshHost = form.value.sshHost
-      payload.sshPassword = form.value.sshPassword
-      payload.sshPrivateKey = form.value.sshPrivateKey
+    
+    if (isInternal) {
+      // For internal sources, use placeholder values
+      payload.databaseName = 'optiqoflow'
+      payload.host = 'internal'
+      payload.username = 'service_role'
+      payload.password = 'internal'
+      payload.port = 5432
+      payload.serverTime = 'GMT+00:00'
+      payload.useSshTunneling = false
+    } else {
+      // For MySQL sources, use form values
+      payload.databaseName = form.value.databaseName
+      payload.host = form.value.host
+      payload.username = form.value.username
+      payload.password = form.value.password
+      payload.port = form.value.port
+      payload.jdbcParams = form.value.jdbcParams
+      payload.serverTime = form.value.serverTime
+      payload.useSshTunneling = form.value.useSshTunneling
+      
+      if (form.value.useSshTunneling) {
+        payload.sshAuthMethod = form.value.sshAuthMethod
+        payload.sshPort = form.value.sshPort
+        payload.sshUser = form.value.sshUser
+        payload.sshHost = form.value.sshHost
+        payload.sshPassword = form.value.sshPassword
+        payload.sshPrivateKey = form.value.sshPrivateKey
+      }
     }
+
 
     console.log('[FRONTEND_AUTO_JOIN] Creating new connection:', {
       internalName: payload.internalName,

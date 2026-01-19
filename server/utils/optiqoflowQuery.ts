@@ -1,0 +1,295 @@
+/**
+ * Optiqoflow Query Utility
+ * 
+ * Executes queries against the Supabase optiqoflow schema
+ * for internal data source connections.
+ */
+
+import { pgClient } from '../../lib/db'
+
+const OPTIQOFLOW_SCHEMA = 'optiqoflow'
+
+/**
+ * Wrap an identifier for PostgreSQL (using double quotes)
+ */
+function wrapPgIdentifier(identifier: string): string {
+    // Escape any double quotes in the identifier
+    return `"${identifier.replace(/"/g, '""')}"`
+}
+
+/**
+ * Convert MySQL-style backtick identifiers to PostgreSQL double quotes
+ */
+export function translateIdentifiers(sql: string): string {
+    // Note: This function name matches internalStorageQuery.ts intentionally
+    // Nuxt auto-imports will deduplicate - either version works the same
+    return sql.replace(/`([^`]+)`/g, '"$1"')
+}
+
+/**
+ * Execute a query against the optiqoflow PostgreSQL schema
+ * 
+ * @param sql - The SQL query (can have MySQL-style backtick identifiers)
+ * @param params - Query parameters (optional)
+ * @returns Array of result rows
+ */
+export async function executeOptiqoflowQuery(
+    sql: string,
+    params: any[] = []
+): Promise<any[]> {
+    // Translate MySQL backticks to PostgreSQL double quotes
+    let pgSql = translateIdentifiers(sql)
+
+    // Convert ? placeholders to numbered placeholders ($1, $2, etc.)
+    let paramIndex = 0
+    const numberedSql = pgSql.replace(/\?/g, () => `$${++paramIndex}`)
+
+    console.log(`[OptiqoflowQuery] Executing query in schema ${OPTIQOFLOW_SCHEMA}`)
+    console.log(`[OptiqoflowQuery] Original SQL: ${sql.substring(0, 200)}...`)
+    console.log(`[OptiqoflowQuery] Translated SQL: ${numberedSql.substring(0, 200)}...`)
+
+    try {
+        // Use a transaction to ensure search_path and query run on the same connection
+        const result = await pgClient.begin(async (tx) => {
+            // Set search_path to include the optiqoflow schema
+            await tx.unsafe(`SET LOCAL search_path TO "${OPTIQOFLOW_SCHEMA}", public`)
+
+            // Execute the query on the same connection
+            const rows = await tx.unsafe(numberedSql, params)
+
+            return rows as any[]
+        })
+
+        return result
+    } catch (error: any) {
+        console.error(`[OptiqoflowQuery] Query error:`, error?.message || error)
+        throw error
+    }
+}
+
+/**
+ * Get the list of tables in the optiqoflow schema
+ */
+export async function getOptiqoflowTables(): Promise<Array<{ tableName: string, rowCount: number }>> {
+    const sql = `
+    SELECT 
+      table_name as "tableName",
+      (SELECT COUNT(*) FROM "${OPTIQOFLOW_SCHEMA}"."" || table_name || "") as "rowCount"
+    FROM information_schema.tables
+    WHERE table_schema = $1
+    AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `
+
+    // This query won't work directly due to dynamic table name, so let's use a simpler approach
+    const tablesSql = `
+    SELECT table_name as "tableName"
+    FROM information_schema.tables
+    WHERE table_schema = $1
+    AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `
+
+    try {
+        const tables = await pgClient.unsafe(tablesSql, [OPTIQOFLOW_SCHEMA]) as Array<{ tableName: string }>
+        return tables.map(t => ({ tableName: t.tableName, rowCount: 0 }))
+    } catch (error: any) {
+        console.error(`[OptiqoflowQuery] Error getting tables:`, error?.message || error)
+        throw error
+    }
+}
+
+/**
+ * Get schema info for optiqoflow (tables, columns, types)
+ * Returns structure compatible with existing schema_json format
+ */
+export async function getOptiqoflowSchema(): Promise<{
+    tables: Array<{
+        tableId: string
+        columns: Array<{
+            name: string
+            type: string
+            label: string
+            fieldId: string
+            isDate: boolean
+            isString: boolean
+            isBoolean: boolean
+            isNumeric: boolean
+        }>
+        primaryKey: string[]
+        foreignKeys: Array<{
+            sourceColumn: string
+            targetTable: string
+            targetColumn: string
+        }>
+    }>
+}> {
+    // Get all tables
+    const tablesSql = `
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = $1
+    AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `
+
+    // Get all columns
+    const columnsSql = `
+    SELECT 
+      table_name,
+      column_name,
+      data_type,
+      udt_name
+    FROM information_schema.columns
+    WHERE table_schema = $1
+    ORDER BY table_name, ordinal_position
+  `
+
+    // Get primary keys
+    const pkSql = `
+    SELECT 
+      tc.table_name,
+      kcu.column_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu 
+      ON tc.constraint_name = kcu.constraint_name
+      AND tc.table_schema = kcu.table_schema
+    WHERE tc.constraint_type = 'PRIMARY KEY'
+    AND tc.table_schema = $1
+  `
+
+    // Get foreign keys
+    const fkSql = `
+    SELECT
+      kcu.table_name as source_table,
+      kcu.column_name as source_column,
+      ccu.table_name as target_table,
+      ccu.column_name as target_column
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu 
+      ON tc.constraint_name = kcu.constraint_name
+      AND tc.table_schema = kcu.table_schema
+    JOIN information_schema.constraint_column_usage ccu 
+      ON ccu.constraint_name = tc.constraint_name
+      AND ccu.table_schema = tc.table_schema
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+    AND tc.table_schema = $1
+  `
+
+    try {
+        const [tables, columns, pks, fks] = await Promise.all([
+            pgClient.unsafe(tablesSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string }>>,
+            pgClient.unsafe(columnsSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string, column_name: string, data_type: string, udt_name: string }>>,
+            pgClient.unsafe(pkSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string, column_name: string }>>,
+            pgClient.unsafe(fkSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ source_table: string, source_column: string, target_table: string, target_column: string }>>
+        ])
+
+        // Group columns by table
+        const columnsByTable: Record<string, typeof columns> = {}
+        for (const col of columns) {
+            if (!columnsByTable[col.table_name]) {
+                columnsByTable[col.table_name] = []
+            }
+            columnsByTable[col.table_name].push(col)
+        }
+
+        // Group PKs by table
+        const pksByTable: Record<string, string[]> = {}
+        for (const pk of pks) {
+            if (!pksByTable[pk.table_name]) {
+                pksByTable[pk.table_name] = []
+            }
+            pksByTable[pk.table_name].push(pk.column_name)
+        }
+
+        // Group FKs by table
+        const fksByTable: Record<string, Array<{ sourceColumn: string, targetTable: string, targetColumn: string }>> = {}
+        for (const fk of fks) {
+            if (!fksByTable[fk.source_table]) {
+                fksByTable[fk.source_table] = []
+            }
+            fksByTable[fk.source_table].push({
+                sourceColumn: fk.source_column,
+                targetTable: fk.target_table,
+                targetColumn: fk.target_column
+            })
+        }
+
+        // Build result
+        const result = {
+            tables: tables.map(t => {
+                const tableCols = columnsByTable[t.table_name] || []
+                return {
+                    tableId: t.table_name,
+                    columns: tableCols.map(c => ({
+                        name: c.column_name,
+                        type: c.data_type,
+                        label: c.column_name,
+                        fieldId: c.column_name,
+                        isDate: ['date', 'timestamp', 'timestamptz', 'timestamp with time zone', 'timestamp without time zone', 'time', 'timetz'].includes(c.data_type.toLowerCase()),
+                        isString: ['text', 'varchar', 'char', 'character varying', 'character', 'name'].includes(c.data_type.toLowerCase()),
+                        isBoolean: ['boolean', 'bool'].includes(c.data_type.toLowerCase()),
+                        isNumeric: ['integer', 'bigint', 'smallint', 'decimal', 'numeric', 'real', 'double precision', 'int4', 'int8', 'int2', 'float4', 'float8'].includes(c.data_type.toLowerCase())
+                    })),
+                    primaryKey: pksByTable[t.table_name] || [],
+                    foreignKeys: fksByTable[t.table_name] || []
+                }
+            })
+        }
+
+        console.log(`[OptiqoflowQuery] Schema loaded: ${result.tables.length} tables`)
+        return result
+    } catch (error: any) {
+        console.error(`[OptiqoflowQuery] Error getting schema:`, error?.message || error)
+        throw error
+    }
+}
+
+/**
+ * Execute a simple SELECT query on optiqoflow
+ */
+export async function queryOptiqoflowTable(
+    tableName: string,
+    columns: string = '*',
+    limit: number = 100
+): Promise<{ rows: any[], columns: Array<{ key: string, label: string }> }> {
+    const safeTable = wrapPgIdentifier(tableName)
+    const safeSchema = wrapPgIdentifier(OPTIQOFLOW_SCHEMA)
+
+    const sql = `SELECT ${columns} FROM ${safeSchema}.${safeTable} LIMIT ${limit}`
+
+    console.log(`[OptiqoflowQuery] Table query: ${sql}`)
+
+    const rows = await pgClient.unsafe(sql) as any[]
+
+    // Extract column info from first row
+    const columnInfo = rows.length > 0
+        ? Object.keys(rows[0]).map(k => ({ key: k, label: k }))
+        : []
+
+    return { rows, columns: columnInfo }
+}
+
+/**
+ * Get distinct values for a column from optiqoflow
+ */
+export async function getDistinctValuesOptiqoflow(
+    tableName: string,
+    columnName: string,
+    limit: number = 200
+): Promise<string[]> {
+    const safeTable = wrapPgIdentifier(tableName)
+    const safeSchema = wrapPgIdentifier(OPTIQOFLOW_SCHEMA)
+    const safeColumn = wrapPgIdentifier(columnName)
+
+    const sql = `
+    SELECT DISTINCT ${safeColumn} AS value
+    FROM ${safeSchema}.${safeTable}
+    WHERE ${safeColumn} IS NOT NULL
+    ORDER BY ${safeColumn}
+    LIMIT ${limit}
+  `
+
+    const rows = await pgClient.unsafe(sql) as { value: unknown }[]
+    return rows.map(r => String(r.value))
+}

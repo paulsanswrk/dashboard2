@@ -1,40 +1,63 @@
-import {defineEventHandler, readBody} from 'h3'
-import {supabaseAdmin} from '../supabase'
-import {AuthHelper} from '../../utils/authHelper'
+import { defineEventHandler, readBody } from 'h3'
+import { supabaseAdmin } from '../supabase'
+import { AuthHelper } from '../../utils/authHelper'
 
 export default defineEventHandler(async (event) => {
-    const ctx = await AuthHelper.requireAuthContext(event)
-    if (ctx.role === 'VIEWER') {
-        throw createError({statusCode: 403, statusMessage: 'Only Admin/Editor can create connections'})
-    }
-    if (!ctx.organizationId) {
-        throw createError({statusCode: 400, statusMessage: 'Organization is required to create a connection'})
-    }
+  const ctx = await AuthHelper.requireAuthContext(event)
+  if (ctx.role === 'VIEWER') {
+    throw createError({ statusCode: 403, statusMessage: 'Only Admin/Editor can create connections' })
+  }
 
   const body = await readBody<any>(event)
 
-  // Basic validation
-  const required = ['internalName', 'databaseName', 'databaseType', 'host', 'username', 'password', 'port', 'serverTime']
-  for (const key of required) {
-    if (!body?.[key] || String(body[key]).trim() === '') {
-      throw createError({ statusCode: 400, statusMessage: `Missing required field: ${key}` })
+  // Determine the target organization
+  // SUPERADMIN can specify a different organization; ADMIN/EDITOR can only use their own
+  let targetOrganizationId = ctx.organizationId
+  if (body?.organizationId && typeof body.organizationId === 'string') {
+    if (ctx.role === 'SUPERADMIN') {
+      targetOrganizationId = body.organizationId
+    } else if (body.organizationId !== ctx.organizationId) {
+      throw createError({ statusCode: 403, statusMessage: 'You can only create connections for your own organization' })
     }
   }
 
-  const useSsh = !!body.useSshTunneling
+  if (!targetOrganizationId) {
+    throw createError({ statusCode: 400, statusMessage: 'Organization is required to create a connection' })
+  }
+
+  // Check if this is an internal data source
+  const isInternalSource = body?.databaseType === 'internal'
+
+  // Different validation for internal vs external sources
+  if (isInternalSource) {
+    // For internal sources, only require the internal name
+    if (!body?.internalName || String(body.internalName).trim() === '') {
+      throw createError({ statusCode: 400, statusMessage: 'Missing required field: internalName' })
+    }
+  } else {
+    // For external sources (MySQL), require all connection fields
+    const required = ['internalName', 'databaseName', 'databaseType', 'host', 'username', 'password', 'port', 'serverTime']
+    for (const key of required) {
+      if (!body?.[key] || String(body[key]).trim() === '') {
+        throw createError({ statusCode: 400, statusMessage: `Missing required field: ${key}` })
+      }
+    }
+  }
+
+  const useSsh = !isInternalSource && !!body.useSshTunneling
 
   const record: any = {
-      owner_id: ctx.userId, // kept for history; not used for authorization
-      organization_id: ctx.organizationId,
+    owner_id: ctx.userId, // kept for history; not used for authorization
+    organization_id: targetOrganizationId,
     internal_name: String(body.internalName),
-    database_name: String(body.databaseName),
+    database_name: isInternalSource ? 'optiqoflow' : String(body.databaseName),
     database_type: String(body.databaseType),
-    host: String(body.host),
-    username: String(body.username),
-    password: String(body.password),
-    port: Number(body.port),
+    host: isInternalSource ? 'internal' : String(body.host),
+    username: isInternalSource ? 'service_role' : String(body.username),
+    password: isInternalSource ? 'internal' : String(body.password),
+    port: isInternalSource ? 5432 : Number(body.port),
     jdbc_params: body.jdbcParams ? String(body.jdbcParams) : '',
-    server_time: String(body.serverTime),
+    server_time: isInternalSource ? 'GMT+00:00' : String(body.serverTime),
     use_ssh_tunneling: useSsh,
     ssh_auth_method: useSsh ? (body.sshAuthMethod ? String(body.sshAuthMethod) : null) : null,
     ssh_port: useSsh && body.sshPort ? Number(body.sshPort) : null,
@@ -42,7 +65,9 @@ export default defineEventHandler(async (event) => {
     ssh_host: useSsh ? (body.sshHost ? String(body.sshHost) : null) : null,
     ssh_password: useSsh ? (body.sshPassword ? String(body.sshPassword) : null) : null,
     ssh_private_key: useSsh ? (body.sshPrivateKey ? String(body.sshPrivateKey) : null) : null,
-    storage_location: body.storageLocation ? String(body.storageLocation) : null
+    storage_location: body.storageLocation ? String(body.storageLocation) : null,
+    // Set DBMS version for internal sources
+    dbms_version: isInternalSource ? 'PostgreSQL 15' : null
   }
 
   // Allow optional schema payload to be persisted at creation time
@@ -54,13 +79,13 @@ export default defineEventHandler(async (event) => {
     console.log(`[AUTO_JOIN] No schema provided during connection creation for ${body.internalName}`)
   }
 
-  console.log(`[AUTO_JOIN] Creating new connection: ${body.internalName} (${body.databaseName} on ${body.host}:${body.port})`)
+  console.log(`[AUTO_JOIN] Creating new connection: ${body.internalName} (${isInternalSource ? 'internal data source' : `${body.databaseName} on ${body.host}:${body.port}`})`)
 
   // Check if connection with same name already exists
   const { data: existingConnection, error: checkError } = await supabaseAdmin
     .from('data_connections')
-      .select('id, internal_name, host, port, database_name, organization_id')
-      .eq('organization_id', ctx.organizationId)
+    .select('id, internal_name, host, port, database_name, organization_id')
+    .eq('organization_id', ctx.organizationId)
     .eq('internal_name', record.internal_name)
     .single()
 
@@ -78,28 +103,28 @@ export default defineEventHandler(async (event) => {
     existingDatabase: existingConnection?.database_name
   })
 
-    let data
-    let error
+  let data
+  let error
 
-    if (isExistingConnection && existingConnection?.id) {
-        const updateResult = await supabaseAdmin
-            .from('data_connections')
-            .update(record)
-            .eq('id', existingConnection.id)
-            .eq('organization_id', ctx.organizationId)
-            .select('id, internal_name, created_at')
-            .single()
-        data = updateResult.data
-        error = updateResult.error
-    } else {
-        const insertResult = await supabaseAdmin
-            .from('data_connections')
-            .insert(record)
-            .select('id, internal_name, created_at')
-            .single()
-        data = insertResult.data
-        error = insertResult.error
-    }
+  if (isExistingConnection && existingConnection?.id) {
+    const updateResult = await supabaseAdmin
+      .from('data_connections')
+      .update(record)
+      .eq('id', existingConnection.id)
+      .eq('organization_id', ctx.organizationId)
+      .select('id, internal_name, created_at')
+      .single()
+    data = updateResult.data
+    error = updateResult.error
+  } else {
+    const insertResult = await supabaseAdmin
+      .from('data_connections')
+      .insert(record)
+      .select('id, internal_name, created_at')
+      .single()
+    data = insertResult.data
+    error = insertResult.error
+  }
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 

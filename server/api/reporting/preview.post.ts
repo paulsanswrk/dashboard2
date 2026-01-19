@@ -4,6 +4,7 @@ import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { computePathsForTables, type Edge, selectJoinTree, type TableGraph } from '../../utils/schemaGraph'
 import { AuthHelper } from '../../utils/authHelper'
 import { loadInternalStorageInfo, executeInternalStorageQuery, translateIdentifiers } from '../../utils/internalStorageQuery'
+import { executeOptiqoflowQuery } from '../../utils/optiqoflowQuery'
 
 
 type ReportField = { fieldId: string; name?: string; label?: string; type?: string; isNumeric?: boolean; table?: string }
@@ -80,9 +81,9 @@ export default defineEventHandler(async (event) => {
     }
 
     const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
-      columns: 'id, organization_id, auto_join_info'
+      columns: 'id, organization_id, auto_join_info, database_type'
     })
-    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auth check complete`)
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auth check complete, database_type=${connection.database_type}`)
 
     const dims: DimensionRef[] = [...(body.xDimensions || []), ...(body.breakdowns || [])]
     const metrics: MetricRef[] = [...(body.yMetrics || [])]
@@ -452,33 +453,42 @@ export default defineEventHandler(async (event) => {
       return { columns, rows: [], meta: metaPre }
     }
 
-    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: SQL built, checking storage info`)
-
-    // Check if connection uses internal storage
-    const storageInfo = await loadInternalStorageInfo(connectionId)
-    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Storage info loaded, useInternal=${storageInfo.useInternalStorage}`)
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: SQL built, checking connection type`)
 
     let rows: any[]
     let finalSql = sql
 
-    if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-      console.log(`[preview] Using internal storage: ${storageInfo.schemaName}`)
+    // Check if this is an internal data source (optiqoflow)
+    if (connection.database_type === 'internal') {
+      console.log(`[preview] Using internal data source (optiqoflow)`)
       // Translate MySQL backticks to PostgreSQL double quotes
       finalSql = translateIdentifiers(sql)
-      rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
+      rows = await executeOptiqoflowQuery(finalSql, params)
     } else {
-      // Fall back to MySQL query
-      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Loading MySQL config...`)
-      const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
-      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL config loaded, executing query...`)
-      console.log(`[PREVIEW_TIMING] SQL: ${sql.substring(0, 200)}...`)
-      rows = await withMySqlConnectionConfig(cfg, async (conn) => {
-        console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL connection acquired, running query...`)
-        const [res] = await conn.query(sql, params)
-        console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Query returned ${(res as any[]).length} rows`)
-        return res as any[]
-      })
+      // Check if connection uses internal storage (data transfer feature)
+      const storageInfo = await loadInternalStorageInfo(connectionId)
+      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Storage info loaded, useInternal=${storageInfo.useInternalStorage}`)
+
+      if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+        console.log(`[preview] Using internal storage: ${storageInfo.schemaName}`)
+        // Translate MySQL backticks to PostgreSQL double quotes
+        finalSql = translateIdentifiers(sql)
+        rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
+      } else {
+        // Fall back to MySQL query
+        console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Loading MySQL config...`)
+        const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
+        console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL config loaded, executing query...`)
+        console.log(`[PREVIEW_TIMING] SQL: ${sql.substring(0, 200)}...`)
+        rows = await withMySqlConnectionConfig(cfg, async (conn) => {
+          console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL connection acquired, running query...`)
+          const [res] = await conn.query(sql, params)
+          console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Query returned ${(res as any[]).length} rows`)
+          return res as any[]
+        })
+      }
     }
+
 
     const executionMs = Date.now() - start
     const meta: Record<string, any> = { executionMs, sql: finalSql, sqlParams: params }

@@ -2,6 +2,7 @@ import { defineEventHandler, getQuery } from 'h3'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { AuthHelper } from '../../utils/authHelper'
+import { getOptiqoflowSchema } from '../../utils/optiqoflowQuery'
 
 export default defineEventHandler(async (event) => {
   const { connectionId } = getQuery(event) as any
@@ -11,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   // Try to use cached schema_json first (works for both internal and remote connections)
   const connection = await AuthHelper.requireConnectionAccess(event, connId, {
-    columns: 'id, organization_id, schema_json, storage_location'
+    columns: 'id, organization_id, schema_json, storage_location, database_type'
   })
 
   const schemaJson = connection?.schema_json as { tables?: any[] } | null
@@ -32,7 +33,54 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // No cached schema - for internal storage connections, return empty
+  // No cached schema - check if this is an internal data source
+  if (connection?.database_type === 'internal') {
+    console.log(`[full-schema] Internal data source connection ${connId}, fetching optiqoflow schema`)
+    try {
+      const schema = await getOptiqoflowSchema()
+
+      // Transform to expected format and extract relationships
+      const allRelationships: any[] = []
+      const enrichedTables = schema.tables.map(table => {
+        // Add foreign keys to relationships
+        for (const fk of table.foreignKeys) {
+          allRelationships.push({
+            constraintName: `${table.tableId}_${fk.sourceColumn}_fk`,
+            sourceTable: table.tableId,
+            targetTable: fk.targetTable,
+            columnPairs: [{ sourceColumn: fk.sourceColumn, targetColumn: fk.targetColumn }]
+          })
+        }
+
+        return {
+          tableId: table.tableId,
+          tableName: table.tableId,
+          columns: table.columns.map(c => ({
+            fieldId: c.fieldId,
+            name: c.name,
+            label: c.label,
+            type: c.type,
+            isNumeric: c.isNumeric,
+            isDate: c.isDate,
+            isString: c.isString,
+            isBoolean: c.isBoolean
+          })),
+          primaryKey: table.primaryKey,
+          foreignKeys: table.foreignKeys
+        }
+      })
+
+      return {
+        tables: enrichedTables,
+        relationships: allRelationships
+      }
+    } catch (error: any) {
+      console.error(`[full-schema] Error fetching optiqoflow schema:`, error?.message || error)
+      return { tables: [], relationships: [] }
+    }
+  }
+
+  // No cached schema - for internal storage connections (data transfer), return empty
   if (connection?.storage_location === 'internal') {
     console.warn(`[full-schema] Internal storage connection ${connId} has no cached schema_json`)
     return { tables: [], relationships: [] }
@@ -40,6 +88,7 @@ export default defineEventHandler(async (event) => {
 
   // External connection with no cache - query MySQL directly
   console.log(`[full-schema] No cached schema, querying MySQL for connection ${connId}`)
+
   const cfg = await loadConnectionConfigFromSupabase(event, connId)
 
   return await withMySqlConnectionConfig(cfg, async (conn) => {

@@ -44,10 +44,11 @@ export default defineEventHandler(async (event) => {
         // Check if connection uses internal storage
         const storageInfo = await loadInternalStorageInfo(connectionId)
 
-        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-            console.log(`[table-preview] Using internal storage: ${storageInfo.schemaName}`)
+        if (storageInfo.useInternalStorage) {
+            const schemaName = storageInfo.schemaName || 'optiqoflow'
+            console.log(`[table-preview] Using internal storage: ${schemaName}`)
             const result = await queryInternalTable(
-                storageInfo.schemaName,
+                schemaName,
                 tableName,
                 '*',
                 limit
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event) => {
             return {
                 columns: result.columns,
                 rows: result.rows,
-                meta: { executionMs, sql: `SELECT * FROM "${storageInfo.schemaName}"."${tableName}" LIMIT ${limit}`, rowCount: result.rows.length }
+                meta: { executionMs, sql: `SELECT * FROM "${schemaName}"."${tableName}" LIMIT ${limit}`, rowCount: result.rows.length }
             }
         }
 

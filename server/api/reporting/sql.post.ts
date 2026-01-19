@@ -3,6 +3,10 @@ import { withMySqlConnection } from '../../utils/mysqlClient.dev'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
+import { executeOptiqoflowQuery, translateIdentifiers } from '../../utils/optiqoflowQuery'
+import { db } from '../../../lib/db'
+import { dataConnections } from '../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 const FORBIDDEN = [/\b(drop|truncate|alter|create|grant|revoke|insert|update|delete|merge)\b/i]
 
@@ -29,19 +33,32 @@ export default defineEventHandler(async (event) => {
   let rows: any[]
   try {
     if (connectionId) {
-      // Check if connection uses internal storage
-      const storageInfo = await loadInternalStorageInfo(connectionId)
+      // Get connection to check database_type
+      const connection = await db.query.dataConnections.findFirst({
+        where: eq(dataConnections.id, connectionId),
+        columns: { id: true, databaseType: true, storageLocation: true }
+      })
 
-      if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-        console.log(`[sql.post] Using internal storage: ${storageInfo.schemaName}`)
-        rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql)
+      // Check if this is an internal data source (optiqoflow)
+      if (connection?.databaseType === 'internal') {
+        console.log(`[sql.post] Using internal data source (optiqoflow)`)
+        const pgSql = translateIdentifiers(safeSql)
+        rows = await executeOptiqoflowQuery(pgSql)
       } else {
-        // Fall back to MySQL query
-        const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
-        rows = await withMySqlConnectionConfig(cfg, async (conn) => {
-          const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
-          return res as any[]
-        })
+        // Check if connection uses internal storage (data transfer feature)
+        const storageInfo = await loadInternalStorageInfo(connectionId)
+
+        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+          console.log(`[sql.post] Using internal storage: ${storageInfo.schemaName}`)
+          rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql)
+        } else {
+          // Fall back to MySQL query
+          const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
+          rows = await withMySqlConnectionConfig(cfg, async (conn) => {
+            const [res] = await conn.query({ sql: safeSql, timeout: 30000 } as any)
+            return res as any[]
+          })
+        }
       }
     } else {
       // No connection ID - use default MySQL connection
@@ -50,6 +67,7 @@ export default defineEventHandler(async (event) => {
         return res as any[]
       })
     }
+
   } catch (error: any) {
     // Handle MySQL timeout errors specifically
     if (error.code === 'PROTOCOL_SEQUENCE_TIMEOUT' || error.message?.includes('Query inactivity timeout')) {

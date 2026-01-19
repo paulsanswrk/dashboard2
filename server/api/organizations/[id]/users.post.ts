@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
 
     // Parse request body
     const body = await readBody(event)
-    const { email, firstName, lastName, role = 'EDITOR' } = body
+    const { email, firstName, lastName, role = 'EDITOR', sendInvitationEmail = true } = body
 
     // Validate required fields
     if (!email || !firstName || !lastName) {
@@ -159,29 +159,33 @@ export default defineEventHandler(async (event) => {
     const config = useRuntimeConfig()
     const siteUrl = config.public.siteUrl || 'http://localhost:3000'
 
-    // Generate magic link for the new user
-    const magicLink = generateMagicLink(newUserId, email, siteUrl)
+    // Only send invitation email if requested
+    let emailSent = false
+    if (sendInvitationEmail) {
+      // Generate magic link for the new user
+      const magicLink = generateMagicLink(newUserId, email, siteUrl)
 
-    // Send invitation email with magic link
-    try {
-      const emailTemplate = generateUserInvitationWithMagicLinkTemplate({
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        role: userRole,
-        organizationName: organization.name,
-        confirmationUrl: magicLink,
-        siteUrl: siteUrl
-      })
+      // Send invitation email with magic link
+      try {
+        const emailTemplate = generateUserInvitationWithMagicLinkTemplate({
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
+          role: userRole,
+          organizationName: organization.name,
+          confirmationUrl: magicLink,
+          siteUrl: siteUrl
+        })
 
-      const emailSent = await sendEmail(email, emailTemplate)
+        emailSent = await sendEmail(email, emailTemplate)
 
-      if (!emailSent) {
-        console.warn('Failed to send invitation email to user:', email)
+        if (!emailSent) {
+          console.warn('Failed to send invitation email to user:', email)
+        }
+      } catch (emailError) {
+        console.error('Error sending invitation email:', emailError)
+        // Don't fail the user creation if email fails
       }
-    } catch (emailError) {
-      console.error('Error sending invitation email:', emailError)
-      // Don't fail the user creation if email fails
     }
 
     // Transform the response to match frontend format
@@ -198,7 +202,9 @@ export default defineEventHandler(async (event) => {
     return {
       success: true,
       user: transformedUser,
-      message: 'User created successfully and invitation email sent'
+      message: sendInvitationEmail
+        ? (emailSent ? 'User created successfully and invitation email sent' : 'User created successfully but invitation email failed to send')
+        : 'User created successfully'
     }
 
   } catch (error: any) {
