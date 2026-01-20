@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
         }
 
         const { operation, table, tenant_id, data, old_data, batch } = body
-        const targetTable = TABLE_MAPPING[table]
+        const targetTable = table
 
         console.log(`[Optiqo] ${operation} on ${table} -> optiqoflow.${targetTable}`)
 
@@ -156,7 +156,7 @@ export default defineEventHandler(async (event) => {
         try {
             const rawBody = await readRawBody(event)
             const body = JSON.parse(rawBody || '{}')
-            const targetTable = TABLE_MAPPING[body.table]
+            const targetTable = body.table
 
             await supabase.from('webhook_logs').insert({
                 operation: body.operation,

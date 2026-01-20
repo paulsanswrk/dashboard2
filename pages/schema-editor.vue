@@ -26,6 +26,7 @@
             ref="schemaSelectorRef"
             :tables="datasets"
             :columns-by-table="columnsByTable"
+            :row-counts-by-table="rowCountsByTable"
             :initial-selected="initialSelected"
             :connection-id="connectionId"
             :custom-views="customViews"
@@ -48,6 +49,7 @@ const connectionId = computed(() => Number(route.query.id || route.query.connect
 
 const datasets = ref([])
 const columnsByTable = ref({})
+const rowCountsByTable = ref<Record<string, number>>({})
 const datasetsLoaded = ref(false)
 const saving = ref(false)
 const schemaSelection = ref(null)
@@ -118,6 +120,9 @@ async function loadAll() {
 
     columnsByTable.value = map
     allSchemasLoaded.value = true
+
+    // Fetch row counts for each table (async, don't block)
+    fetchRowCounts()
   } catch (error) {
     console.error('Failed to load full schema:', error)
     datasetsLoaded.value = true
@@ -130,6 +135,20 @@ async function loadAll() {
 
 function onSchemaSave(payload) {
   schemaSelection.value = payload
+}
+
+// Fetch row counts for all tables (used by "Hide empty" filter)
+async function fetchRowCounts() {
+  try {
+    const counts = await $fetch('/api/reporting/table-row-counts', {
+      params: { connectionId: connectionId.value }
+    })
+    rowCountsByTable.value = counts || {}
+    console.log(`[schema-editor] Loaded row counts for ${Object.keys(counts || {}).length} tables`)
+  } catch (error) {
+    console.error('Failed to fetch row counts:', error)
+    // Non-blocking - just log the error
+  }
 }
 
 function onCustomViewsChanged(views: any[]) {

@@ -35,18 +35,22 @@ export default defineEventHandler(async (event) => {
         }
 
         // Verify user has access to this connection
-        await AuthHelper.requireConnectionAccess(event, connectionId, {
-            columns: 'id, organization_id'
+        const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
+            columns: 'id, organization_id, database_type'
         })
 
         const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
 
-        // Check if connection uses internal storage
+        // Check if connection is an internal data source (database_type='internal')
+        const isInternalDataSource = (connection as any)?.database_type === 'internal'
+
+        // Check if connection uses internal storage (storage_location='internal')
         const storageInfo = await loadInternalStorageInfo(connectionId)
 
-        if (storageInfo.useInternalStorage) {
-            const schemaName = storageInfo.schemaName || 'optiqoflow'
-            console.log(`[table-preview] Using internal storage: ${schemaName}`)
+        // Use PostgreSQL path for either internal data source OR internal storage
+        if (isInternalDataSource || storageInfo.useInternalStorage) {
+            const schemaName = isInternalDataSource ? 'optiqoflow' : (storageInfo.schemaName || 'optiqoflow')
+            console.log(`[table-preview] Using internal path: ${schemaName} (dataSource=${isInternalDataSource}, storage=${storageInfo.useInternalStorage})`)
             const result = await queryInternalTable(
                 schemaName,
                 tableName,

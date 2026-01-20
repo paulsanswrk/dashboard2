@@ -100,12 +100,65 @@ export async function getOptiqoflowTables(): Promise<Array<{ tableName: string, 
 }
 
 /**
+ * Fetch foreign key relationships from optiqoflow.table_relationships
+ * These are business-level relationships pushed by the Optiqo Flow sync pipeline.
+ */
+export async function getTableRelationships(): Promise<Array<{
+    sourceTable: string
+    sourceColumn: string
+    targetTable: string
+    targetColumn: string
+    relationshipType: string
+    description?: string
+}>> {
+    const sql = `
+        SELECT 
+            source_table,
+            source_column,
+            target_table,
+            target_column,
+            relationship_type,
+            description
+        FROM optiqoflow.table_relationships
+        ORDER BY source_table, source_column
+    `
+
+    try {
+        const rows = await pgClient.unsafe(sql) as Array<{
+            source_table: string
+            source_column: string
+            target_table: string
+            target_column: string
+            relationship_type: string
+            description?: string
+        }>
+
+        console.log(`[OptiqoflowQuery] Loaded ${rows.length} table relationships`)
+
+        return rows.map(r => ({
+            sourceTable: r.source_table,
+            sourceColumn: r.source_column,
+            targetTable: r.target_table,
+            targetColumn: r.target_column,
+            relationshipType: r.relationship_type,
+            description: r.description
+        }))
+    } catch (error: any) {
+        console.error(`[OptiqoflowQuery] Error fetching table_relationships:`, error?.message || error)
+        // Return empty array if table doesn't exist or other error
+        return []
+    }
+}
+
+/**
  * Get schema info for optiqoflow (tables, columns, types)
  * Returns structure compatible with existing schema_json format
+ * Merges FK relationships from both information_schema and table_relationships
  */
 export async function getOptiqoflowSchema(): Promise<{
     tables: Array<{
         tableId: string
+        tableName: string
         columns: Array<{
             name: string
             type: string
@@ -118,9 +171,14 @@ export async function getOptiqoflowSchema(): Promise<{
         }>
         primaryKey: string[]
         foreignKeys: Array<{
-            sourceColumn: string
+            constraintName: string
+            sourceTable: string
             targetTable: string
-            targetColumn: string
+            columnPairs: Array<{
+                position: number
+                sourceColumn: string
+                targetColumn: string
+            }>
         }>
     }>
 }> {
@@ -202,18 +260,68 @@ export async function getOptiqoflowSchema(): Promise<{
             pksByTable[pk.table_name].push(pk.column_name)
         }
 
-        // Group FKs by table
-        const fksByTable: Record<string, Array<{ sourceColumn: string, targetTable: string, targetColumn: string }>> = {}
+        // FK type matching buildGraph requirements
+        interface FKEntry {
+            constraintName: string
+            sourceTable: string
+            targetTable: string
+            columnPairs: Array<{ position: number; sourceColumn: string; targetColumn: string }>
+        }
+
+        // Group FKs by table (from information_schema)
+        const fksByTable: Record<string, FKEntry[]> = {}
         for (const fk of fks) {
             if (!fksByTable[fk.source_table]) {
                 fksByTable[fk.source_table] = []
             }
+            // Generate synthetic constraint name for info_schema FKs
+            const constraintName = `fk_${fk.source_table}_${fk.source_column}`
             fksByTable[fk.source_table].push({
-                sourceColumn: fk.source_column,
+                constraintName,
+                sourceTable: fk.source_table,
                 targetTable: fk.target_table,
-                targetColumn: fk.target_column
+                columnPairs: [{
+                    position: 1,
+                    sourceColumn: fk.source_column,
+                    targetColumn: fk.target_column
+                }]
             })
         }
+
+        // Merge FK relationships from table_relationships
+        // These are business-level relationships pushed by Optiqo Flow
+        const tableRelationships = await getTableRelationships()
+        console.log(`[OptiqoflowQuery] Merging ${tableRelationships.length} relationships from table_relationships`)
+
+        for (const rel of tableRelationships) {
+            if (!fksByTable[rel.sourceTable]) {
+                fksByTable[rel.sourceTable] = []
+            }
+            // Check for duplicates based on source column + target
+            const exists = fksByTable[rel.sourceTable].some(
+                fk => fk.columnPairs[0]?.sourceColumn === rel.sourceColumn &&
+                    fk.targetTable === rel.targetTable &&
+                    fk.columnPairs[0]?.targetColumn === rel.targetColumn
+            )
+            if (!exists) {
+                // Generate synthetic constraint name for table_relationships
+                const constraintName = `tr_${rel.sourceTable}_${rel.sourceColumn}`
+                fksByTable[rel.sourceTable].push({
+                    constraintName,
+                    sourceTable: rel.sourceTable,
+                    targetTable: rel.targetTable,
+                    columnPairs: [{
+                        position: 1,
+                        sourceColumn: rel.sourceColumn,
+                        targetColumn: rel.targetColumn
+                    }]
+                })
+            }
+        }
+
+        // Count total FKs for logging
+        const totalFks = Object.values(fksByTable).reduce((sum, arr) => sum + arr.length, 0)
+        console.log(`[OptiqoflowQuery] Total FK relationships: ${totalFks}`)
 
         // Build result
         const result = {
@@ -221,6 +329,7 @@ export async function getOptiqoflowSchema(): Promise<{
                 const tableCols = columnsByTable[t.table_name] || []
                 return {
                     tableId: t.table_name,
+                    tableName: t.table_name,
                     columns: tableCols.map(c => ({
                         name: c.column_name,
                         type: c.data_type,

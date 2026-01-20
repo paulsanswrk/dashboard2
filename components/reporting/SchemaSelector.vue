@@ -5,9 +5,15 @@
       <div class="border rounded-md dark:border-gray-700">
         <div class="px-3 py-2 font-medium dark:bg-dark-light text-gray-900 dark:text-white flex items-center justify-between">
           <span>List of tables</span>
-          <div class="flex items-center gap-2 text-sm">
-            <UCheckbox :model-value="allSelected" @update:model-value="toggleAll" />
-            <span class="text-gray-700 dark:text-gray-200">{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
+          <div class="flex items-center gap-4 text-sm">
+            <div class="flex items-center gap-2">
+              <UCheckbox v-model="hideEmptyTables" @update:model-value="onHideEmptyChanged" />
+              <span class="text-gray-700 dark:text-gray-200">Hide empty</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <UCheckbox :model-value="allSelected" @update:model-value="toggleAll" />
+              <span class="text-gray-700 dark:text-gray-200">{{ allSelected ? 'Deselect all' : 'Select all' }}</span>
+            </div>
           </div>
         </div>
         <div class="p-2 max-h-64 overflow-auto">
@@ -186,6 +192,7 @@ type CustomField = { id: string; name: string; type: 'calculated' | 'merged'; fo
 const props = defineProps<{
   tables: TableRow[]
   columnsByTable: Record<string, ColumnRow[]>
+  rowCountsByTable?: Record<string, number>
   initialSelected?: Record<string, string[]>
   connectionId?: number
   customViews?: CustomView[]
@@ -201,6 +208,7 @@ const emit = defineEmits<{
 const selected = ref<Record<string, { columns: Record<string, ColumnRow> }>>({})
 const expanded = ref<string | null>(null)
 const tablesQuery = ref('')
+const hideEmptyTables = ref(false)
 
 // Custom views state
 const internalCustomViews = ref<CustomView[]>([])
@@ -266,10 +274,36 @@ watch(() => props.tables, () => initializeSelection(), { immediate: true })
 watch(() => props.columnsByTable, () => initializeSelection(), { immediate: true })
 
 const filteredTables = computed(() => {
+  let result = props.tables || []
+  
+  // Filter by search query
   const q = tablesQuery.value.trim().toLowerCase()
-  if (!q) return props.tables
-  return (props.tables || []).filter(t => (t.label || t.name).toLowerCase().includes(q))
+  if (q) {
+    result = result.filter(t => (t.label || t.name).toLowerCase().includes(q))
+  }
+  
+  // Filter out empty tables if enabled
+  if (hideEmptyTables.value && props.rowCountsByTable) {
+    result = result.filter(t => (props.rowCountsByTable?.[t.id] ?? 0) > 0)
+  }
+  
+  return result
 })
+
+// Handler for hide empty tables checkbox - deselect empty tables
+function onHideEmptyChanged(checked: boolean) {
+  if (checked && props.rowCountsByTable) {
+    // Deselect all tables with 0 rows
+    const newSelected = { ...selected.value }
+    for (const tableId of Object.keys(newSelected)) {
+      const rowCount = props.rowCountsByTable[tableId] ?? 0
+      if (rowCount === 0) {
+        delete newSelected[tableId]
+      }
+    }
+    selected.value = newSelected
+  }
+}
 
 const columnsForExpanded = computed((): ColumnRow[] => {
   if (!expanded.value) return []

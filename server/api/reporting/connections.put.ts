@@ -6,6 +6,7 @@ import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { buildGraph } from '../../utils/schemaGraph'
 import { AuthHelper } from '../../utils/authHelper'
 import { loadInternalStorageInfo } from '../../utils/internalStorageQuery'
+import { getTableRelationships } from '../../utils/optiqoflowQuery'
 
 // Update fields on an existing connection. Supports updating schema_json.
 export default defineEventHandler(async (event) => {
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
     requireWrite: true,
-    columns: 'id, organization_id'
+    columns: 'id, organization_id, database_type'
   })
 
   const update: any = {}
@@ -31,25 +32,64 @@ export default defineEventHandler(async (event) => {
 
     if (tables.length) {
       // Check if this is an internal connection (PostgreSQL) - skip MySQL enrichment
+      // Two cases: internal data source (database_type='internal') OR internal storage (storage_location='internal')
+      const isInternalDataSource = (connection as any)?.database_type === 'internal'
       const storageInfo = await loadInternalStorageInfo(connectionId)
+      const useInternalPath = isInternalDataSource || storageInfo.useInternalStorage
 
-      if (storageInfo.useInternalStorage) {
-        // For internal storage, skip MySQL-specific enrichment
-        // Just save the schema as-is with basic structure
-        console.log(`[AUTO_JOIN] Internal storage detected, skipping MySQL enrichment for connection ${connectionId}`)
+      if (useInternalPath) {
+        // For internal connections, skip MySQL-specific enrichment
+        console.log(`[AUTO_JOIN] Internal connection detected (dataSource=${isInternalDataSource}, storage=${storageInfo.useInternalStorage}), skipping MySQL enrichment for connection ${connectionId}`)
 
-        const basicTables = tables.map((t: any) => ({
-          tableId: String(t.tableId),
-          tableName: String(t.tableName || t.tableId),
-          columns: (t.columns || []).map((col: any) => ({
-            fieldId: col.fieldId || col.name,
-            name: col.name || col.fieldId,
-            label: col.label || col.name || col.fieldId,
-            type: col.type || 'unknown'
-          })),
-          primaryKey: t.primaryKey || [],
-          foreignKeys: t.foreignKeys || []
-        }))
+        // For internal data sources, fetch FKs from table_relationships and merge
+        let fksByTable: Record<string, any[]> = {}
+        if (isInternalDataSource) {
+          try {
+            const tableRelationships = await getTableRelationships()
+            console.log(`[AUTO_JOIN] Fetched ${tableRelationships.length} FK relationships from table_relationships`)
+
+            for (const rel of tableRelationships) {
+              if (!fksByTable[rel.sourceTable]) {
+                fksByTable[rel.sourceTable] = []
+              }
+              fksByTable[rel.sourceTable].push({
+                constraintName: `tr_${rel.sourceTable}_${rel.sourceColumn}`,
+                sourceTable: rel.sourceTable,
+                targetTable: rel.targetTable,
+                columnPairs: [{
+                  position: 1,
+                  sourceColumn: rel.sourceColumn,
+                  targetColumn: rel.targetColumn
+                }]
+              })
+            }
+          } catch (fkError: any) {
+            console.error(`[AUTO_JOIN] Failed to fetch FKs from table_relationships: ${fkError?.message}`)
+          }
+        }
+
+        const basicTables = tables.map((t: any) => {
+          const tableId = String(t.tableId)
+          // Merge FKs from table_relationships for internal data sources
+          const tableFks = isInternalDataSource ? (fksByTable[tableId] || []) : (t.foreignKeys || [])
+
+          return {
+            tableId,
+            tableName: String(t.tableName || tableId),
+            columns: (t.columns || []).map((col: any) => ({
+              fieldId: col.fieldId || col.name,
+              name: col.name || col.fieldId,
+              label: col.label || col.name || col.fieldId,
+              type: col.type || 'unknown'
+            })),
+            primaryKey: t.primaryKey || [],
+            foreignKeys: tableFks
+          }
+        })
+
+        // Count FKs for logging
+        const totalFks = basicTables.reduce((sum, t) => sum + t.foreignKeys.length, 0)
+        console.log(`[AUTO_JOIN] Saving schema with ${basicTables.length} tables and ${totalFks} FKs`)
 
         update.schema_json = { tables: basicTables }
 

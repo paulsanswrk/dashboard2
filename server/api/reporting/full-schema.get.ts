@@ -42,19 +42,14 @@ export default defineEventHandler(async (event) => {
       // Transform to expected format and extract relationships
       const allRelationships: any[] = []
       const enrichedTables = schema.tables.map(table => {
-        // Add foreign keys to relationships
+        // Add foreign keys to relationships (already in correct format)
         for (const fk of table.foreignKeys) {
-          allRelationships.push({
-            constraintName: `${table.tableId}_${fk.sourceColumn}_fk`,
-            sourceTable: table.tableId,
-            targetTable: fk.targetTable,
-            columnPairs: [{ sourceColumn: fk.sourceColumn, targetColumn: fk.targetColumn }]
-          })
+          allRelationships.push(fk)
         }
 
         return {
           tableId: table.tableId,
-          tableName: table.tableId,
+          tableName: table.tableName || table.tableId,
           columns: table.columns.map(c => ({
             fieldId: c.fieldId,
             name: c.name,

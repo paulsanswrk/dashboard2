@@ -1,6 +1,8 @@
 import { defineEventHandler, readBody } from 'h3'
 import { supabaseAdmin } from '../supabase'
 import { AuthHelper } from '../../utils/authHelper'
+import { getOptiqoflowSchema } from '../../utils/optiqoflowQuery'
+import { buildGraph } from '../../utils/schemaGraph'
 
 export default defineEventHandler(async (event) => {
   const ctx = await AuthHelper.requireAuthContext(event)
@@ -70,8 +72,39 @@ export default defineEventHandler(async (event) => {
     dbms_version: isInternalSource ? 'PostgreSQL 15' : null
   }
 
-  // Allow optional schema payload to be persisted at creation time
-  if (body.schema && typeof body.schema === 'object') {
+  // For internal sources, auto-fetch schema with FK relationships from table_relationships
+  // For external sources, use provided schema if available
+  if (isInternalSource) {
+    console.log(`[AUTO_JOIN] Internal source - auto-fetching optiqoflow schema with FKs for ${body.internalName}`)
+    try {
+      const schema = await getOptiqoflowSchema()
+      record.schema_json = schema
+      console.log(`[AUTO_JOIN] Fetched optiqoflow schema: ${schema.tables.length} tables`)
+
+      // Count FKs for logging
+      const fkCount = schema.tables.reduce((sum, t) => sum + (t.foreignKeys?.length || 0), 0)
+      console.log(`[AUTO_JOIN] Schema contains ${fkCount} foreign key relationships`)
+
+      // Build auto_join_info graph
+      try {
+        const schemaJson = { schema: { tables: schema.tables } }
+        const graph = buildGraph(schemaJson)
+        console.log(`[AUTO_JOIN] Built graph with ${graph.nodes.size} nodes for internal connection`)
+
+        record.auto_join_info = {
+          graph: {
+            nodes: Array.from(graph.nodes.entries()),
+            adj: Array.from(graph.adj.entries())
+          }
+        }
+      } catch (graphError: any) {
+        console.error(`[AUTO_JOIN] Failed to build graph for internal connection: ${graphError?.message}`)
+      }
+    } catch (schemaError: any) {
+      console.error(`[AUTO_JOIN] Failed to fetch optiqoflow schema: ${schemaError?.message}`)
+    }
+  } else if (body.schema && typeof body.schema === 'object') {
+    // Allow optional schema payload to be persisted at creation time for external sources
     console.log(`[AUTO_JOIN] Schema provided during connection creation for ${body.internalName}, storing schema_json`)
     record.schema_json = body.schema
     console.log(`[AUTO_JOIN] Schema contains ${body.schema.tables?.length || 0} tables`)
