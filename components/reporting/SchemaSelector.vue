@@ -4,7 +4,7 @@
       <!-- Tables List -->
       <div class="border rounded-md dark:border-gray-700">
         <div class="px-3 py-2 font-medium dark:bg-dark-light text-gray-900 dark:text-white flex items-center justify-between">
-          <span>List of tables</span>
+          <span>List of tables ({{ filteredTables.length }})</span>
           <div class="flex items-center gap-4 text-sm">
             <div class="flex items-center gap-2">
               <UCheckbox v-model="hideEmptyTables" @update:model-value="onHideEmptyChanged" />

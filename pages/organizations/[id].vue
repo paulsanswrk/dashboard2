@@ -436,6 +436,7 @@
                     {{ formatDate(connection.created_at, true) }}
                   </div>
                   <UButton
+                    v-if="connection.database_type !== 'internal' || userProfile?.role === 'SUPERADMIN'"
                     variant="ghost"
                     size="xs"
                     color="gray"
@@ -750,7 +751,9 @@
                     <span class="font-medium text-gray-900 dark:text-white">MySQL</span>
                   </div>
                 </div>
+                <!-- Internal option only visible to SUPERADMIN -->
                 <div 
+                  v-if="userProfile?.role === 'SUPERADMIN'"
                   class="p-3 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
                   :class="connectionForm.databaseType === 'internal' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'"
                   @click="selectConnectionType('internal')"

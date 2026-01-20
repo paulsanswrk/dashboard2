@@ -5,7 +5,7 @@
       <div class="flex items-center justify-center mb-6 lg:mb-8">
         <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
           <div 
-            v-for="(step, index) in steps" 
+            v-for="(step, index) in displaySteps" 
             :key="step.step"
             class="flex items-center"
           >
@@ -22,7 +22,7 @@
             </div>
             <span class="ml-2 text-xs sm:text-sm font-medium hidden sm:block">{{ step.label }}</span>
             <div 
-              v-if="index < steps.length - 1" 
+              v-if="index < displaySteps.length - 1" 
               class="w-8 h-px bg-gray-300 mx-2 sm:mx-4 hidden sm:block"
             />
           </div>
@@ -101,8 +101,9 @@
                 </div>
               </div>
               
-              <!-- Internal Data Source Card -->
+              <!-- Internal Data Source Card - Superadmin only -->
               <div 
+                v-if="isSuperAdmin"
                 class="relative p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
                 :class="form.databaseType === 'internal' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'"
                 @click="selectDatabaseType('internal')"
@@ -384,8 +385,8 @@
             </div>
           </div>
 
-          <!-- Data Transfer Configuration (shown for saved connections) -->
-          <div v-if="createdConnectionId" class="mt-6 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <!-- Data Transfer Configuration (shown for saved connections, but not for internal ones) -->
+          <div v-if="createdConnectionId && form.databaseType !== 'internal'" class="mt-6 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               <Icon name="i-heroicons-arrow-path" class="w-5 h-5 inline mr-2"/>
               Data Transfer Options
@@ -455,6 +456,13 @@ const steps = ref([
   { step: 3, label: 'References', active: false, completed: false },
   { step: 4, label: 'Data Transfer', active: false, completed: false }
 ])
+
+const displaySteps = computed(() => {
+  if (form.value.databaseType === 'internal') {
+    return steps.value.filter(s => s.step !== 4)
+  }
+  return steps.value
+})
 
 const form = ref({
   internalName: '',

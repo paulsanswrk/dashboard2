@@ -85,15 +85,15 @@
         </div>
       </div>
 
-      <!-- Aggregation for TEXT fields in metric zones -->
-      <div v-if="isMetricZone && isTextField">
+      <!-- Aggregation for TEXT or UNKNOWN fields in metric zones -->
+      <div v-if="isMetricZone && !isNumericField">
         <label class="block text-[11px] font-bold text-neutral-500 dark:text-neutral-400 mb-3 uppercase tracking-wider">Aggregation Type</label>
         <div class="grid grid-cols-2 gap-0 border border-neutral-200 dark:border-dark-lighter rounded overflow-hidden">
           <button
               v-for="agg in textAggregations"
               :key="agg.value"
               @click="localAggregation = agg.value"
-              class="px-3 py-2 text-[10px] font-bold transition-colors border-r last:border-r-0 border-neutral-200 dark:border-dark-lighter"
+              class="px-3 py-2 text-[10px] font-bold transition-colors border-r last:border-r-0 border-neutral-200 dark:border-dark-lighter cursor-pointer"
               :class="localAggregation === agg.value
               ? 'bg-[#a6ce39] text-white' 
               : 'bg-white dark:bg-dark text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-dark-lighter hover:text-neutral-900 dark:hover:text-white'"
@@ -445,9 +445,9 @@ watch(filterValuesInput, (val) => {
 })
 
 // Field type detection
-const numericTypes = ['int', 'integer', 'bigint', 'decimal', 'float', 'double', 'numeric', 'smallint', 'tinyint', 'mediumint', 'real', 'number']
-const textTypes = ['varchar', 'char', 'text', 'string', 'nvarchar', 'nchar', 'longtext', 'mediumtext', 'tinytext', 'enum', 'set']
-const dateTypes = ['date', 'datetime', 'timestamp', 'time', 'year', 'timestamptz', 'timetz']
+const numericTypes = ['int', 'integer', 'bigint', 'decimal', 'float', 'double', 'numeric', 'smallint', 'tinyint', 'mediumint', 'real', 'number', 'int4', 'int8', 'float4', 'float8']
+const textTypes = ['varchar', 'char', 'text', 'string', 'nvarchar', 'nchar', 'longtext', 'mediumtext', 'tinytext', 'enum', 'set', 'uuid', 'bool', 'boolean', 'name', 'json', 'jsonb']
+const dateTypes = ['date', 'datetime', 'timestamp', 'time', 'year', 'timestamptz', 'timetz', 'interval']
 
 const fieldType = computed(() => props.field?.type?.toLowerCase() || '')
 

@@ -23,7 +23,7 @@ const props = defineProps<{
 }>()
 
 // Basic 3-panel layout for the reporting builder
-const leftWidth = ref(3) // Start with 3fr (25% of 12fr total)
+const leftWidth = ref(4) // Start with 4fr (~33% of 12fr total)
 
 // Computed grid columns based on sidebar visibility
 const gridColumns = computed(() => {
@@ -46,7 +46,7 @@ function startResize(event: MouseEvent) {
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
   document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
+  document.body.classList.add('resizing')
 }
 
 function handleResize(event: MouseEvent) {
@@ -57,7 +57,7 @@ function handleResize(event: MouseEvent) {
 
   // Calculate new width in fr units (assuming 12fr total grid)
   const frUnit = containerWidth / 12
-  const newWidth = Math.max(2, Math.min(5, startWidth + Math.round(deltaX / frUnit)))
+  const newWidth = Math.max(1, Math.min(9, startWidth + Math.round(deltaX / frUnit)))
 
   leftWidth.value = newWidth
 }
@@ -67,7 +67,7 @@ function stopResize() {
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
   document.body.style.cursor = ''
-  document.body.style.userSelect = ''
+  document.body.classList.remove('resizing')
 }
 
 onMounted(() => {

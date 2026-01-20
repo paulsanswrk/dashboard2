@@ -30,6 +30,11 @@ export default defineEventHandler(async (event) => {
   // Check if this is an internal data source
   const isInternalSource = body?.databaseType === 'internal'
 
+  // Only SUPERADMIN can create internal data sources
+  if (isInternalSource && ctx.role !== 'SUPERADMIN') {
+    throw createError({ statusCode: 403, statusMessage: 'Only Superadmin can create internal data sources' })
+  }
+
   // Different validation for internal vs external sources
   if (isInternalSource) {
     // For internal sources, only require the internal name

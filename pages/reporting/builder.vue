@@ -85,7 +85,7 @@
         <!-- Traditional Data Sources & Zones (when AI mode is disabled) -->
         <div v-else class="resizable-columns h-full">
           <!-- Column 1: Connection + Datasets -->
-          <div class="resizable-column flex-1">
+          <div class="resizable-column" style="flex: 1.2 1 0">
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
 
               <!-- Dataset search (hidden for now) -->
@@ -140,7 +140,7 @@
           <div class="resize-handle" @mousedown="startResize"></div>
 
           <!-- Column 2: Zones + Filters -->
-          <div class="resizable-column flex-1">
+          <div class="resizable-column" style="flex: 1.2 1 0">
             <div class="space-y-4 min-w-0 h-full overflow-auto bg-dark-light text-white p-4">
               <h3 class="font-medium text-white">Zones</h3>
               <ClientOnly>

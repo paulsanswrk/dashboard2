@@ -6,6 +6,19 @@ Integration of the Supabase `optiqoflow` schema as an "Internal Data Source" for
 
 The OptiqoFlow integration allows users to query data from the internal `optiqoflow` PostgreSQL schema in Supabase, alongside external MySQL connections. This enables dashboard creation using data synced from the main Optiqo platform.
 
+## Permissions
+
+| Action | Superadmin | Admin/User |
+|--------|:----------:|:----------:|
+| **Create** internal data source | ✅ | ❌ |
+| **Edit** internal data source | ✅ | ❌ |
+| **View** internal data source | ✅ | ✅ |
+| **Use** in charts/dashboards | ✅ | ✅ |
+| **Delete** internal data source | ✅ | ✅ |
+
+> [!IMPORTANT]
+> Only **superadmins** can create or edit internal data sources (mapped to `optiqoflow`). Other users can see, use, and delete them but cannot modify connection settings.
+
 ## Architecture
 
 ```

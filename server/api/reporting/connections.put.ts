@@ -20,6 +20,15 @@ export default defineEventHandler(async (event) => {
     columns: 'id, organization_id, database_type'
   })
 
+  // Only SUPERADMIN can edit internal data sources
+  const isInternalDataSource = (connection as any)?.database_type === 'internal'
+  if (isInternalDataSource) {
+    const ctx = await AuthHelper.requireAuthContext(event)
+    if (ctx.role !== 'SUPERADMIN') {
+      throw createError({ statusCode: 403, statusMessage: 'Only Superadmin can edit internal data sources' })
+    }
+  }
+
   const update: any = {}
   console.log(`[AUTO_JOIN] PUT request for connection ${connectionId} with body keys: `, Object.keys(body || {}))
 
