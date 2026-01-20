@@ -191,12 +191,14 @@ The scheduling engine provides timezone-aware calculation of next run times for 
 
 **Features:**
 
-- ✅ **Timezone Support**: Full IANA timezone handling using Luxon
-- ✅ **Interval Types**: DAILY, WEEKLY, MONTHLY with proper date math
-- ✅ **Day-of-Week Selection**: Weekly reports support specific days (Mo, Tu, We, Th, Fr, Sa, Su)
-- ✅ **Validation**: Comprehensive input validation with error messages
-- ✅ **Future Scheduling**: Handles past/future time calculations correctly
-- ✅ **Day Mapping**: Proper weekday mapping for cron-like scheduling
+- ✅ **Timezone Support**: Full IANA timezone handling using Luxon.
+- ✅ **Optimized Selection**: Timezone options are deduplicated by GMT offset and sorted numerically (e.g., GMT+1 is followed by GMT+2).
+- ✅ **Simplified UI**: Shows one timezone identifier per unique UTC offset for clarity.
+- ✅ **Interval Types**: DAILY, WEEKLY, MONTHLY with proper date math.
+- ✅ **Day-of-Week Selection**: Weekly reports support specific days (Mo, Tu, We, Th, Fr, Sa, Su).
+- ✅ **Validation**: Comprehensive input validation with error messages.
+- ✅ **Future Scheduling**: Handles past/future time calculations correctly.
+- ✅ **Day Mapping**: Proper weekday mapping for cron-like scheduling.
 
 **Example Usage:**
 
@@ -242,11 +244,13 @@ Automated report processing endpoint triggered by Vercel Cron every 5 minutes.
 
 **Processing Logic:**
 
-1. **Queue Selection**: Finds PENDING items within 5-minute execution window
-2. **Batch Processing**: Processes multiple reports per cron run
-3. **Retry Logic**: Automatic retry up to 3 attempts with exponential backoff
-4. **Next Run Scheduling**: Recalculates next execution for recurring reports
-5. **Error Handling**: Comprehensive error logging and recovery
+1. **Queue Selection**: Finds PENDING items where `scheduled_for` ≤ `NOW()`.
+2. **Timing Tolerance**: Processes reports immediately when due, with a 1-hour lookback window to catch any reports missed due to transient failures.
+3. **Prevention of Early Delivery**: Strictly excludes any reports scheduled for the future to ensure delivery occurs at or after the requested time.
+4. **Batch Processing**: Processes multiple reports per cron run.
+5. **Retry Logic**: Automatic retry up to 3 attempts with exponential backoff.
+6. **Next Run Scheduling**: Recalculates next execution for recurring reports.
+7. **Error Handling**: Comprehensive error logging and recovery.
 
 **Response Format:**
 
@@ -395,12 +399,14 @@ All system operations logged to the `app_log` table for monitoring and debugging
 
 **Processing Logic:**
 
-1. **Queue Selection**: Finds PENDING items within 5-minute tolerance window
-2. **Batch Processing**: Processes multiple reports per cron run
-3. **Report Generation**: Calls `generateReportAttachments()` for each format
-4. **Email Delivery**: Sends formatted emails with attachments via SendGrid
-5. **Next Run Scheduling**: Creates new queue entries for recurring reports
-6. **Error Recovery**: Updates attempt counts and handles failures gracefully
+1. **Queue Selection**: Finds PENDING items where `scheduled_for` ≤ `now.toISO()`.
+2. **Lookback Window**: Uses a 1-hour lookback to ensure reliability and catch-up on missed runs.
+3. **Strict Future Exclusion**: Does NOT look into the future, preventing early report delivery.
+4. **Batch Processing**: Processes multiple reports per cron run.
+5. **Report Generation**: Calls `generateReportAttachments()` for each format.
+6. **Email Delivery**: Sends formatted emails with attachments via SendGrid.
+7. **Next Run Scheduling**: Creates new queue entries for recurring reports.
+8. **Error Recovery**: Updates attempt counts and handles failures gracefully.
 
 #### `server/api/email-queue/retry.post.ts` - Manual Retry
 

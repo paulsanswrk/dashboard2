@@ -91,10 +91,9 @@ export default defineEventHandler(async (event) => {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        // Find pending email queue items that should run now (within 5-minute window)
+        // Find pending email queue items that should run now (due now or in the past)
         const now = DateTime.now().toUTC()
-        const fiveMinutesAgo = now.minus({ minutes: 5 })
-        const fiveMinutesFromNow = now.plus({ minutes: 5 })
+        const oneHourAgo = now.minus({ hours: 1 }) // Look back up to 1 hour for missed runs
 
         const { data: pendingItems, error: queueError } = await supabase
             .from('email_queue')
@@ -126,8 +125,8 @@ export default defineEventHandler(async (event) => {
         )
       `)
             .eq('delivery_status', 'PENDING')
-            .gte('scheduled_for', fiveMinutesAgo.toISO())
-            .lte('scheduled_for', fiveMinutesFromNow.toISO())
+            .gte('scheduled_for', oneHourAgo.toISO())
+            .lte('scheduled_for', now.toISO())
             .order('scheduled_for', { ascending: true })
 
         if (queueError) {

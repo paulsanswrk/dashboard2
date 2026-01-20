@@ -458,19 +458,45 @@ const timezoneOptions = computed(() => {
     // Use the modern Intl.supportedValuesOf API to get all supported timezones
     const supportedTimezones = Intl.supportedValuesOf('timeZone')
 
-    return supportedTimezones.map(tz => {
-      // Create a user-friendly display name with GMT offset
+    // Use a Set to dedupe by GMT offset (e.g., "GMT+7") - keep only one timezone per offset
+    const seenOffsets = new Set<string>()
+    const options: Array<{ label: string; value: string; offsetMinutes: number }> = []
+
+    for (const tz of supportedTimezones) {
+      // Get the offset in minutes for sorting
       const now = new Date()
-      const offset = new Intl.DateTimeFormat('en', {
+      const formatter = new Intl.DateTimeFormat('en', {
         timeZone: tz,
         timeZoneName: 'short'
-      }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value || ''
+      })
+      const offset = formatter.formatToParts(now).find(part => part.type === 'timeZoneName')?.value || ''
 
-      return {
-        label: `${offset} ${tz.replace('_', ' ')}`,
-        value: tz
+      // Skip if we've already seen this GMT offset
+      if (seenOffsets.has(offset)) continue
+      seenOffsets.add(offset)
+
+      // Calculate offset in minutes for proper numeric sorting
+      // Parse offset like "GMT+5:30" or "GMT-10" into minutes
+      let offsetMinutes = 0
+      const match = offset.match(/GMT([+-])(\d+)(?::(\d+))?/)
+      if (match) {
+        const sign = match[1] === '+' ? 1 : -1
+        const hours = parseInt(match[2], 10)
+        const minutes = match[3] ? parseInt(match[3], 10) : 0
+        offsetMinutes = sign * (hours * 60 + minutes)
       }
-    }).sort((a, b) => a.label.localeCompare(b.label))
+
+      options.push({
+        label: `${offset} ${tz.replace('_', ' ')}`,
+        value: tz,
+        offsetMinutes
+      })
+    }
+
+    // Sort by numeric offset (ascending: negative to positive)
+    return options
+      .sort((a, b) => a.offsetMinutes - b.offsetMinutes)
+      .map(({ label, value }) => ({ label, value }))
   } catch (error) {
     console.warn('Intl.supportedValuesOf not available, falling back to UTC only')
     // Minimal fallback for environments without Intl support
