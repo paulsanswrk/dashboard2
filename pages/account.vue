@@ -247,16 +247,19 @@
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Security Settings</h3>
 
           <!-- OAuth User Section -->
-          <div v-if="isOAuthUser" class="space-y-4">
+          <div v-if="isPasswordlessUser" class="space-y-4">
             <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md p-4">
               <div class="flex items-start">
                 <Icon name="i-heroicons-information-circle" class="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0"/>
                 <div>
                   <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                    Signed in with {{ oauthProviderName }}
+                    {{ isInvitedUser ? 'Account setup' : 'Signed in with ' + oauthProviderName }}
                   </h4>
                   <p class="text-sm text-blue-700 dark:text-blue-300">
-                    Your account uses {{ oauthProviderName }} for authentication. You can add a password below to enable email/password login as an alternative.
+                    {{ isInvitedUser 
+                      ? 'You were invited via email and haven\'t set a password yet. Add a password below to enable standard login.' 
+                      : 'Your account uses ' + oauthProviderName + ' for authentication. You can add a password below to enable email/password login as an alternative.' 
+                    }}
                   </p>
                 </div>
               </div>
@@ -384,13 +387,17 @@
             </div>
             
             <!-- Password validation errors - only show after button press -->
-            <div v-if="passwordErrors.showErrors && (passwordValidationErrors.length > 0 || passwordConfirmError)" class="mt-4">
+            <div v-if="passwordErrors.showErrors && (passwordValidationErrors.length > 0 || passwordConfirmError || passwordCurrentError)" class="mt-4">
               <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
                 <div class="flex">
                   <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-400 mr-2"/>
                   <div class="text-sm text-red-800 dark:text-red-200">
                     <h4 class="font-medium mb-2">Please fix the following errors:</h4>
                     <ul class="space-y-1">
+                      <li v-if="passwordCurrentError" class="flex items-center">
+                        <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
+                        {{ passwordCurrentError }}
+                      </li>
                       <li v-for="error in passwordValidationErrors" :key="error" class="flex items-center">
                         <Icon name="i-heroicons-x-mark" class="w-4 h-4 mr-1"/>
                         {{ error }}
@@ -472,6 +479,7 @@
 // Authentication
 const { userProfile, updateProfile, updatePassword, uploadAvatar, deleteAvatar, loading, error, success, clearMessages } = useAuth()
 const user = useSupabaseUser()
+const toast = useToast()
 
 // Organization
 const { 
@@ -548,21 +556,38 @@ const hasProfileChanges = computed(() => {
          profileForm.value.lastName !== userProfile.value.lastName
 })
 
-// OAuth detection - check if user signed up via OAuth provider (e.g., Google)
-const isOAuthUser = computed(() => {
-  if (!user.value?.identities) return false
-  // Check if user has OAuth identity and no email/password identity
-  const identities = user.value.identities
-  const hasOAuthIdentity = identities.some(i => i.provider !== 'email')
+// detect if user has a password set. Supabase identities will have 'email' provider if they have a password.
+// Also check app_metadata for invited users who typically have an email identity but no known password.
+const isPasswordlessUser = computed(() => {
+  if (!user.value) return false
+  const identities = user.value.identities || []
+  const appMetadata = user.value.app_metadata || {}
+  const userMetadata = user.value.user_metadata || {}
+  
+  // If user_metadata explicitly says they have a password, they are not passwordless
+  if (userMetadata.has_password === true) return false
+  
   const hasEmailIdentity = identities.some(i => i.provider === 'email')
-  // User is OAuth-only if they have OAuth identity but no email identity
-  return hasOAuthIdentity && !hasEmailIdentity
+  const isInvitedWithoutPwd = appMetadata.is_invited === true || appMetadata.has_password === false
+  
+  // They are considered 'passwordless' if:
+  // 1. They have no email identity (meaning they only have Google/OAuth)
+  // 2. OR they were invited and haven't set a password yet
+  return !hasEmailIdentity || isInvitedWithoutPwd
+})
+
+const isInvitedUser = computed(() => {
+  const isInvitedMetadata = user.value?.app_metadata?.is_invited === true
+  const hasAlreadySetPwd = user.value?.user_metadata?.has_password === true
+  return isInvitedMetadata && !hasAlreadySetPwd
 })
 
 const oauthProviderName = computed(() => {
   if (!user.value?.identities) return 'OAuth'
   const oauthIdentity = user.value.identities.find(i => i.provider !== 'email')
-  if (!oauthIdentity) return 'OAuth'
+  if (!oauthIdentity) {
+    return isInvitedUser.value ? 'Invitation' : 'Magic Link'
+  }
   // Capitalize provider name
   const provider = oauthIdentity.provider
   return provider.charAt(0).toUpperCase() + provider.slice(1)
@@ -586,6 +611,13 @@ const passwordValidationErrors = computed(() => {
 const passwordConfirmError = computed(() => {
   if (passwordForm.value.confirmPassword && passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
     return 'Passwords do not match'
+  }
+  return null
+})
+
+const passwordCurrentError = computed(() => {
+  if (passwordErrors.value.showErrors && !passwordForm.value.currentPassword) {
+    return 'Current password is required'
   }
   return null
 })
@@ -682,6 +714,11 @@ const handleUpdatePassword = async () => {
     const result = await updatePassword(passwordForm.value.newPassword)
     
     if (result.success) {
+      toast.add({
+        title: 'Success',
+        description: 'Password updated successfully',
+        color: 'green'
+      })
       // Reset password form only on success
       passwordForm.value = {
         currentPassword: '',
@@ -689,10 +726,21 @@ const handleUpdatePassword = async () => {
         confirmPassword: ''
       }
       passwordErrors.value.showErrors = false
+    } else {
+      toast.add({
+        title: 'Error',
+        description: result.error || 'Failed to update password',
+        color: 'red'
+      })
     }
   } catch (err) {
     // Error is handled by the updatePassword function
     console.error('Password update error:', err)
+    toast.add({
+      title: 'Error',
+      description: 'An unexpected error occurred',
+      color: 'red'
+    })
   }
 }
 
@@ -711,6 +759,11 @@ const handleSetPassword = async () => {
     const result = await updatePassword(passwordForm.value.newPassword)
 
     if (result.success) {
+      toast.add({
+        title: 'Success',
+        description: 'Password set successfully',
+        color: 'green'
+      })
       // Reset password form only on success
       passwordForm.value = {
         currentPassword: '',
@@ -718,10 +771,21 @@ const handleSetPassword = async () => {
         confirmPassword: ''
       }
       passwordErrors.value.showErrors = false
+    } else {
+      toast.add({
+        title: 'Error',
+        description: result.error || 'Failed to set password',
+        color: 'red'
+      })
     }
   } catch (err) {
     // Error is handled by the updatePassword function
     console.error('Password set error:', err)
+    toast.add({
+      title: 'Error',
+      description: 'An unexpected error occurred',
+      color: 'red'
+    })
   }
 }
 

@@ -3,6 +3,11 @@
  * 
  * Executes queries against the Supabase optiqoflow schema
  * for internal data source connections.
+ * 
+ * Supports per-tenant role-based isolation:
+ * - When tenantId is provided, queries execute with SET ROLE
+ * - Role's default search_path is the tenant's schema
+ * - Enables unqualified table names in queries
  */
 
 import { pgClient } from '../../lib/db'
@@ -27,15 +32,38 @@ export function translateIdentifiers(sql: string): string {
 }
 
 /**
- * Execute a query against the optiqoflow PostgreSQL schema
+ * Get the tenant's role name from the database
+ */
+async function getTenantRoleName(tenantId: string): Promise<string | null> {
+    try {
+        const result = await pgClient.unsafe(
+            `SELECT tenants.get_tenant_role($1) as role_name`,
+            [tenantId]
+        ) as Array<{ role_name: string | null }>
+        return result[0]?.role_name || null
+    } catch (error) {
+        console.error(`[OptiqoflowQuery] Error getting tenant role:`, error)
+        return null
+    }
+}
+
+/**
+ * Execute a query against the optiqoflow PostgreSQL schema with tenant isolation
  * 
  * @param sql - The SQL query (can have MySQL-style backtick identifiers)
  * @param params - Query parameters (optional)
+ * @param tenantId - Tenant ID for role-based isolation (REQUIRED)
  * @returns Array of result rows
+ * 
+ * Security: Always uses SET ROLE for tenant isolation
+ * - Uses SET ROLE to switch to tenant's role
+ * - Role's search_path is set to tenant's schema
+ * - Allows unqualified table names (e.g., SELECT * FROM work_orders)
  */
 export async function executeOptiqoflowQuery(
     sql: string,
-    params: any[] = []
+    params: any[] = [],
+    tenantId?: string
 ): Promise<any[]> {
     // Translate MySQL backticks to PostgreSQL double quotes
     let pgSql = translateIdentifiers(sql)
@@ -44,15 +72,33 @@ export async function executeOptiqoflowQuery(
     let paramIndex = 0
     const numberedSql = pgSql.replace(/\?/g, () => `$${++paramIndex}`)
 
-    console.log(`[OptiqoflowQuery] Executing query in schema ${OPTIQOFLOW_SCHEMA}`)
-    console.log(`[OptiqoflowQuery] Original SQL: ${sql.substring(0, 200)}...`)
-    console.log(`[OptiqoflowQuery] Translated SQL: ${numberedSql.substring(0, 200)}...`)
+    if (!tenantId) {
+        throw new Error('tenantId is required for query execution. User must be associated with an organization that has a tenant_id set.')
+    }
+
+    console.log(`[OptiqoflowQuery] Executing query with tenant isolation for tenant ${tenantId}`)
+    console.log(`[OptiqoflowQuery] SQL: ${numberedSql.substring(0, 200)}...`)
 
     try {
-        // Use a transaction to ensure search_path and query run on the same connection
+        // Use a transaction to ensure role and query run on the same connection
         const result = await pgClient.begin(async (tx) => {
-            // Set search_path to include the optiqoflow schema
-            await tx.unsafe(`SET LOCAL search_path TO "${OPTIQOFLOW_SCHEMA}", public`)
+            // Get tenant's role name
+            const roleName = await getTenantRoleName(tenantId)
+            if (!roleName) {
+                throw new Error(`Tenant ${tenantId} not found or missing role`)
+            }
+
+            // SET ROLE switches to tenant role
+            await tx.unsafe(`SET LOCAL ROLE ${roleName}`)
+            console.log(`[OptiqoflowQuery] Set role to ${roleName}`)
+
+            // Get the tenant's short name from the role name
+            const tenantShortName = roleName.replace('tenant_', '').replace('_role', '')
+
+            // Set search_path to include both tenant schema and optiqoflow
+            // This allows access to tenant-specific views AND base tables
+            await tx.unsafe(`SET LOCAL search_path TO tenant_${tenantShortName}, optiqoflow, public`)
+            console.log(`[OptiqoflowQuery] Set search_path to tenant_${tenantShortName}, optiqoflow, public`)
 
             // Execute the query on the same connection
             const rows = await tx.unsafe(numberedSql, params)
@@ -155,7 +201,7 @@ export async function getTableRelationships(): Promise<Array<{
  * Returns structure compatible with existing schema_json format
  * Merges FK relationships from both information_schema and table_relationships
  */
-export async function getOptiqoflowSchema(): Promise<{
+export async function getOptiqoflowSchema(tenantId?: string): Promise<{
     tables: Array<{
         tableId: string
         tableName: string
@@ -182,6 +228,10 @@ export async function getOptiqoflowSchema(): Promise<{
         }>
     }>
 }> {
+    // Always use optiqoflow schema - tables are stored there
+    // tenantId is used for access control during query execution, not for schema location
+    const schemaName = OPTIQOFLOW_SCHEMA
+
     // Get all tables
     const tablesSql = `
     SELECT table_name
@@ -216,31 +266,20 @@ export async function getOptiqoflowSchema(): Promise<{
     AND tc.table_schema = $1
   `
 
-    // Get foreign keys
-    const fkSql = `
-    SELECT
-      kcu.table_name as source_table,
-      kcu.column_name as source_column,
-      ccu.table_name as target_table,
-      ccu.column_name as target_column
-    FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu 
-      ON tc.constraint_name = kcu.constraint_name
-      AND tc.table_schema = kcu.table_schema
-    JOIN information_schema.constraint_column_usage ccu 
-      ON ccu.constraint_name = tc.constraint_name
-      AND ccu.table_schema = tc.table_schema
-    WHERE tc.constraint_type = 'FOREIGN KEY'
-    AND tc.table_schema = $1
-  `
-
     try {
-        const [tables, columns, pks, fks] = await Promise.all([
-            pgClient.unsafe(tablesSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string }>>,
-            pgClient.unsafe(columnsSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string, column_name: string, data_type: string, udt_name: string }>>,
-            pgClient.unsafe(pkSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string, column_name: string }>>,
-            pgClient.unsafe(fkSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ source_table: string, source_column: string, target_table: string, target_column: string }>>
+        const [tablesRows, columnsRows, pksRows] = await Promise.all([
+            pgClient.unsafe(tablesSql, [schemaName]) as Promise<Array<{ table_name: string }>>,
+            pgClient.unsafe(columnsSql, [schemaName]) as Promise<Array<{ table_name: string, column_name: string, data_type: string, udt_name: string }>>,
+            pgClient.unsafe(pkSql, [schemaName]) as Promise<Array<{ table_name: string, column_name: string }>>
         ])
+
+        const tables = tablesRows
+        const columns = columnsRows
+        const pks = pksRows
+
+        // OptiqoFlow stores FK relationships in table_relationships table, not information_schema
+        // We'll merge those later
+        const fks: Array<{ source_table: string, target_table: string, source_column: string, target_column: string }> = []
 
         // Group columns by table
         const columnsByTable: Record<string, typeof columns> = {}
@@ -327,9 +366,12 @@ export async function getOptiqoflowSchema(): Promise<{
         const result = {
             tables: tables.map(t => {
                 const tableCols = columnsByTable[t.table_name] || []
+                // Table name is as-is from optiqoflow schema
+                const displayName = t.table_name
+
                 return {
                     tableId: t.table_name,
-                    tableName: t.table_name,
+                    tableName: displayName,
                     columns: tableCols.map(c => ({
                         name: c.column_name,
                         type: c.data_type,

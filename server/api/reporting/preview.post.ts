@@ -5,6 +5,11 @@ import { computePathsForTables, type Edge, selectJoinTree, type TableGraph } fro
 import { AuthHelper } from '../../utils/authHelper'
 import { loadInternalStorageInfo, executeInternalStorageQuery, translateIdentifiers } from '../../utils/internalStorageQuery'
 import { executeOptiqoflowQuery } from '../../utils/optiqoflowQuery'
+import { db } from '../../../lib/db'
+import { organizations } from '../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../supabase'
 
 
 type ReportField = { fieldId: string; name?: string; label?: string; type?: string; isNumeric?: boolean; table?: string }
@@ -81,9 +86,30 @@ export default defineEventHandler(async (event) => {
     }
 
     const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
-      columns: 'id, organization_id, auto_join_info, database_type'
+      columns: 'id, organization_id, auto_join_info, database_type, storage_location'
     })
     console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auth check complete, database_type=${connection.database_type}`)
+
+    // Derive tenantId from authenticated user's organization (required for Optiqoflow)
+    let tenantId: string | undefined
+    const user = await serverSupabaseUser(event)
+    if (user) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (profile?.organization_id) {
+        const org = await db.select({ tenantId: organizations.tenantId })
+          .from(organizations)
+          .where(eq(organizations.id, profile.organization_id))
+          .limit(1)
+          .then(rows => rows[0])
+
+        tenantId = org?.tenantId || undefined
+      }
+    }
 
     const dims: DimensionRef[] = [...(body.xDimensions || []), ...(body.breakdowns || [])]
     const metrics: MetricRef[] = [...(body.yMetrics || [])]
@@ -458,24 +484,48 @@ export default defineEventHandler(async (event) => {
     let rows: any[]
     let finalSql = sql
 
-    // Check if this is an internal data source (optiqoflow)
-    if (connection.database_type === 'internal') {
-      console.log(`[preview] Using internal data source (optiqoflow)`)
-      // Translate MySQL backticks to PostgreSQL double quotes
-      finalSql = translateIdentifiers(sql)
-      rows = await executeOptiqoflowQuery(finalSql, params)
-    } else {
-      // Check if connection uses internal storage (data transfer feature)
-      const storageInfo = await loadInternalStorageInfo(connectionId)
-      console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Storage info loaded, useInternal=${storageInfo.useInternalStorage}`)
+    const storageLocation = connection.storage_location || 'external'
 
-      if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-        console.log(`[preview] Using internal storage: ${storageInfo.schemaName}`)
-        // Translate MySQL backticks to PostgreSQL double quotes
+    // Route based on storage_location
+    switch (storageLocation) {
+      case 'optiqoflow': {
+        if (!tenantId) {
+          return {
+            columns,
+            rows: [],
+            meta: {
+              executionMs: Date.now() - start,
+              error: 'User must be associated with an organization that has a tenant_id configured for Optiqoflow data access.'
+            }
+          }
+        }
+        console.log(`[preview] Using optiqoflow data source`)
+        finalSql = translateIdentifiers(sql)
+        rows = await executeOptiqoflowQuery(finalSql, params, tenantId)
+        break
+      }
+
+      case 'supabase_synced': {
+        const storageInfo = await loadInternalStorageInfo(connectionId)
+        if (!storageInfo.useInternalStorage || !storageInfo.schemaName) {
+          return {
+            columns,
+            rows: [],
+            meta: {
+              executionMs: Date.now() - start,
+              error: 'Synced storage not configured properly'
+            }
+          }
+        }
+        console.log(`[preview] Using synced storage: ${storageInfo.schemaName}`)
         finalSql = translateIdentifiers(sql)
         rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
-      } else {
-        // Fall back to MySQL query
+        break
+      }
+
+      case 'external':
+      default: {
+        // Direct MySQL connection
         console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Loading MySQL config...`)
         const cfg = await loadConnectionConfigFromSupabase(event, connectionId)
         console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: MySQL config loaded, executing query...`)
@@ -486,6 +536,7 @@ export default defineEventHandler(async (event) => {
           console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Query returned ${(res as any[]).length} rows`)
           return res as any[]
         })
+        break
       }
     }
 

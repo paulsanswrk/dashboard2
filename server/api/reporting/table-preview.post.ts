@@ -2,7 +2,13 @@ import { defineEventHandler, readBody } from 'h3'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { AuthHelper } from '../../utils/authHelper'
-import { loadInternalStorageInfo, queryInternalTable } from '../../utils/internalStorageQuery'
+import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
+import { executeOptiqoflowQuery } from '../../utils/optiqoflowQuery'
+import { db } from '../../../lib/db'
+import { organizations } from '../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { serverSupabaseUser } from '#supabase/server'
+import { supabaseAdmin } from '../supabase'
 
 type TablePreviewRequest = {
     connectionId: number
@@ -36,32 +42,87 @@ export default defineEventHandler(async (event) => {
 
         // Verify user has access to this connection
         const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
-            columns: 'id, organization_id, database_type'
+            columns: 'id, organization_id, database_type, storage_location'
         })
+
+        // Derive tenantId from authenticated user's organization (required for Optiqoflow)
+        let tenantId: string | undefined
+        const user = await serverSupabaseUser(event)
+        if (user) {
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('organization_id')
+                .eq('user_id', user.id)
+                .single()
+
+            if (profile?.organization_id) {
+                const org = await db.select({ tenantId: organizations.tenantId })
+                    .from(organizations)
+                    .where(eq(organizations.id, profile.organization_id))
+                    .limit(1)
+                    .then(rows => rows[0])
+
+                tenantId = org?.tenantId || undefined
+            }
+        }
 
         const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
 
-        // Check if connection is an internal data source (database_type='internal')
-        const isInternalDataSource = (connection as any)?.database_type === 'internal'
+        const storageLocation = (connection as any)?.storage_location || 'external'
+        console.log(`[table-preview] Connection ${connectionId}, storage_location=${storageLocation}, database_type=${(connection as any)?.database_type}`)
 
-        // Check if connection uses internal storage (storage_location='internal')
-        const storageInfo = await loadInternalStorageInfo(connectionId)
+        // Route based on storage_location
+        if (storageLocation === 'optiqoflow' || storageLocation === 'supabase_synced') {
+            let sql: string
+            let rows: any[]
 
-        // Use PostgreSQL path for either internal data source OR internal storage
-        if (isInternalDataSource || storageInfo.useInternalStorage) {
-            const schemaName = isInternalDataSource ? 'optiqoflow' : (storageInfo.schemaName || 'optiqoflow')
-            console.log(`[table-preview] Using internal path: ${schemaName} (dataSource=${isInternalDataSource}, storage=${storageInfo.useInternalStorage})`)
-            const result = await queryInternalTable(
-                schemaName,
-                tableName,
-                '*',
-                limit
-            )
+            if (storageLocation === 'optiqoflow') {
+                // OptiqoFlow data with tenant isolation
+                if (!tenantId) {
+                    return {
+                        columns: [],
+                        rows: [],
+                        meta: {
+                            executionMs: Date.now() - start,
+                            error: 'User must be associated with an organization that has a tenant_id configured for Optiqoflow data access.'
+                        }
+                    }
+                }
+                // Don't specify schema - tenant role's search_path handles it
+                sql = `SELECT * FROM "${tableName}" LIMIT ${limit}`
+                rows = await executeOptiqoflowQuery(sql, [], tenantId)
+
+            } else if (storageLocation === 'supabase_synced') {
+                // Synced MySQL data
+                const storageInfo = await loadInternalStorageInfo(connectionId)
+                if (!storageInfo.schemaName) {
+                    return {
+                        columns: [],
+                        rows: [],
+                        meta: {
+                            executionMs: Date.now() - start,
+                            error: 'Synced storage not configured'
+                        }
+                    }
+                }
+                sql = `SELECT * FROM "${storageInfo.schemaName}"."${tableName}" LIMIT ${limit}`
+                rows = await executeInternalStorageQuery(storageInfo.schemaName, sql)
+            } else {
+                // Should not reach here
+                throw new Error(`Unexpected storage_location: ${storageLocation}`)
+            }
+
+            console.log(`[table-preview] Query executed on ${storageLocation}`)
+
             const executionMs = Date.now() - start
+            const columns = rows.length > 0
+                ? Object.keys(rows[0]).map(k => ({ key: k, label: k }))
+                : []
+
             return {
-                columns: result.columns,
-                rows: result.rows,
-                meta: { executionMs, sql: `SELECT * FROM "${schemaName}"."${tableName}" LIMIT ${limit}`, rowCount: result.rows.length }
+                columns,
+                rows,
+                meta: { executionMs, sql, rowCount: rows.length }
             }
         }
 

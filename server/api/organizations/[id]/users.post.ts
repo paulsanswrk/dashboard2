@@ -117,6 +117,10 @@ export default defineEventHandler(async (event) => {
       user_metadata: {
         first_name: firstName,
         last_name: lastName
+      },
+      app_metadata: {
+        is_invited: true,
+        has_password: false
       }
     })
 

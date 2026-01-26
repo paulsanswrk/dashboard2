@@ -3,6 +3,9 @@ import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { AuthHelper } from '../../utils/authHelper'
 import { getOptiqoflowSchema } from '../../utils/optiqoflowQuery'
+import { db } from '../../../lib/db'
+import { organizations } from '../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const { connectionId } = getQuery(event) as any
@@ -33,11 +36,20 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // No cached schema - check if this is an internal data source
-  if (connection?.database_type === 'internal') {
-    console.log(`[full-schema] Internal data source connection ${connId}, fetching optiqoflow schema`)
+  // No cached schema - check storage_location for routing
+  const storageLocation = connection?.storage_location || 'external'
+
+  if (storageLocation === 'optiqoflow') {
+    console.log(`[full-schema] OptiqoFlow connection ${connId}, fetching optiqoflow schema`)
     try {
-      const schema = await getOptiqoflowSchema()
+      // Fetch tenantId for the organization
+      const org = await db.select({ tenantId: organizations.tenantId })
+        .from(organizations)
+        .where(eq(organizations.id, (connection as any).organization_id))
+        .limit(1)
+        .then(rows => rows[0])
+
+      const schema = await getOptiqoflowSchema(org?.tenantId || undefined)
 
       // Transform to expected format and extract relationships
       const allRelationships: any[] = []
@@ -75,14 +87,14 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // No cached schema - for internal storage connections (data transfer), return empty
-  if (connection?.storage_location === 'internal') {
-    console.warn(`[full-schema] Internal storage connection ${connId} has no cached schema_json`)
+  // For synced storage connections, schema should be in schema_json (cached)
+  if (storageLocation === 'supabase_synced') {
+    console.warn(`[full-schema] Synced storage connection ${connId} has no cached schema_json`)
     return { tables: [], relationships: [] }
   }
 
-  // External connection with no cache - query MySQL directly
-  console.log(`[full-schema] No cached schema, querying MySQL for connection ${connId}`)
+  // External MySQL connection with no cache - query MySQL directly
+  console.log(`[full-schema] External MySQL connection ${connId}, querying directly`)
 
   const cfg = await loadConnectionConfigFromSupabase(event, connId)
 

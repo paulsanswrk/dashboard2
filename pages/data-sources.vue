@@ -64,6 +64,7 @@
                 </div>
                 <div class="flex items-center gap-2" @click.stop>
                   <NuxtLink 
+                    v-if="!c.is_immutable"
                     :to="`/integration-wizard?id=${c.id}`" 
                     class="inline-flex items-center px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     @click.stop
@@ -71,31 +72,33 @@
                     <Icon name="i-heroicons-pencil-square" class="w-4 h-4 mr-1"/>
                     Edit
                   </NuxtLink>
-                  <UButton size="xs" variant="outline" color="gray" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="openRenameModal(c)">
+                  <UButton v-if="!c.is_immutable" size="xs" variant="outline" color="gray" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="openRenameModal(c)">
                     <Icon name="i-heroicons-squares-2x2" class="w-4 h-4 mr-1"/>
                     Rename
                   </UButton>
-                  <UTooltip v-if="isDeleteDisabled(c)" text="Connection in use. Only Admins can delete.">
+                  <template v-if="!c.is_immutable">
+                    <UTooltip v-if="isDeleteDisabled(c)" text="Connection in use. Only Admins can delete.">
+                      <UButton 
+                        size="xs" 
+                        color="red" 
+                        class="opacity-50 cursor-not-allowed"
+                        disabled
+                      >
+                        <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
+                        Delete
+                      </UButton>
+                    </UTooltip>
                     <UButton 
+                      v-else
                       size="xs" 
                       color="red" 
-                      class="opacity-50 cursor-not-allowed"
-                      disabled
+                      class="bg-red-500 hover:bg-red-600 text-white cursor-pointer" 
+                      @click="openDeleteModal(c)"
                     >
                       <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
                       Delete
                     </UButton>
-                  </UTooltip>
-                  <UButton 
-                    v-else
-                    size="xs" 
-                    color="red" 
-                    class="bg-red-500 hover:bg-red-600 text-white cursor-pointer" 
-                    @click="openDeleteModal(c)"
-                  >
-                    <Icon name="i-heroicons-trash" class="w-4 h-4 mr-1"/>
-                    Delete
-                  </UButton>
+                  </template>
                   <NuxtLink 
                     :to="`/reporting/builder?data_connection_id=${c.id}`" 
                     class="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md cursor-pointer"
@@ -180,6 +183,7 @@ interface ConnectionWithUsage {
   port: number
   organization_id: string
   storage_location?: string
+  is_immutable?: boolean
   chartsCount: number
   dashboardsCount: number
   filtersCount: number

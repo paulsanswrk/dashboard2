@@ -131,6 +131,20 @@
                        class="w-full"/>
           </UFormField>
 
+          <!-- Tenant Selector - SUPERADMIN only -->
+          <UFormField v-if="userProfile?.role === 'SUPERADMIN'" label="Linked Tenant">
+            <select 
+              v-model="organizationForm.tenantId" 
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 cursor-pointer"
+            >
+              <option value="">-- No Tenant Linked --</option>
+              <option v-for="tenant in availableTenants" :key="tenant.id" :value="tenant.id">
+                {{ tenant.name }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Links this organization to an Optiqoflow tenant for data isolation</p>
+          </UFormField>
+
           <div class="flex justify-end gap-3 pt-4">
             <UButton variant="ghost" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="closeCreateModal">Cancel</UButton>
             <UButton type="submit" color="orange" class="bg-orange-500 hover:bg-orange-600 text-white dark:text-black cursor-pointer" :loading="isLoading">
@@ -206,10 +220,14 @@ const deletingOrgId = ref(null)
 const showDeleteModal = ref(false)
 const organizationToDelete = ref(null)
 
+// Available tenants for dropdown (SUPERADMIN only)
+const availableTenants = ref([])
+
 // Form data
 const organizationForm = ref({
   name: '',
-  description: ''
+  description: '',
+  tenantId: ''
 })
 
 
@@ -285,16 +303,41 @@ const formatDate = (dateString) => {
 }
 
 // Modal functions
-const openCreateOrganizationModal = () => {
+const openCreateOrganizationModal = async () => {
   editingOrganization.value = null
-  organizationForm.value = {name: '', description: ''}
+  organizationForm.value = {name: '', description: '', tenantId: ''}
+  
+  // Load available tenants for SUPERADMIN
+  if (userProfile.value?.role === 'SUPERADMIN') {
+    await loadAvailableTenants()
+  }
+  
   isCreateModalOpen.value = true
 }
 
 const closeCreateModal = () => {
   isCreateModalOpen.value = false
   editingOrganization.value = null
-  organizationForm.value = {name: '', description: ''}
+  organizationForm.value = {name: '', description: '', tenantId: ''}
+}
+
+// Load available tenants from optiqoflow (SUPERADMIN only)
+const loadAvailableTenants = async () => {
+  try {
+    const accessToken = await getAccessToken()
+    if (!accessToken) return
+    
+    const response = await $fetch('/api/optiqoflow/tenants', {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    })
+    
+    if (response.success) {
+      availableTenants.value = response.tenants
+    }
+  } catch (error) {
+    console.error('Error loading tenants:', error)
+  }
 }
 
 const viewOrganizationDetails = (org) => {

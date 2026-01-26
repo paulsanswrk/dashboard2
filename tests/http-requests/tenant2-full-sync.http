@@ -1,0 +1,49 @@
+### Tenant2 Full Sync - Single Request (All Tables)
+### Tests vertical isolation with DIFFERENT columns than Tenant1
+### Uses MULTI_TABLE_SYNC to sync all 5 tables in one request
+
+@host = http://localhost:3000
+
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "MULTI_TABLE_SYNC",
+  "tenant_id": "22222222-2222-2222-2222-222222222222",
+  "sync_id": "tenant2-full-sync-001",
+  "tables": {
+    "sites": {
+      "data": [
+        {"id":"a2000002-0002-0002-0002-000000000001","tenant_id":"22222222-2222-2222-2222-222222222222","customer_id":"c2000002-0002-0002-0002-000000000001","name":"Beta Office Tower","address":"500 Commerce Drive","site_code":"BOT-001","parking_instructions":"Underground parking","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"a2000002-0002-0002-0002-000000000002","tenant_id":"22222222-2222-2222-2222-222222222222","customer_id":"c2000002-0002-0002-0002-000000000001","name":"Beta Distribution Center","address":"600 Logistics Way","site_code":"BDC-002","parking_instructions":"Loading dock","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "device_tenants": {
+      "clearExisting": false,
+      "data": [
+        {"device_id":"d2000002-0002-0002-0002-000000000001","tenant_id":"22222222-2222-2222-2222-222222222222","is_current_owner":true,"assigned_at":"2026-01-23T10:00:00Z"},
+        {"device_id":"d2000002-0002-0002-0002-000000000002","tenant_id":"22222222-2222-2222-2222-222222222222","is_current_owner":true,"assigned_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "devices": {
+      "clearExisting": false,
+      "data": [
+        {"id":"d2000002-0002-0002-0002-000000000001","imei":"987654321098765","status":"online","firmware":"v2.1.0","battery_percent":85,"signal_strength_dbm":-65,"registered_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"d2000002-0002-0002-0002-000000000002","imei":"987654321098766","status":"online","firmware":"v2.0.5","battery_percent":92,"signal_strength_dbm":-58,"registered_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "quality_inspections": {
+      "data": [
+        {"id":"b2000002-0002-0002-0002-000000000001","tenant_id":"22222222-2222-2222-2222-222222222222","site_id":"a2000002-0002-0002-0002-000000000001","inspection_date":"2026-01-22","inspection_type":"spot_check","quality_method":"INSTA","aql_level":1,"party_size":200,"sample_size":20,"acceptance_number":2,"rejection_number":3,"passed_units":47,"failed_units":3,"overall_result":"passed","completed_at":"2026-01-22T14:30:00Z","created_at":"2026-01-22T10:00:00Z","updated_at":"2026-01-22T14:30:00Z"},
+        {"id":"b2000002-0002-0002-0002-000000000002","tenant_id":"22222222-2222-2222-2222-222222222222","site_id":"a2000002-0002-0002-0002-000000000002","inspection_date":"2026-01-22","inspection_type":"audit","quality_method":"random","aql_level":3,"party_size":150,"sample_size":15,"acceptance_number":1,"rejection_number":2,"passed_units":52,"failed_units":1,"overall_result":"passed","completed_at":"2026-01-22T16:45:00Z","created_at":"2026-01-22T12:00:00Z","updated_at":"2026-01-22T16:45:00Z"}
+      ]
+    },
+    "inspection_rooms": {
+      "data": [
+        {"id":"e2000002-0002-0002-0002-000000000001","inspection_id":"b2000002-0002-0002-0002-000000000001","room_id":"f2000002-0002-0002-0002-000000000001","floors_waste_count":0,"floors_dust_count":1,"floors_result":"passed","created_at":"2026-01-22T14:00:00Z","updated_at":"2026-01-22T14:30:00Z"},
+        {"id":"e2000002-0002-0002-0002-000000000002","inspection_id":"b2000002-0002-0002-0002-000000000001","room_id":"f2000002-0002-0002-0002-000000000002","floors_waste_count":2,"floors_dust_count":3,"floors_result":"failed","created_at":"2026-01-22T14:00:00Z","updated_at":"2026-01-22T14:30:00Z"},
+        {"id":"e2000002-0002-0002-0002-000000000003","inspection_id":"b2000002-0002-0002-0002-000000000002","room_id":"f2000002-0002-0002-0002-000000000003","floors_waste_count":1,"floors_dust_count":0,"floors_result":"passed","created_at":"2026-01-22T16:00:00Z","updated_at":"2026-01-22T16:45:00Z"}
+      ]
+    }
+  }
+}

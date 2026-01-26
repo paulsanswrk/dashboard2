@@ -79,3 +79,60 @@ Synchronization attempts and performance can be monitored via the logs table:
 ```sql
 SELECT * FROM optiqoflow.webhook_logs ORDER BY created_at DESC;
 ```
+
+---
+
+## Multi-Tenant Data Isolation
+
+### Tenant Views
+
+Per-tenant views are dynamically created in the `tenants` schema:
+
+```
+tenants.{tenant_uuid}_work_orders
+tenants.{tenant_uuid}_sites
+...
+```
+
+Views provide:
+- **Row isolation**: Filter by `tenant_id` or related fields
+- **Column isolation**: Only columns pushed for that tenant
+
+### Column Tracking
+
+The webhook tracks which columns are pushed per tenant/table:
+
+```sql
+SELECT * FROM tenants.tenant_column_access 
+WHERE tenant_id = '...' AND table_name = 'work_orders';
+```
+
+When columns change, views are automatically regenerated.
+
+---
+
+## Chart Data Cache Invalidation
+
+When data is pushed, the webhook invalidates cached chart data:
+
+1. Logs push to `tenants.tenant_data_push_log`
+2. Calls `invalidate_chart_cache_for_tables(tenant_id, [tables])`
+3. Marks affected cache entries as invalid
+4. Updates chart `cache_status` to `stale`
+
+This ensures charts reflect fresh data without manual intervention.
+
+| Table | Location | Purpose |
+|-------|----------|---------|
+| `tenant_column_access` | tenants schema | Column lists per tenant/table |
+| `tenant_data_push_log` | tenants schema | Audit log of data pushes |
+| `chart_data_cache` | public schema | Cached chart results |
+| `chart_table_dependencies` | public schema | Chart → table mapping |
+
+---
+
+## Related Documentation
+
+- [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architecture.md)
+- [Internal Data Source](internal-data-source.md)
+

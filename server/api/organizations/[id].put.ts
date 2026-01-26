@@ -1,4 +1,4 @@
-import {createClient} from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -27,10 +27,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       throw createError({
         statusCode: 401,
@@ -54,8 +54,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-      // Check if user is admin or superadmin
-      if (profileData.role !== 'ADMIN' && profileData.role !== 'SUPERADMIN') {
+    // Check if user is admin or superadmin
+    if (profileData.role !== 'ADMIN' && profileData.role !== 'SUPERADMIN') {
       throw createError({
         statusCode: 403,
         statusMessage: 'Only admins can update organizations'
@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
 
     const organizationId = getRouterParam(event, 'id')
     const body = await readBody(event)
-    const { name, licenses } = body
+    const { name, licenses, tenantId } = body
 
     if (!organizationId) {
       throw createError({
@@ -75,11 +75,11 @@ export default defineEventHandler(async (event) => {
 
     // Build update object
     const updateData: any = {}
-    
+
     if (name !== undefined) {
       updateData.name = name
     }
-    
+
     if (licenses !== undefined) {
       // Validate licenses is a non-negative integer
       const licensesNum = parseInt(licenses)
@@ -90,6 +90,11 @@ export default defineEventHandler(async (event) => {
         })
       }
       updateData.viewer_count = licensesNum
+    }
+
+    // Only SUPERADMIN can update tenant_id
+    if (tenantId !== undefined && profileData.role === 'SUPERADMIN') {
+      updateData.tenant_id = tenantId || null  // Allow unsetting with empty string/null
     }
 
     if (Object.keys(updateData).length === 0) {

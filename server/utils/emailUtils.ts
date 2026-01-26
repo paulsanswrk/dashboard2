@@ -1,5 +1,5 @@
 import sgMail from '@sendgrid/mail'
-import {saveEmailLocally} from './emailSaver'
+import { saveEmailLocally } from './emailSaver'
 
 // Configure SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY || '')
@@ -7,28 +7,28 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY || '')
 const SENDER_EMAIL = process.env.SENDGRID_SENDER_EMAIL || 'noreply@optiqo.com'
 
 export interface EmailTemplate {
-  subject: string
-  html: string
-  text: string
+    subject: string
+    html: string
+    text: string
 }
 
 export interface UserInvitationData {
-  email: string
-  firstName?: string
-  lastName?: string
-  role: string
-  organizationName?: string
-  confirmationUrl: string
+    email: string
+    firstName?: string
+    lastName?: string
+    role: string
+    organizationName?: string
+    confirmationUrl: string
     siteUrl: string
 }
 
 export interface ViewerInvitationData {
-  email: string
-  firstName?: string
-  lastName?: string
-  type: string
-  group?: string
-  confirmationUrl: string
+    email: string
+    firstName?: string
+    lastName?: string
+    type: string
+    group?: string
+    confirmationUrl: string
     siteUrl: string
 }
 
@@ -36,12 +36,12 @@ export interface ViewerInvitationData {
  * Generate user invitation email template
  */
 export function generateUserInvitationTemplate(data: UserInvitationData): EmailTemplate {
-    const {email, firstName, lastName, role, confirmationUrl, siteUrl} = data
-  const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
-  
-  const subject = `Welcome to Optiqo - Complete Your Account Setup`
-  
-  const html = `
+    const { email, firstName, lastName, role, confirmationUrl, siteUrl } = data
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
+
+    const subject = `Welcome to Optiqo - Complete Your Account Setup`
+
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -257,7 +257,7 @@ export function generateUserInvitationTemplate(data: UserInvitationData): EmailT
 </body>
 </html>`
 
-  const text = `
+    const text = `
 Welcome to Optiqo!
 
 Hello ${fullName},
@@ -276,19 +276,19 @@ This email was sent by Optiqo Dashboard
 Ready to transform your data into insights? Let's get started!
 `
 
-  return { subject, html, text }
+    return { subject, html, text }
 }
 
 /**
  * Generate viewer invitation email template
  */
 export function generateViewerInvitationTemplate(data: ViewerInvitationData): EmailTemplate {
-    const {email, firstName, lastName, type, group, confirmationUrl, siteUrl} = data
-  const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'Viewer'
-  
-  const subject = `You've been invited to view Optiqo dashboards`
-  
-  const html = `
+    const { email, firstName, lastName, type, group, confirmationUrl, siteUrl } = data
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'Viewer'
+
+    const subject = `You've been invited to view Optiqo dashboards`
+
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -532,7 +532,7 @@ export function generateViewerInvitationTemplate(data: ViewerInvitationData): Em
 </body>
 </html>`
 
-  const text = `
+    const text = `
 You've been invited to view Optiqo dashboards
 
 Hello ${fullName},
@@ -554,58 +554,58 @@ This email was sent by Optiqo Dashboard
 Access your data insights securely and efficiently
 `
 
-  return { subject, html, text }
+    return { subject, html, text }
 }
 
 /**
  * Send email using SendGrid
  */
 export async function sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
-  try {
-    if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_SENDER_EMAIL) {
-      console.error('SendGrid configuration missing')
-      return false
+    try {
+        if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_SENDER_EMAIL) {
+            console.error('SendGrid configuration missing')
+            return false
+        }
+
+        const msg = {
+            to,
+            from: SENDER_EMAIL,
+            subject: template.subject,
+            text: template.text,
+            html: template.html,
+        }
+
+        // Save email locally for development testing if SAVE_EMAILS_TO is configured
+        await saveEmailLocally({
+            from: SENDER_EMAIL,
+            to,
+            subject: template.subject,
+            html: template.html,
+            text: template.text
+        })
+
+        await sgMail.send(msg)
+
+        console.log(`Email sent successfully to ${to}`)
+        return true
+    } catch (error) {
+        console.error('Error sending email:', error)
+        return false
     }
-
-    const msg = {
-      to,
-      from: SENDER_EMAIL,
-      subject: template.subject,
-      text: template.text,
-      html: template.html,
-    }
-
-      // Save email locally for development testing if SAVE_EMAILS_TO is configured
-      await saveEmailLocally({
-          from: SENDER_EMAIL,
-          to,
-          subject: template.subject,
-          html: template.html,
-          text: template.text
-      })
-
-    await sgMail.send(msg)
-
-      console.log(`Email sent successfully to ${to}`)
-    return true
-  } catch (error) {
-    console.error('Error sending email:', error)
-    return false
-  }
 }
 
 /**
  * Generate user invitation email template with magic link
  */
 export function generateUserInvitationWithMagicLinkTemplate(data: UserInvitationData): EmailTemplate {
-  const { email, firstName, lastName, role, organizationName, siteUrl = 'http://localhost:3000' } = data
-  const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
+    const { email, firstName, lastName, role, organizationName, siteUrl = 'http://localhost:3000' } = data
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
     const roleDisplay = role === 'SUPERADMIN' ? 'Super Administrator' :
         role === 'ADMIN' ? 'Administrator' : 'Editor'
-  
-  const subject = `Welcome to Optiqo - Complete Your Account Setup`
-  
-  const html = `
+
+    const subject = `Welcome to Optiqo - Complete Your Account Setup`
+
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -725,6 +725,7 @@ export function generateUserInvitationWithMagicLinkTemplate(data: UserInvitation
             text-decoration: none;
             padding: 12px 24px;
             border-radius: 6px;
+            border: 2px solid #c67218;
             font-weight: 600;
             font-size: 16px;
             text-align: center;
@@ -734,6 +735,7 @@ export function generateUserInvitationWithMagicLinkTemplate(data: UserInvitation
         
         .cta-button:hover {
             background-color: #e07d1a;
+            border-color: #a65e14;
         }
         
         .footer {
@@ -815,16 +817,16 @@ export function generateUserInvitationWithMagicLinkTemplate(data: UserInvitation
             <div class="account-details">
                 <h3 class="account-details-title">Your Account Details</h3>
                 <div class="detail-row">
-                    <span class="detail-label">Email:</span>
+                    <span class="detail-label">Email: </span>
                     <span>${email}</span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Role:</span>
+                    <span class="detail-label">Role: </span>
                     <span>${roleDisplay}</span>
                 </div>
                 ${organizationName ? `
                 <div class="detail-row">
-                    <span class="detail-label">Organization:</span>
+                    <span class="detail-label">Organization: </span>
                     <span>${organizationName}</span>
                 </div>
                 ` : ''}
@@ -861,7 +863,7 @@ export function generateUserInvitationWithMagicLinkTemplate(data: UserInvitation
 </html>
   `
 
-  const text = `
+    const text = `
 Welcome to Optiqo - Complete Your Account Setup
 
 Hello ${fullName}!
@@ -883,20 +885,20 @@ This email was sent by Optiqo Dashboard
 Ready to transform your data into insights? Let's get started!
   `
 
-  return { subject, html, text }
+    return { subject, html, text }
 }
 
 /**
  * Generate viewer invitation email template with magic link
  */
 export function generateViewerInvitationWithMagicLinkTemplate(data: ViewerInvitationData): EmailTemplate {
-  const { email, firstName, lastName, type, group, siteUrl = 'http://localhost:3000' } = data
-  const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
-  const viewerType = type || 'Viewer'
-  
-  const subject = `Welcome to Optiqo - Access Your Dashboard Viewer Account`
-  
-  const html = `
+    const { email, firstName, lastName, type, group, siteUrl = 'http://localhost:3000' } = data
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'User'
+    const viewerType = type || 'Viewer'
+
+    const subject = `Welcome to Optiqo - Access Your Dashboard Viewer Account`
+
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1152,7 +1154,7 @@ export function generateViewerInvitationWithMagicLinkTemplate(data: ViewerInvita
 </html>
   `
 
-  const text = `
+    const text = `
 Welcome to Optiqo - Access Your Dashboard Viewer Account
 
 Hello ${fullName}!
@@ -1174,14 +1176,14 @@ This email was sent by Optiqo Dashboard
 Ready to explore your data insights? Let's get started!
   `
 
-  return { subject, html, text }
+    return { subject, html, text }
 }
 
 /**
  * Generate magic link for user authentication
  */
 export function generateMagicLink(userId: string, email: string, siteUrl: string = 'http://localhost:3000'): string {
-  // For now, we'll generate a simple confirmation URL
-  // In a real implementation, you'd want to generate a secure token
-  return `${siteUrl}/auth/callback?token=${userId}&email=${encodeURIComponent(email)}`
+    // For now, we'll generate a simple confirmation URL
+    // In a real implementation, you'd want to generate a secure token
+    return `${siteUrl}/auth/callback?token=${userId}&email=${encodeURIComponent(email)}`
 }

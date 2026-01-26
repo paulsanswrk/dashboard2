@@ -5,6 +5,9 @@ import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { AuthHelper } from '../../utils/authHelper'
 import { CLAUDE_MODEL } from '../../utils/aiConfig'
 import { getOptiqoflowSchema } from '../../utils/optiqoflowQuery'
+import { db } from '../../../lib/db'
+import { organizations } from '../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 type RequestBody = {
   connectionId: number
@@ -33,7 +36,15 @@ export default defineEventHandler(async (event) => {
     // Check if this is an internal data source
     if (connectionData.database_type === 'internal') {
       console.log('[AI Chart Assistant] Using internal data source (optiqoflow), fetching schema')
-      const optiqoflowSchemaData = await getOptiqoflowSchema()
+
+      // Fetch tenantId for the organization
+      const org = await db.select({ tenantId: organizations.tenantId })
+        .from(organizations)
+        .where(eq(organizations.id, (connectionData as any).organization_id))
+        .limit(1)
+        .then(rows => rows[0])
+
+      const optiqoflowSchemaData = await getOptiqoflowSchema(org?.tenantId || undefined)
       schemaJson = optiqoflowSchemaData
     } else {
       // For MySQL connections, query schema directly

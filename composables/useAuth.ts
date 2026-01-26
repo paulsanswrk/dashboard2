@@ -355,7 +355,10 @@ export const useAuth = () => {
       console.log('🔐 [STEP 3] Calling updateUser() to set new password...')
 
       const { error } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
+        data: {
+          has_password: true
+        }
       })
 
       if (error) throw error

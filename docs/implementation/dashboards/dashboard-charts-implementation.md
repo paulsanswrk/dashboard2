@@ -413,10 +413,26 @@ Full-load specifics:
 - **Indexes**: Proper indexing on `dashboard_id` and `chart_id` for efficient queries
 - **JSON Storage**: Efficient storage of complex chart configurations
 - **Connection Pooling**: Database connection management for concurrent users
-- **Caching Strategy**: Potential for caching frequently accessed charts
 - **Debounced Auto-saving**: Changes are automatically saved with 200-500ms debouncing to reduce server load while maintaining responsiveness
 - **Parallel Server Fetch**: The full-load endpoint executes external SQL for all charts concurrently to reduce TTFB.
 - **Pixel-based Layout**: Avoiding grid calculation overhead and providing more precise control.
+
+### Chart Data Caching
+
+Chart data is now cached with intelligent invalidation:
+
+| Data Source | Cache Strategy |
+|-------------|----------------|
+| **Optiqoflow** | Cached until data is pushed via webhook |
+| **MySQL** | Permanent cache (never auto-invalidates) |
+
+Key features:
+- **O(1) cache decisions** via `cache_status` column on charts
+- **Automatic invalidation** when webhook receives data for dependent tables
+- **Dynamic filter bypass** for charts with relative date filters
+- **Background processing** for dependency tracking (non-blocking saves)
+
+See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architecture.md)
 
 ## 🧪 Testing Coverage
 

@@ -1,0 +1,365 @@
+# Multi-Tenant Data Architecture
+
+This document describes the multi-tenant data isolation and caching implementation for the Optiqo dashboard.
+
+## Overview
+
+The system provides per-tenant data isolation using PostgreSQL schema and role-based access:
+
+- **Per-Tenant Schemas**: Each tenant gets a dedicated schema (`tenant_{short_name}`)
+- **Per-Tenant Roles**: Role-based isolation with restricted privileges
+- **Automatic Tenant Registration**: New tenants are automatically registered on first data sync
+- **Tenant Views**: Dynamically generated views with row and column isolation
+- **FK Metadata & Auto-Join**: Relationship metadata enables automatic table joins
+- **Chart Data Caching**: Pre-computed results with automatic invalidation
+- **Dual Data Source Support**: Different caching strategies for Optiqoflow vs MySQL
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph "Data Flow"
+        WH[Webhook Push] --> CT[Column Tracking]
+        CT --> VG[View Generation]
+        WH --> CI[Cache Invalidation]
+    end
+    
+    subgraph "Schema Structure"
+        OF[optiqoflow schema]
+        T1[tenant_acme_cleaning_co]
+        T2[tenant_beta_facilities]
+    end
+    
+    subgraph "Role-Based Access"
+        R1[tenant_acme_cleaning_co_role]
+        R2[tenant_beta_facilities_role]
+    end
+    
+    subgraph "Query Execution"
+        Q[Unqualified SQL]
+        SR[SET LOCAL ROLE]
+        Q --> SR
+        SR --> R1 --> T1
+        SR --> R2 --> T2
+    end
+    
+    OF -->|filtered views| T1
+    OF -->|filtered views| T2
+```
+
+## Current Tenants
+
+| Tenant Name | Short Name | Schema | Role |
+|-------------|------------|--------|------|
+| Acme Cleaning Co | `acme_cleaning_co` | `tenant_acme_cleaning_co` | `tenant_acme_cleaning_co_role` |
+| Beta Facilities | `beta_facilities` | `tenant_beta_facilities` | `tenant_beta_facilities_role` |
+| Puhastusekpert OÜ | `puhastusekpert_o` | `tenant_puhastusekpert_o` | `tenant_puhastusekpert_o_role` |
+| Visera AB | `visera_ab` | `tenant_visera_ab` | `tenant_visera_ab_role` |
+
+## Tenant Short Names
+
+> [!IMPORTANT]
+> Tenant short names are stored in `tenants.tenant_short_names`, **not** in `optiqoflow.tenants`.
+> The `optiqoflow` schema is externally managed and may be recreated, so short names are persisted in the dashboard-controlled `tenants` schema.
+
+### Table Schema
+
+```sql
+CREATE TABLE tenants.tenant_short_names (
+    tenant_id UUID PRIMARY KEY,
+    short_name TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Short Name Generation
+
+- Lowercase, alphanumeric with underscores
+- Max 30 characters  
+- Collision handling: appends `_N` suffix
+- Managed via `tenants.generate_tenant_short_name()` function
+
+### Helper Functions (tenants schema)
+
+- `get_tenant_short_name(tenant_id)` - Lookup short name
+- `get_tenant_schema(tenant_id)` - Returns `tenant_{short_name}`
+- `get_tenant_role(tenant_id)` - Returns `tenant_{short_name}_role`
+- `create_tenant_schema(tenant_id)` - Create schema and role
+- `register_tenant(tenant_id, name)` - Register new tenant with auto-generated short name
+
+## Per-Tenant Schemas
+
+Views are created in tenant-specific schemas: `tenant_{short_name}`
+
+| Legacy Format | New Format |
+|---------------|------------|
+| `tenants."uuid_table"` | `tenant_acme_cleaning_co.work_orders` |
+
+### Benefits
+
+1. **Unqualified queries**: `SELECT * FROM work_orders` (no schema prefix)
+2. **Role isolation**: Each role only sees its schema
+3. **Simpler debugging**: Standard table names in queries
+4. **Security**: Tenant roles cannot access other schemas
+
+## Role-Based Isolation
+
+Each tenant has a PostgreSQL role with restricted privileges:
+
+```sql
+-- Role privileges for tenant-specific schema
+GRANT USAGE ON SCHEMA tenant_acme_cleaning_co TO tenant_acme_cleaning_co_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA tenant_acme_cleaning_co TO tenant_acme_cleaning_co_role;
+
+-- Role privileges for shared optiqoflow schema (base tables)
+GRANT USAGE ON SCHEMA optiqoflow TO tenant_acme_cleaning_co_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA optiqoflow TO tenant_acme_cleaning_co_role;
+
+-- Default search_path (configured at role creation)
+ALTER ROLE tenant_acme_cleaning_co_role SET search_path TO tenant_acme_cleaning_co;
+
+-- Grant to service_role for SET ROLE
+GRANT tenant_acme_cleaning_co_role TO service_role;
+```
+
+> [!IMPORTANT]
+> The default `search_path` for tenant roles is set to only their tenant schema. However, at query execution time, we override this to include the `optiqoflow` schema, allowing access to both tenant-specific views AND base tables.
+
+### Query Execution Flow
+
+```typescript
+// In executeOptiqoflowQuery()
+const roleName = await getTenantRoleName(tenantId)  // e.g., 'tenant_acme_cleaning_co_role'
+
+await tx.unsafe(`SET LOCAL ROLE ${roleName}`)
+
+// Override search_path to include both tenant schema and optiqoflow base tables
+const tenantShortName = roleName.replace('tenant_', '').replace('_role', '')
+await tx.unsafe(`SET LOCAL search_path TO tenant_${tenantShortName}, optiqoflow, public`)
+
+// Now queries resolve:
+// 1. First in tenant schema (tenant-specific views like 'devices', 'sites')
+// 2. Then in optiqoflow schema (base tables like 'attendance_events', 'work_orders')
+const rows = await tx.unsafe('SELECT * FROM work_orders WHERE status = $1', ['open'])
+```
+
+This dual-schema approach allows:
+- **Tenant-specific views** to override base tables when they exist (e.g., filtered `devices` view)
+- **Direct access** to base tables when no tenant view exists (e.g., `attendance_events`)
+- **Consistent security** - all data access is still controlled by the tenant role's permissions
+
+## Database Functions
+
+| Function | Purpose |
+|----------|---------|
+| `tenants.generate_tenant_short_name(name)` | Generate unique short name |
+| `tenants.register_tenant(tenant_id, name)` | Register new tenant with auto-generated short name |
+| `tenants.get_tenant_short_name(tenant_id)` | Lookup short name for tenant |
+| `tenants.get_tenant_schema(tenant_id)` | Get schema name: `tenant_{short_name}` |
+| `tenants.get_tenant_role(tenant_id)` | Get role name: `tenant_{short_name}_role` |
+| `tenants.create_tenant_schema(tenant_id)` | Create schema and role for tenant |
+| `optiqoflow.get_table_relationships()` | Get FK metadata for auto-join |
+
+### Automatic Schema and Role Creation
+
+When a tenant's first view is created via `createOrUpdateTenantView()`, the function automatically:
+
+1. **Creates the tenant schema** if it doesn't exist: `tenant_{short_name}`
+2. **Creates and configures the tenant role** via `ensureTenantRole()`:
+   - Grants USAGE + SELECT on tenant schema
+   - Grants USAGE + SELECT on optiqoflow schema (for base tables)
+   - Sets default `search_path` to tenant schema
+   - Grants role to `service_role` for SET ROLE capability
+3. **Creates the view** in the tenant schema
+
+This happens automatically on the first webhook data push for each table per tenant.
+
+## Automatic Tenant Registration
+
+When a new tenant syncs data via webhook, the system automatically registers the tenant before creating views.
+
+### Registration Flow
+
+```typescript
+// In optiqo-webhook.post.ts
+async function ensureTenantRegistered(tenantId: string): Promise<boolean> {
+  // 1. Check if already registered in tenants.tenant_short_names
+  const existing = await pgClient.unsafe(
+    `SELECT short_name FROM tenants.tenant_short_names WHERE tenant_id = $1`,
+    [tenantId]
+  )
+  
+  if (existing.length > 0) return true
+  
+  // 2. Get tenant name from optiqoflow.tenants (external source)
+  const tenantData = await supabase
+    .from('tenants')
+    .select('name')
+    .eq('id', tenantId)
+    .single()
+  
+  // 3. Call Postgres function to register (creates short_name, schema, role)
+  await pgClient.unsafe(
+    `SELECT tenants.register_tenant($1, $2) as short_name`,
+    [tenantId, tenantName]
+  )
+  
+  return true
+}
+
+// Called early in webhook processing
+if (tenant_id && operation !== 'TEST') {
+  await ensureTenantRegistered(tenant_id)
+}
+```
+
+### What Registration Does
+
+The `tenants.register_tenant()` function:
+1. Generates a unique short_name (e.g., `acme_cleaning_co`)
+2. Inserts into `tenants.tenant_short_names`
+3. Creates the tenant schema: `tenant_{short_name}`
+4. Creates the tenant role: `tenant_{short_name}_role`
+5. Grants permissions on both tenant schema and optiqoflow schema
+6. Sets default search_path for the role
+
+## FK Metadata for Auto-Join
+
+The dashboard uses foreign key metadata to automatically join tables in chart queries.
+
+### Table Relationships
+
+FK relationships are stored in `optiqoflow.table_relationships`:
+
+```sql
+CREATE TABLE optiqoflow.table_relationships (
+  id serial PRIMARY KEY,
+  source_table text NOT NULL,
+  source_column text NOT NULL,
+  target_table text NOT NULL,
+  target_column text NOT NULL,
+  relationship_type text NOT NULL, -- 'one-to-many', 'many-to-one', 'many-to-many'
+  description text
+);
+```
+
+### Population
+
+The table is populated via migration `20260126_populate_table_relationships.sql` with **114 FK relationships**, including:
+
+```sql
+('inspection_rooms', 'inspection_id', 'quality_inspections', 'id', 'many-to-one', 'Room in inspection'),
+('work_orders', 'room_id', 'rooms', 'id', 'many-to-one', 'Work order assigned to room'),
+('sites', 'customer_id', 'customers', 'id', 'many-to-one', 'Site belongs to customer'),
+-- ... and 111 more
+```
+
+### Auto-Join Workflow
+
+1. **Schema Fetch**: `getOptiqoflowSchema()` loads table metadata including FKs from `table_relationships`
+2. **Graph Building**: `buildGraph()` creates a graph of all possible join paths
+3. **Storage**: Graph is stored in `data_connections.auto_join_info`
+4. **Query Time**: When user builds a chart with multiple tables, the system:
+   - Looks up the join path in the graph
+   - Generates SQL with proper JOIN clauses
+   - Executes with tenant role for row-level isolation
+
+
+## Tenant View Generation
+
+Views are created in tenant schemas with row and column isolation.
+
+### Filtering Methods
+
+| Method | Description | Example Tables |
+|--------|-------------|----------------|
+| Direct | `WHERE tenant_id = ?` | `work_orders`, `sites`, `rooms`, `profiles`, `teams` |
+| Device-based | Via `device_tenants` junction | `devices`, `device_measurements`, `device_configs` |
+| Parent relation | Join to parent with tenant_id | `quote_line_items`, `chat_messages`, `inspection_rooms` |
+| Global | No filtering | `tenants`, `insta_quality_levels`, `service_types` |
+
+### Column Isolation
+
+1. Webhook receives data push with partial columns
+2. `updateTenantColumnAccess()` stores column list in `tenants.tenant_column_access`
+3. If columns changed, view is regenerated with new column set
+4. Views only expose pushed columns, not full table schema
+
+## Chart Data Caching
+
+### Cache Decision (O(1))
+
+The `cache_status` column enables instant decisions:
+
+| Status | Behavior |
+|--------|----------|
+| `cached` | Use cached data |
+| `stale` | Query fresh, update cache |
+| `dynamic` | Always query fresh (time-based filters) |
+| `unknown` | Query fresh, determine status |
+
+### Data Source Strategies
+
+| Source | Cache Strategy |
+|--------|----------------|
+| Optiqoflow | Invalidated on webhook data push |
+| MySQL | Permanent (never auto-invalidates) |
+
+### Cache Invalidation
+
+When webhook receives data push:
+1. Log push to `tenants.tenant_data_push_log`
+2. Call `invalidate_chart_cache_for_tables(tenant_id, [tables])`
+3. Update affected charts' `cache_status` to `stale`
+
+> [!NOTE]
+> Chart data caching is fully implemented. Cache entries are created when charts are viewed on dashboards, and automatically invalidated when webhook data pushes occur. See `/server/api/dashboards/[id]/charts/[chartId]/data.get.ts` for the implementation.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `server/utils/tenant-views.ts` | View generation with row/column isolation |
+| `server/utils/query-context.ts` | Tenant context and role utilities |
+| `server/utils/optiqoflowQuery.ts` | Query execution with role switching |
+| `server/api/reporting/chart-data.post.ts` | Cached chart data endpoint |
+| `server/api/optiqo-webhook.post.ts` | Webhook handler with view regeneration |
+| `lib/db/tenant-schema.ts` | Drizzle schema for tenant metadata tables |
+| `lib/db/chart-cache-schema.ts` | Drizzle schema for cache tables |
+| `lib/db/optiqoflow-schema.ts` | Drizzle schema for optiqoflow tables |
+
+## Migrations
+
+### Dashboard Database (optiqo-dashboard)
+
+| Migration | Purpose |
+|-----------|---------|
+| `20260122170000_multi_tenant_schema.sql` | Creates `tenants` schema and metadata tables |
+| `20260122170100_chart_cache_schema.sql` | Creates cache tables and invalidation functions |
+| `20260126_fix_optiqoflow_connections.sql` | Grants permissions to tenant roles for optiqoflow schema |
+
+### OptiqoFlow Database (optiqo-flow)
+
+| Migration | Purpose |
+|-----------|---------|
+| `20260126_populate_table_relationships.sql` | Populates `optiqoflow.table_relationships` with 114 FK relationships |
+| `20260126_grant_optiqoflow_to_tenant_roles.sql` | Dynamic grants for all tenant roles |
+
+> [!NOTE]
+> Tenant schemas and roles are created automatically via `tenants.register_tenant()` when:
+> - A new organization with a tenant_id is created, OR
+> - A tenant's first data sync is received via webhook
+
+## Testing
+
+Use the HTTP test files to validate data flow:
+- `tests/http-requests/tenant1-data-sync.http` - Sync data for Tenant1
+- `tests/http-requests/tenant2-data-sync.http` - Sync data for Tenant2
+
+After running syncs, verify views are created in proper tenant schemas:
+```sql
+SELECT schemaname, viewname 
+FROM pg_views 
+WHERE schemaname LIKE 'tenant_%';
+```

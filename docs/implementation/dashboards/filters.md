@@ -248,3 +248,29 @@ npx vitest run tests/filters/filterInjection.test.ts
 | `server/utils/filterInjection.ts` | SQL filter injection logic |
 | `server/api/dashboards/[id]/charts/[chartId]/data.get.ts` | Chart data endpoint |
 | `tests/filters/filterInjection.test.ts` | Unit tests |
+
+---
+
+## Dynamic Filters and Caching
+
+### Cache Bypass for Dynamic Filters
+
+Charts with relative date filters (e.g., "last 7 days", "this month") automatically bypass the chart data cache to ensure real-time results.
+
+**Detection**: The `has_dynamic_filter` flag on charts is set when filters use relative date operators:
+- `last_n_days`, `last_n_weeks`, `last_n_months`
+- `this_week`, `this_month`
+- `today`, `yesterday`
+
+**Dashboard Dynamic Columns**: Dashboards can specify `dynamic_columns` to mark date fields that should trigger cache bypass when filtered:
+
+```json
+{
+  "dynamic_columns": ["created_at", "updated_at", "event_date"]
+}
+```
+
+Charts using these columns in dashboard-level filters will also bypass the cache.
+
+See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architecture.md)
+

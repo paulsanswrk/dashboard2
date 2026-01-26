@@ -84,6 +84,7 @@ export const tableRelationships = optiqoflow.table('table_relationships', {
 export const tenants = optiqoflow.table('tenants', {
     id: uuid('id').primaryKey(),
     name: text('name'),
+    shortName: text('short_name').unique(),
 })
 
 // ============================================

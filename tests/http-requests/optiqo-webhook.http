@@ -1,0 +1,225 @@
+### Optiqo Webhook Handler Test Requests
+### Use these to test the multi-tenant data architecture implementation
+
+### Environment variables (create http-client.env.json for these)
+# {{host}} = http://localhost:3000
+
+###############################################################################
+# TEST Operation - Simple connectivity test
+###############################################################################
+
+### Test Webhook Connectivity
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "TEST",
+  "table": "test",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "data": {
+    "message": "Hello from test webhook",
+    "timestamp": "{{$timestamp}}"
+  }
+}
+
+###############################################################################
+# INSERT Operation - Single record upsert
+###############################################################################
+
+### Insert a Site
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "INSERT",
+  "table": "sites",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sync_id": "test-insert-{{$uuid}}",
+  "data": {
+    "id": "{{$uuid}}",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Test Site - {{$timestamp}}",
+    "address": "123 Test Street",
+    "city": "Test City",
+    "country": "Test Country",
+    "created_at": "{{$isoTimestamp}}",
+    "updated_at": "{{$isoTimestamp}}"
+  }
+}
+
+###############################################################################
+# UPDATE Operation - Update existing record
+###############################################################################
+
+### Update a Site
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "UPDATE",
+  "table": "sites",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sync_id": "test-update-{{$uuid}}",
+  "data": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Updated Site Name",
+    "address": "456 Updated Street",
+    "city": "Updated City",
+    "updated_at": "{{$isoTimestamp}}"
+  }
+}
+
+###############################################################################
+# FULL_SYNC Operation - Bulk data sync (first batch clears existing data)
+###############################################################################
+
+### Full Sync - First Batch (offset=0, clears existing tenant data)
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "FULL_SYNC",
+  "table": "rooms",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sync_id": "full-sync-test-001",
+  "batch": {
+    "offset": 0,
+    "data": [
+      {
+        "id": "room-001-0000-0000-000000000001",
+        "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "Room 101",
+        "site_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "floor": "1",
+        "room_type": "office",
+        "status": "clean",
+        "area_sqm": 25.5,
+        "created_at": "{{$isoTimestamp}}",
+        "updated_at": "{{$isoTimestamp}}"
+      },
+      {
+        "id": "room-002-0000-0000-000000000002",
+        "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "Room 102",
+        "site_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "floor": "1",
+        "room_type": "meeting",
+        "status": "dirty",
+        "area_sqm": 40.0,
+        "created_at": "{{$isoTimestamp}}",
+        "updated_at": "{{$isoTimestamp}}"
+      },
+      {
+        "id": "room-003-0000-0000-000000000003",
+        "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "Room 103",
+        "site_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "floor": "1",
+        "room_type": "bathroom",
+        "status": "cleaning",
+        "area_sqm": 15.0,
+        "created_at": "{{$isoTimestamp}}",
+        "updated_at": "{{$isoTimestamp}}"
+      }
+    ]
+  }
+}
+
+### Full Sync - Second Batch (offset > 0, appends data)
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "FULL_SYNC",
+  "table": "rooms",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sync_id": "full-sync-test-001",
+  "batch": {
+    "offset": 3,
+    "data": [
+      {
+        "id": "room-004-0000-0000-000000000004",
+        "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "Room 201",
+        "site_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "floor": "2",
+        "room_type": "office",
+        "status": "clean",
+        "area_sqm": 30.0,
+        "created_at": "{{$isoTimestamp}}",
+        "updated_at": "{{$isoTimestamp}}"
+      }
+    ]
+  }
+}
+
+###############################################################################
+# DELETE Operation - Remove a record
+###############################################################################
+
+### Delete a Room
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "DELETE",
+  "table": "rooms",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "data": {
+    "id": "room-003-0000-0000-000000000003"
+  }
+}
+
+###############################################################################
+# Work Orders - Common sync scenario
+###############################################################################
+
+### Sync Work Orders (FULL_SYNC)
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "FULL_SYNC",
+  "table": "adhoc_work_orders",
+  "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sync_id": "work-orders-sync-001",
+  "batch": {
+    "offset": 0,
+    "data": [
+      {
+        "id": "wo-001-0000-0000-000000000001",
+        "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+        "work_order_number": "WO-2026-0001",
+        "title": "Deep Clean Conference Room A",
+        "description": "Quarterly deep cleaning required",
+        "status": "pending",
+        "priority": "high",
+        "category": "cleaning",
+        "room_id": "room-001-0000-0000-000000000001",
+        "room_name": "Room 101",
+        "site_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "site_name": "Test Site",
+        "created_at": "{{$isoTimestamp}}",
+        "updated_at": "{{$isoTimestamp}}"
+      },
+      {
+        "id": "wo-002-0000-0000-000000000002",
+        "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+        "work_order_number": "WO-2026-0002",
+        "title": "Replace Light Bulb",
+        "description": "Broken light in main lobby",
+        "status": "in_progress",
+        "priority": "medium",
+        "category": "maintenance",
+        "room_id": "room-002-0000-0000-000000000002",
+        "room_name": "Room 102",
+        "site_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "site_name": "Test Site",
+        "started_at": "{{$isoTimestamp}}",
+        "created_at": "{{$isoTimestamp}}",
+        "updated_at": "{{$isoTimestamp}}"
+      }
+    ]
+  }
+}

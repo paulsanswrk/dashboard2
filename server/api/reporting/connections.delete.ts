@@ -24,8 +24,14 @@ export default defineEventHandler(async (event): Promise<DeleteConnectionResult>
   // Verify user has write access to this connection
   const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
     requireWrite: true,
-    columns: 'id, organization_id'
+    columns: 'id, organization_id, is_immutable'
   })
+
+  // Check if connection is immutable (auto-created tenant connections)
+  const isImmutable = (connection as any)?.is_immutable === true
+  if (isImmutable) {
+    throw createError({ statusCode: 403, statusMessage: 'This connection is immutable and cannot be deleted' })
+  }
 
   // Get current user profile for role check
   const ctx = await AuthHelper.requireAuthContext(event)

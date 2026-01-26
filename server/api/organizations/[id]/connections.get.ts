@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
                 port: true,
                 dbmsVersion: true,
                 storageLocation: true,
+                isImmutable: true,
                 createdAt: true,
                 updatedAt: true
             },
@@ -53,6 +54,7 @@ export default defineEventHandler(async (event) => {
             port: c.port,
             dbms_version: c.dbmsVersion,
             storage_location: c.storageLocation,
+            is_immutable: c.isImmutable,
             created_at: c.createdAt,
             updated_at: c.updatedAt
         }))

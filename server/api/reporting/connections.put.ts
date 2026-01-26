@@ -17,8 +17,14 @@ export default defineEventHandler(async (event) => {
 
   const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
     requireWrite: true,
-    columns: 'id, organization_id, database_type'
+    columns: 'id, organization_id, database_type, is_immutable'
   })
+
+  // Check if connection is immutable (auto-created tenant connections)
+  const isImmutable = (connection as any)?.is_immutable === true
+  if (isImmutable) {
+    throw createError({ statusCode: 403, statusMessage: 'This connection is immutable and cannot be modified' })
+  }
 
   // Only SUPERADMIN can edit internal data sources
   const isInternalDataSource = (connection as any)?.database_type === 'internal'

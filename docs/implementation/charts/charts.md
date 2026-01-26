@@ -333,3 +333,30 @@ interface ChartStateJson {
 - **Per-series customization via Series Options Panel**
 - **Secondary Y-axis support**
 
+---
+
+## Chart Data Caching
+
+Charts support intelligent data caching via two new database columns:
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `has_dynamic_filter` | boolean | True if chart uses relative date filters |
+| `cache_status` | text | Current cache state: `cached`, `stale`, `dynamic`, `unknown` |
+
+### Cache Flow
+
+1. **On chart save**: Dependencies extracted from `state_json`, `cache_status` computed
+2. **On data fetch**: Check `cache_status` for O(1) cache decision
+3. **On data push**: Webhook invalidates cache for affected tables
+
+### Data Source Strategies
+
+| Source | Strategy |
+|--------|----------|
+| Optiqoflow | Cache invalidated on webhook push |
+| MySQL | Permanent cache (manual refresh only) |
+
+See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architecture.md)
+
+

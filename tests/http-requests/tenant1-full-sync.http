@@ -1,0 +1,49 @@
+### Tenant1 Full Sync - Single Request (All Tables)
+### Tests horizontal and vertical isolation for Acme Cleaning Co
+### Uses MULTI_TABLE_SYNC to sync all 5 tables in one request
+
+@host = http://localhost:3000
+
+POST {{host}}/api/optiqo-webhook
+Content-Type: application/json
+
+{
+  "operation": "MULTI_TABLE_SYNC",
+  "tenant_id": "11111111-1111-1111-1111-111111111111",
+  "sync_id": "tenant1-full-sync-001",
+  "tables": {
+    "sites": {
+      "data": [
+        {"id":"a1000001-0001-0001-0001-000000000001","tenant_id":"11111111-1111-1111-1111-111111111111","customer_id":"c1000001-0001-0001-0001-000000000001","name":"Acme HQ Building","address":"100 Main Street, New York","site_type":"office","status":"active","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"a1000001-0001-0001-0001-000000000002","tenant_id":"11111111-1111-1111-1111-111111111111","customer_id":"c1000001-0001-0001-0001-000000000001","name":"Acme Warehouse","address":"200 Industrial Ave, Brooklyn","site_type":"warehouse","status":"active","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "device_tenants": {
+      "clearExisting": false,
+      "data": [
+        {"device_id":"d1000001-0001-0001-0001-000000000001","tenant_id":"11111111-1111-1111-1111-111111111111","is_current_owner":true,"assigned_at":"2026-01-23T10:00:00Z"},
+        {"device_id":"d1000001-0001-0001-0001-000000000002","tenant_id":"11111111-1111-1111-1111-111111111111","is_current_owner":true,"assigned_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "devices": {
+      "clearExisting": false,
+      "data": [
+        {"id":"d1000001-0001-0001-0001-000000000001","imei":"123456789012345","device_type":"sensor","description":"Floor sensor unit 1","status":"online","firmware":"v1.2.0","registered_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"d1000001-0001-0001-0001-000000000002","imei":"123456789012346","device_type":"counter","description":"Visitor counter","status":"online","firmware":"v1.2.0","registered_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "quality_inspections": {
+      "data": [
+        {"id":"b1000001-0001-0001-0001-000000000001","tenant_id":"11111111-1111-1111-1111-111111111111","site_id":"a1000001-0001-0001-0001-000000000001","inspection_date":"2026-01-23","inspection_type":"routine","quality_method":"sampling","aql_level":2,"party_size":100,"sample_size":13,"acceptance_number":1,"rejection_number":2,"passed_units":12,"failed_units":1,"overall_result":"passed","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"b1000001-0001-0001-0001-000000000002","tenant_id":"11111111-1111-1111-1111-111111111111","site_id":"a1000001-0001-0001-0001-000000000002","inspection_date":"2026-01-23","inspection_type":"routine","quality_method":"sampling","aql_level":2,"party_size":50,"sample_size":8,"acceptance_number":0,"rejection_number":1,"passed_units":7,"failed_units":1,"overall_result":"pending","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"}
+      ]
+    },
+    "inspection_rooms": {
+      "data": [
+        {"id":"e1000001-0001-0001-0001-000000000001","inspection_id":"b1000001-0001-0001-0001-000000000001","room_id":"f1000001-0001-0001-0001-000000000001","inspection_status":"passed","unit_passed":true,"notes":"Excellent condition","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"e1000001-0001-0001-0001-000000000002","inspection_id":"b1000001-0001-0001-0001-000000000001","room_id":"f1000001-0001-0001-0001-000000000002","inspection_status":"passed","unit_passed":true,"notes":"Good overall","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"},
+        {"id":"e1000001-0001-0001-0001-000000000003","inspection_id":"b1000001-0001-0001-0001-000000000002","room_id":"f1000001-0001-0001-0001-000000000003","inspection_status":"in_progress","unit_passed":false,"notes":"In progress","created_at":"2026-01-23T10:00:00Z","updated_at":"2026-01-23T10:00:00Z"}
+      ]
+    }
+  }
+}

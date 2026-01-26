@@ -1,0 +1,117 @@
+@startuml Data Source Routing
+
+title Data Source Type Routing
+
+start
+
+:Query Request Received;
+note right
+  From endpoints:
+  - chart-data.post.ts
+  - table-preview.post.ts
+  - sql.post.ts
+  - preview.post.ts
+end note
+
+:Load Connection Record;
+note right
+  SELECT id, storage_location
+  FROM data_connections
+  WHERE id = connectionId
+end note
+
+:Get storage_location;
+
+if (storage_location?) then (external)
+  
+  partition "External MySQL" #FFB6C1 {
+    :Load connection config\n(host, port, credentials);
+    :Establish MySQL connection;
+    :Execute SQL query;
+    note right
+      Uses: withMySqlConnectionConfig()
+      Direct query to external MySQL
+      No data in Supabase
+    end note
+    :Return results;
+  }
+  
+elseif (optiqoflow) then (yes)
+  
+  partition "OptiqoFlow Data" #90EE90 {
+    
+    if (User has tenantId?) then (no)
+      :Return error:\n"User must have tenant_id configured";
+      stop
+    else (yes)
+      :Get tenant role name\nfrom tenantId;
+      note right
+        e.g., "tenant_acme_cleaning_co_role"
+      end note
+      
+      :Begin PostgreSQL transaction;
+      :SET LOCAL ROLE tenant_xxx_role;
+      note right
+        Switches to tenant's role
+        Role has search_path = tenant_{short_name}
+        Role-based access control
+      end note
+      
+      :Translate MySQL → PostgreSQL syntax\n(backticks → double quotes);
+      :Execute query on tenant schema;
+      note right
+        Uses: executeOptiqoflowQuery()
+        Automatic tenant isolation
+        Views filter by tenant_id
+      end note
+      
+      :Commit transaction;
+      :Return results;
+    endif
+  }
+  
+elseif (supabase_synced) then (yes)
+  
+  partition "Synced MySQL Data" #87CEEB {
+    
+    :Load sync info\nfrom datasource_sync table;
+    
+    if (Has target_schema_name?) then (no)
+      :Return error:\n"Synced storage not configured";
+      stop
+    else (yes)
+      :Begin PostgreSQL transaction;
+      :SET LOCAL search_path\nTO "{schema}", public;
+      note right
+        Sets schema search path
+        No role switching needed
+      end note
+      
+      :Translate MySQL → PostgreSQL syntax;
+      :Execute query on synced schema;
+      note right
+        Uses: executeInternalStorageQuery()
+        Data already synced to Supabase
+        Faster than external MySQL
+      end note
+      
+      :Commit transaction;
+      :Return results;
+    endif
+  }
+  
+else (unknown)
+  :Return error:\n"Unknown storage_location";
+  stop
+endif
+
+stop
+
+legend right
+  |= Color |= Storage Type |= Location |
+  |<#FFB6C1>  | External MySQL | Customer's MySQL server |
+  |<#90EE90>  | OptiqoFlow | Supabase PG (tenant schemas) |
+  |<#87CEEB>  | Synced MySQL | Supabase PG (custom schema) |
+endlegend
+
+@enduml

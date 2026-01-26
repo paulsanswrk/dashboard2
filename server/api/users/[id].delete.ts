@@ -135,6 +135,14 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Also delete the user from auth.users
+    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(targetUserId)
+
+    if (authDeleteError) {
+      console.error('Error deleting user from auth:', authDeleteError)
+      // Profile already deleted, log error but don't fail
+    }
+
     return {
       success: true,
       message: 'User deleted successfully',

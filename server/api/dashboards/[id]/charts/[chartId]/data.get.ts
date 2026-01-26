@@ -6,7 +6,17 @@ import { withMySqlConnectionConfig } from '../../../../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../../../../utils/connectionConfig'
 import { validateRenderContext } from '../../../../../utils/renderContext'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../../../../utils/internalStorageQuery'
+import { executeOptiqoflowQuery, translateIdentifiers } from '../../../../../utils/optiqoflowQuery'
 import { injectFiltersIntoSql, type FilterOverride } from '../../../../../utils/filterInjection'
+import {
+    generateCacheKey,
+    getCachedChartData,
+    setCachedChartData,
+    extractTablesFromStateJson
+} from '../../../../../utils/chart-cache'
+import { db } from '../../../../../../lib/db'
+import { dataConnections, organizations } from '../../../../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -145,7 +155,7 @@ export default defineEventHandler(async (event) => {
         // Load the chart
         const { data: chartData, error: chartError } = await supabaseAdmin
             .from('charts')
-            .select('id, name, state_json')
+            .select('id, name, state_json, cache_status, has_dynamic_filter, data_connection_id')
             .eq('id', chartId)
             .single()
 
@@ -166,6 +176,7 @@ export default defineEventHandler(async (event) => {
     let columns: any[] = []
     let rows: any[] = []
     const meta: Record<string, any> = {}
+    const queryStartTime = Date.now()
 
     try {
         const sql = internal.actualExecutedSql || internal.sqlText || ''
@@ -196,77 +207,155 @@ export default defineEventHandler(async (event) => {
             }
 
             if (connectionId) {
-                // Check if connection uses internal storage
-                const storageInfo = await loadInternalStorageInfo(Number(connectionId))
+                // Get connection to check storage location
+                const connection = await db.query.dataConnections.findFirst({
+                    where: eq(dataConnections.id, Number(connectionId)),
+                    columns: { id: true, storageLocation: true, organizationId: true }
+                })
+
+                const storageLocation = connection?.storageLocation || 'external'
+                console.log(`[chart-data] Chart ${chartId}, Connection ${connectionId}, storageLocation=${storageLocation}`)
+
+                // Derive tenant ID for caching (used as cache partition key)
+                let tenantId: string | undefined
+                const user = await serverSupabaseUser(event).catch(() => null as any)
+                if (user) {
+                    const { data: profile } = await supabaseAdmin
+                        .from('profiles')
+                        .select('organization_id')
+                        .eq('user_id', user.id)
+                        .maybeSingle()
+
+                    if (profile?.organization_id) {
+                        const org = await db.select({ tenantId: organizations.tenantId })
+                            .from(organizations)
+                            .where(eq(organizations.id, profile.organization_id))
+                            .limit(1)
+                            .then(rows => rows[0])
+
+                        tenantId = org?.tenantId || undefined
+                    }
+                }
+                const effectiveTenantId = tenantId || 'default'
+
+                // Generate cache key
+                const cacheKey = generateCacheKey(chartId, {
+                    sql: safeSql,
+                    dataSource: storageLocation,
+                    filters: filterOverrides
+                })
+
+                // Determine caching strategy based on storage location
+                // - external (MySQL): Always cache (permanent until manual refresh)
+                // - optiqoflow: Cache based on cache_status and dynamic filters
+                // - supabase_synced: Always cache (permanent until manual refresh)
+                const shouldUseCache =
+                    storageLocation === 'external' ||
+                    storageLocation === 'supabase_synced' ||
+                    (storageLocation === 'optiqoflow' && chart.cache_status !== 'dynamic' && !chart.has_dynamic_filter)
+
+                // Try to get cached data
+                if (shouldUseCache) {
+                    const cached = await getCachedChartData(
+                        supabaseAdmin,
+                        chartId,
+                        effectiveTenantId,
+                        cacheKey
+                    )
+
+                    if (cached) {
+                        console.log(`[chart-data] Cache HIT for chart ${chartId}`)
+                        const cachedRows = cached.data as any[]
+                        columns = cachedRows.length ? Object.keys(cachedRows[0]).map((k) => ({ key: k, label: k })) : []
+                        return {
+                            columns,
+                            rows: cachedRows,
+                            meta: {
+                                cached: true,
+                                cacheHit: true,
+                                dataSource: storageLocation,
+                                permanent: storageLocation !== 'optiqoflow',
+                                durationMs: Date.now() - queryStartTime
+                            }
+                        }
+                    }
+                    console.log(`[chart-data] Cache MISS for chart ${chartId}`)
+                }
 
                 // Helper function to execute query with fallback
                 async function executeQuery(querySql: string): Promise<any[]> {
-                    if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-                        console.log(`[chart-data] Using internal storage for chart ${chartId}: ${storageInfo.schemaName}`)
-                        return await executeInternalStorageQuery(storageInfo.schemaName, querySql, sqlParams)
-                    } else {
-                        // Load connection config
-                        let cfg: any
-                        if (sameOrg || isRenderContext) {
-                            // For same-org users OR trusted render context, load connection directly
-                            if (isRenderContext) {
-                                // In render context, load connection using service role
-                                const { data, error } = await supabaseAdmin
-                                    .from('data_connections')
-                                    .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
-                                    .eq('id', Number(connectionId))
-                                    .single()
+                    // Route based on storage_location
+                    if (storageLocation === 'optiqoflow') {
+                        // OptiqoFlow data with tenant isolation
+                        console.log(`[chart-data] Using optiqoflow for connection ${connectionId}`)
 
-                                if (error || !data) {
-                                    console.error('[chart-data] Failed to load connection for render context:', error)
-                                    throw createError({ statusCode: 403, statusMessage: 'Connection not found' })
-                                }
+                        // Get tenant ID from user's organization
+                        let tenantId: string | undefined
+                        const user = await serverSupabaseUser(event).catch(() => null as any)
+                        if (user) {
+                            const { data: profile } = await supabaseAdmin
+                                .from('profiles')
+                                .select('organization_id')
+                                .eq('user_id', user.id)
+                                .maybeSingle()
 
-                                // Verify connection belongs to same org as dashboard
-                                if (data.organization_id !== dashboard.organization_id) {
-                                    console.error('[chart-data] Render context: connection org mismatch', {
-                                        connectionOrg: data.organization_id,
-                                        dashboardOrg: dashboard.organization_id,
-                                        connectionId: connectionId
-                                    })
-                                    throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
-                                }
+                            if (profile?.organization_id) {
+                                const org = await db.select({ tenantId: organizations.tenantId })
+                                    .from(organizations)
+                                    .where(eq(organizations.id, profile.organization_id))
+                                    .limit(1)
+                                    .then(rows => rows[0])
 
-                                cfg = {
-                                    host: data.host,
-                                    port: Number(data.port),
-                                    user: data.username,
-                                    password: data.password,
-                                    database: data.database_name,
-                                    useSshTunneling: !!data.use_ssh_tunneling,
-                                    ssh: data.use_ssh_tunneling ? {
-                                        host: data.ssh_host,
-                                        port: Number(data.ssh_port),
-                                        user: data.ssh_user,
-                                        password: data.ssh_password || undefined,
-                                        privateKey: data.ssh_private_key || undefined
-                                    } : undefined
-                                }
-                            } else {
-                                cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
+                                tenantId = org?.tenantId || undefined
                             }
-                        } else {
-                            // Public render path: verify the connection belongs to the dashboard org
+                        }
+
+                        if (!tenantId) {
+                            throw new Error('User must be associated with an organization that has a tenant_id configured for Optiqoflow data access.')
+                        }
+
+                        const pgSql = translateIdentifiers(querySql)
+                        return await executeOptiqoflowQuery(pgSql, sqlParams, tenantId)
+                    }
+
+                    if (storageLocation === 'supabase_synced') {
+                        // Check if connection uses synced internal storage
+                        const storageInfo = await loadInternalStorageInfo(Number(connectionId))
+                        if (storageInfo.useInternalStorage && storageInfo.schemaName) {
+                            console.log(`[chart-data] Using synced storage for chart ${chartId}: ${storageInfo.schemaName}`)
+                            return await executeInternalStorageQuery(storageInfo.schemaName, querySql, sqlParams)
+                        }
+                    }
+
+                    // Default: external MySQL connection
+                    console.log(`[chart-data] Using external MySQL for connection ${connectionId}`)
+                    // Load connection config
+                    let cfg: any
+                    if (sameOrg || isRenderContext) {
+                        // For same-org users OR trusted render context, load connection directly
+                        if (isRenderContext) {
+                            // In render context, load connection using service role
                             const { data, error } = await supabaseAdmin
                                 .from('data_connections')
                                 .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
                                 .eq('id', Number(connectionId))
                                 .single()
 
-                            if (error || !data || data.organization_id !== dashboard.organization_id) {
-                                console.error('[chart-data] Access denied to connection', {
-                                    error,
-                                    connectionOrg: data?.organization_id,
+                            if (error || !data) {
+                                console.error('[chart-data] Failed to load connection for render context:', error)
+                                throw createError({ statusCode: 403, statusMessage: 'Connection not found' })
+                            }
+
+                            // Verify connection belongs to same org as dashboard
+                            if (data.organization_id !== dashboard.organization_id) {
+                                console.error('[chart-data] Render context: connection org mismatch', {
+                                    connectionOrg: data.organization_id,
                                     dashboardOrg: dashboard.organization_id,
                                     connectionId: connectionId
                                 })
                                 throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
                             }
+
                             cfg = {
                                 host: data.host,
                                 port: Number(data.port),
@@ -282,13 +371,47 @@ export default defineEventHandler(async (event) => {
                                     privateKey: data.ssh_private_key || undefined
                                 } : undefined
                             }
+                        } else {
+                            cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
                         }
+                    } else {
+                        // Public render path: verify the connection belongs to the dashboard org
+                        const { data, error } = await supabaseAdmin
+                            .from('data_connections')
+                            .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
+                            .eq('id', Number(connectionId))
+                            .single()
 
-                        return await withMySqlConnectionConfig(cfg, async (conn) => {
-                            const [res] = await conn.query(querySql, sqlParams)
-                            return res as any[]
-                        })
+                        if (error || !data || data.organization_id !== dashboard.organization_id) {
+                            console.error('[chart-data] Access denied to connection', {
+                                error,
+                                connectionOrg: data?.organization_id,
+                                dashboardOrg: dashboard.organization_id,
+                                connectionId: connectionId
+                            })
+                            throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
+                        }
+                        cfg = {
+                            host: data.host,
+                            port: Number(data.port),
+                            user: data.username,
+                            password: data.password,
+                            database: data.database_name,
+                            useSshTunneling: !!data.use_ssh_tunneling,
+                            ssh: data.use_ssh_tunneling ? {
+                                host: data.ssh_host,
+                                port: Number(data.ssh_port),
+                                user: data.ssh_user,
+                                password: data.ssh_password || undefined,
+                                privateKey: data.ssh_private_key || undefined
+                            } : undefined
+                        }
                     }
+
+                    return await withMySqlConnectionConfig(cfg, async (conn) => {
+                        const [res] = await conn.query(querySql, sqlParams)
+                        return res as any[]
+                    })
                 }
 
                 // Try filtered query first, fallback to original if it fails
@@ -319,6 +442,29 @@ export default defineEventHandler(async (event) => {
                 }
 
                 columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
+
+                // Store in cache (async, non-blocking)
+                const queryDurationMs = Date.now() - queryStartTime
+                if (shouldUseCache) {
+                    const sourceTables = extractTablesFromStateJson(sj)
+
+                    event.waitUntil(
+                        setCachedChartData(
+                            supabaseAdmin,
+                            chartId,
+                            effectiveTenantId,
+                            cacheKey,
+                            rows,
+                            storageLocation !== 'optiqoflow' ? ['_permanent'] : sourceTables,
+                            queryDurationMs
+                        ).catch(e => console.error('[chart-data] Cache storage error:', e))
+                    )
+
+                    meta.cached = false
+                    meta.cacheHit = false
+                    meta.dataSource = storageLocation
+                    meta.permanent = storageLocation !== 'optiqoflow'
+                }
             } else {
                 // No connection ID - should not happen for saved charts
                 meta.error = 'no_connection_id'

@@ -12,6 +12,7 @@ export interface ConnectionWithUsage {
     host: string
     port: number
     organization_id: string
+    is_immutable: boolean
     chartsCount: number
     dashboardsCount: number
     filtersCount: number
@@ -33,6 +34,7 @@ export default defineEventHandler(async (event): Promise<ConnectionWithUsage[]> 
             host: dataConnections.host,
             port: dataConnections.port,
             organization_id: dataConnections.organizationId,
+            is_immutable: dataConnections.isImmutable,
         })
         .from(dataConnections)
         .where(whereClause)
@@ -134,6 +136,7 @@ export default defineEventHandler(async (event): Promise<ConnectionWithUsage[]> 
             host: conn.host,
             port: conn.port,
             organization_id: conn.organization_id,
+            is_immutable: conn.is_immutable,
             chartsCount: chartCountMap.get(conn.id) || 0,
             dashboardsCount: allDashboards.size,
             filtersCount: filterCountMap.get(conn.id) || 0

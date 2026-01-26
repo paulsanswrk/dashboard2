@@ -18,8 +18,8 @@
               <span class="text-sm font-medium" :class="aiModeEnabled ? 'text-green-400' : 'text-white'">AI Mode</span>
             </label>
           </div>
-          <!-- Connection Selector (always visible) -->
-          <div>
+          <!-- Connection Selector -->
+          <div v-if="connections.length > 1">
             <label class="block text-xs text-neutral-400 mb-1">Data Connection</label>
             <select
               v-model="connectionId"
@@ -746,6 +746,9 @@ onMounted(async () => {
 
   if (cid) {
     connectionId.value = Number(cid)
+    setSelectedConnectionId(connectionId.value)
+  } else if (connections.value.length === 1) {
+    connectionId.value = connections.value[0].id
     setSelectedConnectionId(connectionId.value)
   }
 

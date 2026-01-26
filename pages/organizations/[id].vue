@@ -436,7 +436,7 @@
                     {{ formatDate(connection.created_at, true) }}
                   </div>
                   <UButton
-                    v-if="connection.database_type !== 'internal' || userProfile?.role === 'SUPERADMIN'"
+                    v-if="!connection.is_immutable && (connection.database_type !== 'internal' || userProfile?.role === 'SUPERADMIN')"
                     variant="ghost"
                     size="xs"
                     color="gray"

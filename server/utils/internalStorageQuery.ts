@@ -21,7 +21,7 @@ export interface InternalStorageInfo {
 }
 
 /**
- * Load internal storage info for a connection
+ * Load internal storage info for a connection with storage_location = 'supabase_synced'
  * 
  * @param connectionId - The data connection ID
  * @returns InternalStorageInfo with schema name if internal storage is configured and synced
@@ -36,7 +36,8 @@ export async function loadInternalStorageInfo(connectionId: number): Promise<Int
         },
     })
 
-    if (!connection || connection.storageLocation !== 'internal') {
+    // Only proceed if this is synced MySQL data
+    if (!connection || connection.storageLocation !== 'supabase_synced') {
         return { useInternalStorage: false, schemaName: null, syncStatus: null }
     }
 
@@ -50,7 +51,7 @@ export async function loadInternalStorageInfo(connectionId: number): Promise<Int
     })
 
     if (!sync?.targetSchemaName) {
-        console.warn(`[InternalStorage] Connection ${connectionId} has internal storage but no sync record`)
+        console.warn(`[InternalStorage] Connection ${connectionId} has storage_location='supabase_synced' but no sync record`)
         return { useInternalStorage: true, schemaName: null, syncStatus: sync?.syncStatus ?? null }
     }
 
