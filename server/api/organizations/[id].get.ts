@@ -115,6 +115,27 @@ export default defineEventHandler(async (event) => {
     const viewerCount = counts?.viewerCount ?? 0
     const dashboardCount = counts?.dashboardCount ?? 0
 
+    // Get tenant name if organization has a tenant_id
+    let tenantName = null
+    if (organization.tenantId) {
+      try {
+        // Import optiqoflow query utility
+        const { executeOptiqoflowQuery } = await import('../../utils/optiqoflowQuery')
+
+        const tenantResult = await executeOptiqoflowQuery(
+          'SELECT name FROM optiqoflow.tenants WHERE id = $1',
+          [organization.tenantId]
+        )
+
+        if (tenantResult && tenantResult.length > 0) {
+          tenantName = tenantResult[0].name
+        }
+      } catch (error) {
+        console.error('Error fetching tenant name:', error)
+        // Continue without tenant name if fetch fails
+      }
+    }
+
     const organizationWithCounts = {
       ...organization,
       user_count: profileCount + viewerCount,
@@ -124,7 +145,8 @@ export default defineEventHandler(async (event) => {
       licenses: organization.viewerCount || 0,
       status: 'active',
       profiles: orgProfiles || [],
-      viewers: orgViewers || []
+      viewers: orgViewers || [],
+      tenantName: tenantName
     }
 
     return {

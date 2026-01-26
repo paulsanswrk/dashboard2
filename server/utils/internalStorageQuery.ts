@@ -27,21 +27,48 @@ export interface InternalStorageInfo {
  * @returns InternalStorageInfo with schema name if internal storage is configured and synced
  */
 export async function loadInternalStorageInfo(connectionId: number): Promise<InternalStorageInfo> {
-    // Get connection's storage_location
+    // Get connection's storage_location and database_type
     const connection = await db.query.dataConnections.findFirst({
         where: eq(dataConnections.id, connectionId),
         columns: {
             id: true,
             storageLocation: true,
+            databaseType: true,
         },
     })
 
-    // Only proceed if this is synced MySQL data
-    if (!connection || connection.storageLocation !== 'supabase_synced') {
+    // Check if this uses internal storage via database_type='internal' or storage_location='supabase_synced'
+    const usesInternalStorage = connection?.databaseType === 'internal' || connection?.storageLocation === 'supabase_synced'
+
+    if (!connection || !usesInternalStorage) {
         return { useInternalStorage: false, schemaName: null, syncStatus: null }
     }
 
-    // Get sync info with target schema name
+    // For database_type='internal', use Optiqo Flow schema (or appropriate schema)
+    // For storage_location='supabase_synced', look up the sync record
+    if (connection.databaseType === 'internal') {
+        // Internal data sources use a specific schema - check for sync record
+        const sync = await db.query.datasourceSync.findFirst({
+            where: eq(datasourceSync.connectionId, connectionId),
+            columns: {
+                targetSchemaName: true,
+                syncStatus: true,
+            },
+        })
+
+        if (!sync?.targetSchemaName) {
+            console.warn(`[InternalStorage] Connection ${connectionId} has database_type='internal' but no sync record`)
+            return { useInternalStorage: true, schemaName: null, syncStatus: sync?.syncStatus ?? null }
+        }
+
+        return {
+            useInternalStorage: true,
+            schemaName: sync.targetSchemaName,
+            syncStatus: sync.syncStatus,
+        }
+    }
+
+    // Get sync info with target schema name for supabase_synced connections
     const sync = await db.query.datasourceSync.findFirst({
         where: eq(datasourceSync.connectionId, connectionId),
         columns: {

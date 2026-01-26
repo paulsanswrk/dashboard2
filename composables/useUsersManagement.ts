@@ -170,7 +170,9 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
         body: {
           email: userData.email,
           firstName: userData.firstName,
-          lastName: userData.lastName
+          lastName: userData.lastName,
+          role: userData.role,
+          sendInvitationEmail: userData.sendInvitationEmail
         }
       })
 

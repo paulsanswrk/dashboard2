@@ -96,6 +96,15 @@
                   {{ organization.status || 'Active' }}
                 </UBadge>
               </div>
+
+              <div v-if="organization.tenantName">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tenant Name
+                </label>
+                <div class="text-gray-900 dark:text-white">
+                  {{ organization.tenantName }}
+                </div>
+              </div>
             </div>
           </div>
         </UCard>
@@ -568,14 +577,14 @@
               />
             </UFormField>
 
-            <div class="flex items-center gap-2 pt-2">
+            <label class="flex items-center gap-2 pt-2 cursor-pointer">
               <UCheckbox
                 v-model="userForm.sendInvitationEmail"
                 color="primary"
                 :ui="{ border: 'border-gray-300 dark:border-gray-500' }"
               />
               <span class="text-sm text-gray-700 dark:text-gray-300">Send invitation email</span>
-            </div>
+            </label>
 
             <div class="flex justify-end gap-3 pt-4">
               <UButton variant="ghost" class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" @click="closeAddUserModal">Cancel</UButton>

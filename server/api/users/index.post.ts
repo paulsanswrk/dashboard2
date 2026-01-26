@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
 
     // Get the request body
     const body = await readBody(event)
-    const { email, firstName, lastName, role } = body
+    const { email, firstName, lastName, role, sendInvitationEmail = true } = body
 
     if (!email) {
       setResponseStatus(event, 400)
@@ -141,38 +141,42 @@ export default defineEventHandler(async (event) => {
       createdAt: newUser.created_at
     }
 
-    // Send invitation email
-    try {
-      // Get the site URL from environment variables
-      const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-        : 'http://localhost:3000'
+    // Send invitation email if requested
+    if (sendInvitationEmail !== false) {
+      try {
+        // Get the site URL from environment variables
+        const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : 'http://localhost:3000'
 
-      const confirmationUrl = generateMagicLink(newUserId, email, siteUrl)
-      const emailTemplate = generateUserInvitationTemplate({
-        email,
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        role: userRole,
-        confirmationUrl,
-        siteUrl
-      })
+        const confirmationUrl = generateMagicLink(newUserId, email, siteUrl)
+        const emailTemplate = generateUserInvitationTemplate({
+          email,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          role: userRole,
+          confirmationUrl,
+          siteUrl
+        })
 
-      const emailSent = await sendEmail(email, emailTemplate)
-      if (emailSent) {
-        console.log(`Invitation email sent to ${email}`)
-      } else {
-        console.warn(`Failed to send invitation email to ${email}`)
+        const emailSent = await sendEmail(email, emailTemplate)
+        if (emailSent) {
+          console.log(`Invitation email sent to ${email}`)
+        } else {
+          console.warn(`Failed to send invitation email to ${email}`)
+        }
+      } catch (emailError) {
+        console.error('Error sending invitation email:', emailError)
+        // Don't fail the user creation if email fails
       }
-    } catch (emailError) {
-      console.error('Error sending invitation email:', emailError)
-      // Don't fail the user creation if email fails
     }
 
     return {
       success: true,
       user: transformedUser,
-      message: 'User created successfully. They will receive an invitation email to complete their account setup.'
+      message: sendInvitationEmail !== false
+        ? 'User created successfully. They will receive an invitation email to complete their account setup.'
+        : 'User created successfully.'
     }
 
   } catch (error: any) {
