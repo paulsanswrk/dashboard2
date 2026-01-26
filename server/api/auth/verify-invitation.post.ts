@@ -60,10 +60,10 @@ export default defineEventHandler(async (event) => {
     // Check if the email matches (basic validation)
     // In a real implementation, you'd want to store the email in the invitation
     // and validate it matches the profile's associated user email
-    
+
     // Get the user from Supabase Auth
     const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(token)
-    
+
     if (authError || !authUser.user) {
       setResponseStatus(event, 404)
       return {
@@ -82,11 +82,15 @@ export default defineEventHandler(async (event) => {
     }
 
     // Generate a session for the user
+    const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : 'http://localhost:3000'
+
     const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
       options: {
-        redirectTo: `${process.env.SITE_URL || 'http://localhost:3000'}/auth/callback`
+        redirectTo: `${siteUrl}/auth/callback`
       }
     })
 
@@ -114,7 +118,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Verify invitation error:', error)
-    
+
     setResponseStatus(event, 500)
     return {
       success: false,
