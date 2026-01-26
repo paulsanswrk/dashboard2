@@ -442,17 +442,26 @@ export default defineEventHandler(async (event) => {
                 let recordCount = 0
                 const primaryKeys: string[] = []
 
+                // Global tables that don't have tenant_id filtering
+                const GLOBAL_TABLES = ['tenants', 'insta_quality_levels', 'service_types']
+
                 // On first batch, clear existing data for this tenant
                 if (batch.offset === 0) {
                     console.log(`[WEBHOOK DEBUG] First batch (offset=0), clearing existing data for tenant ${tenant_id}...`)
-                    const { error: delErr } = await supabase
-                        .from(targetTable)
-                        .delete()
-                        .eq('tenant_id', tenant_id)
-                    if (delErr) {
-                        console.error(`[WEBHOOK DEBUG] ❌ Failed to clear existing data:`, delErr)
+
+                    // Global tables: skip clearing (they're shared across all tenants)
+                    if (GLOBAL_TABLES.includes(targetTable)) {
+                        console.log(`[WEBHOOK DEBUG] ⚠ Skipping clear for global table: ${targetTable}`)
                     } else {
-                        console.log(`[WEBHOOK DEBUG] ✓ Existing data cleared`)
+                        const { error: delErr } = await supabase
+                            .from(targetTable)
+                            .delete()
+                            .eq('tenant_id', tenant_id)
+                        if (delErr) {
+                            console.error(`[WEBHOOK DEBUG] ❌ Failed to clear existing data:`, delErr)
+                        } else {
+                            console.log(`[WEBHOOK DEBUG] ✓ Existing data cleared`)
+                        }
                     }
                 }
 
@@ -538,10 +547,18 @@ export default defineEventHandler(async (event) => {
 
                     console.log(`[WEBHOOK DEBUG] Processing ${sourceTable} -> ${mappedTable} (${records.length} records)`)
 
+                    // Global tables that don't have tenant_id filtering
+                    const GLOBAL_TABLES_MULTI = ['tenants', 'insta_quality_levels', 'service_types']
+
                     try {
                         // Clear existing data if first sync or explicitly requested
                         if (payload.clearExisting !== false) {
-                            await supabase.from(mappedTable).delete().eq('tenant_id', tenant_id)
+                            // Global tables: skip clearing (they're shared across all tenants)
+                            if (GLOBAL_TABLES_MULTI.includes(mappedTable)) {
+                                console.log(`[WEBHOOK DEBUG] ⚠ Skipping clear for global table: ${mappedTable}`)
+                            } else {
+                                await supabase.from(mappedTable).delete().eq('tenant_id', tenant_id)
+                            }
                         }
 
                         // Bulk insert
