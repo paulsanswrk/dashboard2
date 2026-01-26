@@ -1,6 +1,6 @@
-import {createClient} from '@supabase/supabase-js'
-import {validateNewUserRole} from '../../utils/roleUtils'
-import {generateMagicLink, generateUserInvitationTemplate, sendEmail} from '../../utils/emailUtils'
+import { createClient } from '@supabase/supabase-js'
+import { validateNewUserRole } from '../../utils/roleUtils'
+import { generateMagicLink, generateUserInvitationTemplate, sendEmail } from '../../utils/emailUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -31,10 +31,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       setResponseStatus(event, 401)
       return {
@@ -132,8 +132,8 @@ export default defineEventHandler(async (event) => {
     const transformedUser = {
       id: newUser.user_id,
       email: email,
-      name: newUser.first_name && newUser.last_name 
-        ? `${newUser.first_name} ${newUser.last_name}` 
+      name: newUser.first_name && newUser.last_name
+        ? `${newUser.first_name} ${newUser.last_name}`
         : newUser.first_name || newUser.last_name || '',
       role: newUser.role || 'EDITOR',
       firstName: newUser.first_name || '',
@@ -143,14 +143,19 @@ export default defineEventHandler(async (event) => {
 
     // Send invitation email
     try {
-      const confirmationUrl = generateMagicLink(newUserId, email)
+      // Get the site URL from environment variables
+      const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+        : 'http://localhost:3000'
+
+      const confirmationUrl = generateMagicLink(newUserId, email, siteUrl)
       const emailTemplate = generateUserInvitationTemplate({
         email,
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         role: userRole,
-          confirmationUrl,
-          siteUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000'
+        confirmationUrl,
+        siteUrl
       })
 
       const emailSent = await sendEmail(email, emailTemplate)
@@ -172,7 +177,7 @@ export default defineEventHandler(async (event) => {
 
   } catch (error: any) {
     console.error('Create user error:', error)
-    
+
     setResponseStatus(event, 500)
     return {
       success: false,

@@ -115,6 +115,7 @@
         @close-mobile-panel="closeMobilePanel"
         @save-user="saveUser"
         @confirm-delete-user="confirmDeleteUser"
+        @resend-invitation="resendInvitation"
       />
     </div>
 
@@ -184,7 +185,8 @@ const {
   confirmBulkDelete,
   bulkDeleteUsers,
   toggleSelectAll,
-  toggleUserSelection
+  toggleUserSelection,
+  resendInvitation
 } = useUsersManagement(scope.value)
 
 // Page meta

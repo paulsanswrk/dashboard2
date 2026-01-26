@@ -1,6 +1,6 @@
-import {createClient} from '@supabase/supabase-js'
-import {validateNewViewerRole} from '../../utils/roleUtils'
-import {generateMagicLink, generateViewerInvitationTemplate, sendEmail} from '../../utils/emailUtils'
+import { createClient } from '@supabase/supabase-js'
+import { validateNewViewerRole } from '../../utils/roleUtils'
+import { generateMagicLink, generateViewerInvitationTemplate, sendEmail } from '../../utils/emailUtils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -29,10 +29,10 @@ export default defineEventHandler(async (event) => {
 
     // Extract token from "Bearer <token>"
     const token = authorization.replace('Bearer ', '')
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
+
     if (authError || !user) {
       throw createError({
         statusCode: 401,
@@ -129,8 +129,8 @@ export default defineEventHandler(async (event) => {
     const transformedViewer = {
       id: newViewer.user_id,
       email: email,
-      name: newViewer.first_name && newViewer.last_name 
-        ? `${newViewer.first_name} ${newViewer.last_name}` 
+      name: newViewer.first_name && newViewer.last_name
+        ? `${newViewer.first_name} ${newViewer.last_name}`
         : newViewer.first_name || newViewer.last_name || '',
       type: newViewer.viewer_type || 'Viewer',
       group: newViewer.group_name || '',
@@ -143,15 +143,20 @@ export default defineEventHandler(async (event) => {
     // Send invitation email if requested
     if (sendInvitation) {
       try {
-        const confirmationUrl = generateMagicLink(newViewerId, email)
+        // Get the site URL from environment variables
+        const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : 'http://localhost:3000'
+
+        const confirmationUrl = generateMagicLink(newViewerId, email, siteUrl)
         const emailTemplate = generateViewerInvitationTemplate({
           email,
           firstName: firstName || undefined,
           lastName: lastName || undefined,
           type: type || 'Viewer',
           group: group || undefined,
-            confirmationUrl,
-            siteUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000'
+          confirmationUrl,
+          siteUrl
         })
 
         const emailSent = await sendEmail(email, emailTemplate)
@@ -169,7 +174,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: true,
       viewer: transformedViewer,
-      message: sendInvitation 
+      message: sendInvitation
         ? 'Viewer created successfully. They will receive an invitation email to access the dashboards.'
         : 'Viewer created successfully.'
     }

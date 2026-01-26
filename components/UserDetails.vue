@@ -71,6 +71,16 @@
             <span v-if="loading" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
             Save Changes
           </button>
+          <UButton 
+            color="blue" 
+            variant="outline" 
+            @click="$emit('resendInvitation')" 
+            :disabled="loading" 
+            class="w-full sm:w-auto hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 cursor-pointer"
+          >
+            <Icon name="i-heroicons-envelope" class="w-4 h-4 mr-2"/>
+            Resend Invitation Email
+          </UButton>
           <UButton color="red" variant="outline" @click="$emit('confirmDeleteUser')" :disabled="loading" class="w-full sm:w-auto hover:bg-red-50 hover:border-red-300 hover:text-red-700 cursor-pointer">
             Delete User
           </UButton>
@@ -102,7 +112,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['closeMobilePanel', 'saveUser', 'confirmDeleteUser'])
+const emit = defineEmits(['closeMobilePanel', 'saveUser', 'confirmDeleteUser', 'resendInvitation'])
 
 // Get current user auth state
 const {userProfile} = useAuth()

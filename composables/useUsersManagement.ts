@@ -17,7 +17,7 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
   const pending = ref(false)
   const fetchError = ref(null)
 
-    const users = ref([])
+  const users = ref([])
 
   const totalUsers = computed(() => users.value.length)
 
@@ -26,9 +26,9 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
     if (!searchQuery.value.trim()) {
       return users.value
     }
-    
+
     const query = searchQuery.value.toLowerCase()
-    return users.value.filter(user => 
+    return users.value.filter(user =>
       user.name?.toLowerCase().includes(query) ||
       user.email?.toLowerCase().includes(query)
     )
@@ -36,8 +36,8 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
 
   // Selection functionality
   const isAllSelected = computed(() => {
-    return filteredUsers.value.length > 0 && 
-           filteredUsers.value.every(user => selectedUsers.value.has(user.id))
+    return filteredUsers.value.length > 0 &&
+      filteredUsers.value.every(user => selectedUsers.value.has(user.id))
   })
 
   const toggleSelectAll = (checked) => {
@@ -76,10 +76,10 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
       if (!session?.access_token) {
         throw new Error('No valid session found')
       }
-      
+
       // Use different API endpoints based on scope
       const endpoint = scope === 'admin' ? '/api/admin/users' : '/api/users'
-      
+
       const response = await $fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -213,18 +213,18 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
         },
         body: {
           firstName: selectedUser.value.firstName,
-            lastName: selectedUser.value.lastName,
-            role: selectedUser.value.role
+          lastName: selectedUser.value.lastName,
+          role: selectedUser.value.role
         }
       })
 
       if (response.success) {
         // Reload the users list to get fresh data
         await refresh()
-        
+
         // Update the selected user with the response data
         selectedUser.value = { ...response.user }
-        
+
         console.log('User saved successfully:', response.user)
       }
     } catch (err) {
@@ -270,19 +270,19 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
       if (response.success) {
         // Reload the users list to get fresh data
         await refresh()
-        
+
         // Clear selection if deleted user was selected
         if (selectedUser.value?.id === userToDelete.value.id) {
           selectedUser.value = null
         }
-        
+
         // Clear selection from selected users
         selectedUsers.value.clear()
-        
+
         // Close modals
         showDeleteConfirmModal.value = false
         userToDelete.value = null
-        
+
         console.log('User deleted successfully')
       }
     } catch (err) {
@@ -323,7 +323,7 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
       const endpoint = scope === 'admin' ? '/api/admin/users' : '/api/users'
 
       // Delete each selected user
-      const deletePromises = Array.from(selectedUsers.value).map(userId => 
+      const deletePromises = Array.from(selectedUsers.value).map(userId =>
         $fetch(`${endpoint}/${userId}`, {
           method: 'DELETE',
           headers: {
@@ -333,7 +333,7 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
       )
 
       const results = await Promise.allSettled(deletePromises)
-      
+
       // Check for any failures
       const failures = results.filter(result => result.status === 'rejected')
       if (failures.length > 0) {
@@ -343,28 +343,77 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
 
       // Check for any successful deletions
       const successfulDeletions = results.filter(result => result.status === 'fulfilled' && result.value.success)
-      
+
       if (successfulDeletions.length > 0) {
         // Reload the users list to get fresh data
         await refresh()
-        
+
         // Clear selection
         selectedUsers.value.clear()
-        
+
         // Clear selected user if it was deleted
         const deletedIds = successfulDeletions.map(result => result.value.userId)
         if (selectedUser.value && deletedIds.includes(selectedUser.value.id)) {
           selectedUser.value = null
         }
-        
+
         console.log(`Successfully deleted ${successfulDeletions.length} user(s)`)
       }
-      
+
       // Close modal
       showBulkDeleteConfirm.value = false
     } catch (err) {
       error.value = err.data?.statusMessage || err.message || 'Failed to delete users'
       console.error('Error bulk deleting users:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Resend invitation function
+  const resendInvitation = async () => {
+    if (!selectedUser.value) return
+
+    try {
+      loading.value = true
+      error.value = null
+
+      const supabase = useSupabaseClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('No valid session found')
+      }
+
+      const response = await $fetch(`/api/users/${selectedUser.value.id}/resend-invitation`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      })
+
+      if (response.success) {
+        // Show success message using toast
+        const toast = useToast()
+        toast.add({
+          title: 'Success',
+          description: response.message || 'Invitation email resent successfully',
+          color: 'green'
+        })
+
+        console.log('Invitation email resent:', response.message)
+      }
+    } catch (err) {
+      error.value = err.data?.error || err.data?.statusMessage || 'Failed to resend invitation email'
+      console.error('Error resending invitation:', err)
+
+      // Show error message using toast
+      const toast = useToast()
+      toast.add({
+        title: 'Error',
+        description: error.value,
+        color: 'red'
+      })
     } finally {
       loading.value = false
     }
@@ -407,6 +456,7 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
     confirmBulkDelete,
     bulkDeleteUsers,
     toggleSelectAll,
-    toggleUserSelection
+    toggleUserSelection,
+    resendInvitation
   }
 }
