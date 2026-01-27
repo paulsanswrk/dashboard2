@@ -77,7 +77,7 @@ const PARENT_RELATION_TABLES: Record<string, { parentTable: string; foreignKey: 
 }
 
 // Global tables (no tenant filtering needed - shared reference data)
-const GLOBAL_TABLES = ['tenants', 'insta_quality_levels', 'service_types']
+const GLOBAL_TABLES = ['insta_quality_levels', 'service_types']
 
 /**
  * Gets the tenant's short_name from the database using pgClient (Drizzle)
@@ -253,7 +253,7 @@ export async function dropTenantView(
 /**
  * Gets the schema name for a tenant (requires short_name lookup)
  */
-export async function getTenantSchemaName(tenantId: string): Promise<string | null> {
+export async function getTenantSchemaByTenantId(tenantId: string): Promise<string | null> {
     const shortName = await getTenantShortName(tenantId)
     if (!shortName) return null
     return `tenant_${shortName}`

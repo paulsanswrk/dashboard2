@@ -341,7 +341,10 @@ Views are created in tenant schemas with row and column isolation.
 | Direct | `WHERE tenant_id = ?` | `work_orders`, `sites`, `rooms`, `profiles`, `teams` |
 | Device-based | Via `device_tenants` junction | `devices`, `device_measurements`, `device_configs` |
 | Parent relation | Join to parent with tenant_id | `quote_line_items`, `chat_messages`, `inspection_rooms` |
-| Global | No filtering | `tenants`, `insta_quality_levels`, `service_types` |
+| Global | No filtering (shared reference data) | `insta_quality_levels`, `service_types` |
+
+> [!NOTE]
+> The `tenants` table from `optiqoflow` schema is **NOT** created as a tenant view. All code accesses `optiqoflow.tenants` directly for tenant metadata lookups. Only true reference/lookup tables like `insta_quality_levels` and `service_types` are exposed as global views.
 
 ### Column Isolation
 

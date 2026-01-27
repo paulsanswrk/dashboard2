@@ -100,8 +100,9 @@ export function wrapIdPg(identifier: string): string {
 /**
  * Convert MySQL-style backtick identifiers to PostgreSQL double quotes
  * This is a simple regex-based approach that handles most cases
+ * (private - not exported to avoid auto-import duplication)
  */
-export function translateIdentifiers(sql: string): string {
+function translateIdentifiers(sql: string): string {
     // Replace backtick-quoted identifiers with double-quoted
     return sql.replace(/`([^`]+)`/g, '"$1"')
 }

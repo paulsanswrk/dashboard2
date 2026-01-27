@@ -432,15 +432,15 @@
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                   <div :class="[
                     'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-                    connection.database_type === 'internal' 
+                    connection.storage_location === 'optiqoflow' 
                       ? 'bg-blue-100 dark:bg-blue-900' 
                       : 'bg-orange-100 dark:bg-orange-900'
                   ]">
                     <Icon 
-                      :name="connection.database_type === 'internal' ? 'i-heroicons-cloud' : 'i-heroicons-circle-stack'" 
+                      :name="connection.storage_location === 'optiqoflow' ? 'i-heroicons-cloud' : 'i-heroicons-circle-stack'" 
                       :class="[
                         'w-5 h-5',
-                        connection.database_type === 'internal' 
+                        connection.storage_location === 'optiqoflow' 
                           ? 'text-blue-600 dark:text-blue-300' 
                           : 'text-orange-600 dark:text-orange-300'
                       ]"
@@ -451,23 +451,23 @@
                       {{ connection.internal_name }}
                     </div>
                     <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {{ connection.database_type === 'internal' ? 'Internal Data Source' : `${connection.database_name} @ ${connection.host}` }}
+                      {{ connection.storage_location === 'optiqoflow' ? 'OptiqoFlow Data Source' : `${connection.database_name} @ ${connection.host}` }}
                     </div>
                   </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0 ml-13 md:ml-0">
                   <UBadge 
-                    :color="connection.database_type === 'internal' ? 'info' : 'warning'" 
+                    :color="connection.storage_location === 'optiqoflow' ? 'info' : 'warning'" 
                     variant="soft" 
                     size="xs"
                   >
-                    {{ connection.database_type === 'internal' ? 'Internal' : 'MySQL' }}
+                    {{ connection.storage_location === 'optiqoflow' ? 'OptiqoFlow' : connection.storage_location === 'supabase_synced' ? 'PostgreSQL' : 'MySQL' }}
                   </UBadge>
                   <div class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
                     {{ formatDate(connection.created_at, true) }}
                   </div>
                   <UButton
-                    v-if="connection.is_immutable || (connection.database_type !== 'internal' || userProfile?.role === 'SUPERADMIN')"
+                    v-if="connection.is_immutable || (connection.storage_location !== 'optiqoflow' || userProfile?.role === 'SUPERADMIN')"
                     variant="ghost"
                     size="xs"
                     color="gray"
@@ -1281,7 +1281,7 @@ const saveConnection = async () => {
     const payload = {
       internalName: connectionForm.value.internalName,
       databaseType: connectionForm.value.databaseType,
-      storageLocation: connectionForm.value.databaseType === 'internal' ? 'internal' : 'remote',
+      storageLocation: connectionForm.value.databaseType === 'internal' ? 'optiqoflow' : 'external',
       organizationId: organizationId // Use the organization from the route, not the logged-in user's org
     }
     
