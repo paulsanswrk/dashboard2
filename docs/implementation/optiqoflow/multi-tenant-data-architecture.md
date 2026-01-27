@@ -86,18 +86,23 @@ Only users with the `SUPERADMIN` role can:
 
 When a tenant is assigned to an organization (either during creation or later), the system automatically creates an **immutable OptiqoFlow data connection** with these characteristics:
 
-- **Connection Name**: "OptiqoFlow Data"
+- **Connection Name**: `OptiqoFlow Data ({Organization Name})`  - Unique per organization
 - **Storage Location**: `optiqoflow`
 - **Database Type**: `postgresql`
 - **Immutability**: `is_immutable: true`
 - **Auto-schema**: Schema and join graph are automatically fetched and stored
 - **Non-deletable**: Cannot be deleted or renamed by users
-- **Connection properties protected**: Server, username, password cannot be edited
-- **Schema editing allowed**: Users CAN exclude/include tables, customize columns, and define references
+- **Connection properties protected**: Server, username, password, database name, internal name cannot be edited
+- **Schema editing allowed**: Users CAN edit `schema_json` to:
+  - Exclude/include tables
+  - Customize column selections
+  - Modify column labels and types
+  - Define custom references (foreign keys)
 
 **Implementation Details:**
 - Auto-created in `/server/api/organizations/index.post.ts` (new org with tenant)
 - Auto-created in `/server/api/organizations/[id]/tenant.put.ts` (assigning tenant to existing org)
+- **Owner Assignment**: Uses organization creator (`created_by`) as `owner_id` for consistency across different SUPERADMIN users
 - Duplicate checking prevents multiple OptiqoFlow connections per organization
 - Schema editor is accessible via "Edit Schema" button (bypasses integration wizard)
 

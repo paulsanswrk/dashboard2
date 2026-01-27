@@ -107,9 +107,9 @@ export default defineEventHandler(async (event) => {
     if (insertData.tenant_id && organization.id) {
       try {
         const connectionRecord: any = {
-          owner_id: user.id,
+          owner_id: organization.created_by || user.id,  // Use org creator for consistency
           organization_id: organization.id,
-          internal_name: 'OptiqoFlow Data',
+          internal_name: `OptiqoFlow Data (${organization.name})`,  // Unique per organization
           database_name: 'optiqoflow',
           database_type: 'postgresql',
           storage_location: 'optiqoflow',

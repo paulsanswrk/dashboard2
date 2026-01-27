@@ -17,13 +17,27 @@ export default defineEventHandler(async (event) => {
 
   const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
     requireWrite: true,
-    columns: 'id, organization_id, database_type, is_immutable'
+    columns: 'id, organization_id, database_type, storage_location, is_immutable'
   })
 
   // Check if connection is immutable (auto-created tenant connections)
+  // Immutable connections allow schema/reference edits but block core property changes
   const isImmutable = (connection as any)?.is_immutable === true
   if (isImmutable) {
-    throw createError({ statusCode: 403, statusMessage: 'This connection is immutable and cannot be modified' })
+    // Define which properties are allowed for immutable connections
+    const allowedFields = new Set(['schema', 'schema_json', 'auto_join_info'])
+    const bodyKeys = Object.keys(body || {})
+    const disallowedFields = bodyKeys.filter(key => !allowedFields.has(key))
+
+    if (disallowedFields.length > 0) {
+      console.error(`[CONNECTION_UPDATE] Attempted to modify protected fields on immutable connection: ${disallowedFields.join(', ')}`)
+      throw createError({
+        statusCode: 403,
+        statusMessage: `This connection is immutable. Only schema and reference edits are allowed. Cannot modify: ${disallowedFields.join(', ')}`
+      })
+    }
+
+    console.log(`[CONNECTION_UPDATE] Allowing schema/reference edit for immutable connection ${connectionId}`)
   }
 
   // Only SUPERADMIN can edit internal data sources
@@ -47,18 +61,31 @@ export default defineEventHandler(async (event) => {
 
     if (tables.length) {
       // Check if this is an internal connection (PostgreSQL) - skip MySQL enrichment
-      // Two cases: internal data source (database_type='internal') OR internal storage (storage_location='internal')
+      // Three cases: 
+      // 1. Internal data source (database_type='internal')
+      // 2. Internal storage (storage_location='internal')
+      // 3. OptiqoFlow connections (storage_location='optiqoflow')
       const isInternalDataSource = (connection as any)?.database_type === 'internal'
+      const isOptiqoFlowSource = (connection as any)?.storage_location === 'optiqoflow'
       const storageInfo = await loadInternalStorageInfo(connectionId)
-      const useInternalPath = isInternalDataSource || storageInfo.useInternalStorage
+      const useInternalPath = isInternalDataSource || isOptiqoFlowSource || storageInfo.useInternalStorage
+
+      console.log(`[AUTO_JOIN] Routing decision for connection ${connectionId}:`, {
+        database_type: (connection as any)?.database_type,
+        storage_location: (connection as any)?.storage_location,
+        isInternalDataSource,
+        isOptiqoFlowSource,
+        storageInfo,
+        useInternalPath
+      })
 
       if (useInternalPath) {
         // For internal connections, skip MySQL-specific enrichment
-        console.log(`[AUTO_JOIN] Internal connection detected (dataSource=${isInternalDataSource}, storage=${storageInfo.useInternalStorage}), skipping MySQL enrichment for connection ${connectionId}`)
+        console.log(`[AUTO_JOIN] Internal connection detected (dataSource=${isInternalDataSource}, optiqoflow=${isOptiqoFlowSource}, storage=${storageInfo.useInternalStorage}), skipping MySQL enrichment for connection ${connectionId}`)
 
-        // For internal data sources, fetch FKs from table_relationships and merge
+        // For internal data sources and OptiqoFlow connections, fetch FKs from table_relationships and merge
         let fksByTable: Record<string, any[]> = {}
-        if (isInternalDataSource) {
+        if (isInternalDataSource || isOptiqoFlowSource) {
           try {
             const tableRelationships = await getTableRelationships()
             console.log(`[AUTO_JOIN] Fetched ${tableRelationships.length} FK relationships from table_relationships`)
@@ -85,8 +112,8 @@ export default defineEventHandler(async (event) => {
 
         const basicTables = tables.map((t: any) => {
           const tableId = String(t.tableId)
-          // Merge FKs from table_relationships for internal data sources
-          const tableFks = isInternalDataSource ? (fksByTable[tableId] || []) : (t.foreignKeys || [])
+          // Merge FKs from table_relationships for internal data sources and OptiqoFlow
+          const tableFks = (isInternalDataSource || isOptiqoFlowSource) ? (fksByTable[tableId] || []) : (t.foreignKeys || [])
 
           return {
             tableId,

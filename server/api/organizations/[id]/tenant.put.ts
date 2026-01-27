@@ -2,7 +2,7 @@
 import { serverSupabaseUser } from '#supabase/server'
 import { db } from '~/lib/db'
 import { organizations, profiles, dataConnections } from '~/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { createClient } from '@supabase/supabase-js'
 import { getOptiqoflowSchema } from '../../../utils/optiqoflowQuery'
 import { buildGraph } from '../../../utils/schemaGraph'
@@ -75,6 +75,21 @@ export default defineEventHandler(async (event) => {
             }
         }
 
+        // Fetch organization details first (before update) to access createdBy
+        const organization = await db
+            .select()
+            .from(organizations)
+            .where(eq(organizations.id, organizationId))
+            .limit(1)
+            .then(rows => rows[0])
+
+        if (!organization) {
+            throw createError({
+                statusCode: 404,
+                statusMessage: 'Organization not found'
+            })
+        }
+
         // Update organization's tenant_id
         await db
             .update(organizations)
@@ -114,12 +129,16 @@ export default defineEventHandler(async (event) => {
         // If a tenant was assigned (not removed), auto-create an immutable OptiqoFlow connection
         if (tenantId) {
             try {
-                // Check if an OptiqoFlow connection already exists
+                // Check if an OptiqoFlow connection already exists for this organization
                 const existingConnection = await db
                     .select()
                     .from(dataConnections)
-                    .where(eq(dataConnections.organizationId, organizationId))
-                    .then(connections => connections.find(c => c.storageLocation === 'optiqoflow'))
+                    .where(and(
+                        eq(dataConnections.organizationId, organizationId),
+                        eq(dataConnections.storageLocation, 'optiqoflow')
+                    ))
+                    .limit(1)
+                    .then(rows => rows[0])
 
                 if (!existingConnection) {
                     console.log(`[TENANT_ASSIGN] Creating OptiqoFlow connection for organization ${organizationId}...`)
@@ -134,10 +153,13 @@ export default defineEventHandler(async (event) => {
                         // Create Supabase client with service role (bypasses RLS)
                         const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+                        // Get organization name for unique connection name
+                        const orgName = organization.name || 'Organization'
+
                         const connectionRecord: any = {
-                            owner_id: user.id,
+                            owner_id: organization.createdBy || user.id,  // Use org creator for consistency
                             organization_id: organizationId,
-                            internal_name: 'OptiqoFlow Data',
+                            internal_name: `OptiqoFlow Data (${orgName})`,  // Unique per organization
                             database_name: 'optiqoflow',
                             database_type: 'postgresql',
                             storage_location: 'optiqoflow',
