@@ -119,13 +119,13 @@ export default defineEventHandler(async (event) => {
     let tenantName = null
     if (organization.tenantId) {
       try {
-        // Import optiqoflow query utility
-        const { executeOptiqoflowQuery } = await import('../../utils/optiqoflowQuery')
+        // Query tenants table directly using pgClient (doesn't require tenant isolation)
+        const { pgClient } = await import('~/lib/db')
 
-        const tenantResult = await executeOptiqoflowQuery(
+        const tenantResult = await pgClient.unsafe(
           'SELECT name FROM optiqoflow.tenants WHERE id = $1',
           [organization.tenantId]
-        )
+        ) as Array<{ name: string }>
 
         if (tenantResult && tenantResult.length > 0) {
           tenantName = tenantResult[0].name

@@ -97,11 +97,33 @@
                 </UBadge>
               </div>
 
-              <div v-if="organization.tenantName">
+              <div v-if="userProfile?.role === 'SUPERADMIN' || organization.tenantName">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tenant Name
+                  Associated Tenant
                 </label>
-                <div class="text-gray-900 dark:text-white">
+                <div v-if="userProfile?.role === 'SUPERADMIN'" class="flex items-center gap-2">
+                  <USelectMenu
+                    v-model="selectedTenant"
+                    :items="tenantOptions"
+                    placeholder="Select tenant..."
+                    class="flex-1"
+                    :loading="isLoadingTenants"
+                    :disabled="isUpdatingTenant"
+                    searchable
+                    searchable-placeholder="Search tenants..."
+                  />
+                  <UButton
+                    color="orange"
+                    size="sm"
+                    @click="updateTenant"
+                    :loading="isUpdatingTenant"
+                    :disabled="selectedTenant?.value === (organization.tenantId || '')"
+                    class="bg-orange-500 hover:bg-orange-600 text-white cursor-pointer whitespace-nowrap"
+                  >
+                    Save
+                  </UButton>
+                </div>
+                <div v-else class="text-gray-900 dark:text-white">
                   {{ organization.tenantName }}
                 </div>
               </div>
@@ -445,12 +467,12 @@
                     {{ formatDate(connection.created_at, true) }}
                   </div>
                   <UButton
-                    v-if="!connection.is_immutable && (connection.database_type !== 'internal' || userProfile?.role === 'SUPERADMIN')"
+                    v-if="connection.is_immutable || (connection.database_type !== 'internal' || userProfile?.role === 'SUPERADMIN')"
                     variant="ghost"
                     size="xs"
                     color="gray"
                     class="hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
-                    @click="editConnection(connection)"
+                    @click="connection.is_immutable ? navigateTo(`/schema-editor?id=${connection.id}`) : editConnection(connection)"
                   >
                     <Icon name="i-heroicons-pencil-square" class="w-4 h-4"/>
                   </UButton>
@@ -927,6 +949,12 @@ const userRoleOptions = [
   {label: 'Admin', value: 'ADMIN'}
 ]
 
+// Tenant management state
+const tenants = ref([])
+const isLoadingTenants = ref(false)
+const isUpdatingTenant = ref(false)
+const selectedTenant = ref(null)
+
 // Computed
 const availableLicenses = computed(() => {
   if (!organization.value) return 0
@@ -976,6 +1004,20 @@ const filteredInternalUsers = computed(() => {
     const email = (profile.email || '').toLowerCase()
     return fullName.includes(query) || email.includes(query)
   })
+})
+
+// Tenant options for select dropdown
+const tenantOptions = computed(() => {
+  const options = tenants.value.map(tenant => ({
+    id: tenant.id,
+    label: tenant.name,
+    value: tenant.id
+  }))
+  // Add "None" option at the beginning
+  return [
+    { id: '', label: 'None', value: '' },
+    ...options
+  ]
 })
 
 // Filtered viewers (for search)
@@ -1104,6 +1146,97 @@ const loadDataConnections = async () => {
     }
   } catch (error) {
     console.error('Error loading data connections:', error)
+  }
+}
+
+// Load available tenants (for SUPERADMIN)
+const loadTenants = async () => {
+  console.log('[loadTenants] Starting to load tenants')
+  console.log('[loadTenants] userProfile.value:', userProfile.value)
+  console.log('[loadTenants] userProfile.value?.role:', userProfile.value?.role)
+  
+  if (userProfile.value?.role !== 'SUPERADMIN') {
+    console.log('[loadTenants] User is not SUPERADMIN, skipping')
+    return
+  }
+  
+  try {
+    isLoadingTenants.value = true
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      console.log('[loadTenants] No access token')
+      return
+    }
+    
+    console.log('[loadTenants] Fetching tenants from API')
+    const response = await $fetch('/api/tenants', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+    
+    console.log('[loadTenants] Response:', response)
+    
+    if (response.success) {
+      tenants.value = response.tenants || []
+      console.log('[loadTenants] Tenants loaded:', tenants.value.length)
+    }
+  } catch (error) {
+    console.error('Error loading tenants:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: 'Failed to load tenants list',
+      color: 'red'
+    })
+  } finally {
+    isLoadingTenants.value = false
+  }
+}
+
+// Update organization's tenant association
+const updateTenant = async () => {
+  try {
+    isUpdatingTenant.value = true
+    const accessToken = await getAccessToken()
+    if (!accessToken) return
+    
+    const response = await $fetch(`/api/organizations/${organizationId}/tenant`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: {
+        tenantId: selectedTenant.value?.value || null
+      }
+    })
+    
+    if (response.success) {
+      // Update local organization data
+      organization.value = {
+        ...organization.value,
+        tenantId: response.organization.tenantId,
+        tenantName: response.organization.tenantName
+      }
+      
+      const toast = useToast()
+      toast.add({
+        title: 'Success',
+        description: response.message,
+        color: 'green'
+      })
+    }
+  } catch (error) {
+    console.error('Error updating tenant:', error)
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: error.data?.message || 'Failed to update tenant association',
+      color: 'red'
+    })
+  } finally {
+    isUpdatingTenant.value = false
   }
 }
 
@@ -1664,6 +1797,20 @@ onMounted(() => {
   loadOrganizationDetails()
   loadDataConnections()
 })
+
+// Watch for userProfile to load and then load tenants if SUPERADMIN
+watch(() => userProfile.value?.role, (role) => {
+  console.log('[watch userProfile.role] Role changed to:', role)
+  if (role === 'SUPERADMIN') {
+    console.log('[watch userProfile.role] Loading tenants')
+    loadTenants()
+  }
+}, { immediate: true })
+
+// Watch organization changes to sync selectedTenant
+watch(() => organization.value?.tenantId, (newTenantId) => {
+  selectedTenant.value = tenantOptions.value.find(t => t.value === (newTenantId || '')) || null
+}, { immediate: true })
 
 // Page meta
 definePageMeta({

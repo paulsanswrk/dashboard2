@@ -63,8 +63,19 @@
                   </div>
                 </div>
                 <div class="flex items-center gap-2" @click.stop>
+                  <!-- For immutable connections, show Edit Schema button -->
                   <NuxtLink 
-                    v-if="!c.is_immutable"
+                    v-if="c.is_immutable"
+                    :to="`/schema-editor?id=${c.id}`" 
+                    class="inline-flex items-center px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    @click.stop
+                  >
+                    <Icon name="i-heroicons-pencil-square" class="w-4 h-4 mr-1"/>
+                    Edit Schema
+                  </NuxtLink>
+                  <!-- For regular connections, show Edit button -->
+                  <NuxtLink 
+                    v-else
                     :to="`/integration-wizard?id=${c.id}`" 
                     class="inline-flex items-center px-2 py-1 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     @click.stop

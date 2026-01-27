@@ -56,6 +56,65 @@ flowchart TB
 | Puhastusekpert OÜ | `puhastusekpert_o` | `tenant_puhastusekpert_o` | `tenant_puhastusekpert_o_role` |
 | Visera AB | `visera_ab` | `tenant_visera_ab` | `tenant_visera_ab_role` |
 
+## Organization-Tenant Mapping
+
+Organizations in the dashboard can be associated with tenants from the OptiqoFlow system. This association enables:
+- Automatic creation of immutable OptiqoFlow data connections
+- Tenant-specific data access and filtering
+- Per-organization data isolation
+
+### Database Schema
+
+```sql
+-- organizations table includes tenant_id
+ALTER TABLE organizations ADD COLUMN tenant_id UUID REFERENCES optiqoflow.tenants(id);
+```
+
+### SUPERADMIN Management
+
+Only users with the `SUPERADMIN` role can:
+- View the list of available tenants
+- Assign tenants to organizations (both during creation and for existing orgs)
+- Remove tenant associations from organizations
+
+**UI Locations:**
+- Organization creation: Tenant selector dropdown (SUPERADMIN only)
+- Organization details page: Tenant selector with "Edit" capability (SUPERADMIN only)
+- For non-SUPERADMIN users: Tenant name is displayed as read-only if assigned
+
+### Immutable OptiqoFlow Connections
+
+When a tenant is assigned to an organization (either during creation or later), the system automatically creates an **immutable OptiqoFlow data connection** with these characteristics:
+
+- **Connection Name**: "OptiqoFlow Data"
+- **Storage Location**: `optiqoflow`
+- **Database Type**: `postgresql`
+- **Immutability**: `is_immutable: true`
+- **Auto-schema**: Schema and join graph are automatically fetched and stored
+- **Non-deletable**: Cannot be deleted or renamed by users
+- **Connection properties protected**: Server, username, password cannot be edited
+- **Schema editing allowed**: Users CAN exclude/include tables, customize columns, and define references
+
+**Implementation Details:**
+- Auto-created in `/server/api/organizations/index.post.ts` (new org with tenant)
+- Auto-created in `/server/api/organizations/[id]/tenant.put.ts` (assigning tenant to existing org)
+- Duplicate checking prevents multiple OptiqoFlow connections per organization
+- Schema editor is accessible via "Edit Schema" button (bypasses integration wizard)
+
+**UI Behavior:**
+- Data Sources page: Shows "Edit Schema" button instead of "Edit" for immutable connections
+- Organization details page: Edit button navigates to schema editor for immutable connections
+- Regular connections: Continue to show "Edit" button that goes to integration wizard
+
+### API Endpoints
+
+| Endpoint | Method | Purpose | Access |
+|----------|--------|---------|--------|
+| `/api/tenants` | GET | List all available tenants | SUPERADMIN |
+| `/api/organizations/[id]/tenant` | PUT | Assign/remove tenant from org | SUPERADMIN |
+| `/api/organizations/[id]` | GET | Get org details (includes tenantName) | All authenticated |
+| `/api/organizations` | POST | Create org with optional tenant | ADMIN/SUPERADMIN |
+
 ## Tenant Short Names
 
 > [!IMPORTANT]
@@ -325,6 +384,11 @@ When webhook receives data push:
 | `server/utils/optiqoflowQuery.ts` | Query execution with role switching |
 | `server/api/reporting/chart-data.post.ts` | Cached chart data endpoint |
 | `server/api/optiqo-webhook.post.ts` | Webhook handler with view regeneration |
+| `server/api/tenants/index.get.ts` | List available tenants (SUPERADMIN) |
+| `server/api/organizations/[id]/tenant.put.ts` | Assign/remove tenant, auto-create connection |
+| `server/api/organizations/index.post.ts` | Create org with optional tenant and connection |
+| `pages/organizations/[id].vue` | Organization details with tenant selector |
+| `pages/data-sources.vue` | Data sources list with schema editing for immutable connections |
 | `lib/db/tenant-schema.ts` | Drizzle schema for tenant metadata tables |
 | `lib/db/chart-cache-schema.ts` | Drizzle schema for cache tables |
 | `lib/db/optiqoflow-schema.ts` | Drizzle schema for optiqoflow tables |
@@ -337,6 +401,7 @@ When webhook receives data push:
 |-----------|---------|
 | `20260122170000_multi_tenant_schema.sql` | Creates `tenants` schema and metadata tables |
 | `20260122170100_chart_cache_schema.sql` | Creates cache tables and invalidation functions |
+| `20260123_add_tenant_id_to_organizations.sql` | Adds `tenant_id` column to organizations table |
 | `20260126_fix_optiqoflow_connections.sql` | Grants permissions to tenant roles for optiqoflow schema |
 
 ### OptiqoFlow Database (optiqo-flow)
@@ -349,7 +414,13 @@ When webhook receives data push:
 > [!NOTE]
 > Tenant schemas and roles are created automatically via `tenants.register_tenant()` when:
 > - A new organization with a tenant_id is created, OR
+> - A tenant is assigned to an existing organization, OR
 > - A tenant's first data sync is received via webhook
+>
+> Additionally, when a tenant is assigned to an organization (either during creation or later assignment):
+> - An immutable OptiqoFlow data connection is automatically created
+> - The connection includes auto-fetched schema and join graph metadata
+> - Duplicate checking prevents multiple OptiqoFlow connections per organization
 
 ## Testing
 
