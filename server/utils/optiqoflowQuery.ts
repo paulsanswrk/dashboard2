@@ -200,6 +200,9 @@ export async function getTableRelationships(): Promise<Array<{
  * Get schema info for optiqoflow (tables, columns, types)
  * Returns structure compatible with existing schema_json format
  * Merges FK relationships from both information_schema and table_relationships
+ * 
+ * When tenantId is provided, queries tenant-specific views for proper column isolation.
+ * When no tenantId, queries base optiqoflow schema.
  */
 export async function getOptiqoflowSchema(tenantId?: string): Promise<{
     tables: Array<{
@@ -228,16 +231,38 @@ export async function getOptiqoflowSchema(tenantId?: string): Promise<{
         }>
     }>
 }> {
-    // Always use optiqoflow schema - tables are stored there
-    // tenantId is used for access control during query execution, not for schema location
-    const schemaName = OPTIQOFLOW_SCHEMA
+    // Determine which schema to query for table/column metadata
+    // - With tenantId: query tenant-specific views for column isolation
+    // - Without tenantId: query base optiqoflow schema
+    let schemaName = OPTIQOFLOW_SCHEMA
+    let tenantSchemaName: string | null = null
 
-    // Get all tables
+    if (tenantId) {
+        // Get tenant's short name to resolve their schema
+        const shortNameResult = await pgClient.unsafe(
+            `SELECT short_name FROM tenants.tenant_short_names WHERE tenant_id = $1`,
+            [tenantId]
+        ) as Array<{ short_name: string | null }>
+
+        if (shortNameResult[0]?.short_name) {
+            tenantSchemaName = `tenant_${shortNameResult[0].short_name}`
+            console.log(`[OptiqoflowQuery] Using tenant schema for metadata: ${tenantSchemaName}`)
+        } else {
+            console.warn(`[OptiqoflowQuery] Tenant ${tenantId} not found, falling back to optiqoflow schema`)
+        }
+    }
+
+    // Get all tables/views
+    // When querying a tenant schema, we query for VIEWS (tenant views)
+    // When querying optiqoflow schema, we query for BASE TABLEs
+    const querySchema = tenantSchemaName || schemaName
+    const tableType = tenantSchemaName ? 'VIEW' : 'BASE TABLE'
+
     const tablesSql = `
     SELECT table_name
     FROM information_schema.tables
     WHERE table_schema = $1
-    AND table_type = 'BASE TABLE'
+    AND table_type = $2
     ORDER BY table_name
   `
 
@@ -253,7 +278,7 @@ export async function getOptiqoflowSchema(tenantId?: string): Promise<{
     ORDER BY table_name, ordinal_position
   `
 
-    // Get primary keys
+    // Get primary keys - only from base optiqoflow schema (views don't have PKs)
     const pkSql = `
     SELECT 
       tc.table_name,
@@ -268,9 +293,10 @@ export async function getOptiqoflowSchema(tenantId?: string): Promise<{
 
     try {
         const [tablesRows, columnsRows, pksRows] = await Promise.all([
-            pgClient.unsafe(tablesSql, [schemaName]) as Promise<Array<{ table_name: string }>>,
-            pgClient.unsafe(columnsSql, [schemaName]) as Promise<Array<{ table_name: string, column_name: string, data_type: string, udt_name: string }>>,
-            pgClient.unsafe(pkSql, [schemaName]) as Promise<Array<{ table_name: string, column_name: string }>>
+            pgClient.unsafe(tablesSql, [querySchema, tableType]) as Promise<Array<{ table_name: string }>>,
+            pgClient.unsafe(columnsSql, [querySchema]) as Promise<Array<{ table_name: string, column_name: string, data_type: string, udt_name: string }>>,
+            // Always query PKs from base optiqoflow schema
+            pgClient.unsafe(pkSql, [OPTIQOFLOW_SCHEMA]) as Promise<Array<{ table_name: string, column_name: string }>>
         ])
 
         const tables = tablesRows
@@ -388,7 +414,7 @@ export async function getOptiqoflowSchema(tenantId?: string): Promise<{
             })
         }
 
-        console.log(`[OptiqoflowQuery] Schema loaded: ${result.tables.length} tables`)
+        console.log(`[OptiqoflowQuery] Schema loaded from ${querySchema}: ${result.tables.length} tables${tenantSchemaName ? ' (views)' : ''}`)
         return result
     } catch (error: any) {
         console.error(`[OptiqoflowQuery] Error getting schema:`, error?.message || error)

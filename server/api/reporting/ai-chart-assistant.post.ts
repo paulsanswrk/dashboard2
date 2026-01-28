@@ -26,16 +26,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const connectionData = await AuthHelper.requireConnectionAccess(event, body.connectionId, {
-    columns: 'id, organization_id, schema_json, dbms_version, database_type'
+    columns: 'id, organization_id, schema_json, dbms_version, database_type, storage_location'
   })
 
   // Load schema: prefer provided schemaJson, then saved schema_json, otherwise live introspection
   let schemaJson: unknown = body.schemaJson || connectionData.schema_json
 
   if (!schemaJson) {
-    // Check if this is an internal data source
-    if (connectionData.database_type === 'internal') {
-      console.log('[AI Chart Assistant] Using internal data source (optiqoflow), fetching schema')
+    // Check if this is an OptiqoFlow internal data source
+    const storageLocation = (connectionData as any).storage_location || 'external'
+
+    if (storageLocation === 'optiqoflow') {
+      console.log('[AI Chart Assistant] Using OptiqoFlow data source, fetching schema')
 
       // Fetch tenantId for the organization
       const org = await db.select({ tenantId: organizations.tenantId })
@@ -119,8 +121,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get DBMS version for SQL dialect guidance
-  // For internal sources, use PostgreSQL 15 (Supabase version)
-  const dbmsVersion = connectionData.database_type === 'internal'
+  // For OptiqoFlow sources, use PostgreSQL 15 (Supabase version)
+  const storageLocation = (connectionData as any).storage_location || 'external'
+  const dbmsVersion = storageLocation === 'optiqoflow'
     ? 'PostgreSQL 15'
     : (connectionData.dbms_version || 'MySQL 8')
 

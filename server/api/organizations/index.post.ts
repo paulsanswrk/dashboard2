@@ -123,11 +123,12 @@ export default defineEventHandler(async (event) => {
         }
 
         // Auto-fetch schema and build auto_join_info
-        console.log(`[ORG_CREATE] Fetching OptiqoFlow schema for new connection...`)
+        // Pass tenantId to get tenant-filtered views, not base optiqoflow schema
+        console.log(`[ORG_CREATE] Fetching OptiqoFlow schema for tenant ${insertData.tenant_id}...`)
         try {
-          const schema = await getOptiqoflowSchema()
+          const schema = await getOptiqoflowSchema(insertData.tenant_id)
           connectionRecord.schema_json = schema
-          console.log(`[ORG_CREATE] Fetched schema: ${schema.tables.length} tables`)
+          console.log(`[ORG_CREATE] Fetched schema: ${schema.tables.length} tables (tenant-filtered)`)
 
           // Build auto_join_info graph
           const schemaJson = { schema: { tables: schema.tables } }
