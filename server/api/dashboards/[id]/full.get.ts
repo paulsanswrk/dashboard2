@@ -3,6 +3,11 @@ import { defineEventHandler, getQuery } from 'h3'
 import { serverSupabaseUser } from '#supabase/server'
 import { supabaseAdmin } from '../../supabase'
 import { validateRenderContext } from '../../../utils/renderContext'
+import { sanitizeChartState } from '../../../utils/sanitizeChartState'
+import { getCachedChartData, generateCacheKey } from '../../../utils/chart-cache'
+import { db } from '../../../../lib/db'
+import { organizations } from '../../../../lib/db/schema'
+import { eq } from 'drizzle-orm'
 // @ts-ignore createError is provided by h3 runtime
 declare const createError: any
 
@@ -188,11 +193,65 @@ export default defineEventHandler(async (event) => {
             widgetsByTab[widget.tab_id].push(widget)
         }
 
+        // Resolve tenant ID for cache lookups (using dashboard's organization)
+        let effectiveTenantId: string = 'default'
+        try {
+            if (dashboard.organization_id) {
+                const orgRecord = await db.select({ tenantId: organizations.tenantId })
+                    .from(organizations)
+                    .where(eq(organizations.id, dashboard.organization_id))
+                    .limit(1)
+                    .then(rows => rows[0])
+                effectiveTenantId = orgRecord?.tenantId || 'default'
+            }
+        } catch (e) {
+            console.warn('[full.get.ts] Could not resolve tenant ID for cache lookup')
+        }
+
+        // Parallel cache lookup for all charts
+        const cacheByChartId: Record<number, { cached: boolean; columns?: any[]; rows?: any[] }> = {}
+        if (chartIds.length > 0 && effectiveTenantId !== 'default') {
+            try {
+                const cachePromises = chartIds.map(async (chartId) => {
+                    const chart = chartsById[chartId]
+                    if (!chart) return { chartId, cached: false }
+
+                    const sj = chart.state_json || {}
+                    const internal = sj.internal || {}
+                    const sql = internal.actualExecutedSql || internal.sqlText || sj.actualExecutedSql || sj.sqlText
+                    const connectionId = internal.dataConnectionId || sj.dataConnectionId
+
+                    // Only check cache for charts with SQL and connection
+                    if (!sql || !connectionId) return { chartId, cached: false }
+
+                    // Generate cache key (without filters - base query only)
+                    const cacheKey = generateCacheKey(chartId, { sql, dataSource: 'query', filters: [] })
+                    const cachedResult = await getCachedChartData(supabaseAdmin, chartId, effectiveTenantId, cacheKey)
+
+                    if (cachedResult && cachedResult.hit) {
+                        const cachedRows = cachedResult.data as any[]
+                        const columns = cachedRows.length > 0
+                            ? Object.keys(cachedRows[0]).map(k => ({ key: k, label: k }))
+                            : []
+                        return { chartId, cached: true, columns, rows: cachedRows }
+                    }
+                    return { chartId, cached: false }
+                })
+
+                const cacheResults = await Promise.all(cachePromises)
+                for (const result of cacheResults) {
+                    cacheByChartId[result.chartId] = result
+                }
+            } catch (e) {
+                console.warn('[full.get.ts] Cache lookup failed, proceeding without cached data:', e)
+            }
+        }
+
         // Build tab results with widgets (no data fetching for charts)
         const tabResults = tabs.map((tab: any) => {
             const tabWidgets = widgetsByTab[tab.id] || []
 
-            // Process chart widgets - return metadata only
+            // Process chart widgets - sanitized metadata with optional cached data
             const chartResults = tabWidgets
                 .filter((w: any) => w.type === 'chart')
                 .map((lnk: any) => {
@@ -200,14 +259,13 @@ export default defineEventHandler(async (event) => {
                     if (!chart) {
                         console.warn('[full.get.ts] Chart not found:', lnk.chart_id)
                     }
-                    const sj = (chart?.state_json || {}) as any
-                    const internal = sj.internal || {}
-                    const effective = { ...sj, ...internal }
-                    delete (effective as any).internal
 
-                    // Build state for response: always use flattened state so breakdowns etc. are accessible
-                    // (Previously public got nested internal which broke chart rendering)
-                    const responseState = effective
+                    // Sanitize state - removes raw SQL and other sensitive fields
+                    const responseState = sanitizeChartState(chart?.state_json)
+
+                    // Check for cached data
+                    const cacheEntry = cacheByChartId[lnk.chart_id]
+                    const hasCachedData = cacheEntry?.cached === true
 
                     return {
                         id: lnk.chart_id,
@@ -217,8 +275,11 @@ export default defineEventHandler(async (event) => {
                         position: lnk.position,
                         configOverride: lnk.config_override || {},
                         state: responseState,
-                        style: lnk.style || {}
-                        // Note: No 'data' field - charts fetch their own data progressively
+                        style: lnk.style || {},
+                        // Progressive loading fields
+                        dataStatus: hasCachedData ? 'cached' : 'pending',
+                        preloadedColumns: hasCachedData ? cacheEntry.columns : undefined,
+                        preloadedRows: hasCachedData ? cacheEntry.rows : undefined
                     }
                 })
 

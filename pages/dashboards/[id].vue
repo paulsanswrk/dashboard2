@@ -124,15 +124,18 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')" class="cursor-pointer" title="Desktop preview">
-            <Icon name="i-heroicons-computer-desktop" class="w-4 h-4"/>
-          </UButton>
-          <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')" class="cursor-pointer" title="Tablet preview">
-            <Icon name="i-heroicons-device-tablet" class="w-4 h-4"/>
-          </UButton>
-          <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')" class="cursor-pointer" title="Mobile preview">
-            <Icon name="i-heroicons-device-phone-mobile" class="w-4 h-4"/>
-          </UButton>
+          <template v-if="false">
+            <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')" class="cursor-pointer" title="Desktop preview">
+              <Icon name="i-heroicons-computer-desktop" class="w-4 h-4"/>
+            </UButton>
+            <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')" class="cursor-pointer" title="Tablet preview">
+              <Icon name="i-heroicons-device-tablet" class="w-4 h-4"/>
+            </UButton>
+            <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')" class="cursor-pointer" title="Mobile preview">
+              <Icon name="i-heroicons-device-phone-mobile" class="w-4 h-4"/>
+            </UButton>
+          </template>
+          
           <UButton
               v-if="isEditableSession"
               variant="outline"
@@ -941,25 +944,101 @@ watch([isEditableSession, currentTabWidgets, activeTabId], () => {
 
 async function captureDashboardThumbnail(): Promise<{ width?: number | null; height?: number | null; thumbnailBase64?: string | null }> {
   if (typeof window === 'undefined') return {}
-  const layout = gridLayout.value || []
+  
+  // Wait for Vue to finish any pending DOM updates
+  await nextTick()
+  // Additional delay to ensure charts have rendered their content
+  await new Promise(resolve => setTimeout(resolve, 100))
+  
   // Dashboard component ref resolves to component instance; use $el for the DOM node
   const container = (dashboardRef.value as any)?.$el ?? (dashboardRef.value as HTMLElement | null)
-  if (!container || typeof container.getBoundingClientRect !== 'function') return {}
+  if (!container || typeof container.getBoundingClientRect !== 'function') {
+    console.warn('Dashboard container not available for thumbnail capture')
+    return {}
+  }
 
-  const rect = container.getBoundingClientRect()
-  const baseWidth = rect.width ? Math.round(rect.width) : 1200
-  const baseHeight = rect.height ? Math.round(rect.height) : 800
+  const containerRect = container.getBoundingClientRect()
+  // Validate dimensions - if too small, the capture likely won't be useful
+  if (containerRect.width < 100 || containerRect.height < 100) {
+    console.warn('Dashboard container has invalid dimensions for thumbnail capture', containerRect)
+    return {}
+  }
+  
+  // Calculate bounding box from widget positions to crop to used area only
+  const layout = gridLayout.value || []
+  let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0
+  
+  for (const item of layout) {
+    const left = Number(item.left) || 0
+    const top = Number(item.top) || 0
+    const width = Number(item.width) || 0
+    const height = Number(item.height) || 0
+    
+    minX = Math.min(minX, left)
+    minY = Math.min(minY, top)
+    maxX = Math.max(maxX, left + width)
+    maxY = Math.max(maxY, top + height)
+  }
+  
+  // If no widgets, capture minimal area
+  if (!layout.length || !Number.isFinite(minX)) {
+    minX = 0; minY = 0; maxX = 400; maxY = 300
+  }
+  
+  // Add padding around the bounding box
+  const padding = 20
+  minX = Math.max(0, minX - padding)
+  minY = Math.max(0, minY - padding)
+  maxX = maxX + padding
+  maxY = maxY + padding
+  
+  const cropWidth = Math.round(maxX - minX)
+  const cropHeight = Math.round(maxY - minY)
 
-  // Use html-to-image for a real snapshot of the dashboard content
-  const {toPng} = await import('html-to-image')
-  const dataUrl = await toPng(container, {
-    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-    cacheBust: true,
-    backgroundColor: '#ffffff',
-    skipFonts: true
-  })
-
-  return {width: baseWidth, height: baseHeight, thumbnailBase64: dataUrl}
+  try {
+    // Use html-to-image for a real snapshot of the dashboard content
+    const {toPng} = await import('html-to-image')
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+    
+    // Capture the full container first
+    const fullDataUrl = await toPng(container, {
+      pixelRatio,
+      cacheBust: true,
+      backgroundColor: '#ffffff',
+      skipFonts: true
+    })
+    
+    // Crop the image to the widget bounding box
+    const img = new Image()
+    img.src = fullDataUrl
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = reject
+    })
+    
+    const canvas = document.createElement('canvas')
+    canvas.width = cropWidth * pixelRatio
+    canvas.height = cropHeight * pixelRatio
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      return {width: cropWidth, height: cropHeight, thumbnailBase64: fullDataUrl}
+    }
+    
+    // Draw the cropped portion
+    ctx.drawImage(
+      img,
+      minX * pixelRatio, minY * pixelRatio,  // Source x, y
+      cropWidth * pixelRatio, cropHeight * pixelRatio,  // Source width, height
+      0, 0,  // Dest x, y
+      cropWidth * pixelRatio, cropHeight * pixelRatio  // Dest width, height
+    )
+    
+    const croppedDataUrl = canvas.toDataURL('image/png')
+    return {width: cropWidth, height: cropHeight, thumbnailBase64: croppedDataUrl}
+  } catch (error) {
+    console.error('Failed to capture dashboard thumbnail:', error)
+    return {}
+  }
 }
 
 function cloneLayout(layout: any[] = []) {
@@ -1252,30 +1331,25 @@ onBeforeRouteLeave((to, from) => {
 })
 
 const saving = ref(false)
-async function save() {
+/**
+ * Capture and save only the dashboard thumbnail.
+ * Layout and name changes are auto-saved via watchers, so we don't need to re-send them here.
+ */
+async function saveThumbnail() {
   saving.value = true
   try {
-    const layoutPayload = Object.values(tabLayouts).flatMap((layoutArr) =>
-        (layoutArr || [])
-            .filter((item) => !isTempWidgetId(String(item.i)))
-            .map((item) => ({
-              widgetId: String(item.i),
-              position: {left: item.left, top: item.top, width: item.width, height: item.height}
-            }))
-    )
     const snapshot = await captureDashboardThumbnail()
-    await updateDashboard({
-      id: id.value,
-      name: dashboardName.value,
-      layout: layoutPayload,
-      width: snapshot.width,
-      height: snapshot.height,
-      thumbnailBase64: snapshot.thumbnailBase64
-    })
-    initialDashboardName.value = dashboardName.value
-    Object.keys(tabLayouts).forEach(tabId => {
-      initialTabLayouts.value[tabId] = cloneLayout(tabLayouts[tabId] || [])
-    })
+    // Only send thumbnail data if capture was successful
+    if (snapshot.thumbnailBase64) {
+      await updateDashboard({
+        id: id.value,
+        width: snapshot.width,
+        height: snapshot.height,
+        thumbnailBase64: snapshot.thumbnailBase64
+      })
+    }
+  } catch (error) {
+    console.error('Failed to save thumbnail:', error)
   } finally {
     saving.value = false
   }
@@ -1285,9 +1359,8 @@ async function handleModeToggle() {
   if (!canEditDashboard.value) return
   pendingRoute.value = null
   if (isEditableSession.value) {
-    if (canEditDashboard.value) {
-      await save()
-    }
+    // Layout and name already auto-saved - only capture thumbnail for dashboard list
+    await saveThumbnail()
     await navigateTo(`/dashboards/${id.value}`)
     return
   }
@@ -2176,7 +2249,7 @@ function updateDashboardWidth(newWidth: number) {
   }
   saveDashboardWidthTimer = setTimeout(async () => {
     try {
-      await updateDashboard(id.value, { width: newWidth })
+      await updateDashboard({ id: id.value, width: newWidth })
     } catch (error) {
       console.error('Failed to save dashboard width', error)
     }

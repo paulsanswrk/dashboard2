@@ -432,9 +432,34 @@ When webhook receives data push:
 
 ## Testing
 
-Use the HTTP test files to validate data flow:
-- `tests/http-requests/tenant1-data-sync.http` - Sync data for Tenant1
-- `tests/http-requests/tenant2-data-sync.http` - Sync data for Tenant2
+Use the HTTP test files to validate data flow and build charts:
+
+| File | Tenant | Purpose |
+|------|--------|---------|
+| `tests/http-requests/tenant1-full-sync.http` | Acme Cleaning Co | Comprehensive data: 10 tables, 50+ records |
+| `tests/http-requests/tenant2-full-sync.http` | Beta Facilities | Healthcare-focused data with `healthcare_metrics` |
+
+### Available Test Data (Tenant1 - Acme Cleaning Co)
+
+| Table | Records | Key Fields |
+|-------|---------|------------|
+| `customers` | 3 | Enterprise, Industrial, Retail categories |
+| `sites` | 6 | Office, Warehouse, Industrial, Retail types |
+| `rooms` | 8 | Conference rooms, labs, loading docks, etc. |
+| `profiles` | 5 | Supervisors, technicians, inspectors |
+| `teams` | 3 | Day/Night shifts, Industrial team |
+| `work_orders` | 10 | Various statuses (completed, in_progress, pending, cancelled) |
+| `quality_inspections` | 8 | Routine, spot_check, audit types with scores |
+| `inspection_rooms` | 8 | Room-level inspection results |
+| `devices` | 4 | Sensors, counters with varying battery levels |
+| `device_tenants` | 4 | Device-tenant associations |
+
+### Available Test Data (Tenant2 - Beta Facilities)
+
+Additional healthcare-specific tables:
+- `healthcare_metrics` - Daily cleaning metrics (rooms cleaned, compliance rates)
+- Patient rooms with `patient_status` (occupied, discharged, sterile)
+- Healthcare-specific work order categories (discharge_clean, terminal_clean, infection_control)
 
 After running syncs, verify views are created in proper tenant schemas:
 ```sql

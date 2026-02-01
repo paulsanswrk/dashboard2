@@ -63,6 +63,7 @@ const props = defineProps<{
   state: any
   preloadedColumns?: Array<{ key: string; label: string }>
   preloadedRows?: Array<Record<string, unknown>>
+  dataStatus?: 'cached' | 'pending'
   configOverride?: any
   dashboardFilters?: DashboardFilterCondition[]
   tabStyle?: TabStyleOptions
@@ -262,15 +263,22 @@ async function loadData() {
   canRetry.value = false
   
   try {
-    // Priority 1: Use preloaded data if available and no dashboard filters
-    if (props.preloadedColumns && props.preloadedRows && !props.dashboardFilters?.length) {
-      columns.value = props.preloadedColumns
-      rows.value = props.preloadedRows
-      loading.value = false
-      return
+    // Priority 1: Use cached preloaded data (dataStatus='cached' from full response)
+    // When dashboard filters are applied, we still need to refetch to apply them
+    if (props.dataStatus === 'cached' && props.preloadedColumns && props.preloadedRows) {
+      if (!props.dashboardFilters?.length) {
+        // No filters - use cached data directly
+        columns.value = props.preloadedColumns
+        rows.value = props.preloadedRows
+        loading.value = false
+        return
+      }
+      // Has filters - need to fetch with filters applied
+      // Fall through to Priority 2
     }
     
     // Priority 2: Use dedicated chart data endpoint if dashboardId and chartId are provided
+    // This handles: pending charts, cached charts with filters, explicit data fetching
     if (props.dashboardId && props.chartId) {
       const result = await fetchChartData()
       columns.value = result.columns

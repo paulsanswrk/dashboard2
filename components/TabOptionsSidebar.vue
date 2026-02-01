@@ -173,10 +173,9 @@ const widthPresetItems = [
 const isCustomModeSelected = ref(false)
 
 const showCustomWidthInput = computed(() => {
-  // Show custom input if:
-  // 1. Custom mode was explicitly selected from dropdown, OR
-  // 2. Current width doesn't match any preset
-  return isCustomModeSelected.value || !DASHBOARD_WIDTH_PRESETS.some(p => p.value === props.dashboardWidth)
+  // Show custom input only when custom mode was explicitly selected from dropdown
+  // (Don't auto-show for non-preset values - user must choose "Custom" from dropdown)
+  return isCustomModeSelected.value
 })
 
 const customWidthValue = computed(() => {

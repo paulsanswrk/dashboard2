@@ -319,10 +319,38 @@ Loading behavior:
 ### Dashboard Loading Process (Progressive)
 1. Client calls `GET /api/dashboards/[id]/full`.
 2. Server loads dashboard metadata, tabs, widgets, and chart configurations from Supabase.
-3. Server returns immediately with dashboard structure (no SQL execution).
-4. Client renders dashboard layout with loading spinners for each chart.
-5. Each chart independently calls `GET /api/dashboards/[id]/charts/[chartId]/data`.
-6. Charts render as their data arrives - failing charts don't block others.
+3. Server checks `chart_data_cache` for each chart in parallel (tenant-isolated).
+4. Server returns dashboard structure with:
+   - **Cached charts**: Include `dataStatus: 'cached'` with `preloadedColumns` and `preloadedRows`
+   - **Uncached charts**: Include `dataStatus: 'pending'` (no data)
+5. Client renders dashboard:
+   - Cached charts render immediately with preloaded data
+   - Uncached charts show loading spinners
+6. Uncached charts call `GET /api/dashboards/[id]/charts/[chartId]/data` progressively.
+7. Charts render as their data arrives - failing charts don't block others.
+
+### Smart Chart Data Loading
+
+Charts use an optimized loading strategy that minimizes API calls by leveraging cached data:
+
+| Data Status | Behavior |
+|------------|----------|
+| `cached` | Chart data included in `/full` response, renders immediately |
+| `pending` | Chart fetches data via `/charts/:chartId/data` endpoint |
+
+**Security:**
+- Raw SQL queries (`actualExecutedSql`, `sqlText`) are **never exposed** to the client
+- Chart state is sanitized via `sanitizeChartState()` before transmission
+- Cache lookups respect tenant isolation (organization → tenant_id mapping)
+
+**Cache Key Generation:**
+- Based on chart ID, SQL query hash, and filter parameters
+- Cache hits require exact match of query parameters
+
+**Implementation Files:**
+- `server/utils/sanitizeChartState.ts` - Strips sensitive fields from chart state
+- `server/utils/chart-cache.ts` - Cache lookup and storage utilities
+- `server/api/dashboards/[id]/full.get.ts` - Parallel cache lookups with Drizzle
 
 ### Auto-Saving Process
 

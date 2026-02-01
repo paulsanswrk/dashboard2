@@ -97,6 +97,7 @@
                       :config-override="findConfigOverride(item.i)"
                       :dashboard-id="dashboardId"
                       :chart-id="findChartId(item.i)"
+                      :data-status="findDataStatus(item.i)"
                       :preloaded-columns="findPreloadedColumns(item.i)"
                       :preloaded-rows="findPreloadedRows(item.i)"
                       :dashboard-filters="dashboardFilters"
@@ -176,6 +177,7 @@ interface Widget {
   state?: any
   style?: any
   configOverride?: any
+  dataStatus?: 'cached' | 'pending'
   preloadedColumns?: Array<{ key: string; label: string }>
   preloadedRows?: Array<Record<string, unknown>>
 }
@@ -309,6 +311,7 @@ const findWidgetStyle = (i: string) => findWidget(i)?.style || {}
 const findConfigOverride = (i: string) => findWidget(i)?.configOverride || {}
 const findPreloadedColumns = (i: string) => findWidget(i)?.preloadedColumns
 const findPreloadedRows = (i: string) => findWidget(i)?.preloadedRows
+const findDataStatus = (i: string) => findWidget(i)?.dataStatus
 
 function getWidgetContainerStyle(i: string): Record<string, string> {
   const widget = findWidget(i)
