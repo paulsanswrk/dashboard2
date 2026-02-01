@@ -4,46 +4,9 @@ import { db } from '~/lib/db'
 import { charts, dashboardAccess, dashboards, dashboardTabs, dashboardWidgets, profiles } from '~/lib/db/schema'
 import { and, eq, or } from 'drizzle-orm'
 import { createHash } from 'crypto'
-import { withMySqlConnection } from '../../../utils/mysqlClient.dev'
-import { withMySqlConnectionConfig } from '../../../utils/mysqlClient'
-import { supabaseAdmin } from '../../supabase'
+import { sanitizeChartState } from '../../../utils/sanitizeChartState'
 
 export default defineEventHandler(async (event) => {
-    async function loadConnectionConfigForDashboard(connectionId: number, dashboardOrgId: string) {
-        try {
-            // Verify the connection belongs to the dashboard org
-            const { data, error } = await supabaseAdmin
-                .from('data_connections')
-                .select('host, port, username, password, database_name, use_ssh_tunneling, ssh_host, ssh_port, ssh_user, ssh_password, ssh_private_key, organization_id')
-                .eq('id', Number(connectionId))
-                .single()
-
-            if (error || !data || data.organization_id !== dashboardOrgId) {
-                console.error('[preview.get.ts] Connection access denied:', { error: error?.message, hasData: !!data, orgMatch: data?.organization_id === dashboardOrgId })
-                throw createError({ statusCode: 403, statusMessage: 'Access to connection denied' })
-            }
-            return {
-                host: data.host,
-                port: Number(data.port),
-                user: data.username,
-                password: data.password,
-                database: data.database_name,
-                useSshTunneling: !!data.use_ssh_tunneling,
-                ssh: data.use_ssh_tunneling ? {
-                    host: data.ssh_host,
-                    port: Number(data.ssh_port),
-                    user: data.ssh_user,
-                    password: data.ssh_password || undefined,
-                    privateKey: data.ssh_private_key || undefined
-                } : undefined
-            }
-        } catch (e: any) {
-            if (e.statusCode) throw e
-            console.error('[preview.get.ts] Error loading connection config:', e?.message || e)
-            throw createError({ statusCode: 500, statusMessage: 'Failed to load connection config' })
-        }
-    }
-
     try {
         const dashboardId = getRouterParam(event, 'id')
         if (!dashboardId) {
@@ -61,7 +24,11 @@ export default defineEventHandler(async (event) => {
                 isPublic: dashboards.isPublic,
                 password: dashboards.password,
                 creator: dashboards.creator,
-                organizationId: dashboards.organizationId
+                organizationId: dashboards.organizationId,
+                width: dashboards.width,
+                height: dashboards.height,
+                thumbnailUrl: dashboards.thumbnailUrl,
+                createdAt: dashboards.createdAt
             })
             .from(dashboards)
             .where(eq(dashboards.id, dashboardId))
@@ -75,12 +42,9 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-
-        // Check if dashboard is public
+        // Access control: if not public, check permissions
         if (!dashboard.isPublic) {
-            // Check if user is authenticated and has permission
             const user = await serverSupabaseUser(event).catch(() => null)
-
             if (!user) {
                 throw createError({
                     statusCode: 403,
@@ -136,9 +100,8 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // Dashboard is public, check authentication requirements
+        // Check password protection
         if (dashboard.password) {
-            // Check if authenticated user has permission to bypass password
             const user = await serverSupabaseUser(event).catch(() => null)
             let hasPermission = false
 
@@ -176,13 +139,11 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            // If no permission, check cookie authentication
             if (!hasPermission) {
                 const query = getQuery(event)
                 const authToken = query.authToken as string
 
                 if (authToken) {
-                    // Verify cookie token
                     const expectedToken = createHash('sha256').update(dashboard.password).digest('hex')
                     if (authToken === expectedToken) {
                         hasPermission = true
@@ -190,7 +151,6 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            // If still no permission, password is required
             if (!hasPermission) {
                 return {
                     success: true,
@@ -200,8 +160,7 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // User is authorized, load full dashboard data with executed queries
-        // Single query to get all tabs, widgets, and chart data
+        // Load tabs and widgets
         const allData = await db
             .select({
                 tabId: dashboardTabs.id,
@@ -213,6 +172,7 @@ export default defineEventHandler(async (event) => {
                 widgetType: dashboardWidgets.type,
                 chartId: dashboardWidgets.chartId,
                 position: dashboardWidgets.position,
+                style: dashboardWidgets.style,
                 configOverride: dashboardWidgets.configOverride,
                 chartName: charts.name,
                 chartState: charts.stateJson
@@ -223,7 +183,7 @@ export default defineEventHandler(async (event) => {
             .where(eq(dashboardTabs.dashboardId, dashboard.id))
             .orderBy(dashboardTabs.position, dashboardWidgets.createdAt)
 
-        // Group by tabs and execute chart queries
+        // Group by tabs
         const tabMap = new Map()
         for (const row of allData) {
             if (!tabMap.has(row.tabId)) {
@@ -239,94 +199,28 @@ export default defineEventHandler(async (event) => {
 
             const tab = tabMap.get(row.tabId)
 
-            // Process widget if it exists
             if (row.widgetId) {
-                if (row.widgetType === 'chart' && row.chartState) {
-                    try {
-                        const sj = row.chartState as any
-                        const internal = sj.internal || {}
-                        const publicState = { ...sj }
-                        delete (publicState as any).internal
+                if (row.widgetType === 'chart') {
+                    // Sanitize chart state (remove SQL etc.)
+                    const sanitizedState = sanitizeChartState(row.chartState as any)
 
-                        // Execute chart query server-side
-                        let columns: any[] = []
-                        let rows: any[] = []
-                        const meta: Record<string, any> = {}
-
-                        try {
-                            const sql = internal.actualExecutedSql || internal.sqlText || ''
-                            const sqlParams = internal.actualExecutedSqlParams || []
-                            const connectionId = internal.dataConnectionId ?? null
-
-
-                            if (sql) {
-                                let safeSql = sql.trim()
-                                if (!/\blimit\b/i.test(safeSql)) safeSql = `${safeSql} LIMIT 500`
-
-
-                                if (connectionId) {
-                                    try {
-                                        const cfg = await loadConnectionConfigForDashboard(Number(connectionId), dashboard?.organizationId || '')
-                                        const resRows = await withMySqlConnectionConfig(cfg, async (conn) => {
-                                            const [res] = await conn.query(safeSql, sqlParams)
-                                            return res as any[]
-                                        })
-                                        rows = resRows
-                                    } catch (e: any) {
-                                        console.error('[preview.get.ts] Query error (chart', row.chartId, '):', e?.message || e)
-                                        meta.error = e?.message || 'query_failed'
-                                    }
-                                } else {
-                                    try {
-                                        const resRows = await withMySqlConnection(async (conn) => {
-                                            const [res] = await conn.query(safeSql, sqlParams)
-                                            return res as any[]
-                                        })
-                                        rows = resRows
-                                    } catch (e: any) {
-                                        console.error('[preview.get.ts] Query error (chart', row.chartId, '):', e?.message || e)
-                                        meta.error = e?.message || 'query_failed'
-                                    }
-                                }
-                                columns = rows.length ? Object.keys(rows[0]).map((k) => ({ key: k, label: k })) : []
-                            } else {
-                                meta.error = 'no_sql_available'
-                            }
-                        } catch (e: any) {
-                            meta.error = e?.message || 'data_loading_failed'
-                        }
-
-                        tab.widgets.push({
-                            widgetId: row.widgetId,
-                            type: row.widgetType,
-                            chartId: row.chartId,
-                            name: row.chartName || '',
-                            position: row.position,
-                            configOverride: row.configOverride || {},
-                            state: publicState,
-                            data: { columns, rows, meta }
-                        })
-                    } catch (e: any) {
-                        console.error('[preview.get.ts] Error processing chart', row.chartId, ':', e?.message || e)
-                        tab.widgets.push({
-                            widgetId: row.widgetId,
-                            type: row.widgetType,
-                            chartId: row.chartId,
-                            name: row.chartName || '',
-                            position: row.position,
-                            configOverride: row.configOverride || {},
-                            state: {},
-                            data: { columns: [], rows: [], meta: { error: e?.message || 'chart_processing_failed' } }
-                        })
-                    }
-                } else {
-                    // Non-chart widget
                     tab.widgets.push({
                         widgetId: row.widgetId,
-                        type: row.widgetType,
+                        type: 'chart',
                         chartId: row.chartId,
                         name: row.chartName || '',
                         position: row.position,
+                        style: row.style || {},
+                        configOverride: row.configOverride || {},
+                        state: sanitizedState,
+                        dataStatus: 'pending' // Indicate progressive loading is needed
+                    })
+                } else {
+                    tab.widgets.push({
+                        widgetId: row.widgetId,
+                        type: row.widgetType,
+                        position: row.position,
+                        style: row.style || {},
                         configOverride: row.configOverride || {},
                         state: row.chartState || {}
                     })
@@ -334,17 +228,15 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        const tabResults = Array.from(tabMap.values())
-
         return {
             id: dashboard.id,
             name: dashboard.name,
             isPublic: dashboard.isPublic,
-            createdAt: dashboard.created_at,
+            createdAt: dashboard.createdAt,
             width: dashboard.width,
             height: dashboard.height,
-            thumbnailUrl: dashboard.thumbnail_url,
-            tabs: tabResults
+            thumbnailUrl: dashboard.thumbnailUrl,
+            tabs: Array.from(tabMap.values())
         }
 
     } catch (error: any) {

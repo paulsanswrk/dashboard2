@@ -236,7 +236,8 @@ async function fetchChartData(): Promise<{ columns: any[]; rows: any[]; error?: 
         `/api/dashboards/${props.dashboardId}/charts/${props.chartId}/data`,
         { params: {
           ...params,
-          ...(renderContextToken?.value ? { context: renderContextToken.value } : {})
+          ...(renderContextToken?.value ? { context: renderContextToken.value } : {}),
+          ...(props.dashboardId ? { authToken: useCookie(`dashboard_${props.dashboardId}_auth`).value } : {})
         } }
       )
       

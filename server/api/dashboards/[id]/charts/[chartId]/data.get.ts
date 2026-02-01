@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { defineEventHandler, getQuery } from 'h3'
 // @ts-ignore Nuxt Supabase helper available at runtime
 import { serverSupabaseUser } from '#supabase/server'
@@ -46,6 +47,7 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event)
     const contextToken = query.context as string | undefined
+    const authToken = query.authToken as string | undefined
     const filterOverridesParam = query.filterOverrides as string | undefined
     const isRenderContext = contextToken ? validateRenderContext(contextToken) : false
 
@@ -64,7 +66,7 @@ export default defineEventHandler(async (event) => {
     try {
         const { data, error: dashError } = await supabaseAdmin
             .from('dashboards')
-            .select('id, name, organization_id, creator, is_public')
+            .select('id, name, organization_id, creator, is_public, password')
             .eq('id', dashboardId)
             .single()
 
@@ -113,6 +115,37 @@ export default defineEventHandler(async (event) => {
                 if (!accessRules || accessRules.length === 0) {
                     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
                 }
+            }
+        } else if (dashboard.is_public && dashboard.password) {
+            // Check password protection for public dashboards
+            const user = await serverSupabaseUser(event).catch(() => null as any)
+            let hasPermission = false
+
+            if (user) {
+                const { data: profile } = await supabaseAdmin
+                    .from('profiles')
+                    .select('organization_id, role')
+                    .eq('user_id', user.id)
+                    .single()
+
+                if (profile) {
+                    if (dashboard.creator === user.id) {
+                        hasPermission = true
+                    } else if (profile.role === 'SUPERADMIN' || (profile.role === 'ADMIN' && profile.organization_id === dashboard.organization_id)) {
+                        hasPermission = true
+                    }
+                }
+            }
+
+            if (!hasPermission && authToken) {
+                const expectedToken = createHash('sha256').update(dashboard.password).digest('hex')
+                if (authToken === expectedToken) {
+                    hasPermission = true
+                }
+            }
+
+            if (!hasPermission && !isRenderContext) {
+                throw createError({ statusCode: 403, statusMessage: 'Password required' })
             }
         } else {
             // For public dashboards or render context, capture org context if user is present
@@ -219,6 +252,8 @@ export default defineEventHandler(async (event) => {
                 // Derive tenant ID for caching (used as cache partition key)
                 let tenantId: string | undefined
                 const user = await serverSupabaseUser(event).catch(() => null as any)
+                let effectiveOrgId = dashboard.organization_id
+
                 if (user) {
                     const { data: profile } = await supabaseAdmin
                         .from('profiles')
@@ -227,14 +262,18 @@ export default defineEventHandler(async (event) => {
                         .maybeSingle()
 
                     if (profile?.organization_id) {
-                        const org = await db.select({ tenantId: organizations.tenantId })
-                            .from(organizations)
-                            .where(eq(organizations.id, profile.organization_id))
-                            .limit(1)
-                            .then(rows => rows[0])
-
-                        tenantId = org?.tenantId || undefined
+                        effectiveOrgId = profile.organization_id
                     }
+                }
+
+                if (effectiveOrgId) {
+                    const org = await db.select({ tenantId: organizations.tenantId })
+                        .from(organizations)
+                        .where(eq(organizations.id, effectiveOrgId))
+                        .limit(1)
+                        .then(rows => rows[0])
+
+                    tenantId = org?.tenantId || undefined
                 }
                 const effectiveTenantId = tenantId || 'default'
 
@@ -289,9 +328,11 @@ export default defineEventHandler(async (event) => {
                         // OptiqoFlow data with tenant isolation
                         console.log(`[chart-data] Using optiqoflow for connection ${connectionId}`)
 
-                        // Get tenant ID from user's organization
-                        let tenantId: string | undefined
+                        // Get tenant ID from user's organization (fallback to dashboard org)
+                        let tenantIdForQuery: string | undefined
                         const user = await serverSupabaseUser(event).catch(() => null as any)
+                        let orgIdForLookup = dashboard.organization_id
+
                         if (user) {
                             const { data: profile } = await supabaseAdmin
                                 .from('profiles')
@@ -300,22 +341,26 @@ export default defineEventHandler(async (event) => {
                                 .maybeSingle()
 
                             if (profile?.organization_id) {
-                                const org = await db.select({ tenantId: organizations.tenantId })
-                                    .from(organizations)
-                                    .where(eq(organizations.id, profile.organization_id))
-                                    .limit(1)
-                                    .then(rows => rows[0])
-
-                                tenantId = org?.tenantId || undefined
+                                orgIdForLookup = profile.organization_id
                             }
                         }
 
-                        if (!tenantId) {
-                            throw new Error('User must be associated with an organization that has a tenant_id configured for Optiqoflow data access.')
+                        if (orgIdForLookup) {
+                            const org = await db.select({ tenantId: organizations.tenantId })
+                                .from(organizations)
+                                .where(eq(organizations.id, orgIdForLookup))
+                                .limit(1)
+                                .then(rows => rows[0])
+
+                            tenantIdForQuery = org?.tenantId || undefined
+                        }
+
+                        if (!tenantIdForQuery) {
+                            throw new Error('Associated organization does not have a tenant_id configured for Optiqoflow data access.')
                         }
 
                         const pgSql = translateIdentifiers(querySql)
-                        return await executeOptiqoflowQuery(pgSql, sqlParams, tenantId)
+                        return await executeOptiqoflowQuery(pgSql, sqlParams, tenantIdForQuery)
                     }
 
                     if (storageLocation === 'supabase_synced') {

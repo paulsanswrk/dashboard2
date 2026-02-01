@@ -83,6 +83,7 @@
       :loading="loading"
       :preview="true"
       :dashboard-width="dashboardWidth"
+      :dashboard-id="id"
   />
 </template>
 
