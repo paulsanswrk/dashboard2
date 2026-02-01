@@ -201,6 +201,7 @@ async function loadDashboardFromResponse(res: any) {
     name: w.name,
     position: w.position,
     state: w.state,
+    dataStatus: w.dataStatus, // 'cached' or 'pending'
     preloadedColumns: w.data?.columns,
     preloadedRows: w.data?.rows
   }))

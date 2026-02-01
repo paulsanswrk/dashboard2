@@ -1,10 +1,12 @@
 // @ts-ignore Nuxt Supabase helper available at runtime
 import { serverSupabaseUser } from '#supabase/server'
 import { db } from '~/lib/db'
-import { charts, dashboardAccess, dashboards, dashboardTabs, dashboardWidgets, profiles } from '~/lib/db/schema'
-import { and, eq, or } from 'drizzle-orm'
+import { charts, dashboardAccess, dashboards, dashboardTabs, dashboardWidgets, profiles, organizations } from '~/lib/db/schema'
+import { and, eq, or, inArray } from 'drizzle-orm'
 import { createHash } from 'crypto'
-import { sanitizeChartState } from '../../../utils/sanitizeChartState'
+import { sanitizeChartState, extractSqlFromState, extractDataConnectionId } from '../../../utils/sanitizeChartState'
+import { getCachedChartData, generateCacheKey } from '../../../utils/chart-cache'
+import { supabaseAdmin } from '../../supabase'
 
 export default defineEventHandler(async (event) => {
     try {
@@ -183,6 +185,72 @@ export default defineEventHandler(async (event) => {
             .where(eq(dashboardTabs.dashboardId, dashboard.id))
             .orderBy(dashboardTabs.position, dashboardWidgets.createdAt)
 
+        // Collect chart IDs for cache lookup
+        const chartIds: number[] = allData
+            .filter(row => row.widgetType === 'chart' && row.chartId != null)
+            .map(row => row.chartId as number)
+
+        // Resolve tenant ID for cache lookups (using dashboard's organization)
+        let effectiveTenantId: string = 'default'
+        if (dashboard.organizationId) {
+            try {
+                const orgRecord = await db.select({ tenantId: organizations.tenantId })
+                    .from(organizations)
+                    .where(eq(organizations.id, dashboard.organizationId))
+                    .limit(1)
+                    .then(rows => rows[0])
+                effectiveTenantId = orgRecord?.tenantId || 'default'
+            } catch (e) {
+                console.warn('[preview.get.ts] Could not resolve tenant ID for cache lookup')
+            }
+        }
+
+        // Parallel cache lookup for all charts
+        const cacheByChartId: Record<number, { cached: boolean; columns?: any[]; rows?: any[] }> = {}
+        if (chartIds.length > 0) {
+            try {
+                const cachePromises = chartIds.map(async (chartId) => {
+                    const chartRow = allData.find(r => r.chartId === chartId)
+                    if (!chartRow || !chartRow.chartState) {
+                        console.log(`[preview.get.ts] Cache lookup skipped for chart ${chartId}: no chart state`)
+                        return { chartId, cached: false }
+                    }
+
+                    const stateJson = chartRow.chartState as Record<string, unknown>
+                    const sql = extractSqlFromState(stateJson)
+                    const connectionId = extractDataConnectionId(stateJson)
+
+                    console.log(`[preview.get.ts] Chart ${chartId}: sql=${sql ? 'present' : 'missing'}, connectionId=${connectionId}`)
+
+                    // Only check cache for charts with SQL and connection
+                    if (!sql || !connectionId) {
+                        console.log(`[preview.get.ts] Cache lookup skipped for chart ${chartId}: sql or connectionId missing`)
+                        return { chartId, cached: false }
+                    }
+
+                    // Generate cache key (without filters - base query only)
+                    const cacheKey = generateCacheKey(chartId, { sql, dataSource: 'query', filters: [] })
+                    const cachedResult = await getCachedChartData(supabaseAdmin, chartId, effectiveTenantId, cacheKey)
+
+                    if (cachedResult && cachedResult.hit) {
+                        const cachedRows = cachedResult.data as any[]
+                        const columns = cachedRows.length > 0
+                            ? Object.keys(cachedRows[0]).map(k => ({ key: k, label: k }))
+                            : []
+                        return { chartId, cached: true, columns, rows: cachedRows }
+                    }
+                    return { chartId, cached: false }
+                })
+
+                const cacheResults = await Promise.all(cachePromises)
+                for (const result of cacheResults) {
+                    cacheByChartId[result.chartId] = result
+                }
+            } catch (e) {
+                console.warn('[preview.get.ts] Cache lookup failed, proceeding without cached data:', e)
+            }
+        }
+
         // Group by tabs
         const tabMap = new Map()
         for (const row of allData) {
@@ -204,6 +272,10 @@ export default defineEventHandler(async (event) => {
                     // Sanitize chart state (remove SQL etc.)
                     const sanitizedState = sanitizeChartState(row.chartState as any)
 
+                    // Check for cached data
+                    const cacheEntry = row.chartId ? cacheByChartId[row.chartId] : undefined
+                    const hasCachedData = cacheEntry?.cached === true
+
                     tab.widgets.push({
                         widgetId: row.widgetId,
                         type: 'chart',
@@ -213,7 +285,12 @@ export default defineEventHandler(async (event) => {
                         style: row.style || {},
                         configOverride: row.configOverride || {},
                         state: sanitizedState,
-                        dataStatus: 'pending' // Indicate progressive loading is needed
+                        // Progressive loading: if cached, include data; otherwise pending
+                        dataStatus: hasCachedData ? 'cached' : 'pending',
+                        data: hasCachedData ? {
+                            columns: cacheEntry!.columns,
+                            rows: cacheEntry!.rows
+                        } : undefined
                     })
                 } else {
                     tab.widgets.push({
