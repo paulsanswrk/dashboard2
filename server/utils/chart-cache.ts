@@ -190,34 +190,75 @@ export async function getChartDependencies(
 export function extractTablesFromStateJson(stateJson: Record<string, unknown>): string[] {
     const tables = new Set<string>()
 
-    // Extract from selectedColumns
-    const selectedColumns = stateJson.selectedColumns as Array<{ table?: string }> | undefined
-    if (Array.isArray(selectedColumns)) {
-        selectedColumns.forEach(col => {
-            if (col.table) tables.add(col.table)
-        })
+    // Helper to extract from an object at any level
+    const extractFromObject = (obj: Record<string, unknown>) => {
+        // Extract from selectedColumns
+        const selectedColumns = obj.selectedColumns as Array<{ table?: string }> | undefined
+        if (Array.isArray(selectedColumns)) {
+            selectedColumns.forEach(col => {
+                if (col.table) tables.add(col.table)
+            })
+        }
+
+        // Extract from xDimensions (used in chart builder)
+        const xDimensions = obj.xDimensions as Array<{ table?: string }> | undefined
+        if (Array.isArray(xDimensions)) {
+            xDimensions.forEach(dim => {
+                if (dim.table) tables.add(dim.table)
+            })
+        }
+
+        // Extract from yMetrics (used in chart builder)
+        const yMetrics = obj.yMetrics as Array<{ table?: string }> | undefined
+        if (Array.isArray(yMetrics)) {
+            yMetrics.forEach(metric => {
+                if (metric.table) tables.add(metric.table)
+            })
+        }
+
+        // Extract from breakdowns (used in chart builder)
+        const breakdowns = obj.breakdowns as Array<{ table?: string }> | undefined
+        if (Array.isArray(breakdowns)) {
+            breakdowns.forEach(b => {
+                if (b.table) tables.add(b.table)
+            })
+        }
+
+        // Extract from filters
+        const filters = obj.filters as Array<{ table?: string }> | undefined
+        if (Array.isArray(filters)) {
+            filters.forEach(f => {
+                if (f.table) tables.add(f.table)
+            })
+        }
+
+        // Extract from joins
+        const joins = obj.joins as Array<{ leftTable?: string; rightTable?: string }> | undefined
+        if (Array.isArray(joins)) {
+            joins.forEach(j => {
+                if (j.leftTable) tables.add(j.leftTable)
+                if (j.rightTable) tables.add(j.rightTable)
+            })
+        }
+
+        // Extract from table field
+        if (typeof obj.table === 'string') {
+            tables.add(obj.table)
+        }
+
+        // Extract from selectedDatasetId (the primary table)
+        if (typeof obj.selectedDatasetId === 'string') {
+            tables.add(obj.selectedDatasetId)
+        }
     }
 
-    // Extract from filters
-    const filters = stateJson.filters as Array<{ table?: string }> | undefined
-    if (Array.isArray(filters)) {
-        filters.forEach(f => {
-            if (f.table) tables.add(f.table)
-        })
-    }
+    // Extract from top level
+    extractFromObject(stateJson)
 
-    // Extract from joins
-    const joins = stateJson.joins as Array<{ leftTable?: string; rightTable?: string }> | undefined
-    if (Array.isArray(joins)) {
-        joins.forEach(j => {
-            if (j.leftTable) tables.add(j.leftTable)
-            if (j.rightTable) tables.add(j.rightTable)
-        })
-    }
-
-    // Extract from table field
-    if (typeof stateJson.table === 'string') {
-        tables.add(stateJson.table)
+    // Also extract from internal structure (state_json stores public + internal)
+    const internal = stateJson.internal as Record<string, unknown> | undefined
+    if (internal && typeof internal === 'object') {
+        extractFromObject(internal)
     }
 
     return Array.from(tables)
