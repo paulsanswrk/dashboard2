@@ -343,8 +343,22 @@ function onJoinPathSave() {
   // The preview refresh is handled by the automatic watcher
 }
 
-// AI mode toggle
+// AI mode toggle (persisted to localStorage)
+const AI_MODE_STORAGE_KEY = 'optiqo-chart-builder-ai-mode'
 const aiModeEnabled = ref(true)
+
+// Load AI mode preference from localStorage on mount
+onMounted(() => {
+  const stored = localStorage.getItem(AI_MODE_STORAGE_KEY)
+  if (stored !== null) {
+    aiModeEnabled.value = stored === 'true'
+  }
+})
+
+// Persist AI mode preference to localStorage
+watch(aiModeEnabled, (newValue) => {
+  localStorage.setItem(AI_MODE_STORAGE_KEY, String(newValue))
+})
 
 // AI chat state
 const aiMessages = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([])

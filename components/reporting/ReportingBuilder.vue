@@ -799,11 +799,23 @@ const canAutoPreview = computed(() => {
 
   return false
 })
+// Debounce timer for auto-preview
+let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
 watch([xDimensions, yMetrics, breakdowns, filters, joins], async () => {
   if (!canAutoPreview.value) return
   if (useSql.value) return
   if (skipAutoPreview.value) return  // Skip during debug config apply to prevent double request
-  await onTestPreview()
+  
+  // Clear existing timer
+  if (previewDebounceTimer) {
+    clearTimeout(previewDebounceTimer)
+  }
+  
+  // Debounce preview requests by 250ms to batch rapid changes
+  previewDebounceTimer = setTimeout(async () => {
+    await onTestPreview()
+  }, 250)
 }, { deep: true })
 
 // Emit chartType changes for parent components

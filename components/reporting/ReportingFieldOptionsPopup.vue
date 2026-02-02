@@ -335,13 +335,25 @@ const localDateInterval = ref<string | undefined>(undefined)
 const localExcludeFuture = ref(false)
 const localExcludeCurrent = ref(false)
 
+// Original values for change detection
+const originalLabel = ref('')
+const originalAggregation = ref<string | undefined>(undefined)
+const originalSort = ref<'asc' | 'desc' | undefined>(undefined)
+const originalDateInterval = ref<string | undefined>(undefined)
+const originalFilterValues = ref<string[]>([])
+const originalExcludeMode = ref(false)
+const originalDateRangeType = ref<'static' | 'dynamic'>('dynamic')
+const originalDynamicRange = ref<string | undefined>('last_30_days')
+const originalDateRangeStart = ref('')
+const originalDateRangeEnd = ref('')
+
 // Label editing state
 const isEditingLabel = ref(false)
 const labelInput = ref<HTMLInputElement | null>(null)
-const originalLabel = ref('')
+const labelBeforeEdit = ref('')
 
 function startEditingLabel() {
-  originalLabel.value = localLabel.value
+  labelBeforeEdit.value = localLabel.value
   isEditingLabel.value = true
   nextTick(() => {
     labelInput.value?.focus()
@@ -354,7 +366,7 @@ function stopEditingLabel() {
 }
 
 function cancelEditingLabel() {
-  localLabel.value = originalLabel.value
+  localLabel.value = labelBeforeEdit.value
   isEditingLabel.value = false
 }
 
@@ -523,7 +535,19 @@ const popupStyle = computed(() => ({
 // Sync local state when field changes
 watch(() => props.field, (newField) => {
   if (newField) {
-    localAggregation.value = (newField as MetricRef).aggregation
+    // Set local values
+    // For metric zones, set default aggregation if not specified (SUM for numeric, COUNT for text)
+    const existingAgg = (newField as MetricRef).aggregation
+    if (existingAgg) {
+      localAggregation.value = existingAgg
+    } else if (props.zone === 'y' || props.zone === 'sizeValue' || props.zone === 'targetValue') {
+      // Determine field type to set appropriate default
+      const type = newField.type?.toLowerCase() || ''
+      const isNumeric = numericTypes.some(t => type.includes(t))
+      localAggregation.value = isNumeric ? 'SUM' : 'COUNT'
+    } else {
+      localAggregation.value = undefined
+    }
     localSort.value = (newField as DimensionRef).sort
     localDateInterval.value = (newField as DimensionRef).dateInterval || 'days'
     localLabel.value = newField.label || newField.name || ''
@@ -539,6 +563,18 @@ watch(() => props.field, (newField) => {
     localDynamicRange.value = dim.dynamicRange || 'last_30_days'
     localDateRangeStart.value = dim.dateRangeStart || ''
     localDateRangeEnd.value = dim.dateRangeEnd || ''
+
+    // Store original values for change detection
+    originalLabel.value = localLabel.value
+    originalAggregation.value = localAggregation.value
+    originalSort.value = localSort.value
+    originalDateInterval.value = localDateInterval.value
+    originalFilterValues.value = [...localFilterValues.value]
+    originalExcludeMode.value = localExcludeMode.value
+    originalDateRangeType.value = localDateRangeType.value
+    originalDynamicRange.value = localDynamicRange.value
+    originalDateRangeStart.value = localDateRangeStart.value
+    originalDateRangeEnd.value = localDateRangeEnd.value
 
     // Reset lists/searches
     distinctValues.value = []
@@ -562,7 +598,44 @@ watch(() => props.visible, (newVisible) => {
   }
 })
 
+// Check if any values have actually changed
+function hasChanges(): boolean {
+  if (localLabel.value !== originalLabel.value) return true
+  
+  if (isMetricZone.value) {
+    if (localAggregation.value !== originalAggregation.value) return true
+  }
+  
+  if (props.zone === 'x' || props.zone === 'breakdowns') {
+    if (localSort.value !== originalSort.value) return true
+    
+    if (isDateField.value) {
+      if (localDateInterval.value !== originalDateInterval.value) return true
+      if (localDateRangeType.value !== originalDateRangeType.value) return true
+      if (localDateRangeType.value === 'dynamic') {
+        if (localDynamicRange.value !== originalDynamicRange.value) return true
+      } else {
+        if (localDateRangeStart.value !== originalDateRangeStart.value) return true
+        if (localDateRangeEnd.value !== originalDateRangeEnd.value) return true
+      }
+    } else {
+      // Check filter values
+      if (localExcludeMode.value !== originalExcludeMode.value) return true
+      if (localFilterValues.value.length !== originalFilterValues.value.length) return true
+      if (!localFilterValues.value.every(v => originalFilterValues.value.includes(v))) return true
+    }
+  }
+  
+  return false
+}
+
 function apply() {
+  // Skip if nothing changed - prevents unnecessary API requests
+  if (!hasChanges()) {
+    emit('cancel') // Just close the popup
+    return
+  }
+
   const updates: Partial<MetricRef & DimensionRef> = {
     label: localLabel.value || undefined
   }
