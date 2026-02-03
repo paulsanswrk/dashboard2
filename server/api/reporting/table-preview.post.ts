@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
         console.log(`[table-preview] Connection ${connectionId}, storage_location=${storageLocation}, database_type=${(connection as any)?.database_type}`)
 
         // Route based on storage_location
-        if (storageLocation === 'optiqoflow' || storageLocation === 'supabase_synced') {
+        if (isInternalStorage(storageLocation)) {
             let sql: string
             let rows: any[]
 

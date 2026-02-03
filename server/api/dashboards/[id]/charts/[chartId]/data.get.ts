@@ -289,8 +289,7 @@ export default defineEventHandler(async (event) => {
                 // - optiqoflow: Cache based on cache_status and dynamic filters
                 // - supabase_synced: Always cache (permanent until manual refresh)
                 const shouldUseCache =
-                    storageLocation === 'external' ||
-                    storageLocation === 'supabase_synced' ||
+                    usePermanentCache(storageLocation) ||
                     (storageLocation === 'optiqoflow' && chart.cache_status !== 'dynamic' && !chart.has_dynamic_filter)
 
                 // Try to get cached data
@@ -408,13 +407,7 @@ export default defineEventHandler(async (event) => {
                                 password: data.password,
                                 database: data.database_name,
                                 useSshTunneling: !!data.use_ssh_tunneling,
-                                ssh: data.use_ssh_tunneling ? {
-                                    host: data.ssh_host,
-                                    port: Number(data.ssh_port),
-                                    user: data.ssh_user,
-                                    password: data.ssh_password || undefined,
-                                    privateKey: data.ssh_private_key || undefined
-                                } : undefined
+                                ssh: buildSshConfig(data)
                             }
                         } else {
                             cfg = await loadConnectionConfigFromSupabase(event, Number(connectionId))
@@ -443,13 +436,7 @@ export default defineEventHandler(async (event) => {
                             password: data.password,
                             database: data.database_name,
                             useSshTunneling: !!data.use_ssh_tunneling,
-                            ssh: data.use_ssh_tunneling ? {
-                                host: data.ssh_host,
-                                port: Number(data.ssh_port),
-                                user: data.ssh_user,
-                                password: data.ssh_password || undefined,
-                                privateKey: data.ssh_private_key || undefined
-                            } : undefined
+                            ssh: buildSshConfig(data)
                         }
                     }
 

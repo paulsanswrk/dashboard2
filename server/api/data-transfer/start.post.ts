@@ -46,11 +46,11 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    // Check if storage location is set to internal
-    if (connection.storageLocation !== 'internal') {
+    // Check if storage location is set to internal storage (optiqoflow or supabase_synced - both use data transfer)
+    if (!isInternalStorage(connection.storageLocation)) {
         throw createError({
             statusCode: 400,
-            statusMessage: 'Connection must have storage_location set to "internal" for data transfer'
+            statusMessage: 'Connection must have storage_location set to internal storage (optiqoflow or supabase_synced) for data transfer'
         })
     }
 

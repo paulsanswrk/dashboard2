@@ -39,6 +39,22 @@ function formatDateForPostgres(val: string): string {
 }
 
 /**
+ * Convert MySQL SET value to PostgreSQL text[] array literal
+ * MySQL returns SET as comma-separated string like "Deleted Scenes,Behind the Scenes"
+ * PostgreSQL expects array format like {"Deleted Scenes","Behind the Scenes"}
+ */
+function convertSetToArray(val: string): string {
+    if (!val || val === '') {
+        return '{}' // Empty array
+    }
+    // Split by comma, escape double quotes in each value, wrap in quotes, join with comma
+    const items = val.split(',').map(item =>
+        '"' + item.replace(/"/g, '\\"') + '"'
+    )
+    return '{' + items.join(',') + '}'
+}
+
+/**
  * Generate a unique schema name for a connection
  * Format: conn_{short_uuid}_{normalized_db_name}
  */
@@ -218,12 +234,14 @@ export async function getTablesInSchema(schemaName: string): Promise<string[]> {
 
 /**
  * Bulk insert data into a table using Drizzle
+ * @param columnTypes Optional array of MySQL column types for special handling (e.g., SET -> text[])
  */
 export async function bulkInsert(
     schemaName: string,
     tableName: string,
     columns: string[],
-    rows: any[][]
+    rows: any[][],
+    columnTypes?: string[]
 ): Promise<{ success: boolean; rowsInserted: number; error?: string }> {
     if (rows.length === 0) {
         return { success: true, rowsInserted: 0 }
@@ -287,10 +305,20 @@ export async function bulkInsert(
         for (let i = 0; i < rows.length; i += BATCH_SIZE) {
             const batchRows = rows.slice(i, i + BATCH_SIZE)
             const batchValuesClauses = batchRows.map(row => {
-                const values = row.map(val => {
+                const values = row.map((val, colIndex) => {
                     if (val === null || val === undefined) return 'NULL'
                     // Check for MySQL zero-dates that PostgreSQL cannot handle
                     if (isZeroDate(val)) return 'NULL'
+
+                    // Check if this column is a SET type (needs conversion to PostgreSQL array)
+                    const colType = columnTypes?.[colIndex]
+                    if (colType === 'set') {
+                        // Convert MySQL SET comma-separated string to PostgreSQL array literal
+                        if (val === '' || val === null) return "'{}'"
+                        const arrayLiteral = convertSetToArray(String(val))
+                        return `'${arrayLiteral}'`
+                    }
+
                     if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE'
                     if (typeof val === 'number') {
                         if (isNaN(val) || !isFinite(val)) return 'NULL'

@@ -14,8 +14,8 @@
       />
     </div>
 
-    <!-- Internal Storage Configuration (shown when internal is selected) -->
-    <div v-if="storageLocation === 'internal'" class="space-y-6 border-t pt-6">
+    <!-- Internal Storage Configuration (shown when internal or supabase_synced is selected) -->
+    <div v-if="storageLocation === 'internal' || storageLocation === 'supabase_synced'" class="space-y-6 border-t pt-6">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Sync Schedule</h3>
 
       <!-- Sync Status Display -->

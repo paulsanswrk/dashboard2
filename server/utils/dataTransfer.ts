@@ -460,7 +460,7 @@ export async function processNextQueueItem(
 
         // Read chunk from MySQL
         const offset = nextItem.lastRowOffset || 0
-        const { columns, rows } = await readMySqlChunk(
+        const { columns, columnTypes, rows } = await readMySqlChunk(
             mysqlConfig,
             nextItem.tableName,
             offset,
@@ -485,12 +485,13 @@ export async function processNextQueueItem(
             }
         }
 
-        // Insert into Supabase using Drizzle
+        // Insert into Supabase using Drizzle (with column types for SET conversion)
         const result = await bulkInsert(
             syncRecord.targetSchemaName!,
             nextItem.tableName,
             columns,
-            rows
+            rows,
+            columnTypes
         )
 
         if (!result.success) {
@@ -577,17 +578,18 @@ export async function processNextQueueItem(
 
 /**
  * Read a chunk of data from MySQL table
+ * Returns column names, column types (for SET conversion), and row data
  */
 async function readMySqlChunk(
     config: MySqlConnectionConfig,
     tableName: string,
     offset: number,
     limit: number
-): Promise<{ columns: string[]; rows: any[][] }> {
+): Promise<{ columns: string[]; columnTypes: string[]; rows: any[][] }> {
     return withMySqlConnectionConfig(config, async (conn) => {
-        // Get column names
+        // Get column names AND types (need data_type for SET detection)
         const [columnsResult] = await conn.query(
-            `SELECT column_name 
+            `SELECT column_name, data_type
              FROM information_schema.columns
              WHERE table_schema = DATABASE()
                AND table_name = ?
@@ -596,6 +598,7 @@ async function readMySqlChunk(
         ) as any[]
 
         const columns = columnsResult.map((c: any) => c.column_name || c.COLUMN_NAME)
+        const columnTypes = columnsResult.map((c: any) => (c.data_type || c.DATA_TYPE || '').toLowerCase())
 
         // Read data chunk
         const [dataResult] = await conn.query(
@@ -608,7 +611,7 @@ async function readMySqlChunk(
             columns.map((col: string) => row[col])
         )
 
-        return { columns, rows }
+        return { columns, columnTypes, rows }
     })
 }
 

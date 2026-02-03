@@ -5,7 +5,6 @@ import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { buildGraph } from '../../utils/schemaGraph'
 import { AuthHelper } from '../../utils/authHelper'
-import { loadInternalStorageInfo } from '../../utils/internalStorageQuery'
 import { getTableRelationships } from '../../utils/optiqoflowQuery'
 
 // Update fields on an existing connection. Supports updating schema_json.
@@ -61,27 +60,29 @@ export default defineEventHandler(async (event) => {
 
     if (tables.length) {
       // Check if this is an internal connection (PostgreSQL) - skip MySQL enrichment
-      // Three cases: 
+      // Two cases that use internal path for schema discovery:
       // 1. Internal data source (database_type='internal')
-      // 2. Internal storage (storage_location='internal')
-      // 3. OptiqoFlow connections (storage_location='optiqoflow')
+      // 2. OptiqoFlow connections (storage_location='optiqoflow')
+      // 
+      // Note: supabase_synced connections should NOT use internal path for schema discovery!
+      // They are MySQL databases that sync data to PostgreSQL. Schema/FKs come from MySQL,
+      // only data query execution routes to PostgreSQL.
       const isInternalDataSource = (connection as any)?.database_type === 'internal'
       const isOptiqoFlowSource = (connection as any)?.storage_location === 'optiqoflow'
-      const storageInfo = await loadInternalStorageInfo(connectionId)
-      const useInternalPath = isInternalDataSource || isOptiqoFlowSource || storageInfo.useInternalStorage
+      // Only use internal path for actual internal sources - NOT for supabase_synced
+      const useInternalPath = isInternalDataSource || isOptiqoFlowSource
 
       console.log(`[AUTO_JOIN] Routing decision for connection ${connectionId}:`, {
         database_type: (connection as any)?.database_type,
         storage_location: (connection as any)?.storage_location,
         isInternalDataSource,
         isOptiqoFlowSource,
-        storageInfo,
         useInternalPath
       })
 
       if (useInternalPath) {
         // For internal connections, skip MySQL-specific enrichment
-        console.log(`[AUTO_JOIN] Internal connection detected (dataSource=${isInternalDataSource}, optiqoflow=${isOptiqoFlowSource}, storage=${storageInfo.useInternalStorage}), skipping MySQL enrichment for connection ${connectionId}`)
+        console.log(`[AUTO_JOIN] Internal connection detected (dataSource=${isInternalDataSource}, optiqoflow=${isOptiqoFlowSource}), skipping MySQL enrichment for connection ${connectionId}`)
 
         // For internal data sources and OptiqoFlow connections, fetch FKs from table_relationships and merge
         let fksByTable: Record<string, any[]> = {}
@@ -217,25 +218,25 @@ export default defineEventHandler(async (event) => {
           ) as any
 
           // 4. Fetch ALL Foreign Keys involving these tables (as source OR target)
-          // Note: For large schemas, 'kcu.referenced_table_name in (?)' might be slow if index is missing,
-          // but typically information_schema is optimized enough or small enough.
+          // Note: Using KEY_COLUMN_USAGE directly as referential_constraints may be empty in MariaDB
           console.log(`[AUTO_JOIN] Fetching Foreign Keys for ${tableIds.length} tables`)
           const [allFkRows] = await conn.query(
-            `select rc.constraint_name,
+            `select kcu.constraint_name,
                   kcu.table_name as source_table,
                   kcu.referenced_table_name as target_table,
                   kcu.ordinal_position as position,
                   kcu.column_name as source_column,
                   kcu.referenced_column_name as target_column,
-                  rc.update_rule,
-                  rc.delete_rule
-           from information_schema.referential_constraints rc
-           join information_schema.key_column_usage kcu
-             on rc.constraint_name = kcu.constraint_name
-            and rc.constraint_schema = kcu.constraint_schema
+                  COALESCE(rc.update_rule, 'RESTRICT') as update_rule,
+                  COALESCE(rc.delete_rule, 'RESTRICT') as delete_rule
+           from information_schema.key_column_usage kcu
+           left join information_schema.referential_constraints rc
+             on kcu.constraint_name = rc.constraint_name
+            and kcu.constraint_schema = rc.constraint_schema
            where kcu.table_schema = database()
+             and kcu.referenced_table_name is not null
              and (kcu.table_name in (?) or kcu.referenced_table_name in (?))
-           order by rc.constraint_name, kcu.ordinal_position`,
+           order by kcu.constraint_name, kcu.ordinal_position`,
             [tableIds, tableIds]
           ) as any
 

@@ -100,8 +100,7 @@ export default defineEventHandler(async (event) => {
     // - optiqoflow: Cache based on cache_status and dynamic filters
     // - supabase_synced: Always cache (permanent until manual refresh)
     const shouldUseCache = !bypassCache && (
-        storageLocation === 'external' ||
-        storageLocation === 'supabase_synced' ||
+        usePermanentCache(storageLocation) ||
         (storageLocation === 'optiqoflow' && chart.cache_status !== 'dynamic' && !chart.has_dynamic_filter)
     )
 
@@ -164,6 +163,7 @@ export default defineEventHandler(async (event) => {
 
             case 'supabase_synced': {
                 // Synced MySQL data in Supabase PostgreSQL
+                // Native PostgreSQL queries - no translation needed
                 const storageInfo = await loadInternalStorageInfo(effectiveConnectionId!)
                 if (!storageInfo.useInternalStorage || !storageInfo.schemaName) {
                     return {
@@ -175,8 +175,7 @@ export default defineEventHandler(async (event) => {
                         }
                     }
                 }
-                const pgSql = translateIdentifiers(sql)
-                rows = await executeInternalStorageQuery(storageInfo.schemaName, pgSql, [])
+                rows = await executeInternalStorageQuery(storageInfo.schemaName, sql, [])
                 break
             }
 

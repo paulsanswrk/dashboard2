@@ -21,14 +21,14 @@ export default defineEventHandler(async (event) => {
         columns: 'id, organization_id, database_type, storage_location'
     })
 
-    const isInternalDataSource = (connection as any)?.database_type === 'internal'
+    const isInternal = isInternalDataSource(connection as any)
     const isOptiqoFlowSource = (connection as any)?.storage_location === 'optiqoflow'
     const storageInfo = await loadInternalStorageInfo(connId)
 
     console.log(`[table-row-counts] Connection ${connId}:`, {
         database_type: (connection as any)?.database_type,
         storage_location: (connection as any)?.storage_location,
-        isInternalDataSource,
+        isInternal,
         isOptiqoFlowSource,
         useInternalStorage: storageInfo.useInternalStorage,
         schemaName: storageInfo.schemaName
@@ -120,7 +120,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Handle internal data source (optiqoflow schema)
-    if (isInternalDataSource) {
+    if (isInternal) {
         try {
             const rows = await pgClient.unsafe(`
         SELECT 

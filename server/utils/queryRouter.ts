@@ -8,11 +8,13 @@ import { loadConnectionConfigFromSupabase } from './connectionConfig'
 import { withMySqlConnectionConfig } from './mysqlClient'
 import { executeOptiqoflowQuery, translateIdentifiers } from './optiqoflowQuery'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from './internalStorageQuery'
+import { type StorageLocation, requiresIdentifierTranslation } from './storageHelpers'
 import { db } from '../../lib/db'
 import { dataConnections } from '../../lib/db/schema'
 import { eq } from 'drizzle-orm'
 
-export type StorageLocation = 'external' | 'optiqoflow' | 'supabase_synced'
+// Re-export for backwards compatibility
+export type { StorageLocation } from './storageHelpers'
 
 export interface QueryRouterOptions {
     connectionId: number
@@ -75,6 +77,7 @@ export async function routeAndExecuteQuery(options: QueryRouterOptions): Promise
 
             case 'supabase_synced': {
                 // Synced MySQL data in Supabase PostgreSQL
+                // Queries are already native PostgreSQL (no translation needed)
                 const storageInfo = await loadInternalStorageInfo(connectionId)
                 if (!storageInfo.useInternalStorage || !storageInfo.schemaName) {
                     return {
@@ -83,8 +86,7 @@ export async function routeAndExecuteQuery(options: QueryRouterOptions): Promise
                         error: 'Synced storage not configured properly for this connection'
                     }
                 }
-                const pgSql = translateIdentifiers(sql)
-                rows = await executeInternalStorageQuery(storageInfo.schemaName, pgSql, params)
+                rows = await executeInternalStorageQuery(storageInfo.schemaName, sql, params)
                 break
             }
 

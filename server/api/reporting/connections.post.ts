@@ -30,6 +30,9 @@ export default defineEventHandler(async (event) => {
   // Check if this is an internal data source
   const isInternalSource = body?.databaseType === 'internal'
 
+  // Check if this is a supabase_synced connection (MySQL synced to PostgreSQL)
+  const isSyncedStorage = body?.storageLocation === 'supabase_synced'
+
   // Only SUPERADMIN can create internal data sources
   if (isInternalSource && ctx.role !== 'SUPERADMIN') {
     throw createError({ statusCode: 403, statusMessage: 'Only Superadmin can create internal data sources' })
@@ -72,9 +75,9 @@ export default defineEventHandler(async (event) => {
     ssh_host: useSsh ? (body.sshHost ? String(body.sshHost) : null) : null,
     ssh_password: useSsh ? (body.sshPassword ? String(body.sshPassword) : null) : null,
     ssh_private_key: useSsh ? (body.sshPrivateKey ? String(body.sshPrivateKey) : null) : null,
-    storage_location: body.storageLocation ? String(body.storageLocation) : null,
-    // Set DBMS version for internal sources
-    dbms_version: isInternalSource ? 'PostgreSQL 15' : null
+    storage_location: isInternalSource ? 'optiqoflow' : (body.storageLocation ? String(body.storageLocation) : 'external'),
+    // Set DBMS version: PostgreSQL 15 for internal/synced, null for external MySQL
+    dbms_version: (isInternalSource || isSyncedStorage) ? 'PostgreSQL 15' : null
   }
 
   // For internal sources, auto-fetch schema with FK relationships from table_relationships

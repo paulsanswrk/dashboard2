@@ -518,7 +518,8 @@ export default defineEventHandler(async (event) => {
           }
         }
         console.log(`[preview] Using synced storage: ${storageInfo.schemaName}`)
-        finalSql = translateIdentifiers(sql)
+        // Native PostgreSQL queries - no translation needed
+        finalSql = sql
         rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
         break
       }

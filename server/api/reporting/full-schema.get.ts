@@ -87,14 +87,16 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // For synced storage connections, schema should be in schema_json (cached)
+  // For synced storage connections (supabase_synced), they're still MySQL databases
+  // so we query MySQL directly for schema discovery (same as external connections)
+  // The synced storage is just about where queries execute, not where schema comes from
   if (storageLocation === 'supabase_synced') {
-    console.warn(`[full-schema] Synced storage connection ${connId} has no cached schema_json`)
-    return { tables: [], relationships: [] }
+    console.log(`[full-schema] Synced storage connection ${connId} - querying MySQL for schema`)
+    // Fall through to MySQL query below
   }
 
-  // External MySQL connection with no cache - query MySQL directly
-  console.log(`[full-schema] External MySQL connection ${connId}, querying directly`)
+  // External MySQL connection or supabase_synced with no cache - query MySQL directly
+  console.log(`[full-schema] MySQL connection ${connId} (${storageLocation}), querying directly`)
 
   const cfg = await loadConnectionConfigFromSupabase(event, connId)
 
@@ -177,9 +179,10 @@ export default defineEventHandler(async (event) => {
     }
 
     // Get foreign keys for all tables
+    // Note: Using KEY_COLUMN_USAGE directly as referential_constraints may be empty in MariaDB
     const [fkResult] = await conn.query(`
       SELECT
-        rc.constraint_name,
+        kcu.constraint_name,
         kcu.table_name as source_table,
         kcu.referenced_table_name as target_table,
         GROUP_CONCAT(
@@ -189,15 +192,16 @@ export default defineEventHandler(async (event) => {
             'targetColumn', kcu.referenced_column_name
           ) ORDER BY kcu.ordinal_position
         ) as column_pairs,
-        rc.update_rule,
-        rc.delete_rule
-      FROM information_schema.referential_constraints rc
-      JOIN information_schema.key_column_usage kcu
-        ON rc.constraint_name = kcu.constraint_name
-       AND rc.constraint_schema = kcu.constraint_schema
+        COALESCE(rc.update_rule, 'RESTRICT') as update_rule,
+        COALESCE(rc.delete_rule, 'RESTRICT') as delete_rule
+      FROM information_schema.key_column_usage kcu
+      LEFT JOIN information_schema.referential_constraints rc
+        ON kcu.constraint_name = rc.constraint_name
+       AND kcu.constraint_schema = rc.constraint_schema
       WHERE kcu.table_schema = DATABASE()
+        AND kcu.referenced_table_name IS NOT NULL
         AND (kcu.table_name IN (${tableNames}) OR kcu.referenced_table_name IN (${tableNames}))
-      GROUP BY rc.constraint_name, kcu.table_name, kcu.referenced_table_name, rc.update_rule, rc.delete_rule
+      GROUP BY kcu.constraint_name, kcu.table_name, kcu.referenced_table_name, rc.update_rule, rc.delete_rule
     `)
 
     // Group FKs by table

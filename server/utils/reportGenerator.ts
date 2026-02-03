@@ -619,13 +619,7 @@ async function loadConnectionConfigForReport(connectionId: number, reportUserId:
             password: data.password,
             database: data.database_name,
             useSshTunneling: !!data.use_ssh_tunneling,
-            ssh: data.use_ssh_tunneling ? {
-                host: data.ssh_host,
-                port: Number(data.ssh_port),
-                user: data.ssh_user,
-                password: data.ssh_password || undefined,
-                privateKey: data.ssh_private_key || undefined
-            } : undefined
+            ssh: buildSshConfig(data)
         }
     } catch (e: any) {
         console.error('Error loading connection config for report:', e?.message || e)

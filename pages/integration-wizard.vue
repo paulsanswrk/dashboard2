@@ -86,7 +86,7 @@
               <!-- MySQL Card -->
               <div 
                 class="relative p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
-                :class="form.databaseType !== 'internal' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'"
+                :class="isMySqlSelected ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'"
                 @click="selectDatabaseType('mysql')"
               >
                 <div class="flex flex-col items-center text-center">
@@ -96,7 +96,7 @@
                   <h3 class="font-semibold text-gray-900 dark:text-white">MySQL / MariaDB</h3>
                   <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Connect to an external MySQL database</p>
                 </div>
-                <div v-if="form.databaseType !== 'internal'" class="absolute top-2 right-2">
+                <div v-if="isMySqlSelected" class="absolute top-2 right-2">
                   <Icon name="i-heroicons-check-circle-solid" class="w-6 h-6 text-orange-500"/>
                 </div>
               </div>
@@ -117,6 +117,28 @@
                 </div>
                 <div v-if="form.databaseType === 'internal'" class="absolute top-2 right-2">
                   <Icon name="i-heroicons-check-circle-solid" class="w-6 h-6 text-blue-500"/>
+                </div>
+              </div>
+              
+              <!-- Synced Database Card - Superadmin + Dev Mode only -->
+              <div 
+                v-if="canCreateSyncedDb"
+                class="relative p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md"
+                :class="form.storageLocation === 'supabase_synced' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'"
+                @click="selectDatabaseType('synced')"
+              >
+                <div class="flex flex-col items-center text-center">
+                  <div class="w-16 h-16 mb-3 flex items-center justify-center">
+                    <Icon name="i-heroicons-arrow-path" class="w-12 h-12 text-purple-500"/>
+                  </div>
+                  <h3 class="font-semibold text-gray-900 dark:text-white">Synced Database</h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">MySQL synced to Supabase PostgreSQL</p>
+                  <UBadge color="purple" variant="soft" size="xs" class="mt-2">
+                    Dev Only
+                  </UBadge>
+                </div>
+                <div v-if="form.storageLocation === 'supabase_synced'" class="absolute top-2 right-2">
+                  <Icon name="i-heroicons-check-circle-solid" class="w-6 h-6 text-purple-500"/>
                 </div>
               </div>
             </div>
@@ -515,9 +537,25 @@ const connectionExamples = ref([])
 const loadingExamples = ref(false)
 const selectedExample = ref('')
 
-// Check if user is superadmin
+// Check if user is superadmin and dev mode
 const {userProfile} = useAuth()
 const isSuperAdmin = computed(() => userProfile.value?.role === 'SUPERADMIN')
+
+// Check if dev mode is enabled (for synced DB feature)
+// Dev mode is detected by running on localhost (more reliable than env variables client-side)
+const isDevMode = computed(() => {
+  if (typeof window === 'undefined') return false
+  const hostname = window.location.hostname
+  return hostname === 'localhost' || hostname === '127.0.0.1'
+})
+
+// Synced DB creation requires BOTH superadmin AND dev mode
+const canCreateSyncedDb = computed(() => isSuperAdmin.value && isDevMode.value)
+
+// MySQL/MariaDB is selected when databaseType is 'mysql' AND storageLocation is NOT 'supabase_synced'
+const isMySqlSelected = computed(() => 
+  form.value.databaseType !== 'internal' && form.value.storageLocation !== 'supabase_synced'
+)
 
 const errors = ref({})
 const showErrors = ref(false)
@@ -916,16 +954,23 @@ const goBack = () => {
   navigateTo('/data-sources')
 }
 
-// Select data source type (MySQL or Internal)
+// Select data source type (MySQL, Internal, or Synced)
 const selectDatabaseType = (type) => {
+  // Clear any previous connection test result
+  connectionTestResult.value = null
+  
   if (type === 'internal') {
-    // Set internal data source
+    // Set internal data source (OptiqoFlow)
     form.value.databaseType = 'internal'
-    // Clear any previous connection test result
-    connectionTestResult.value = null
-  } else {
-    // Set MySQL as default
+    form.value.storageLocation = 'optiqoflow'
+  } else if (type === 'synced') {
+    // Set synced database (MySQL -> Supabase PostgreSQL)
     form.value.databaseType = 'mysql'
+    form.value.storageLocation = 'supabase_synced'
+  } else {
+    // Set MySQL as default (external)
+    form.value.databaseType = 'mysql'
+    form.value.storageLocation = 'external'
   }
 }
 

@@ -121,9 +121,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get DBMS version for SQL dialect guidance
-  // For OptiqoFlow sources, use PostgreSQL 15 (Supabase version)
+  // For OptiqoFlow and synced sources, use PostgreSQL 15 (Supabase version)
+  // Synced MySQL DBs are stored in PostgreSQL, so Claude should generate PG syntax
   const storageLocation = (connectionData as any).storage_location || 'external'
-  const dbmsVersion = storageLocation === 'optiqoflow'
+  const dbmsVersion = isPostgresStorage(storageLocation)
     ? 'PostgreSQL 15'
     : (connectionData.dbms_version || 'MySQL 8')
 
