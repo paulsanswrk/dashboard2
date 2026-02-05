@@ -15,7 +15,7 @@
           <Icon name="i-heroicons-eye" class="w-4 h-4 mr-1"/>
           Preview
         </UButton>
-        <UButton v-if="false" variant="outline" color="red" size="sm" @click="downloadPDF" class="hover:bg-red-500 hover:text-white cursor-pointer" title="Download as PDF">
+        <UButton v-if="isDev" variant="outline" color="red" size="sm" @click="downloadPDF" class="hover:bg-red-500 hover:text-white cursor-pointer" title="Download as PDF">
           <Icon name="i-heroicons-document-arrow-down" class="w-4 h-4 mr-1"/>
           Get PDF
         </UButton>
@@ -621,6 +621,7 @@ const canEditDashboard = computed(() => {
   return role === 'ADMIN' || role === 'SUPERADMIN' || role === 'EDITOR'
 })
 const isEditableSession = computed(() => isEditMode.value && canEditDashboard.value)
+const isDev = import.meta.dev
 
 
 watch(
@@ -2949,17 +2950,31 @@ async function downloadPDF() {
     }
 
     const blob = await response.blob()
+    if (blob.size === 0) {
+      throw new Error('Received empty PDF')
+    }
+
     const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${dashboardName.value.replace(/[^a-z0-9]/gi, '_')}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
-  } catch (error) {
+    
+    // Open PDF in new tab for viewing/saving
+    const newWindow = window.open(url, '_blank')
+    
+    if (!newWindow) {
+      // Fallback: direct download if popup blocked
+      const a = document.createElement('a')
+      a.style.display = 'none'
+      a.href = url
+      a.download = `${dashboardName.value.replace(/[^a-z0-9]/gi, '_')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 100)
+    }
+  } catch (error: any) {
     console.error('Failed to download PDF:', error)
-    alert('Failed to generate PDF. Check console for details.')
+    alert('Failed to generate PDF. Please try again.')
   }
 }
 
