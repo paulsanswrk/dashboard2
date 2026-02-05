@@ -97,15 +97,6 @@ export function wrapIdPg(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`
 }
 
-/**
- * Convert MySQL-style backtick identifiers to PostgreSQL double quotes
- * This is a simple regex-based approach that handles most cases
- * (private - not exported to avoid auto-import duplication)
- */
-function translateIdentifiers(sql: string): string {
-    // Replace backtick-quoted identifiers with double-quoted
-    return sql.replace(/`([^`]+)`/g, '"$1"')
-}
 
 /**
  * Prefix table names in SQL with the schema name
@@ -137,8 +128,12 @@ export function prefixTablesWithSchema(sql: string, schemaName: string, tableNam
 /**
  * Execute a query against internal PostgreSQL storage
  * 
+ * For supabase_synced connections, SQL is generated in PostgreSQL syntax from the start
+ * (via AI assistants and chart builder that detect the connection type).
+ * No MySQL-to-PostgreSQL translation is performed - queries are expected to be valid PostgreSQL.
+ * 
  * @param schemaName - The PostgreSQL schema containing the data
- * @param sql - The SQL query (can have MySQL-style backtick identifiers)
+ * @param sql - The SQL query (must be valid PostgreSQL syntax)
  * @param params - Query parameters (optional)
  * @returns Array of result rows
  */
@@ -147,16 +142,12 @@ export async function executeInternalStorageQuery(
     sql: string,
     params: any[] = []
 ): Promise<any[]> {
-    // Translate MySQL backticks to PostgreSQL double quotes
-    let pgSql = translateIdentifiers(sql)
-
     // Convert ? placeholders to numbered placeholders ($1, $2, etc.)
     let paramIndex = 0
-    const numberedSql = pgSql.replace(/\?/g, () => `$${++paramIndex}`)
+    const numberedSql = sql.replace(/\?/g, () => `$${++paramIndex}`)
 
     console.log(`[InternalStorage] Executing query in schema ${schemaName}`)
-    console.log(`[InternalStorage] Original SQL: ${sql.substring(0, 200)}...`)
-    console.log(`[InternalStorage] Translated SQL: ${numberedSql.substring(0, 200)}...`)
+    console.log(`[InternalStorage] SQL: ${numberedSql.substring(0, 200)}...`)
 
     try {
         // Use a transaction to ensure search_path and query run on the same connection

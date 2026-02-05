@@ -115,10 +115,11 @@ When a connection has `storage_location` set to `optiqoflow` or `supabase_synced
 ### Key Functions in `internalStorageQuery.ts`
 
 - `loadInternalStorageInfo(connectionId)` - Checks if connection uses internal storage, returns schema name
-- `executeInternalStorageQuery(schemaName, sql, params)` - Executes SQL against PostgreSQL with search_path set
-- `translateIdentifiers(sql)` - Converts MySQL backticks to PostgreSQL double quotes
+- `executeInternalStorageQuery(schemaName, sql, params)` - Executes native PostgreSQL SQL against Supabase with search_path set
 - `queryInternalTable(schemaName, tableName)` - Simple table queries
 - `getDistinctValuesInternal(schemaName, tableName, columnName)` - Filter value lookups
+
+> **Note**: The `translateIdentifiers()` function was removed since `supabase_synced` connections now generate PostgreSQL-compatible SQL from the start. No MySQL-to-PostgreSQL translation is performed at query time.
 
 ### Schema Loading Optimization
 

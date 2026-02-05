@@ -147,7 +147,9 @@ WHERE database_type = 'internal';
 
 ## SQL Translation
 
-Both `optiqoflow` and `supabase_synced` routes translate MySQL syntax to PostgreSQL:
+### OptiqoFlow queries
+
+`optiqoflow` routes may receive SQL with MySQL-style backticks from legacy code paths:
 
 ```typescript
 function translateIdentifiers(sql: string): string {
@@ -156,8 +158,15 @@ function translateIdentifiers(sql: string): string {
 }
 ```
 
+### Synced MySQL (`supabase_synced`)
+
+**No translation is performed** for `supabase_synced` connections. The AI assistant and chart builder detect the connection type and generate PostgreSQL-compatible SQL from the start. This ensures:
+- Consistent SQL syntax throughout the pipeline
+- No risk of translation bugs
+- Clear debugging logs (no "Original vs Translated" confusion)
+
 **Limitations**:
-- Only handles identifier translation (backticks → double quotes)
+- Only handles identifier translation (backticks → double quotes) for OptiqoFlow
 - Does not translate function differences (e.g., `NOW()`, `DATE_SUB()`)
 - May require manual SQL adjustments for complex queries
 

@@ -191,7 +191,9 @@ export default defineEventHandler(async (event) => {
             .map(row => row.chartId as number)
 
         // Resolve tenant ID for cache lookups (using dashboard's organization)
-        let effectiveTenantId: string = 'default'
+        // Use nil UUID for non-tenant connections (external, supabase_synced)
+        const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+        let effectiveTenantId: string = NIL_UUID
         if (dashboard.organizationId) {
             try {
                 const orgRecord = await db.select({ tenantId: organizations.tenantId })
@@ -199,7 +201,7 @@ export default defineEventHandler(async (event) => {
                     .where(eq(organizations.id, dashboard.organizationId))
                     .limit(1)
                     .then(rows => rows[0])
-                effectiveTenantId = orgRecord?.tenantId || 'default'
+                effectiveTenantId = orgRecord?.tenantId || NIL_UUID
             } catch (e) {
                 console.warn('[preview.get.ts] Could not resolve tenant ID for cache lookup')
             }

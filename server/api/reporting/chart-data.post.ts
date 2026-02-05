@@ -93,7 +93,10 @@ export default defineEventHandler(async (event) => {
     const storageLocation = connection?.storageLocation || 'external'
     console.log(`[chart-data] Chart ${chartId}, Connection ${effectiveConnectionId}, storageLocation=${storageLocation}`)
     const cacheKey = generateCacheKey(chartId, { sql, dataSource: storageLocation, ...filters })
-    const effectiveTenantId = tenantId || 'default'
+    // Use nil UUID for non-tenant connections (external, supabase_synced)
+    // This is a valid UUID that represents "no tenant" for caching purposes
+    const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+    const effectiveTenantId = tenantId || NIL_UUID
 
     // Determine caching strategy based on storage location
     // - external (MySQL): Always cache (permanent until manual refresh)

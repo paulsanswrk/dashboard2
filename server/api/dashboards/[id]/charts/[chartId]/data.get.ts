@@ -275,7 +275,8 @@ export default defineEventHandler(async (event) => {
 
                     tenantId = org?.tenantId || undefined
                 }
-                const effectiveTenantId = tenantId || 'default'
+                const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+                const effectiveTenantId = tenantId || NIL_UUID
 
                 // Generate cache key
                 const cacheKey = generateCacheKey(chartId, {
