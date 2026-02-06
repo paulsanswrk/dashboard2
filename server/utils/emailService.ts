@@ -1,6 +1,7 @@
 import sgMail from '@sendgrid/mail'
 import type { ReportAttachment } from './reportGenerator'
 import { saveEmailLocally } from './emailSaver'
+import { OPTIQO_LOGO_BASE64 } from './emailAssets'
 
 // Configure SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY || '')
@@ -355,7 +356,7 @@ function generateReportEmailTemplate(data: ReportEmailTemplateData): ReportEmail
 <body>
     <div class="container">
         <div class="header">
-            <img src="${process.env.SITE_URL || 'http://localhost:3000'}/images/Optiqo_logo.png" alt="Optiqo" class="logo-img">
+            <img src="${OPTIQO_LOGO_BASE64}" alt="Optiqo" class="logo-img">
             <br>
             <div class="report-badge">Scheduled Report</div>
         </div>
