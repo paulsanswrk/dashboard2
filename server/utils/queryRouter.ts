@@ -6,9 +6,9 @@
 import type { H3Event } from 'h3'
 import { loadConnectionConfigFromSupabase } from './connectionConfig'
 import { withMySqlConnectionConfig } from './mysqlClient'
-import { executeOptiqoflowQuery, translateIdentifiers } from './optiqoflowQuery'
+import { executeOptiqoflowQuery } from './optiqoflowQuery'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from './internalStorageQuery'
-import { type StorageLocation, requiresIdentifierTranslation } from './storageHelpers'
+import { type StorageLocation } from './storageHelpers'
 import { db } from '../../lib/db'
 import { dataConnections } from '../../lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -70,14 +70,14 @@ export async function routeAndExecuteQuery(options: QueryRouterOptions): Promise
                         error: 'User must be associated with an organization that has a tenant_id configured for Optiqoflow data access.'
                     }
                 }
-                const pgSql = translateIdentifiers(sql)
-                rows = await executeOptiqoflowQuery(pgSql, params, tenantId)
+                // SQL is already in PostgreSQL syntax (dbms_version determines SQL generation)
+                rows = await executeOptiqoflowQuery(sql, params, tenantId)
                 break
             }
 
             case 'supabase_synced': {
                 // Synced MySQL data in Supabase PostgreSQL
-                // Queries are already native PostgreSQL (no translation needed)
+                // SQL is already in PostgreSQL syntax (preview.post.ts generates correct syntax)
                 const storageInfo = await loadInternalStorageInfo(connectionId)
                 if (!storageInfo.useInternalStorage || !storageInfo.schemaName) {
                     return {

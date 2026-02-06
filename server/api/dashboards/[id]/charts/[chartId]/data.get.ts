@@ -7,7 +7,7 @@ import { withMySqlConnectionConfig } from '../../../../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../../../../utils/connectionConfig'
 import { validateRenderContext } from '../../../../../utils/renderContext'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../../../../utils/internalStorageQuery'
-import { executeOptiqoflowQuery, translateIdentifiers } from '../../../../../utils/optiqoflowQuery'
+import { executeOptiqoflowQuery } from '../../../../../utils/optiqoflowQuery'
 import { injectFiltersIntoSql, type FilterOverride } from '../../../../../utils/filterInjection'
 import {
     generateCacheKey,
@@ -359,8 +359,8 @@ export default defineEventHandler(async (event) => {
                             throw new Error('Associated organization does not have a tenant_id configured for Optiqoflow data access.')
                         }
 
-                        const pgSql = translateIdentifiers(querySql)
-                        return await executeOptiqoflowQuery(pgSql, sqlParams, tenantIdForQuery)
+                        // SQL is already in PostgreSQL syntax (dbms_version determines SQL generation)
+                        return await executeOptiqoflowQuery(querySql, sqlParams, tenantIdForQuery)
                     }
 
                     if (storageLocation === 'supabase_synced') {
@@ -368,6 +368,7 @@ export default defineEventHandler(async (event) => {
                         const storageInfo = await loadInternalStorageInfo(Number(connectionId))
                         if (storageInfo.useInternalStorage && storageInfo.schemaName) {
                             console.log(`[chart-data] Using synced storage for chart ${chartId}: ${storageInfo.schemaName}`)
+                            // SQL is already in PostgreSQL syntax (preview.post.ts generates correct syntax)
                             return await executeInternalStorageQuery(storageInfo.schemaName, querySql, sqlParams)
                         }
                     }

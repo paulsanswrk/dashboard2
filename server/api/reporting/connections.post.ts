@@ -61,7 +61,8 @@ export default defineEventHandler(async (event) => {
     organization_id: targetOrganizationId,
     internal_name: String(body.internalName),
     database_name: isInternalSource ? 'optiqoflow' : String(body.databaseName),
-    database_type: String(body.databaseType),
+    // For internal/synced sources, data runs on PostgreSQL even if source is MySQL
+    database_type: (isInternalSource || isSyncedStorage) ? 'postgresql' : String(body.databaseType),
     host: isInternalSource ? 'internal' : String(body.host),
     username: isInternalSource ? 'service_role' : String(body.username),
     password: isInternalSource ? 'internal' : String(body.password),

@@ -4,7 +4,8 @@ import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { computePathsForTables, type Edge, selectJoinTree, type TableGraph } from '../../utils/schemaGraph'
 import { AuthHelper } from '../../utils/authHelper'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
-import { executeOptiqoflowQuery, translateIdentifiers } from '../../utils/optiqoflowQuery'
+import { executeOptiqoflowQuery } from '../../utils/optiqoflowQuery'
+import { createWrapIdForDbms } from '../../utils/storageHelpers'
 import { db } from '../../../lib/db'
 import { organizations } from '../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -47,10 +48,6 @@ function isSafeIdentifier(name: string | undefined): name is string {
   return !!name && /^[a-zA-Z0-9_]+$/.test(name)
 }
 
-function wrapId(id: string) {
-  return `\`${id}\``
-}
-
 function getDynamicDateRangeExpr(fieldExpr: string, range: string): string | null {
   switch (range) {
     case 'last_7_days':
@@ -79,16 +76,23 @@ export default defineEventHandler(async (event) => {
       return { columns: [], rows: [], meta: { executionMs: Date.now() - start, error: 'missing_dataset' } }
     }
 
-    const table = wrapId(body.datasetId)
     const connectionId = body.connectionId ? Number(body.connectionId) : null
     if (!connectionId) {
       return { columns: [], rows: [], meta: { executionMs: Date.now() - start, error: 'missing_connection' } }
     }
 
     const connection = await AuthHelper.requireConnectionAccess(event, connectionId, {
-      columns: 'id, organization_id, auto_join_info, database_type, storage_location'
+      columns: 'id, organization_id, auto_join_info, database_type, storage_location, dbms_version'
     })
-    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auth check complete, database_type=${connection.database_type}`)
+    console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auth check complete, database_type=${connection.database_type}, dbms_version=${connection.dbms_version}`)
+
+    // Get storage location for query routing
+    const storageLocation = connection.storage_location || 'external'
+    // Use storage_location + dbms_version to determine SQL syntax
+    // For synced connections (storage_location=supabase_synced), always use PostgreSQL syntax
+    const wrapId = createWrapIdForDbms(storageLocation, connection.dbms_version)
+
+    const table = wrapId(body.datasetId)
 
     // Derive tenantId from authenticated user's organization (required for Optiqoflow)
     let tenantId: string | undefined
@@ -482,11 +486,8 @@ export default defineEventHandler(async (event) => {
     console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: SQL built, checking connection type`)
 
     let rows: any[]
-    let finalSql = sql
 
-    const storageLocation = connection.storage_location || 'external'
-
-    // Route based on storage_location
+    // Route based on storage_location (already determined above for SQL generation)
     switch (storageLocation) {
       case 'optiqoflow': {
         if (!tenantId) {
@@ -500,8 +501,8 @@ export default defineEventHandler(async (event) => {
           }
         }
         console.log(`[preview] Using optiqoflow data source`)
-        finalSql = translateIdentifiers(sql)
-        rows = await executeOptiqoflowQuery(finalSql, params, tenantId)
+        // SQL is already built with PostgreSQL syntax via createWrapId(storageLocation)
+        rows = await executeOptiqoflowQuery(sql, params, tenantId)
         break
       }
 
@@ -518,9 +519,8 @@ export default defineEventHandler(async (event) => {
           }
         }
         console.log(`[preview] Using synced storage: ${storageInfo.schemaName}`)
-        // Native PostgreSQL queries - no translation needed
-        finalSql = sql
-        rows = await executeInternalStorageQuery(storageInfo.schemaName, finalSql, params)
+        // SQL is already built with PostgreSQL syntax via createWrapId(storageLocation)
+        rows = await executeInternalStorageQuery(storageInfo.schemaName, sql, params)
         break
       }
 
@@ -543,7 +543,7 @@ export default defineEventHandler(async (event) => {
 
 
     const executionMs = Date.now() - start
-    const meta: Record<string, any> = { executionMs, sql: finalSql, sqlParams: params }
+    const meta: Record<string, any> = { executionMs, sql, sqlParams: params }
     return {
       columns,
       rows,

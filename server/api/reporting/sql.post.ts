@@ -3,7 +3,7 @@ import { withMySqlConnection } from '../../utils/mysqlClient.dev'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
-import { executeOptiqoflowQuery, translateIdentifiers } from '../../utils/optiqoflowQuery'
+import { executeOptiqoflowQuery } from '../../utils/optiqoflowQuery'
 import { db } from '../../../lib/db'
 import { dataConnections, organizations } from '../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -75,8 +75,8 @@ export default defineEventHandler(async (event) => {
             }
           }
           console.log(`[sql.post] Using optiqoflow data source`)
-          const pgSql = translateIdentifiers(safeSql)
-          rows = await executeOptiqoflowQuery(pgSql, [], tenantId)
+          // SQL is already in PostgreSQL syntax (dbms_version determines SQL generation)
+          rows = await executeOptiqoflowQuery(safeSql, [], tenantId)
           break
         }
 
@@ -90,6 +90,7 @@ export default defineEventHandler(async (event) => {
             }
           }
           console.log(`[sql.post] Using synced storage: ${storageInfo.schemaName}`)
+          // SQL is already in PostgreSQL syntax (preview.post.ts generates correct syntax)
           rows = await executeInternalStorageQuery(storageInfo.schemaName, safeSql)
           break
         }

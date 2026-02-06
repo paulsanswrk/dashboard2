@@ -65,12 +65,11 @@ export async function executeOptiqoflowQuery(
     params: any[] = [],
     tenantId?: string
 ): Promise<any[]> {
-    // Translate MySQL backticks to PostgreSQL double quotes
-    let pgSql = translateIdentifiers(sql)
+    // SQL is expected to be in PostgreSQL syntax (dbms_version determines SQL generation)
 
     // Convert ? placeholders to numbered placeholders ($1, $2, etc.)
     let paramIndex = 0
-    const numberedSql = pgSql.replace(/\?/g, () => `$${++paramIndex}`)
+    const numberedSql = sql.replace(/\?/g, () => `$${++paramIndex}`)
 
     if (!tenantId) {
         throw new Error('tenantId is required for query execution. User must be associated with an organization that has a tenant_id set.')

@@ -11,7 +11,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { serverSupabaseUser } from '#supabase/server'
 import { supabaseAdmin } from '../supabase'
-import { executeOptiqoflowQuery, translateIdentifiers } from '../../utils/optiqoflowQuery'
+import { executeOptiqoflowQuery } from '../../utils/optiqoflowQuery'
 import { withMySqlConnectionConfig } from '../../utils/mysqlClient'
 import { loadConnectionConfigFromSupabase } from '../../utils/connectionConfig'
 import { loadInternalStorageInfo, executeInternalStorageQuery } from '../../utils/internalStorageQuery'
@@ -159,14 +159,14 @@ export default defineEventHandler(async (event) => {
                         }
                     }
                 }
-                const pgSql = translateIdentifiers(sql)
-                rows = await executeOptiqoflowQuery(pgSql, [], tenantId)
+                // SQL is already in PostgreSQL syntax (dbms_version determines SQL generation)
+                rows = await executeOptiqoflowQuery(sql, [], tenantId)
                 break
             }
 
             case 'supabase_synced': {
                 // Synced MySQL data in Supabase PostgreSQL
-                // Native PostgreSQL queries - no translation needed
+                // SQL is already in PostgreSQL syntax (preview.post.ts generates correct syntax)
                 const storageInfo = await loadInternalStorageInfo(effectiveConnectionId!)
                 if (!storageInfo.useInternalStorage || !storageInfo.schemaName) {
                     return {
