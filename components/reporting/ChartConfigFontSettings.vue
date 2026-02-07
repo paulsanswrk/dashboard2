@@ -28,20 +28,11 @@
       <button
           type="button"
           :class="[
-          'px-2 py-1 text-xs italic border-r dark:border-gray-600 cursor-pointer',
+          'px-2 py-1 text-xs italic cursor-pointer',
           modelValue?.italic ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
         ]"
           @click="updateField('italic', !modelValue?.italic)"
       >I
-      </button>
-      <button
-          type="button"
-          :class="[
-          'px-2 py-1 text-xs underline cursor-pointer',
-          modelValue?.underline ? 'bg-primary-500 text-white' : 'bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-        ]"
-          @click="updateField('underline', !modelValue?.underline)"
-      >U
       </button>
     </div>
   </div>

@@ -149,22 +149,72 @@ export class CartesianChartRenderer extends BaseChartRenderer {
             series: seriesConfig
         }
 
-        // Add data labels if enabled
-        if (appearance?.showLabels) {
-            const labelFont = this.getFontStyle(appearance?.labelFont)
-            seriesConfig.forEach((s: any) => {
+        // Add data labels: per-series config takes precedence over global
+        const labelFormatter = (params: any) => {
+            if (params.value === 0 || params.value === null || params.value === undefined) {
+                return ''
+            }
+            return `${prefix}${this.formatNumber(params.value, dp, ts)}${suffix}`
+        }
+
+        seriesConfig.forEach((s: any) => {
+            const seriesName = s.name
+            const perSeriesConfig = this.getSeriesConfig(seriesName, appearance)
+            const hasPerSeriesLabel = perSeriesConfig.showLabels !== undefined
+
+            if (hasPerSeriesLabel) {
+                // Per-series label config takes precedence
+                s.label = {
+                    show: !!perSeriesConfig.showLabels,
+                    position: appearance?.labelsInside ? 'inside' : 'top',
+                    ...(perSeriesConfig.labelFont && this.getFontStyle(perSeriesConfig.labelFont)),
+                    ...(perSeriesConfig.showLabelBackground && {
+                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        padding: [2, 4],
+                        borderRadius: 2
+                    }),
+                    formatter: labelFormatter
+                }
+            } else if (appearance?.showLabels) {
+                // Global label setting as fallback
+                const labelFont = this.getFontStyle(appearance?.labelFont)
                 s.label = {
                     show: true,
                     position: appearance?.labelsInside ? 'inside' : 'top',
                     ...labelFont,
-                    formatter: (params: any) => {
-                        if (params.value === 0 || params.value === null || params.value === undefined) {
-                            return ''
-                        }
-                        return `${prefix}${this.formatNumber(params.value, dp, ts)}${suffix}`
-                    }
+                    formatter: labelFormatter
                 }
+            }
+        })
+
+        // Add trend lines for series that have showTrendLine enabled
+        const trendSeries: any[] = []
+        series.forEach((s, idx) => {
+            const perSeriesConfig = this.getSeriesConfig(s.name, appearance)
+            if (!perSeriesConfig.showTrendLine) return
+
+            const numericData = (s.data as number[]).map(v => Number(v) || 0)
+            const regressionData = this.computeLinearRegression(numericData)
+            const seriesColor = perSeriesConfig.color || palette[idx % palette.length]
+
+            trendSeries.push({
+                name: `${s.name} (Trend)`,
+                type: 'line',
+                data: regressionData,
+                smooth: false,
+                symbol: 'none',
+                lineStyle: {
+                    type: 'dashed',
+                    width: 2,
+                    color: seriesColor
+                },
+                itemStyle: { color: seriesColor },
+                tooltip: { show: false },
+                emphasis: { disabled: true }
             })
+        })
+        if (trendSeries.length > 0) {
+            option.series = [...seriesConfig, ...trendSeries]
         }
 
         // Handle stacking if needed

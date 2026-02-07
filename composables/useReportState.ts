@@ -210,12 +210,13 @@ const appearanceRef = ref<ReportState['appearance']>({
   chartTitle: '',
   xAxisLabel: '',
   yAxisLabel: '',
+  showLegend: true,
   legendTitle: '',
   numberFormat: { decimalPlaces: 0, thousandsSeparator: true },
   dateFormat: '',
   palette: [],
   stacked: false,
-  legendPosition: 'top'
+  legendPosition: 'bottom'
 })
 const joinsRef = ref<JoinRef[]>([])
 

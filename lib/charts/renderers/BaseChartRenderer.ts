@@ -341,5 +341,29 @@ export abstract class BaseChartRenderer {
 
         return seriesOption
     }
+
+    /**
+     * Compute linear regression (y = mx + b) for a data array.
+     * Returns an array of fitted values the same length as the input.
+     */
+    protected computeLinearRegression(data: number[]): number[] {
+        const n = data.length
+        if (n < 2) return data.slice()
+
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0
+        for (let i = 0; i < n; i++) {
+            sumX += i
+            sumY += data[i]
+            sumXY += i * data[i]
+            sumX2 += i * i
+        }
+        const denom = n * sumX2 - sumX * sumX
+        if (denom === 0) return data.slice()
+
+        const slope = (n * sumXY - sumX * sumY) / denom
+        const intercept = (sumY - slope * sumX) / n
+
+        return data.map((_, i) => Math.round((slope * i + intercept) * 100) / 100)
+    }
 }
 

@@ -41,16 +41,6 @@
                 placeholder="Enter title..."
             />
           </div>
-          <div class="flex items-center gap-2">
-            <label class="text-xs text-gray-600 dark:text-gray-400 w-20">Title Bottom Margin</label>
-            <input
-                v-model.number="appearance.titlePaddingBottom"
-                type="number"
-                min="0"
-                class="flex-1 px-2 py-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                placeholder="20"
-            />
-          </div>
         </div>
       </ConfigSection>
 
@@ -543,6 +533,8 @@ onMounted(() => {
   if (!target.value) {
     target.value = {}
   }
+  if (target.value.showLegend === undefined) target.value.showLegend = true
+  if (!target.value.legendPosition) target.value.legendPosition = 'bottom'
   if (!target.value.xAxis) target.value.xAxis = {}
   if (!target.value.yAxis) target.value.yAxis = {}
   if (!target.value.table) target.value.table = {}
@@ -688,7 +680,7 @@ const isTableChart = computed(() => props.chartType === 'table')
 const sections = reactive({
   general: true,
   labels: false,
-  legend: false,
+  legend: true,
   background: false,
   numberFormat: false,
   pieOptions: false,
