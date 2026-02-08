@@ -68,7 +68,7 @@ export class WaterfallChartRenderer extends BaseChartRenderer {
                         }
                     })),
                     label: {
-                        show: true,
+                        show: appearance?.showLabels ?? false,
                         position: 'top',
                         formatter: (params: any) => this.formatNumber(Number(sourceData[params.dataIndex]), 0, true)
                     }
