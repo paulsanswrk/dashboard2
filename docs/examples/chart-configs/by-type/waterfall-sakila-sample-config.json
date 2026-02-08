@@ -1,0 +1,207 @@
+{
+    "description": "Sample Waterfall chart configurations for the Optiqo Chart Builder using the Sakila database (synced to Supabase as conn_0dc5163c_sakila). Waterfall charts show cumulative contribution — each bar stacks on the running total. The WaterfallChartRenderer colors positive values green and negative values red automatically.",
+    "version": "1.0.0",
+    "note": "Copy the inner 'config' object (not the wrapper) to paste into the debug panel. Waterfall uses standard aggregation (SUM, COUNT, etc.) — the renderer builds the stacked-bar illusion from the aggregated result.",
+    "database": "Sakila Sync (conn_0dc5163c_sakila)",
+    "connectionId": 92,
+    "configs": [
+        {
+            "name": "1. Waterfall: Revenue Contribution by Film Category",
+            "description": "Shows how each genre category contributes to cumulative rental revenue. Multi-hop join: category → film_category → inventory → rental → payment. Each bar represents SUM(amount) for that category, stacked on the running total.",
+            "config": {
+                "chartType": "waterfall",
+                "chartTitle": "Revenue Contribution by Film Category",
+                "xDimensions": [
+                    {
+                        "fieldId": "name",
+                        "name": "name",
+                        "label": "Category",
+                        "type": "varchar",
+                        "table": "category"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "amount",
+                        "name": "amount",
+                        "label": "Revenue ($)",
+                        "type": "numeric",
+                        "table": "payment",
+                        "aggregation": "SUM",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_film_category_category",
+                        "sourceTable": "film_category",
+                        "targetTable": "category",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "category_id",
+                                "targetColumn": "category_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_inventory_film",
+                        "sourceTable": "inventory",
+                        "targetTable": "film_category",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "film_id",
+                                "targetColumn": "film_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_rental_inventory",
+                        "sourceTable": "rental",
+                        "targetTable": "inventory",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "inventory_id",
+                                "targetColumn": "inventory_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_payment_rental",
+                        "sourceTable": "payment",
+                        "targetTable": "rental",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "rental_id",
+                                "targetColumn": "rental_id"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true
+                }
+            }
+        },
+        {
+            "name": "2. Waterfall: Film Count by Rating",
+            "description": "Shows how each MPAA rating (G, PG, PG-13, R, NC-17) contributes to the total film catalogue. Single table — no joins needed. Simple COUNT aggregation; each bar adds to the running total of films.",
+            "config": {
+                "chartType": "waterfall",
+                "chartTitle": "Film Count Contribution by Rating",
+                "xDimensions": [
+                    {
+                        "fieldId": "rating",
+                        "name": "rating",
+                        "label": "Rating",
+                        "type": "text",
+                        "table": "film"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "film_id",
+                        "name": "film_id",
+                        "label": "Film Count",
+                        "type": "smallint",
+                        "table": "film",
+                        "aggregation": "COUNT",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true
+                }
+            }
+        },
+        {
+            "name": "3. Waterfall: Revenue by Rental Duration",
+            "description": "Shows cumulative revenue contribution segmented by film rental duration (3–7 days). Joins film → inventory → rental → payment. Illustrates how longer rental terms contribute to total revenue.",
+            "config": {
+                "chartType": "waterfall",
+                "chartTitle": "Revenue by Rental Duration",
+                "xDimensions": [
+                    {
+                        "fieldId": "rental_duration",
+                        "name": "rental_duration",
+                        "label": "Rental Duration (days)",
+                        "type": "smallint",
+                        "table": "film"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "amount",
+                        "name": "amount",
+                        "label": "Revenue ($)",
+                        "type": "numeric",
+                        "table": "payment",
+                        "aggregation": "SUM",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_inventory_film",
+                        "sourceTable": "inventory",
+                        "targetTable": "film",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "film_id",
+                                "targetColumn": "film_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_rental_inventory",
+                        "sourceTable": "rental",
+                        "targetTable": "inventory",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "inventory_id",
+                                "targetColumn": "inventory_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_payment_rental",
+                        "sourceTable": "payment",
+                        "targetTable": "rental",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "rental_id",
+                                "targetColumn": "rental_id"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true
+                }
+            }
+        }
+    ]
+}

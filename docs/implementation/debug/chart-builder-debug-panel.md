@@ -152,6 +152,13 @@ Pre-built sample configurations are available for testing:
 | **Employees** | `docs/examples/chart-configs/employees-sample-configs.json` | 15 configs: departments, salaries, titles, hiring trends |
 | **Datapine**  | `docs/examples/chart-configs/datapine-sample-configs.json`  | 25 configs: work orders, bookings, feedbacks, profiles    |
 
+#### By Chart Type
+
+| Chart Type    | File Path                                                                  | Description                                                    |
+|---------------|----------------------------------------------------------------------------|----------------------------------------------------------------|
+| **Box Plot**  | `docs/examples/chart-configs/by-type/boxplot-sakila-sample-config.json`    | 3 configs: film length, replacement cost, payment distribution |
+| **Waterfall** | `docs/examples/chart-configs/by-type/waterfall-sakila-sample-config.json`  | 3 configs: revenue by category, films by rating, revenue by rental duration |
+
 ### Using Sample Configs
 
 1. Open the sample configs file
