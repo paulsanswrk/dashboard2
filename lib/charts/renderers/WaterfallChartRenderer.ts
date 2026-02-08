@@ -69,8 +69,15 @@ export class WaterfallChartRenderer extends BaseChartRenderer {
                     })),
                     label: {
                         show: appearance?.showLabels ?? false,
-                        position: 'top',
-                        formatter: (params: any) => this.formatNumber(Number(sourceData[params.dataIndex]), 0, true)
+                        position: appearance?.labelsInside ? 'inside' : 'top',
+                        ...this.getFontStyle(appearance?.labelFont),
+                        formatter: (params: any) => {
+                            const val = Number(sourceData[params.dataIndex])
+                            if (val === 0 || val === null || val === undefined) return ''
+                            const dp = appearance?.numberFormat?.decimalPlaces ?? 0
+                            const ts = appearance?.numberFormat?.thousandsSeparator ?? true
+                            return this.formatNumber(val, dp, ts)
+                        }
                     }
                 }
             ]
