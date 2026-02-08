@@ -1,0 +1,178 @@
+{
+    "description": "Sample Box Plot chart configurations for the Optiqo Chart Builder using the Sakila database (synced to Supabase as conn_0dc5163c_sakila). The server skips aggregation for boxplot chartType, returning raw rows so the BoxPlotChartRenderer can compute accurate min/Q1/median/Q3/max per category.",
+    "version": "1.0.0",
+    "note": "Copy the inner 'config' object (not the wrapper) to paste into the debug panel. yMetrics do not need an aggregation field — the server bypasses aggregation for chartType=boxplot.",
+    "database": "Sakila Sync (conn_0dc5163c_sakila)",
+    "connectionId": 92,
+    "configs": [
+        {
+            "name": "1. Box Plot: Film Length by Category",
+            "description": "Shows the distribution of film duration (minutes) across 16 genre categories (Action, Comedy, Drama, etc.). Joins film → film_category → category.",
+            "config": {
+                "chartType": "boxplot",
+                "chartTitle": "Film Length Distribution by Category",
+                "xDimensions": [
+                    {
+                        "fieldId": "name",
+                        "name": "name",
+                        "label": "Category",
+                        "type": "varchar",
+                        "table": "category"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "length",
+                        "name": "length",
+                        "label": "Film Length (min)",
+                        "type": "smallint",
+                        "table": "film",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_film_filmcategory",
+                        "sourceTable": "film",
+                        "targetTable": "film_category",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "film_id",
+                                "targetColumn": "film_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_filmcategory_category",
+                        "sourceTable": "film_category",
+                        "targetTable": "category",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "category_id",
+                                "targetColumn": "category_id"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": false
+                }
+            }
+        },
+        {
+            "name": "2. Box Plot: Replacement Cost by Film Rating",
+            "description": "Shows the distribution of replacement cost across the 5 MPAA ratings (G, PG, PG-13, R, NC-17). Single table — no joins needed.",
+            "config": {
+                "chartType": "boxplot",
+                "chartTitle": "Replacement Cost Distribution by Rating",
+                "xDimensions": [
+                    {
+                        "fieldId": "rating",
+                        "name": "rating",
+                        "label": "Rating",
+                        "type": "text",
+                        "table": "film"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "replacement_cost",
+                        "name": "replacement_cost",
+                        "label": "Replacement Cost ($)",
+                        "type": "numeric",
+                        "table": "film",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": false
+                }
+            }
+        },
+        {
+            "name": "3. Box Plot: Payment Amount by Film Rating",
+            "description": "Shows the distribution of individual payment amounts across MPAA ratings. Multi-hop join: payment → rental → inventory → film.",
+            "config": {
+                "chartType": "boxplot",
+                "chartTitle": "Payment Amount Distribution by Film Rating",
+                "xDimensions": [
+                    {
+                        "fieldId": "rating",
+                        "name": "rating",
+                        "label": "Film Rating",
+                        "type": "text",
+                        "table": "film"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "amount",
+                        "name": "amount",
+                        "label": "Payment Amount ($)",
+                        "type": "numeric",
+                        "table": "payment",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_payment_rental",
+                        "sourceTable": "payment",
+                        "targetTable": "rental",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "rental_id",
+                                "targetColumn": "rental_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_rental_inventory",
+                        "sourceTable": "rental",
+                        "targetTable": "inventory",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "inventory_id",
+                                "targetColumn": "inventory_id"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_inventory_film",
+                        "sourceTable": "inventory",
+                        "targetTable": "film",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "film_id",
+                                "targetColumn": "film_id"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": false
+                }
+            }
+        }
+    ]
+}

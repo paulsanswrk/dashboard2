@@ -10,6 +10,8 @@ type PreviewRequest = {
   joins?: Array<any>
   limit?: number
   connectionId?: number | null
+  chartType?: string
+  sizeValue?: any
 }
 
 type PreviewResponse = {

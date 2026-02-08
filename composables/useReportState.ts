@@ -60,6 +60,7 @@ export type SeriesConfig = {
 }
 
 type ReportState = {
+  chartType?: string
   selectedDatasetId: string | null
   xDimensions: DimensionRef[]
   yMetrics: MetricRef[]
@@ -195,6 +196,7 @@ function decodeState(encoded: string | null): ReportState | null {
   }
 }
 
+const chartTypeRef = ref<string>('column')
 const selectedDatasetIdRef = ref<string | null>(null)
 const xDimensionsRef = ref<DimensionRef[]>([])
 const yMetricsRef = ref<MetricRef[]>([])
@@ -234,6 +236,7 @@ let isNavigatingHistory = false
 
 function snapshot(): Snapshot {
   return JSON.parse(JSON.stringify({
+    chartType: chartTypeRef.value,
     selectedDatasetId: selectedDatasetIdRef.value,
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
@@ -269,6 +272,7 @@ function canUndo() { return historyIndex > 0 }
 function canRedo() { return historyIndex >= 0 && historyIndex < historyStack.length - 1 }
 
 function applySnapshot(s: Snapshot) {
+  if (s.chartType) chartTypeRef.value = s.chartType
   selectedDatasetIdRef.value = s.selectedDatasetId
   xDimensionsRef.value = s.xDimensions || []
   yMetricsRef.value = s.yMetrics || []
@@ -309,6 +313,7 @@ export function useReportState() {
   if (!initialized) {
     const initial = decodeState((route.query.r as string) || null)
     if (initial) {
+      if (initial.chartType) chartTypeRef.value = initial.chartType
       selectedDatasetIdRef.value = initial.selectedDatasetId
       xDimensionsRef.value = initial.xDimensions || []
       yMetricsRef.value = initial.yMetrics || []
@@ -327,6 +332,7 @@ export function useReportState() {
   }
 
   const state = computed<ReportState>(() => ({
+    chartType: chartTypeRef.value,
     selectedDatasetId: selectedDatasetIdRef.value,
     xDimensions: xDimensionsRef.value,
     yMetrics: yMetricsRef.value,
@@ -448,6 +454,7 @@ export function useReportState() {
 
   return {
     // state
+    chartType: chartTypeRef,
     selectedDatasetId: selectedDatasetIdRef,
     xDimensions: xDimensionsRef,
     yMetrics: yMetricsRef,

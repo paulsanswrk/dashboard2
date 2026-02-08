@@ -1,0 +1,117 @@
+{
+    "description": "Sample Box Plot chart configuration for the Optiqo Chart Builder using the Employees database. Visualises salary distribution across departments — the server skips aggregation for boxplot chartType, returning raw individual salary rows so the BoxPlotChartRenderer can compute accurate min/Q1/median/Q3/max per category.",
+    "version": "1.1.0",
+    "note": "Copy the inner 'config' object (not the wrapper) to paste into the debug panel. Based on the ECharts 'boxplot' series type with data-transform aggregate pattern (https://echarts.apache.org/examples/en/editor.html?c=data-transform-aggregate). The server-side preview endpoint skips SQL aggregation when chartType=boxplot, so yMetrics do not need an aggregation field.",
+    "database": "Employees (conn_4f2aa5cf_employees)",
+    "configs": [
+        {
+            "name": "1. Box Plot: Salary Distribution by Department",
+            "description": "Shows the statistical salary distribution (min, Q1, median, Q3, max) for each department. Joins salaries → dept_emp → departments. Raw salary values are returned (no aggregation) so the renderer computes accurate box statistics.",
+            "config": {
+                "chartType": "boxplot",
+                "chartTitle": "Salary Distribution by Department",
+                "xDimensions": [
+                    {
+                        "fieldId": "dept_name",
+                        "name": "dept_name",
+                        "label": "Department",
+                        "type": "varchar",
+                        "table": "departments"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "salary",
+                        "name": "salary",
+                        "label": "Salary",
+                        "type": "int",
+                        "table": "salaries",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_salaries_employees",
+                        "sourceTable": "salaries",
+                        "targetTable": "dept_emp",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "emp_no",
+                                "targetColumn": "emp_no"
+                            }
+                        ]
+                    },
+                    {
+                        "constraintName": "fk_dept_emp_departments",
+                        "sourceTable": "dept_emp",
+                        "targetTable": "departments",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "dept_no",
+                                "targetColumn": "dept_no"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": false
+                }
+            }
+        },
+        {
+            "name": "2. Box Plot: Salary Distribution by Job Title",
+            "description": "Shows salary spread across the 7 distinct job titles (Staff, Senior Staff, Engineer, Senior Engineer, Technique Leader, Assistant Engineer, Manager). Joins salaries → titles via emp_no. No aggregation — raw values for accurate box statistics.",
+            "config": {
+                "chartType": "boxplot",
+                "chartTitle": "Salary Distribution by Job Title",
+                "xDimensions": [
+                    {
+                        "fieldId": "title",
+                        "name": "title",
+                        "label": "Job Title",
+                        "type": "varchar",
+                        "table": "titles"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "salary",
+                        "name": "salary",
+                        "label": "Salary",
+                        "type": "int",
+                        "table": "salaries",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_salaries_titles",
+                        "sourceTable": "salaries",
+                        "targetTable": "titles",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "emp_no",
+                                "targetColumn": "emp_no"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": false
+                }
+            }
+        }
+    ]
+}

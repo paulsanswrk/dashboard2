@@ -284,7 +284,7 @@ const emit = defineEmits<{
 }>()
 
 const { runPreview, runSql, selectedDatasetId, selectedConnectionId, setSelectedConnectionId, setSelectedDatasetId } = useReportingService()
-const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions, sizeValue} = useReportState()
+const {xDimensions, yMetrics, breakdowns, filters, appearance, joins, undo, redo, canUndo, canRedo, excludeNullsInDimensions, sizeValue, chartType} = useReportState()
 const { createChart } = useChartsService()
 const { createDashboard, createDashboardReport } = useDashboardsService()
 const nuxtApp = useNuxtApp()
@@ -295,7 +295,6 @@ const rows = ref<Array<Record<string, unknown>>>([])
 const columns = ref<Array<{ key: string; label: string }>>([])
 const serverError = ref<string | null>(null)
 const serverWarnings = ref<string[]>([])
-const chartType = ref<'table' | 'bar' | 'column' | 'line' | 'area' | 'pie' | 'donut' | 'funnel' | 'gauge' | 'map' | 'scatter' | 'treemap' | 'sankey' | 'kpi' | 'pivot' | 'stacked' | 'radar' | 'boxplot' | 'bubble' | 'waterfall' | 'number' | 'wordcloud'>('column')
 const chartComponent = computed(() => chartType.value === 'table' ? ReportingPreview : ReportingChart)
 
 // Show onboarding guide when no data is loaded and no zones are populated
@@ -763,13 +762,14 @@ async function onTestPreview() {
   try {
     const res = await runPreview({
       datasetId,
+      chartType: chartType.value,
       xDimensions: xDimensions.value,
       yMetrics: yMetrics.value,
       breakdowns: breakdowns.value,
       filters: filters.value,
       joins: joins.value as any,
       sizeValue: sizeValue.value,  // For bubble chart SIZE zone
-      limit: 100,
+      limit: chartType.value === 'boxplot' ? 2000 : 100,
       connectionId: selectedConnectionId.value ?? props.connectionId ?? getUrlConnectionId()
     })
     rows.value = res.rows

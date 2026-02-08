@@ -42,6 +42,7 @@ type PreviewRequest = {
   connectionId?: number
   excludeNullsInDimensions?: boolean
   sizeValue?: MetricRef  // For bubble chart SIZE zone
+  chartType?: string     // Used to skip aggregation for certain chart types (e.g. boxplot)
 }
 
 function isSafeIdentifier(name: string | undefined): name is string {
@@ -145,16 +146,25 @@ export default defineEventHandler(async (event) => {
       columns.push({ key: d.fieldId, label: d.label || d.name || d.fieldId })
     }
 
+    // Skip aggregation for chart types that need raw individual values (e.g. boxplot)
+    const skipAggregation = body.chartType === 'boxplot'
+
     for (const m of metrics) {
       const field = qualify(m)
       if (!field) continue
-      let agg = (m.aggregation || (m.isNumeric ? 'SUM' : 'COUNT')).toUpperCase()
-      if (!['SUM', 'COUNT', 'AVG', 'MIN', 'MAX'].includes(agg)) {
-        agg = m.isNumeric ? 'SUM' : 'COUNT'
+      if (skipAggregation) {
+        // Box plot: select raw values without aggregation
+        selectParts.push(`${field} AS ${wrapId(m.fieldId)}`)
+        columns.push({ key: m.fieldId, label: m.label || m.name || m.fieldId })
+      } else {
+        let agg = (m.aggregation || (m.isNumeric ? 'SUM' : 'COUNT')).toUpperCase()
+        if (!['SUM', 'COUNT', 'AVG', 'MIN', 'MAX'].includes(agg)) {
+          agg = m.isNumeric ? 'SUM' : 'COUNT'
+        }
+        const alias = `${agg.toLowerCase()}_${m.fieldId}`
+        selectParts.push(`${agg}(${field}) AS ${wrapId(alias)}`)
+        columns.push({ key: alias, label: (m.label || m.name || m.fieldId) + ` (${agg})` })
       }
-      const alias = `${agg.toLowerCase()}_${m.fieldId}`
-      selectParts.push(`${agg}(${field}) AS ${wrapId(alias)}`)
-      columns.push({ key: alias, label: (m.label || m.name || m.fieldId) + ` (${agg})` })
     }
 
     if (selectParts.length === 0) {
@@ -294,8 +304,9 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // LIMIT
-    const limit = Math.min(Math.max(Number(body.limit || 100), 1), 1000)
+    // LIMIT — raise cap for box plots which need more data points for statistical accuracy
+    const maxLimit = skipAggregation ? 5000 : 1000
+    const limit = Math.min(Math.max(Number(body.limit || 100), 1), maxLimit)
 
     // Extract all unique table names from selected fields
     const allTables = new Set<string>([body.datasetId]) // Start with datasetId as base table
@@ -404,34 +415,51 @@ export default defineEventHandler(async (event) => {
       console.log(`[PREVIEW_TIMING] +${Date.now() - start}ms: Auto-join complete`)
     }
 
-    // Fallback to manual joins if provided
-    for (const j of body.joins || []) {
-      const jt = j.joinType === 'left' ? 'LEFT JOIN' : 'INNER JOIN'
-      if (!isSafeIdentifier(j.targetTable) || !isSafeIdentifier(j.sourceTable)) continue
-      // Determine which side to join based on what's already included
-      let srcTable = j.sourceTable
-      let tgtTable = j.targetTable
-      let pairs = (j.columnPairs || []).map(p => ({ sourceColumn: p.sourceColumn, targetColumn: p.targetColumn }))
-      if (includedTables.has(tgtTable) && !includedTables.has(srcTable)) {
-        // Swap so we join the not-yet-included table
-        ;[srcTable, tgtTable] = [tgtTable, srcTable]
-        pairs = pairs.map(p => ({ sourceColumn: p.targetColumn, targetColumn: p.sourceColumn }))
-      }
-      if (includedTables.has(tgtTable) || includedLower.has(String(tgtTable).toLowerCase())) {
-        // Both tables already included; skip redundant self/double joins
-        continue
-      }
-      const target = wrapId(tgtTable)
-      const source = wrapId(srcTable)
-      const onParts: string[] = []
-      for (const p of pairs) {
-        if (!isSafeIdentifier(p.sourceColumn) || !isSafeIdentifier(p.targetColumn)) continue
-        onParts.push(`${source}.${wrapId(p.sourceColumn)} = ${target}.${wrapId(p.targetColumn)}`)
-      }
-      if (onParts.length) {
-        joinClauses.push(`${jt} ${target} ON ${onParts.join(' AND ')}`)
-        includedTables.add(tgtTable)
-        includedLower.add(String(tgtTable).toLowerCase())
+    // Fallback to manual joins if provided — iterate until all are resolved (order-independent)
+    const pendingJoins = (body.joins || []).map((j, i) => ({ ...j, _idx: i }))
+    let joinProgress = true
+    while (pendingJoins.length > 0 && joinProgress) {
+      joinProgress = false
+      for (let i = pendingJoins.length - 1; i >= 0; i--) {
+        const j = pendingJoins[i]
+        if (!j) continue
+        const jt = j.joinType === 'left' ? 'LEFT JOIN' : 'INNER JOIN'
+        if (!isSafeIdentifier(j.targetTable) || !isSafeIdentifier(j.sourceTable)) {
+          pendingJoins.splice(i, 1)
+          continue
+        }
+        // Determine which side to join based on what's already included
+        let srcTable = j.sourceTable
+        let tgtTable = j.targetTable
+        let pairs = (j.columnPairs || []).map((p: any) => ({ sourceColumn: p.sourceColumn, targetColumn: p.targetColumn }))
+        if (includedTables.has(tgtTable) && !includedTables.has(srcTable)) {
+          // Swap so we join the not-yet-included table
+          ;[srcTable, tgtTable] = [tgtTable, srcTable]
+          pairs = pairs.map((p: any) => ({ sourceColumn: p.targetColumn, targetColumn: p.sourceColumn }))
+        }
+        if (includedTables.has(tgtTable) || includedLower.has(String(tgtTable).toLowerCase())) {
+          // Both tables already included; skip redundant self/double joins
+          pendingJoins.splice(i, 1)
+          continue
+        }
+        if (!includedTables.has(srcTable) && !includedLower.has(String(srcTable).toLowerCase())) {
+          // Neither side is included yet — skip for now, try again next pass
+          continue
+        }
+        const target = wrapId(tgtTable)
+        const source = wrapId(srcTable)
+        const onParts: string[] = []
+        for (const p of pairs) {
+          if (!isSafeIdentifier(p.sourceColumn) || !isSafeIdentifier(p.targetColumn)) continue
+          onParts.push(`${source}.${wrapId(p.sourceColumn)} = ${target}.${wrapId(p.targetColumn)}`)
+        }
+        if (onParts.length) {
+          joinClauses.push(`${jt} ${target} ON ${onParts.join(' AND ')}`)
+          includedTables.add(tgtTable)
+          includedLower.add(String(tgtTable).toLowerCase())
+          pendingJoins.splice(i, 1)
+          joinProgress = true
+        }
       }
     }
 
@@ -471,7 +499,7 @@ export default defineEventHandler(async (event) => {
       ...joinClauses,
       ...crossJoinClauses,
       whereParts.length ? 'WHERE ' + whereParts.join(' AND ') : '',
-      groupByParts.length ? 'GROUP BY ' + groupByParts.join(', ') : '',
+      !skipAggregation && groupByParts.length ? 'GROUP BY ' + groupByParts.join(', ') : '',
       orderByParts.length ? 'ORDER BY ' + orderByParts.join(', ') : '',
       'LIMIT ' + limit
     ].filter(Boolean).join(' ')

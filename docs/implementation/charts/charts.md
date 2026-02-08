@@ -4,6 +4,8 @@
 
 This document describes the comprehensive charts implementation for the Optiqo dashboard, featuring Apache ECharts with support for 21 different chart types, an intelligent adaptive zone system, a **polymorphic renderer architecture**, and **per-series customization** via the Series Options Panel.
 
+For per-chart-type implementation details, see [`docs/implementation/charts/types/`](types/).
+
 ## Architecture
 
 ### Polymorphic Chart Renderers
@@ -182,7 +184,7 @@ const seriesConfig = series.map((s, idx) => {
 | ScatterChartRenderer | scatter | X-Y correlation |
 | BubbleChartRenderer | bubble | Scatter with size encoding |
 | RadarChartRenderer | radar | Multi-dimensional comparison |
-| BoxPlotChartRenderer | boxplot | Statistical distribution |
+| BoxPlotChartRenderer | boxplot | Statistical distribution ([details](types/box-plot.md)) |
 | TreemapChartRenderer | treemap | Hierarchical rectangles |
 | SankeyChartRenderer | sankey | Flow diagrams |
 | MapChartRenderer | map | Geographic visualization |
@@ -268,6 +270,12 @@ lib/charts/
 
 ## Chart State Structure
 
+### URL State
+
+Builder state is encoded as a base64 JSON object in the `r` query parameter. This includes `chartType`, dimensions, metrics, appearance, joins, and all other builder settings. Managed by `composables/useReportState.ts`.
+
+### Saved Chart State
+
 Charts store configuration in `state_json`:
 
 ```typescript
@@ -332,6 +340,16 @@ interface ChartStateJson {
 - Better maintainability
 - **Per-series customization via Series Options Panel**
 - **Secondary Y-axis support**
+- **Chart type persistence in URL state**
+- **Aggregation bypass for chart types needing raw data (box plot)**
+
+---
+
+## Known ECharts Limitations
+
+| Chart Type | Limitation | Workaround |
+|------------|------------|------------|
+| Box Plot | `label` property is ignored on boxplot series (ECharts 5.6.0) | Use `markPoint` with invisible markers and visible labels ([details](types/box-plot.md#data-labels-show-labels)) |
 
 ---
 
