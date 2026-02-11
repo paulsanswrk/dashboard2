@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
         const query = getQuery(event)
         const contextToken = query.context as string | undefined
         const providedPassword = query.password as string | undefined
+        const activeTabId = query.activeTabId as string | undefined
         const isRenderContext = contextToken ? validateRenderContext(contextToken) : false
 
         // Load dashboard first
@@ -138,16 +139,22 @@ export default defineEventHandler(async (event) => {
             throw createError({ statusCode: 500, statusMessage: 'Failed to load dashboard tabs' })
         }
 
-        // Load widgets for all tabs
+        // Load widgets — scoped to active tab if specified
+        // Resolve '__first__' sentinel to the actual first tab ID
+        const resolvedActiveTabId = activeTabId === '__first__' && tabs.length > 0
+            ? tabs[0].id
+            : activeTabId
         let widgets: any[] = []
         try {
             if (tabs.length > 0) {
-                const tabIds = tabs.map((t: any) => t.id)
+                const targetTabIds = resolvedActiveTabId
+                    ? [resolvedActiveTabId]
+                    : tabs.map((t: any) => t.id)
                 const { data: widgetsData, error: widgetsError } = await supabaseAdmin
                     .from('dashboard_widgets')
                     .select('id, tab_id, dashboard_id, type, chart_id, position, style, config_override, created_at')
                     .eq('dashboard_id', dashboard.id)
-                    .in('tab_id', tabIds)
+                    .in('tab_id', targetTabIds)
                     .order('created_at', { ascending: true })
 
                 if (widgetsError) {
@@ -327,6 +334,7 @@ export default defineEventHandler(async (event) => {
                 position: tab.position,
                 style: tab.style ?? {},
                 options: tab.options ?? {},
+                widgetsLoaded: !resolvedActiveTabId || tab.id === resolvedActiveTabId,
                 widgets: [
                     ...chartResults,
                     ...textResults,

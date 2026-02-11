@@ -646,6 +646,7 @@ const tabs = ref<Array<{
   name: string;
   position: number;
   style?: any; // Tab style options
+  widgetsLoaded?: boolean;
   widgets: Array<{
     widgetId: string;
     type: 'chart' | 'text' | 'image' | 'icon';
@@ -653,6 +654,7 @@ const tabs = ref<Array<{
     name?: string;
     position: any;
     state?: any;
+    dataStatus?: 'cached' | 'pending';
     preloadedColumns?: any[];
     preloadedRows?: any[];
     style?: any;
@@ -1194,8 +1196,13 @@ function setDevice(d: 'desktop' | 'tablet' | 'mobile') {
   device.value = d
 }
 
-function selectTab(tabId: string) {
+async function selectTab(tabId: string) {
   activeTabId.value = tabId
+  // Lazy-load widgets for this tab if not yet loaded
+  const tab = tabs.value.find(t => t.id === tabId)
+  if (tab && !tab.widgetsLoaded) {
+    await loadTabWidgets(tabId)
+  }
   const layout = tabLayouts[tabId] || buildLayoutFromTab(tabId)
   tabLayouts[tabId] = cloneLayout(layout)
   gridLayout.value = cloneLayout(layout)
@@ -1244,10 +1251,32 @@ function openPreview() {
   navigateTo(`/dashboards/preview/${id.value}`)
 }
 
-async function load() {
+/**
+ * Map raw widget response to local widget format.
+ */
+function mapWidget(w: any) {
+  return {
+    widgetId: w.widgetId || w.id,
+    type: w.type,
+    chartId: w.type === 'chart' ? w.id ?? w.chartId : undefined,
+    name: w.type === 'chart' ? w.name : (w.style?.content || 'Text'),
+    position: w.position,
+    state: w.type === 'chart' ? w.state : undefined,
+    dataStatus: w.type === 'chart' ? w.dataStatus : undefined,
+    preloadedColumns: w.type === 'chart' ? w.preloadedColumns : undefined,
+    preloadedRows: w.type === 'chart' ? w.preloadedRows : undefined,
+    style: w.style || {},
+    configOverride: w.configOverride || {}
+  }
+}
+
+async function loadDashboard(initialLoad = false) {
   loading.value = true
   try {
-    const res = await getDashboardFull(id.value)
+    // On initial page load, only fetch widgets for the first tab (lazy-load others on switch)
+    // On re-fetches (after adding/deleting widgets), load all tabs to stay in sync
+    const activeTab = initialLoad ? '__first__' : undefined
+    const res = await getDashboardFull(id.value, undefined, activeTab)
     dashboardName.value = res.name
     dashboardWidth.value = res.width || undefined
 
@@ -1256,25 +1285,36 @@ async function load() {
       name: t.name,
       position: t.position,
       style: t.style || {},
-      widgets: (t.widgets || []).map((w: any) => ({
-        widgetId: w.widgetId || w.id,
-        type: w.type,
-        chartId: w.type === 'chart' ? w.id ?? w.chartId : undefined,
-        name: w.type === 'chart' ? w.name : (w.style?.content || 'Text'),
-        position: w.position,
-        state: w.type === 'chart' ? w.state : undefined,
-        // Note: No preloaded data - charts fetch their own data progressively
-        style: w.style || {},
-        configOverride: w.configOverride || {}
-      }))
+      widgetsLoaded: t.widgetsLoaded !== false,
+      widgets: (t.widgets || []).map(mapWidget)
     })).sort((a, b) => a.position - b.position)
 
     setLayoutsFromTabs(true)
-
-    // Load dashboard filters
-    await loadFilters()
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Lazy-load widgets for a specific tab that hasn't been loaded yet.
+ */
+async function loadTabWidgets(tabId: string) {
+  try {
+    const res = await $fetch<{ tabId: string; widgets: any[] }>(
+      `/api/dashboards/${id.value}/tabs/${tabId}/widgets`
+    )
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (tab) {
+      tab.widgets = (res.widgets || []).map(mapWidget)
+      tab.widgetsLoaded = true
+      // Rebuild layout for the newly loaded tab
+      const layout = buildLayoutFromTab(tabId)
+      tabLayouts[tabId] = cloneLayout(layout)
+      initialTabLayouts.value[tabId] = cloneLayout(layout)
+      gridLayout.value = cloneLayout(layout)
+    }
+  } catch (err) {
+    console.error('Failed to load tab widgets:', err)
   }
 }
 
@@ -1297,8 +1337,20 @@ async function loadConnections() {
 }
 
 onMounted(async () => {
-  await loadUserProfile()
-  await Promise.all([load(), loadConnections()])
+  // Run all initial data fetches in parallel
+  // loadUserProfile is already triggered by useAuth's watcher, but we include it
+  // for safety without blocking other fetches
+  const fetches: Promise<any>[] = [
+    loadUserProfile(),
+    loadDashboard(true),
+    loadFilters()
+  ]
+  // Only load connections in edit mode — they're needed for Add Filter/chart modals
+  // Use isEditMode (URL-based, instant) instead of isEditableSession (depends on profile)
+  if (isEditMode.value) {
+    fetches.push(loadConnections())
+  }
+  await Promise.all(fetches)
 
   // Add keyboard event handler for Delete key
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -1468,7 +1520,7 @@ async function deleteChart() {
               // Safer to reload or manually reconstruct local state if we knew the new ID.
               // Actually, the API assigns a new `dashboard_widget.id`.
               // We need to fetch the dashboard or just the widgets.
-              await load() // Simplest way to sync
+              await loadDashboard() // Simplest way to sync
             })
           },
           redo: async () => {
@@ -1889,7 +1941,7 @@ async function addTextBlock() {
                 style: baseStyle
               }
             }).then(async () => {
-              await load()
+              await loadDashboard()
             })
           }
         })
@@ -2012,7 +2064,7 @@ async function handleImageSelected(image: DashboardImage) {
                 style: imageStyle
               }
             }).then(async () => {
-              await load()
+              await loadDashboard()
             })
           }
         })
@@ -2090,7 +2142,7 @@ async function handleDeleteWidget(widgetId: string) {
           method: 'POST',
           body: deletedData
         }).then(async () => {
-          await load()
+          await loadDashboard()
         })
       },
       redo: async () => {
@@ -2647,7 +2699,7 @@ async function addChartToDashboard(chartId: number) {
       }
     })
 
-    await load()
+    await loadDashboard()
     showAddChartModal.value = false
     selectedGalleryChartId.value = null
   } catch (error) {
@@ -2806,7 +2858,7 @@ async function createTab() {
       }
     })
 
-    await load()
+    await loadDashboard()
 
     // Select the newly created tab (it's the last one by position)
     if (tabs.value.length > 0) {

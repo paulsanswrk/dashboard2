@@ -20,7 +20,9 @@ export type DashboardWidget = {
   style?: any
   name?: string
   state?: any
-  // Note: data is no longer preloaded - charts fetch their own data progressively
+  dataStatus?: 'cached' | 'pending'
+  preloadedColumns?: Array<{ key: string; label: string }>
+  preloadedRows?: Array<Record<string, unknown>>
 }
 
 export type DashboardTab = {
@@ -30,6 +32,7 @@ export type DashboardTab = {
   style?: any
   options?: any
   widgets: DashboardWidget[]
+  widgetsLoaded?: boolean
 }
 
 export type DashboardFull = {
@@ -53,8 +56,10 @@ export function useDashboardsService() {
     return await $fetch(`/api/dashboards/${id}`)
   }
 
-  async function getDashboardFull(id: string, context?: string): Promise<DashboardFull> {
-    const params = context ? { context } : {}
+  async function getDashboardFull(id: string, context?: string, activeTabId?: string): Promise<DashboardFull> {
+    const params: Record<string, string> = {}
+    if (context) params.context = context
+    if (activeTabId) params.activeTabId = activeTabId
     return await $fetch(`/api/dashboards/${id}/full`, { params })
   }
 

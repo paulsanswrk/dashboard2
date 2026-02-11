@@ -21,4 +21,4 @@ We use Drizzle for server-side Supabase queries. Schema is defined in lib/db/sch
 
 Supabase project id is bnhhjzcitgaczpojzkxd. You can use MCP for Supabase access.
 
-In this project we use a single master branch, pelase don't create any other branches.
+In this project we use a single master branch, please don't create any other branches. Do committing/pushing only on my request!
