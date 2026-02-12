@@ -1,7 +1,7 @@
 <template>
   <div 
     ref="containerRef" 
-    class="relative w-full bg-white dark:bg-gray-900 overflow-hidden" 
+    class="relative w-full bg-white dark:bg-gray-900" 
     :class="{'border rounded': !preview}" 
     @click="handleContainerClick"
     @mousemove="handleGlobalMouseMove"
@@ -18,7 +18,7 @@
       <!-- Center transparent area (for preview content) -->
       <div
           class="flex-shrink-0"
-          :style="{ width: previewWidth + 'px' }"
+          :style="{ width: canvasWidth + 'px' }"
       ></div>
       <!-- Right overlay (mirrors left) -->
       <div
@@ -32,12 +32,11 @@
       <span class="ml-3 text-gray-500">Loading dashboard...</span>
     </div>
 
-    <!-- Wrapper uses relative positioning and sets the visual height after scaling -->
+    <!-- Wrapper sets the canvas at its natural pixel width; horizontal scroll handles overflow -->
     <div v-else class="relative" :style="wrapperStyle">
       <div 
-        class="absolute top-0 left-0" 
         :class="{'edit-mode-grid': !preview}"
-        :style="[scaledContainerStyle, {
+        :style="[canvasStyle, {
           fontFamily: tabStyle?.fontFamily,
           backgroundColor: tabStyle?.backgroundColor || undefined
         }]"
@@ -189,7 +188,6 @@ interface Props {
   loading?: boolean
   preview?: boolean
   selectedTextId?: string
-  scalingEnabled?: boolean
   dashboardWidth?: number
   dashboardFilters?: any[]
   tabStyle?: TabStyleOptions
@@ -202,7 +200,6 @@ const props = withDefaults(defineProps<Props>(), {
   widgets: () => [],
   loading: false,
   preview: false,
-  scalingEnabled: true,
   dashboardFilters: () => [],
   tabStyle: () => ({}),
   dashboardId: undefined
@@ -230,34 +227,13 @@ const startMouseX = ref(0)
 const startMouseY = ref(0)
 const startWidgetPos = ref({ left: 0, top: 0, width: 0, height: 0 })
 
-// Container & Scaling
+// Container ref (kept for click-outside handling)
 const containerRef = ref<HTMLElement | null>(null)
-const containerWidth = ref(0)
 
-onMounted(() => {
-  updateContainerWidth()
-  window.addEventListener('resize', updateContainerWidth)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', updateContainerWidth)
-})
-
-function updateContainerWidth() {
-  if (containerRef.value) {
-    containerWidth.value = containerRef.value.clientWidth
-  }
-}
-
-const previewWidth = computed(() => {
+const canvasWidth = computed(() => {
   if (props.device === 'mobile') return DEVICE_PREVIEW_WIDTHS.mobile
   if (props.device === 'tablet') return DEVICE_PREVIEW_WIDTHS.tablet
   return props.dashboardWidth || DASHBOARD_WIDTH
-})
-
-const scale = computed(() => {
-  if (!props.scalingEnabled || containerWidth.value === 0) return 1
-  return containerWidth.value / previewWidth.value
 })
 
 const DASHBOARD_MIN_HEIGHT = 2000
@@ -271,11 +247,10 @@ const calculatedHeight = computed(() => {
   return Math.max(DASHBOARD_MIN_HEIGHT, maxY + 100)
 })
 
-const scaledContainerStyle = computed(() => {
+const canvasStyle = computed(() => {
   const style: any = {
-    width: `${previewWidth.value}px`,
-    transform: scale.value !== 1 ? `scale(${scale.value})` : undefined,
-    transformOrigin: 'top left',
+    width: `${canvasWidth.value}px`,
+    minWidth: `${canvasWidth.value}px`,
     zIndex: 20,
     border: (!props.preview) ? '1px solid #e5e7eb' : 'none'
   }
@@ -289,16 +264,14 @@ const scaledContainerStyle = computed(() => {
   return style
 })
 
-
 const wrapperStyle = computed(() => {
-  const s = scale.value
   return {
-    width: '100%',
-    height: `${calculatedHeight.value * s}px`,
+    minWidth: `${canvasWidth.value}px`,
+    height: `${calculatedHeight.value}px`,
   }
 })
 
-const leftOverlayWidth = computed(() => `calc((100% - ${previewWidth.value}px) / 2)`)
+const leftOverlayWidth = computed(() => `calc((100% - ${canvasWidth.value}px) / 2)`)
 
 // Widget Helpers
 function findWidget(i: string): Widget | undefined {
@@ -388,8 +361,8 @@ function isSelected(widgetId: string) {
 function handleGlobalMouseMove(e: MouseEvent) {
   if (!isDragging.value && !isResizing.value) return
   
-  const dx = (e.clientX - startMouseX.value) / scale.value
-  const dy = (e.clientY - startMouseY.value) / scale.value
+  const dx = e.clientX - startMouseX.value
+  const dy = e.clientY - startMouseY.value
   
   const item = props.layout.find(i => i.i === activeWidgetId.value)
   if (!item) return

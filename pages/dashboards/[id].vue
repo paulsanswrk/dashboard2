@@ -483,7 +483,7 @@
 
       <div class="flex gap-4 items-stretch flex-1 min-h-0">
         <div class="flex-1 min-w-0 h-full overflow-hidden">
-          <div class="h-full overflow-auto pr-1">
+          <div class="h-full overflow-x-auto overflow-y-auto pr-1">
             <Dashboard
                 :device="device"
                 :layout="gridLayout"

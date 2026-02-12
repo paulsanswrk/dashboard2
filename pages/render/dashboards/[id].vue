@@ -11,7 +11,6 @@
           :widgets="tab.widgets"
           :loading="loading"
           :preview="true"
-          :scaling-enabled="false"
           :dashboard-id="id"
           :dashboard-width="dashboardWidth"
       />
