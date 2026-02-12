@@ -169,19 +169,21 @@ export default defineEventHandler(async (event) => {
     let chart: any
     try {
         // First check if the chart is linked to this dashboard via dashboard_widgets
-        const { data: widget, error: widgetError } = await supabaseAdmin
+        // Use .limit(1) instead of .maybeSingle() because duplicate/pasted widgets
+        // can produce multiple rows with the same chart_id, which causes maybeSingle() to error
+        const { data: widgets, error: widgetError } = await supabaseAdmin
             .from('dashboard_widgets')
             .select('chart_id')
             .eq('dashboard_id', dashboardId)
             .eq('chart_id', chartId)
-            .maybeSingle()
+            .limit(1)
 
         if (widgetError) {
             console.error('[chart-data] Error checking widget:', widgetError)
             throw createError({ statusCode: 500, statusMessage: 'Failed to verify chart' })
         }
 
-        if (!widget) {
+        if (!widgets || widgets.length === 0) {
             throw createError({ statusCode: 404, statusMessage: 'Chart not found in this dashboard' })
         }
 

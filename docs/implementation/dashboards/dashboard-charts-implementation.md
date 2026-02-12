@@ -17,6 +17,10 @@ This document outlines the implementation of multi-tab dashboard charts function
 - **Dotted Grid**: Visual alignment guidance in edit mode.
 - **Complete State Preservation**: All chart state (SQL, filters, appearance, chart type) is preserved
 - **Flexible Reporting**: Generate reports for entire dashboards or specific tabs
+- **Widget Context Menu**: Right-click on widgets for duplicate, copy, cut, paste, z-ordering, linking, and delete actions
+- **Canvas Context Menu**: Right-click on empty canvas space for paste-only menu
+- **Keyboard Shortcuts**: Ctrl+C/X/V/D, Delete/Backspace, Escape for common widget operations
+- **Widget Z-Ordering**: Bring to Front / Send to Back for layering control
 
 ## 🗄️ Database Schema
 
@@ -211,20 +215,44 @@ Returns dashboard structure and widget metadata for immediate rendering. Sensiti
     2) Return metadata immediately (no SQL execution).
 - Response structure: `{ id, name, isPublic, createdAt, tabs: [{ id, name, position, widgets: [{ widgetId, type, name, position, state, configOverride, style }] }] }`
 
-### Chart Data API (`/api/dashboards/[id]/charts/[chartId]/data`) - NEW
+### Chart Data API (`/api/dashboards/[id]/charts/[chartId]/data`)
 
-Fetches data for a specific chart. Designed for progressive loading and future caching.
+Fetches data for a specific chart. Designed for progressive loading with caching.
 
 - **Method**: GET
 - **Query Params**: `context?` (render context token), `filterOverrides?` (JSON array)
 - **Response**: `{ columns: [...], rows: [...], meta?: { error?: string } }`
 - **Server process**:
-    1) Validate dashboard access and chart ownership
+    1) Validate dashboard access and verify chart belongs to dashboard via `dashboard_widgets`
     2) Load chart SQL from `state_json.internal`
-    3) Execute query via connection config or internal storage
-    4) Return data or error
+    3) Check cache (tenant-isolated) and return cached data if available
+    4) Execute query via connection config or internal storage
+    5) Store result in cache (async, non-blocking)
+    6) Return data or error
+
+> **Important**: The chart-to-dashboard verification uses `.limit(1)` instead of `.maybeSingle()` because
+> duplicated/pasted chart widgets can create multiple `dashboard_widgets` rows pointing to the same `chart_id`.
+> Using `.maybeSingle()` would error on multiple matches.
 
 Note: Charts saved prior to the internal refactor (without `state_json.internal`) are not supported.
+
+### Dashboard Widgets API (`/api/dashboard-widgets`)
+
+#### `POST /api/dashboard-widgets`
+Creates a new widget in a dashboard tab.
+- **Input**: `{ tabId, type, position, chartId?, style?, configOverride? }`
+- **Output**: `{ success: true, widgetId: string }`
+- **Supported types**: `chart`, `text`, `image`, `icon`
+- **Authentication**: Required, verifies edit permission on the dashboard
+
+#### `PUT /api/dashboard-widgets`
+Updates an existing widget (style, position, etc.).
+- **Input**: `{ widgetId, style?, position?, ... }`
+- **Authentication**: Required
+
+#### `DELETE /api/dashboard-widgets?id=...`
+Deletes a widget.
+- **Authentication**: Required
 
 ## 🎨 Frontend Components
 
@@ -270,6 +298,37 @@ Multi-tab dashboard editor with integrated toolbar and unified widgets. Highligh
 - **Auto-saving**: Dashboard name changes and widget layout changes are automatically saved with 500ms debouncing.
 - **Toolbar**: Edit/Done toggle, device previews, Auto Layout, Add Chart, Add Text, Show Options (sidebar toggle).
 - **Thumbnails**: Captured with `html-to-image` on save (width/height/thumbnail_url persisted).
+- **Context Menus**: Right-click on widgets or empty canvas for contextual actions (see below).
+- **Widget Z-ordering**: Inline `z-index` based on array position; selected widget gets `z-index: 1000`.
+- **Undo/Redo**: Action history for widget operations (delete, duplicate, paste, z-order changes).
+
+#### `WidgetContextMenu.vue` (New)
+Context menu component shown on right-click. Supports two modes:
+
+**Widget mode** (right-click on a widget):
+- Duplicate (Ctrl+D), Copy (Ctrl+C), Cut (Ctrl+X), Paste (Ctrl+V)
+- Bring to Front, Send to Back
+- Add Link / Remove Link (opens `AddLinkModal`)
+- Edit in Chart Builder (chart widgets only)
+- Delete (Del)
+
+**Canvas mode** (right-click on empty space):
+- Paste only (enabled when clipboard has content)
+
+Props: `visible`, `x`, `y`, `widgetType`, `widgetId`, `hasLink?`, `hasClipboard?`, `canvasMode?`
+
+#### `AddLinkModal.vue` (New)
+Modal for adding a URL link to a widget. Validates URL format and emits the link value.
+
+#### Keyboard Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+C` | Copy selected widget |
+| `Ctrl+X` | Cut selected widget |
+| `Ctrl+V` | Paste widget from clipboard |
+| `Ctrl+D` | Duplicate selected widget |
+| `Delete` / `Backspace` | Delete selected widget |
+| `Escape` | Deselect current widget |
 
 #### `DashboardChartRenderer.vue`
 Renders saved chart state without builder controls. Supports progressive loading.
@@ -352,6 +411,14 @@ Charts use an optimized loading strategy that minimizes API calls by leveraging 
 - `server/utils/chart-cache.ts` - Cache lookup and storage utilities
 - `server/api/dashboards/[id]/full.get.ts` - Parallel cache lookups with Drizzle
 
+### Widget Interaction Process
+
+- **Duplicate**: Creates a new widget at +30px offset, pointing to the same `chart_id` (charts share the DB record).
+- **Copy/Paste**: Stores widget data in an in-memory clipboard; paste creates a new widget via POST API.
+- **Cut**: Copy + delete in one operation.
+- **Z-ordering**: Moves widget to front/back of the layout array; `z-index` is applied inline based on array position.
+- **Linking**: Opens `AddLinkModal` to attach a URL; link is stored in widget `style.link`.
+
 ### Auto-Saving Process
 
 - **Dashboard Name Changes**: Debounced with 500ms delay, automatically saves via `PUT /api/dashboards` with name parameter.
@@ -359,6 +426,7 @@ Charts use an optimized loading strategy that minimizes API calls by leveraging 
 - **Text Widget Changes**: Debounced with 200ms delay, saves via `PUT /api/dashboard-widgets`.
 - **Chart Appearance Changes**: Debounced with 250ms delay, saves via `PUT /api/dashboard-widgets`.
 - **Chart Renames**: Debounced with 300ms delay, saves via `PUT /api/reporting/charts`.
+- **Widget Style (z-index, link)**: Saved immediately via `PUT /api/dashboard-widgets` on z-order or link changes.
 
 ### Edit/View Mode Toggle
 
@@ -426,9 +494,10 @@ Full-load specifics:
 ### Potential Features:
 - **Dashboard Sharing**: Allow dashboards to be shared with other users
 - **Chart Templates**: Pre-built chart configurations
-- **Bulk Operations**: Move/copy multiple charts between dashboards
+- **Multi-select Operations**: Select and move/copy/delete multiple widgets at once
 - **Dashboard Themes**: Custom styling for entire dashboards
 - **Chart Dependencies**: Link related charts with drill-down functionality
+- **Independent Chart Clones**: Optionally clone the underlying chart record on duplicate (currently shares the same chart)
 
 ### Technical Improvements:
 - **Real-time Collaboration**: Multiple users editing dashboards simultaneously
@@ -479,7 +548,7 @@ See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architectu
 - Missing database connections
 - Invalid chart configurations
 - Ownership permission checks
-- Duplicate chart placements prevented
+- Multiple widgets referencing the same chart (duplicate/paste — handled via `.limit(1)` in data endpoint)
 - Legacy data migration compatibility
 
 ---
@@ -487,10 +556,19 @@ See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architectu
 **Implementation Date**: October 29, 2025
 **Auto-saving Enhancement**: December 12, 2025
 **PDF Border & Height Optimization**: January 15, 2026
+**Widget Context Menu & Interactions**: February 12, 2026
 **Status**: ✅ Complete and Ready for Production
 **Migration Status**: Comprehensive migration applied, cleanup migration pending
 
-### Recent Updates (January 2026)
+### Recent Updates (February 2026)
+- **Widget Context Menu**: Right-click on widgets for duplicate, copy, cut, paste, z-ordering, linking, and delete
+- **Canvas Context Menu**: Right-click on empty canvas for paste-only menu
+- **Keyboard Shortcuts**: Ctrl+C/X/V/D, Delete/Backspace, Escape for widget operations
+- **Z-Index Management**: Inline z-index based on layout array position; Bring to Front / Send to Back
+- **Widget Linking**: Add/remove URL links on widgets via `AddLinkModal`
+- **Chart Duplication Fix**: Changed `.maybeSingle()` to `.limit(1)` in chart data endpoint to handle multiple widgets sharing the same `chart_id`
+
+### Previous Updates (January 2026)
 - **Precise PDF Height**: Widget-based bounding box measurement for minimal whitespace
 - **Smart Widget Borders**: Different handling for chart/text (default 1px) vs icon (no border) widgets
 - **Authentication Bypass**: Proper `/render` route exclusions for PDF generator access

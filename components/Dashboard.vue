@@ -40,6 +40,7 @@
           fontFamily: tabStyle?.fontFamily,
           backgroundColor: tabStyle?.backgroundColor || undefined
         }]"
+        @contextmenu.prevent="handleCanvasOrWidgetContextMenu($event)"
       >
         <!-- Widget Container -->
         <div class="relative w-full h-full p-3">
@@ -50,7 +51,7 @@
             :data-widget-id="item.i"
             class="absolute transition-shadow transition-[border-color] dashboard-widget"
             :class="{
-              'ring-2 ring-blue-500 z-30': isSelected(item.i),
+              'ring-2 ring-blue-500': isSelected(item.i),
               'hover:ring-1 hover:ring-gray-300': !isSelected(item.i) && !preview,
               'cursor-move': !preview && !isResizing
             }"
@@ -58,9 +59,11 @@
               left: `${item.left}px`,
               top: `${item.top}px`,
               width: `${item.width}px`,
-              height: `${item.height}px`
+              height: `${item.height}px`,
+              zIndex: isSelected(item.i) ? 1000 : layout.indexOf(item) + 1
             }"
             @mousedown="!preview && handleWidgetMouseDown($event, item.i)"
+            @contextmenu.prevent="!preview && handleWidgetContextMenu($event, item.i)"
           >
             <!-- Selection Highlight & Handles -->
             <template v-if="isSelected(item.i) && !preview">
@@ -216,6 +219,8 @@ const emit = defineEmits<{
   'update-text-content': [widgetId: string, content: string]
   'rename-chart-inline': [widgetId: string, name: string]
   'deselect': []
+  'context-menu': [payload: { widgetId: string; x: number; y: number }]
+  'canvas-context-menu': [payload: { x: number; y: number }]
 }>()
 
 // Interaction State
@@ -461,6 +466,21 @@ function onChartNameInput(widgetId: string, e: Event) {
 
 function handleSelectText(widgetId: string) {
   emit('select-text', widgetId)
+}
+
+function handleWidgetContextMenu(e: MouseEvent, widgetId: string) {
+  // Stop propagation so the canvas handler doesn't also fire
+  e.stopPropagation()
+  emit('select-text', widgetId)
+  emit('context-menu', { widgetId, x: e.clientX, y: e.clientY })
+}
+
+function handleCanvasOrWidgetContextMenu(e: MouseEvent) {
+  if (props.preview) return
+  // Check if the click target is inside a widget
+  const target = e.target as HTMLElement
+  if (target.closest('.dashboard-widget')) return // widget handler already fired via stopPropagation
+  emit('canvas-context-menu', { x: e.clientX, y: e.clientY })
 }
 </script>
 

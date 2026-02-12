@@ -507,6 +507,8 @@
                 @update-text-content="updateTextContent"
                 @rename-chart-inline="renameChartInline"
                 @deselect="handleDeselect"
+                @context-menu="handleContextMenu"
+                @canvas-context-menu="handleCanvasContextMenu"
             />
           </div>
         </div>
@@ -601,6 +603,37 @@
         </aside>
       </div>
     </div>
+
+    <!-- Widget Context Menu -->
+    <WidgetContextMenu
+        :visible="ctxMenu.visible"
+        :x="ctxMenu.x"
+        :y="ctxMenu.y"
+        :widget-type="ctxMenu.widgetType"
+        :widget-id="ctxMenu.widgetId"
+        :has-link="ctxMenu.hasLink"
+        :has-clipboard="!!widgetClipboard"
+        :canvas-mode="ctxMenu.canvasMode"
+        @close="closeContextMenu"
+        @duplicate="ctxDuplicate"
+        @copy="ctxCopy"
+        @cut="ctxCut"
+        @paste="ctxPaste"
+        @bring-to-front="ctxBringToFront"
+        @send-to-back="ctxSendToBack"
+        @add-link="ctxAddLink"
+        @remove-link="ctxRemoveLink"
+        @edit-chart="ctxEditChart"
+        @delete="ctxDelete"
+    />
+
+    <!-- Add Link Modal -->
+    <AddLinkModal
+        v-model:open="showLinkModal"
+        :initial-url="linkModalInitialUrl"
+        :initial-target="linkModalInitialTarget"
+        @save="handleLinkSave"
+    />
   </div>
 </template>
 
@@ -1351,31 +1384,6 @@ onMounted(async () => {
     fetches.push(loadConnections())
   }
   await Promise.all(fetches)
-
-  // Add keyboard event handler for Delete key
-  const handleKeyDown = (e: KeyboardEvent) => {
-    // Only handle Delete/Backspace in edit mode
-    if (!isEditableSession.value) return
-    
-    // Don't delete if user is typing in an input or contenteditable
-    const target = e.target as HTMLElement
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
-    
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      const widgetId = selectedTextWidgetId.value
-      if (widgetId) {
-        e.preventDefault()
-        handleDeleteWidget(widgetId)
-      }
-    }
-  }
-  
-  window.addEventListener('keydown', handleKeyDown)
-  
-  // Cleanup on unmount
-  onBeforeUnmount(() => {
-    window.removeEventListener('keydown', handleKeyDown)
-  })
 })
 
 onBeforeRouteLeave((to, from) => {
@@ -3128,6 +3136,523 @@ function getFilterOperator(filter: DashboardFilter): string {
   }
   return 'equals'
 }
+
+// ─── Context Menu ───────────────────────────────────────────────
+const ctxMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  widgetId: '',
+  widgetType: 'text' as 'chart' | 'text' | 'image' | 'icon',
+  hasLink: false,
+  canvasMode: false
+})
+
+function handleContextMenu(payload: { widgetId: string; x: number; y: number }) {
+  const widget = tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === payload.widgetId)
+  if (!widget) return
+  ctxMenu.widgetId = payload.widgetId
+  ctxMenu.widgetType = widget.type
+  ctxMenu.hasLink = !!(widget.style as any)?.linkUrl
+  ctxMenu.x = payload.x
+  ctxMenu.y = payload.y
+  ctxMenu.canvasMode = false
+  ctxMenu.visible = true
+}
+
+function handleCanvasContextMenu(payload: { x: number; y: number }) {
+  ctxMenu.widgetId = ''
+  ctxMenu.widgetType = 'text'
+  ctxMenu.hasLink = false
+  ctxMenu.canvasMode = true
+  ctxMenu.x = payload.x
+  ctxMenu.y = payload.y
+  ctxMenu.visible = true
+}
+
+function closeContextMenu() {
+  ctxMenu.visible = false
+}
+
+// ─── Clipboard ──────────────────────────────────────────────────
+interface ClipboardEntry {
+  type: 'chart' | 'text' | 'image' | 'icon'
+  chartId?: number
+  name?: string
+  position: { left: number; top: number; width: number; height: number }
+  style?: any
+  configOverride?: any
+  state?: any
+  isCut: boolean
+  sourceWidgetId: string
+}
+const widgetClipboard = ref<ClipboardEntry | null>(null)
+
+function getWidgetById(widgetId: string) {
+  return tabs.value.flatMap(t => t.widgets).find(w => w.widgetId === widgetId)
+}
+
+function getLayoutItemById(widgetId: string) {
+  return gridLayout.value.find((item: any) => item.i === widgetId)
+}
+
+// ─── Context Menu Actions ───────────────────────────────────────
+function ctxDuplicate() {
+  closeContextMenu()
+  duplicateWidget(ctxMenu.widgetId)
+}
+
+function ctxCopy() {
+  closeContextMenu()
+  copyWidgetToClipboard(ctxMenu.widgetId, false)
+}
+
+function ctxCut() {
+  closeContextMenu()
+  copyWidgetToClipboard(ctxMenu.widgetId, true)
+}
+
+function ctxPaste() {
+  closeContextMenu()
+  pasteWidget()
+}
+
+function ctxBringToFront() {
+  closeContextMenu()
+  changeWidgetZOrder(ctxMenu.widgetId, 'front')
+}
+
+function ctxSendToBack() {
+  closeContextMenu()
+  changeWidgetZOrder(ctxMenu.widgetId, 'back')
+}
+
+function ctxEditChart() {
+  closeContextMenu()
+  const widget = getWidgetById(ctxMenu.widgetId)
+  if (widget?.chartId) {
+    editChart(String(widget.chartId))
+  }
+}
+
+function ctxDelete() {
+  closeContextMenu()
+  handleDeleteWidget(ctxMenu.widgetId)
+}
+
+// ─── Add / Remove Link ──────────────────────────────────────────
+const showLinkModal = ref(false)
+const linkModalInitialUrl = ref('')
+const linkModalInitialTarget = ref('_blank')
+const linkTargetWidgetId = ref<string | null>(null)
+
+function ctxAddLink() {
+  closeContextMenu()
+  linkTargetWidgetId.value = ctxMenu.widgetId
+  const widget = getWidgetById(ctxMenu.widgetId)
+  linkModalInitialUrl.value = (widget?.style as any)?.linkUrl || ''
+  linkModalInitialTarget.value = (widget?.style as any)?.linkTarget || '_blank'
+  showLinkModal.value = true
+}
+
+function ctxRemoveLink() {
+  closeContextMenu()
+  const widgetId = ctxMenu.widgetId
+  const widget = getWidgetById(widgetId)
+  if (!widget) return
+  const oldUrl = (widget.style as any)?.linkUrl
+  const oldTarget = (widget.style as any)?.linkTarget
+  delete (widget.style as any).linkUrl
+  delete (widget.style as any).linkTarget
+  saveWidgetStyle(widgetId, widget.style)
+  recordAction({
+    type: 'Remove Link',
+    undo: async () => {
+      const w = getWidgetById(widgetId)
+      if (w) {
+        ;(w.style as any).linkUrl = oldUrl
+        ;(w.style as any).linkTarget = oldTarget
+        saveWidgetStyle(widgetId, w.style)
+      }
+    },
+    redo: async () => {
+      const w = getWidgetById(widgetId)
+      if (w) {
+        delete (w.style as any).linkUrl
+        delete (w.style as any).linkTarget
+        saveWidgetStyle(widgetId, w.style)
+      }
+    }
+  })
+}
+
+function handleLinkSave(payload: { url: string; target: string }) {
+  const widgetId = linkTargetWidgetId.value
+  if (!widgetId) return
+  const widget = getWidgetById(widgetId)
+  if (!widget) return
+
+  const oldUrl = (widget.style as any)?.linkUrl
+  const oldTarget = (widget.style as any)?.linkTarget
+
+  if (!widget.style) widget.style = {}
+  ;(widget.style as any).linkUrl = payload.url
+  ;(widget.style as any).linkTarget = payload.target
+  saveWidgetStyle(widgetId, widget.style)
+
+  recordAction({
+    type: 'Add Link',
+    undo: async () => {
+      const w = getWidgetById(widgetId)
+      if (w) {
+        if (oldUrl) {
+          ;(w.style as any).linkUrl = oldUrl
+          ;(w.style as any).linkTarget = oldTarget
+        } else {
+          delete (w.style as any).linkUrl
+          delete (w.style as any).linkTarget
+        }
+        saveWidgetStyle(widgetId, w.style)
+      }
+    },
+    redo: async () => {
+      const w = getWidgetById(widgetId)
+      if (w) {
+        ;(w.style as any).linkUrl = payload.url
+        ;(w.style as any).linkTarget = payload.target
+        saveWidgetStyle(widgetId, w.style)
+      }
+    }
+  })
+}
+
+function saveWidgetStyle(widgetId: string, style: any) {
+  $fetch('/api/dashboard-widgets', {
+    method: 'PUT',
+    body: { widgetId, style }
+  }).catch(err => console.error('Failed to save widget style', err))
+}
+
+// ─── Duplicate Widget ───────────────────────────────────────────
+async function duplicateWidget(widgetId: string) {
+  const widget = getWidgetById(widgetId)
+  const layoutItem = getLayoutItemById(widgetId)
+  if (!widget || !layoutItem) return
+
+  const targetTabId = activeTabId.value || tabs.value[0]?.id
+  if (!targetTabId) return
+
+  const OFFSET = 30
+  const newPosition = {
+    left: layoutItem.left + OFFSET,
+    top: layoutItem.top + OFFSET,
+    width: layoutItem.width,
+    height: layoutItem.height
+  }
+
+  const body: any = {
+    tabId: targetTabId,
+    type: widget.type,
+    position: newPosition,
+    style: JSON.parse(JSON.stringify(widget.style || {}))
+  }
+  if (widget.type === 'chart' && widget.chartId) {
+    body.chartId = widget.chartId
+  }
+  if (widget.configOverride) {
+    body.configOverride = JSON.parse(JSON.stringify(widget.configOverride))
+  }
+
+  // Optimistic local add
+  const tempWidgetId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const newWidget = {
+    widgetId: tempWidgetId,
+    type: widget.type,
+    chartId: widget.chartId,
+    name: widget.name,
+    position: newPosition,
+    state: widget.state,
+    style: JSON.parse(JSON.stringify(widget.style || {})),
+    configOverride: widget.configOverride ? JSON.parse(JSON.stringify(widget.configOverride)) : undefined,
+    dataStatus: widget.type === 'chart' ? 'pending' as const : undefined
+  }
+
+  const tab = tabs.value.find(t => t.id === targetTabId)
+  if (tab) {
+    tab.widgets.push(newWidget)
+    const newLayoutItem = {
+      left: newPosition.left,
+      top: newPosition.top,
+      width: newPosition.width,
+      height: newPosition.height,
+      i: String(tempWidgetId)
+    }
+    tabLayouts[targetTabId] = [...(tabLayouts[targetTabId] || []), newLayoutItem]
+    gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+  }
+
+  selectedTextWidgetId.value = tempWidgetId
+
+  try {
+    const res = await $fetch<{ success: boolean; widgetId: string }>('/api/dashboard-widgets', {
+      method: 'POST',
+      body
+    })
+    if (res?.widgetId && tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets[widgetIndex].widgetId = res.widgetId
+        const layoutItemIndex = tabLayouts[targetTabId].findIndex((item: any) => item.i === String(tempWidgetId))
+        if (layoutItemIndex >= 0) {
+          tabLayouts[targetTabId][layoutItemIndex].i = String(res.widgetId)
+          gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+          initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        }
+        if (selectedTextWidgetId.value === tempWidgetId) {
+          selectedTextWidgetId.value = res.widgetId
+        }
+
+        const addedId = res.widgetId
+        recordAction({
+          type: 'Duplicate Widget',
+          undo: async () => { await deleteWidgetInternal(addedId) },
+          redo: async () => {
+            await $fetch('/api/dashboard-widgets', { method: 'POST', body })
+              .then(async () => { await loadDashboard() })
+          }
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Failed to duplicate widget', error)
+    if (tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets.splice(widgetIndex, 1)
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+      }
+    }
+  }
+}
+
+// ─── Copy / Cut / Paste ─────────────────────────────────────────
+function copyWidgetToClipboard(widgetId: string, isCut: boolean) {
+  const widget = getWidgetById(widgetId)
+  const layoutItem = getLayoutItemById(widgetId)
+  if (!widget || !layoutItem) return
+
+  widgetClipboard.value = {
+    type: widget.type,
+    chartId: widget.chartId,
+    name: widget.name,
+    position: {
+      left: layoutItem.left,
+      top: layoutItem.top,
+      width: layoutItem.width,
+      height: layoutItem.height
+    },
+    style: widget.style ? JSON.parse(JSON.stringify(widget.style)) : undefined,
+    configOverride: widget.configOverride ? JSON.parse(JSON.stringify(widget.configOverride)) : undefined,
+    state: widget.state ? JSON.parse(JSON.stringify(widget.state)) : undefined,
+    isCut,
+    sourceWidgetId: widgetId
+  }
+
+  if (isCut) {
+    handleDeleteWidget(widgetId)
+  }
+}
+
+async function pasteWidget() {
+  const clip = widgetClipboard.value
+  if (!clip) return
+
+  const targetTabId = activeTabId.value || tabs.value[0]?.id
+  if (!targetTabId) return
+
+  const OFFSET = 30
+  const newPosition = {
+    left: clip.position.left + OFFSET,
+    top: clip.position.top + OFFSET,
+    width: clip.position.width,
+    height: clip.position.height
+  }
+
+  const body: any = {
+    tabId: targetTabId,
+    type: clip.type,
+    position: newPosition,
+    style: clip.style ? JSON.parse(JSON.stringify(clip.style)) : {}
+  }
+  if (clip.type === 'chart' && clip.chartId) {
+    body.chartId = clip.chartId
+  }
+  if (clip.configOverride) {
+    body.configOverride = JSON.parse(JSON.stringify(clip.configOverride))
+  }
+
+  const tempWidgetId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  const newWidget = {
+    widgetId: tempWidgetId,
+    type: clip.type,
+    chartId: clip.chartId,
+    name: clip.name,
+    position: newPosition,
+    state: clip.state,
+    style: clip.style ? JSON.parse(JSON.stringify(clip.style)) : {},
+    configOverride: clip.configOverride ? JSON.parse(JSON.stringify(clip.configOverride)) : undefined,
+    dataStatus: clip.type === 'chart' ? 'pending' as const : undefined
+  }
+
+  const tab = tabs.value.find(t => t.id === targetTabId)
+  if (tab) {
+    tab.widgets.push(newWidget)
+    const newLayoutItem = {
+      left: newPosition.left,
+      top: newPosition.top,
+      width: newPosition.width,
+      height: newPosition.height,
+      i: String(tempWidgetId)
+    }
+    tabLayouts[targetTabId] = [...(tabLayouts[targetTabId] || []), newLayoutItem]
+    gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+  }
+
+  selectedTextWidgetId.value = tempWidgetId
+
+  // After a cut, clear clipboard; after a copy, keep it
+  if (clip.isCut) {
+    widgetClipboard.value = null
+  } else {
+    // Update position for next paste so they don't stack
+    clip.position = newPosition
+  }
+
+  try {
+    const res = await $fetch<{ success: boolean; widgetId: string }>('/api/dashboard-widgets', {
+      method: 'POST',
+      body
+    })
+    if (res?.widgetId && tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets[widgetIndex].widgetId = res.widgetId
+        const layoutItemIndex = tabLayouts[targetTabId].findIndex((item: any) => item.i === String(tempWidgetId))
+        if (layoutItemIndex >= 0) {
+          tabLayouts[targetTabId][layoutItemIndex].i = String(res.widgetId)
+          gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+          initialTabLayouts.value[targetTabId] = cloneLayout(tabLayouts[targetTabId])
+        }
+        if (selectedTextWidgetId.value === tempWidgetId) {
+          selectedTextWidgetId.value = res.widgetId
+        }
+        const addedId = res.widgetId
+        recordAction({
+          type: 'Paste Widget',
+          undo: async () => { await deleteWidgetInternal(addedId) },
+          redo: async () => {
+            await $fetch('/api/dashboard-widgets', { method: 'POST', body })
+              .then(async () => { await loadDashboard() })
+          }
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Failed to paste widget', error)
+    if (tab) {
+      const widgetIndex = tab.widgets.findIndex(w => w.widgetId === tempWidgetId)
+      if (widgetIndex >= 0) {
+        tab.widgets.splice(widgetIndex, 1)
+        tabLayouts[targetTabId] = cloneLayout(buildLayoutFromTab(targetTabId))
+        gridLayout.value = cloneLayout(tabLayouts[targetTabId])
+      }
+    }
+  }
+}
+
+// ─── Z-Order (Bring to Front / Send to Back) ────────────────────
+function changeWidgetZOrder(widgetId: string, direction: 'front' | 'back') {
+  const tab = tabs.value.find(t => t.id === activeTabId.value)
+  if (!tab) return
+
+  const widgetCount = tab.widgets.length
+  if (widgetCount < 2) return
+
+  // Get layout items for z-index reordering
+  const layout = tabLayouts[activeTabId.value]
+  if (!layout) return
+
+  const itemIndex = layout.findIndex((item: any) => item.i === widgetId)
+  if (itemIndex < 0) return
+
+  const [item] = layout.splice(itemIndex, 1)
+  if (direction === 'front') {
+    layout.push(item)
+  } else {
+    layout.unshift(item)
+  }
+
+  tabLayouts[activeTabId.value] = [...layout]
+  gridLayout.value = cloneLayout(tabLayouts[activeTabId.value])
+
+  recordAction({
+    type: direction === 'front' ? 'Bring to Front' : 'Send to Back',
+    undo: async () => {
+      const lay = tabLayouts[activeTabId.value]
+      if (!lay) return
+      const idx = lay.findIndex((i: any) => i.i === widgetId)
+      if (idx < 0) return
+      const [it] = lay.splice(idx, 1)
+      lay.splice(itemIndex, 0, it)
+      tabLayouts[activeTabId.value] = [...lay]
+      gridLayout.value = cloneLayout(tabLayouts[activeTabId.value])
+    },
+    redo: async () => {
+      changeWidgetZOrder(widgetId, direction)
+    }
+  })
+}
+
+// ─── Keyboard Shortcuts ─────────────────────────────────────────
+function handleDashboardKeyDown(e: KeyboardEvent) {
+  if (!isEditableSession.value) return
+  // Don't intercept when user is typing in an input/textarea/contenteditable
+  const tag = (e.target as HTMLElement).tagName?.toLowerCase()
+  const isEditable = (e.target as HTMLElement).isContentEditable
+  if (tag === 'input' || tag === 'textarea' || isEditable) return
+
+  const selected = selectedTextWidgetId.value
+
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+    e.preventDefault()
+    handleDeleteWidget(selected)
+  } else if (e.key === 'd' && (e.ctrlKey || e.metaKey) && selected) {
+    e.preventDefault()
+    duplicateWidget(selected)
+  } else if (e.key === 'c' && (e.ctrlKey || e.metaKey) && selected) {
+    e.preventDefault()
+    copyWidgetToClipboard(selected, false)
+  } else if (e.key === 'x' && (e.ctrlKey || e.metaKey) && selected) {
+    e.preventDefault()
+    copyWidgetToClipboard(selected, true)
+  } else if (e.key === 'v' && (e.ctrlKey || e.metaKey) && widgetClipboard.value) {
+    e.preventDefault()
+    pasteWidget()
+  } else if (e.key === 'Escape') {
+    if (ctxMenu.visible) {
+      closeContextMenu()
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleDashboardKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleDashboardKeyDown)
+})
 </script>
 
 <style scoped>
