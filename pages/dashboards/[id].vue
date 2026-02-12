@@ -2111,7 +2111,11 @@ async function deleteWidgetInternal(widgetId: string): Promise<any | null> {
           tabId: tab.id,
           type: deletedWidget.type,
           position: {...deletedWidget.position},
-          style: {...deletedWidget.style}
+          style: {...deletedWidget.style},
+          chartId: deletedWidget.chartId,
+          configOverride: deletedWidget.configOverride ? {...deletedWidget.configOverride} : undefined,
+          name: deletedWidget.name,
+          zIndex: deletedWidget.zIndex
         }
         
         tab.widgets.splice(idx, 1)
@@ -2136,10 +2140,7 @@ async function deleteWidgetInternal(widgetId: string): Promise<any | null> {
   }
 }
 
-// Re-implement handle as wrapper
 async function handleDeleteWidget(widgetId: string) {
-  // We need to capture state BEFORE deleting for history?
-  // `deleteWidgetInternal` returns the data now.
   const deletedData = await deleteWidgetInternal(widgetId)
 
   if (deletedData) {
@@ -2154,10 +2155,6 @@ async function handleDeleteWidget(widgetId: string) {
         })
       },
       redo: async () => {
-        // For redo, we're deleting again. But ID changes on re-creation.
-        // This is the tricky part of Redo Delete.
-        // We need to find the "restored" widget.
-        // Using heuristics: type + position.
         const t = tabs.value.find(t => t.id === deletedData.tabId)
         if (!t) return
         const w = t.widgets.find(w => w.type === deletedData.type && w.position.left === deletedData.position.left && w.position.top === deletedData.position.top)

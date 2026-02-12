@@ -69,24 +69,66 @@ Chart title (name) changes are tracked separately:
 - 600ms debounce (slightly longer to run after save)
 - Undo/Redo persists via `updateDashboard()` API
 
-### 5. Widget Creation (Text & Image)
+### 5. Widget Creation (Text, Image, Icon & Chart)
 
-Widget creation involves both local state updates and server-side persistence.
+Widget creation involves both local state updates and server-side persistence. All widget types (text, image, icon, chart) follow the same pattern:
 
 - **Optimistic UI**: A temporary ID (`temp-...`) is used to show the widget immediately.
 - **Server Sync**: The widget is persisted to the API (`/api/dashboard-widgets`). Upon success, the real ID from the database replaces the temporary ID.
 - **Undo**: Calls `deleteWidgetInternal` (see below) to remove the widget.
 - **Redo**: Re-sends the POST request to the API to recreate the widget.
 
+**Functions with creation history recording:**
+- `addTextWidget()` — Action type: `Add Text`
+- `addImageWidget()` — Action type: `Add Image`
+- `addIconToTab()` — Action type: `Add Icon` (via context menu or toolbar)
+- `addExistingChartToTab()` — Action type: `Add Chart` (from existing chart gallery)
+- `addNewChartToTab()` — Action type: `Add Chart` (creates a new chart)
+
 ### 6. Widget Deletion
 
 Deletion is handled carefully to separate *logic* from *history*.
 
-- **`deleteWidgetInternal`**: Performs the actual API call and local state removal. It returns the deleted widget's data (type, position, style) but **does not** record history.
+- **`deleteWidgetInternal`**: Performs the actual API call and local state removal. It captures and returns the deleted widget's **complete data** — including `tabId`, `type`, `position`, `style`, `chartId`, `configOverride`, `name`, and `zIndex`. It does **not** record history.
 - **`handleDeleteWidget`**: Calls `deleteWidgetInternal` and **records the history action**.
+- **Undo**: POSTs the captured `deletedData` to `/api/dashboard-widgets` to recreate the widget, then calls `loadDashboard()` to sync state.
+- **Redo**: Uses heuristics (type + position) to find the restored widget and calls `deleteWidgetInternal` again.
 - **Why separate?**: This prevents the `undo` of an "Add Widget" action (which calls `deleteWidgetInternal`) from incorrectly pushing a new "Delete Widget" action onto the history stack.
 
-### 7. Text Widget Editing (Recursive Update Prevention)
+> **Note**: The complete data capture is essential — without `chartId`, chart widgets cannot be recreated via the POST API, and without `configOverride`/`name`/`zIndex`, widget properties would be lost on undo.
+
+### 7. Widget Clipboard Operations
+
+**Duplicate Widget** (`duplicateWidget`, Ctrl+D):
+- Creates a copy of the selected widget with a small position offset.
+- Action type: `Duplicate Widget`
+- Undo: Calls `deleteWidgetInternal` on the duplicated widget.
+- Redo: Re-sends the POST request to recreate the duplicate.
+
+**Copy/Cut + Paste** (`copyWidgetToClipboard`, `pasteWidget`, Ctrl+C/X/V):
+- Copy stores widget data in a `widgetClipboard` ref. Cut additionally deletes the original.
+- Paste creates a new widget from the clipboard data.
+- Action type: `Paste Widget`
+- Undo/Redo follows the same pattern as widget creation.
+
+### 8. Z-Order Changes
+
+**Bring to Front / Send to Back** (`changeWidgetZOrder`):
+- Moves a widget to the front or back of the layout rendering order.
+- Captures the widget's original index in the layout array.
+- Action type: `Bring to Front` or `Send to Back`
+- Undo: Splices the widget back to its original index.
+- Redo: Calls `changeWidgetZOrder` again.
+
+### 9. Widget Link Management
+
+**Add Link** / **Remove Link** (via context menu):
+- Adds or removes a navigation link on a widget.
+- Persists via `PATCH /api/dashboard-widgets`.
+- Action types: `Add Link`, `Remove Link`
+- Undo/Redo: Patches the widget to toggle between the linked and unlinked states.
+
+### 10. Text Widget Editing (Recursive Update Prevention)
 
 Text widgets use a bidirectional sync between the parent dashboard (holding the source of truth) and the sidebar component.
 
@@ -94,6 +136,13 @@ Text widgets use a bidirectional sync between the parent dashboard (holding the 
 - **Solution**:
     - **Deep Equality Checks**: Watchers in `pages/dashboards/[id].vue` only update state if the new value is deeply different.
     - **Sync Flags**: `WidgetSidebarText.vue` uses an `isSyncingFromProps` flag to ignore internal updates while applying props.
+
+### 11. Chart Deletion (from dashboard)
+
+**Delete Chart** (`confirmDeleteChart`):
+- Permanently deletes a chart record AND its dashboard widget in a single action.
+- Action type: `Delete Chart`
+- Undo: Recreates both the chart and the widget via API calls, then reloads the dashboard.
 
 ## API Integration
 
@@ -109,19 +158,30 @@ Text widgets use a bidirectional sync between the parent dashboard (holding the 
 
 ## Supported Actions Summary
 
-| Action Type             | Components                 | Debounce          |
-|-------------------------|----------------------------|-------------------|
-| Layout Change           | Widget drag/resize         | Immediate on drop |
-| Style Change            | Text widget properties     | 500ms             |
-| Icon Style Change       | Icon color, size           | 500ms             |
-| Chart Appearance Change | Chart colors, legend       | 500ms             |
-| Chart Border Change     | Chart border properties    | 500ms             |
-| Image Style Change      | Image style properties     | 500ms             |
-| Chart Title Change      | Chart name input           | 500ms             |
-| Tab Style Change        | Background, font, chart bg | 500ms             |
-| Dashboard Name Change   | Dashboard title            | 600ms             |
-| Widget Creation         | Add text/icon/image        | Immediate         |
-| Widget Deletion         | Delete any widget          | Immediate         |
+| Action Type             | Components                      | Debounce          |
+|-------------------------|---------------------------------|-------------------|
+| Layout Change           | Widget drag/resize              | Immediate on drop |
+| Style Change            | Text widget properties          | 500ms             |
+| Icon Style Change       | Icon color, size                | 500ms             |
+| Chart Appearance Change | Chart colors, legend            | 500ms             |
+| Chart Border Change     | Chart border properties         | 500ms             |
+| Image Style Change      | Image style properties          | 500ms             |
+| Chart Title Change      | Chart name input                | 500ms             |
+| Rename Chart            | Chart name (sidebar)            | 500ms             |
+| Tab Style Change        | Background, font, chart bg      | 500ms             |
+| Dashboard Name Change   | Dashboard title                 | 600ms             |
+| Add Text                | Add text widget                 | Immediate         |
+| Add Image               | Add image widget                | Immediate         |
+| Add Icon                | Add icon widget (toolbar/menu)  | Immediate         |
+| Add Chart               | Add chart widget (new/existing) | Immediate         |
+| Delete Widget           | Delete any widget               | Immediate         |
+| Delete Chart            | Delete chart + widget           | Immediate         |
+| Duplicate Widget        | Ctrl+D                          | Immediate         |
+| Paste Widget            | Ctrl+V                          | Immediate         |
+| Bring to Front          | Context menu z-order            | Immediate         |
+| Send to Back            | Context menu z-order            | Immediate         |
+| Add Link                | Context menu link               | Immediate         |
+| Remove Link             | Context menu link               | Immediate         |
 
 ---
 
