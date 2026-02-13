@@ -43,7 +43,6 @@ export default defineEventHandler(async (event) => {
                 throw createError({ statusCode: 404, statusMessage: 'Dashboard not found' })
             }
             dashboard = data
-            console.log('Dashboard loaded:', { id: dashboard.id, isPublic: dashboard.is_public, hasPassword: !!dashboard.password })
         } catch (e: any) {
             if (e.statusCode) throw e
             console.error('[full.get.ts] Error loading dashboard:', e?.message || e)

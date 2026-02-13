@@ -1,6 +1,6 @@
 <template>
   <div class="h-full flex flex-col p-4 lg:p-6 overflow-hidden">
-    <div class="space-y-4 flex-1 flex flex-col min-h-0">
+    <div class="space-y-4 flex-1 flex flex-col min-h-0 min-w-0">
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <div class="flex items-center gap-3 flex-1">
         <template v-if="isEditableSession">
@@ -481,7 +481,7 @@
       />
 
 
-      <div class="flex gap-4 items-stretch flex-1 min-h-0">
+      <div class="flex gap-4 items-stretch flex-1 min-h-0 overflow-hidden max-w-full">
         <div class="flex-1 min-w-0 h-full overflow-hidden">
           <div class="h-full overflow-x-auto overflow-y-auto pr-1">
             <Dashboard

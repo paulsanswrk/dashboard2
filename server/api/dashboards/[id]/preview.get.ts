@@ -214,7 +214,6 @@ export default defineEventHandler(async (event) => {
                 const cachePromises = chartIds.map(async (chartId) => {
                     const chartRow = allData.find(r => r.chartId === chartId)
                     if (!chartRow || !chartRow.chartState) {
-                        console.log(`[preview.get.ts] Cache lookup skipped for chart ${chartId}: no chart state`)
                         return { chartId, cached: false }
                     }
 
@@ -222,11 +221,8 @@ export default defineEventHandler(async (event) => {
                     const sql = extractSqlFromState(stateJson)
                     const connectionId = extractDataConnectionId(stateJson)
 
-                    console.log(`[preview.get.ts] Chart ${chartId}: sql=${sql ? 'present' : 'missing'}, connectionId=${connectionId}`)
-
                     // Only check cache for charts with SQL and connection
                     if (!sql || !connectionId) {
-                        console.log(`[preview.get.ts] Cache lookup skipped for chart ${chartId}: sql or connectionId missing`)
                         return { chartId, cached: false }
                     }
 

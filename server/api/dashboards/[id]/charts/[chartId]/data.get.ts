@@ -232,11 +232,9 @@ export default defineEventHandler(async (event) => {
                 safeSql = filterResult.sql
 
                 if (filterResult.appliedFilters > 0) {
-                    console.log('[chart-data] Applied', filterResult.appliedFilters, 'filters to chart', chartId)
                     meta.filtersApplied = filterResult.appliedFilters
                 }
                 if (filterResult.skippedFilters > 0) {
-                    console.log('[chart-data] Skipped', filterResult.skippedFilters, 'filters for chart', chartId)
                     meta.filtersSkipped = filterResult.skippedFilters
                 }
             }
@@ -249,7 +247,7 @@ export default defineEventHandler(async (event) => {
                 })
 
                 const storageLocation = connection?.storageLocation || 'external'
-                console.log(`[chart-data] Chart ${chartId}, Connection ${connectionId}, storageLocation=${storageLocation}`)
+
 
                 // Derive tenant ID for caching (used as cache partition key)
                 let tenantId: string | undefined
@@ -305,7 +303,7 @@ export default defineEventHandler(async (event) => {
                     )
 
                     if (cached) {
-                        console.log(`[chart-data] Cache HIT for chart ${chartId}`)
+
                         const cachedRows = cached.data as any[]
                         columns = cachedRows.length ? Object.keys(cachedRows[0]).map((k) => ({ key: k, label: k })) : []
                         return {
@@ -320,7 +318,7 @@ export default defineEventHandler(async (event) => {
                             }
                         }
                     }
-                    console.log(`[chart-data] Cache MISS for chart ${chartId}`)
+
                 }
 
                 // Helper function to execute query with fallback
@@ -328,7 +326,7 @@ export default defineEventHandler(async (event) => {
                     // Route based on storage_location
                     if (storageLocation === 'optiqoflow') {
                         // OptiqoFlow data with tenant isolation
-                        console.log(`[chart-data] Using optiqoflow for connection ${connectionId}`)
+
 
                         // Get tenant ID from user's organization (fallback to dashboard org)
                         let tenantIdForQuery: string | undefined
@@ -369,14 +367,14 @@ export default defineEventHandler(async (event) => {
                         // Check if connection uses synced internal storage
                         const storageInfo = await loadInternalStorageInfo(Number(connectionId))
                         if (storageInfo.useInternalStorage && storageInfo.schemaName) {
-                            console.log(`[chart-data] Using synced storage for chart ${chartId}: ${storageInfo.schemaName}`)
+
                             // SQL is already in PostgreSQL syntax (preview.post.ts generates correct syntax)
                             return await executeInternalStorageQuery(storageInfo.schemaName, querySql, sqlParams)
                         }
                     }
 
                     // Default: external MySQL connection
-                    console.log(`[chart-data] Using external MySQL for connection ${connectionId}`)
+
                     // Load connection config
                     let cfg: any
                     if (sameOrg || isRenderContext) {
@@ -455,12 +453,8 @@ export default defineEventHandler(async (event) => {
                     rows = await executeQuery(safeSql)
                 } catch (filterError: any) {
                     if (filterResult.appliedFilters > 0) {
-                        // Filtered query failed, try original - log full details for debugging
-                        console.warn('[chart-data] Filtered query failed for chart', chartId)
-                        console.warn('[chart-data] Error:', filterError?.message)
-                        console.warn('[chart-data] Filtered SQL:', safeSql)
-                        console.warn('[chart-data] Applied filters:', JSON.stringify(filterOverrides, null, 2))
-                        console.log('[chart-data] Falling back to unfiltered query')
+                        // Filtered query failed — fall back to unfiltered
+                        console.warn('[chart-data] Filtered query failed for chart', chartId, '- falling back to unfiltered:', filterError?.message)
 
                         try {
                             rows = await executeQuery(originalSql)

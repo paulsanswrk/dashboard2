@@ -2,8 +2,12 @@
   <div 
     ref="containerRef" 
     class="relative w-full bg-white dark:bg-gray-900" 
-    :class="{'border rounded': !preview}" 
+    :class="[
+      {'border rounded': !preview},
+      isPanning ? 'cursor-grabbing' : (!preview ? 'cursor-grab' : '')
+    ]" 
     @click="handleContainerClick"
+    @mousedown="handleCanvasMouseDown"
     @mousemove="handleGlobalMouseMove"
     @mouseup="handleGlobalMouseUp"
     @mouseleave="handleGlobalMouseUp"
@@ -35,7 +39,7 @@
     <!-- Wrapper sets the canvas at its natural pixel width; horizontal scroll handles overflow -->
     <div v-else class="relative" :style="wrapperStyle">
       <div 
-        :class="{'edit-mode-grid': !preview}"
+        :class="{'edit-mode-grid': !preview, 'overflow-hidden': true}"
         :style="[canvasStyle, {
           fontFamily: tabStyle?.fontFamily,
           backgroundColor: tabStyle?.backgroundColor || undefined
@@ -232,8 +236,32 @@ const startMouseX = ref(0)
 const startMouseY = ref(0)
 const startWidgetPos = ref({ left: 0, top: 0, width: 0, height: 0 })
 
+// Canvas panning (drag-to-scroll) state
+const isPanning = ref(false)
+const wasPanning = ref(false) // persists through click event after mouseup
+const panStartX = ref(0)
+const panStartY = ref(0)
+const panScrollLeft = ref(0)
+const panScrollTop = ref(0)
+
 // Container ref (kept for click-outside handling)
 const containerRef = ref<HTMLElement | null>(null)
+
+/** Find the nearest scrollable ancestor for panning */
+function getScrollParent(): HTMLElement | null {
+  let el = containerRef.value?.parentElement
+  while (el) {
+    const style = getComputedStyle(el)
+    if (
+      (style.overflowX === 'auto' || style.overflowX === 'scroll') ||
+      (style.overflowY === 'auto' || style.overflowY === 'scroll')
+    ) {
+      return el
+    }
+    el = el.parentElement
+  }
+  return null
+}
 
 const canvasWidth = computed(() => {
   if (props.device === 'mobile') return DEVICE_PREVIEW_WIDTHS.mobile
@@ -354,8 +382,26 @@ function getChartCardUi(i: string) {
 }
 
 function handleContainerClick() {
-  if (props.preview || isDragging.value || isResizing.value) return
+  if (props.preview || isDragging.value || isResizing.value || wasPanning.value) return
   emit('deselect')
+}
+
+/** Start panning when mousedown on empty canvas (not on a widget) */
+function handleCanvasMouseDown(e: MouseEvent) {
+  if (props.preview) return
+  // Don't pan if clicking on a widget or a resize handle
+  const target = e.target as HTMLElement
+  if (target.closest('.dashboard-widget') || target.closest('.resize-handle')) return
+
+  const scrollParent = getScrollParent()
+  if (!scrollParent) return
+
+  isPanning.value = true
+  panStartX.value = e.clientX
+  panStartY.value = e.clientY
+  panScrollLeft.value = scrollParent.scrollLeft
+  panScrollTop.value = scrollParent.scrollTop
+  e.preventDefault() // prevent text selection while panning
 }
 
 function isSelected(widgetId: string) {
@@ -364,6 +410,18 @@ function isSelected(widgetId: string) {
 
 // Global Mouse Handlers
 function handleGlobalMouseMove(e: MouseEvent) {
+  // Canvas panning
+  if (isPanning.value) {
+    const dx = e.clientX - panStartX.value
+    const dy = e.clientY - panStartY.value
+    const scrollParent = getScrollParent()
+    if (scrollParent) {
+      scrollParent.scrollLeft = panScrollLeft.value - dx
+      scrollParent.scrollTop = panScrollTop.value - dy
+    }
+    return
+  }
+
   if (!isDragging.value && !isResizing.value) return
   
   const dx = e.clientX - startMouseX.value
@@ -406,8 +464,14 @@ function handleGlobalMouseUp() {
   if (isDragging.value || isResizing.value) {
     emit('update:layout', [...props.layout])
   }
+  // Track if we were panning so the following click event doesn't deselect
+  if (isPanning.value) {
+    wasPanning.value = true
+    nextTick(() => { wasPanning.value = false })
+  }
   isDragging.value = false
   isResizing.value = false
+  isPanning.value = false
   activeWidgetId.value = null
   resizeDir.value = null
 }

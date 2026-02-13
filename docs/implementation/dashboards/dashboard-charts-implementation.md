@@ -21,6 +21,9 @@ This document outlines the implementation of multi-tab dashboard charts function
 - **Canvas Context Menu**: Right-click on empty canvas space for paste-only menu
 - **Keyboard Shortcuts**: Ctrl+C/X/V/D, Delete/Backspace, Escape for common widget operations
 - **Widget Z-Ordering**: Bring to Front / Send to Back for layering control
+- **Scoped Horizontal Scroll**: Dashboard content scrolls independently while the sidebar and toolbar remain fixed
+- **Canvas Drag-to-Scroll**: Click and drag on empty canvas area to pan the viewport
+- **Canvas Overflow Clipping**: Widgets extending beyond the defined canvas width are visually clipped
 
 ## 🗄️ Database Schema
 
@@ -301,6 +304,9 @@ Multi-tab dashboard editor with integrated toolbar and unified widgets. Highligh
 - **Context Menus**: Right-click on widgets or empty canvas for contextual actions (see below).
 - **Widget Z-ordering**: Inline `z-index` based on array position; selected widget gets `z-index: 1000`.
 - **Undo/Redo**: Action history for widget operations (delete, duplicate, paste, z-order changes).
+- **Scoped Scroll**: Horizontal/vertical scroll is confined to the dashboard content area; the sidebar and top toolbar remain fixed via `min-w-0` on flex ancestors and `overflow-hidden` on the layout `<main>`.
+- **Canvas Drag-to-Scroll**: Mousedown on empty canvas enters panning mode (`cursor: grab` → `cursor: grabbing`); mousemove scrolls the nearest scrollable ancestor; `wasPanning` flag prevents accidental deselect after pan.
+- **Canvas Overflow Clipping**: The inner canvas div (with the defined `canvasStyle` width) has `overflow: hidden`, clipping any widget content that extends beyond the canvas boundary.
 
 #### `WidgetContextMenu.vue` (New)
 Context menu component shown on right-click. Supports two modes:
@@ -557,10 +563,17 @@ See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architectu
 **Auto-saving Enhancement**: December 12, 2025
 **PDF Border & Height Optimization**: January 15, 2026
 **Widget Context Menu & Interactions**: February 12, 2026
+**Canvas Scroll & Clipping**: February 13, 2026
 **Status**: ✅ Complete and Ready for Production
 **Migration Status**: Comprehensive migration applied, cleanup migration pending
 
-### Recent Updates (February 2026)
+### Recent Updates (February 13, 2026)
+- **Scoped Horizontal Scroll**: Dashboard content scrolls independently; sidebar and toolbar stay fixed. Achieved via `min-w-0` on all flex ancestors and `overflow-x-hidden` on the layout `<main>`.
+- **Canvas Drag-to-Scroll**: Click and drag on empty canvas to pan the viewport. Uses `cursor: grab`/`grabbing` with a `wasPanning` flag to prevent accidental deselect.
+- **Canvas Overflow Clipping**: `overflow: hidden` on the inner canvas div (the one with `canvasStyle` width) clips widgets extending beyond the canvas boundary.
+- **Server Logging Cleanup**: Removed 16 debug `console.log` statements from dashboard API routes (`data.get.ts`, `full.get.ts`, `preview.get.ts`); consolidated verbose filter-fallback warnings.
+
+### Previous Updates (February 12, 2026)
 - **Widget Context Menu**: Right-click on widgets for duplicate, copy, cut, paste, z-ordering, linking, and delete
 - **Canvas Context Menu**: Right-click on empty canvas for paste-only menu
 - **Keyboard Shortcuts**: Ctrl+C/X/V/D, Delete/Backspace, Escape for widget operations
