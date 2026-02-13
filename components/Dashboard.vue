@@ -12,39 +12,22 @@
     @mouseup="handleGlobalMouseUp"
     @mouseleave="handleGlobalMouseUp"
   >
-    <!-- Device width indicator overlay - only show for tablet/mobile -->
-    <div v-if="!loading && device !== 'desktop'" class="absolute inset-0 pointer-events-none z-10 flex px-3">
-      <!-- Left overlay -->
-      <div
-          class="bg-black/5"
-          :style="{ width: leftOverlayWidth }"
-      ></div>
-      <!-- Center transparent area (for preview content) -->
-      <div
-          class="flex-shrink-0"
-          :style="{ width: canvasWidth + 'px' }"
-      ></div>
-      <!-- Right overlay (mirrors left) -->
-      <div
-          class="bg-black/5"
-          :style="{ width: leftOverlayWidth }"
-      ></div>
-    </div>
-
     <div v-if="loading" class="flex items-center justify-center py-12">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
       <span class="ml-3 text-gray-500">Loading dashboard...</span>
     </div>
 
-    <!-- Wrapper sets the canvas at its natural pixel width; horizontal scroll handles overflow -->
-    <div v-else class="relative" :style="wrapperStyle">
-      <div 
-        :class="{'edit-mode-grid': !preview, 'overflow-hidden': true}"
-        :style="[canvasStyle, {
-          fontFamily: tabStyle?.fontFamily,
-          backgroundColor: tabStyle?.backgroundColor || undefined
-        }]"
-        @contextmenu.prevent="handleCanvasOrWidgetContextMenu($event)"
+    <!-- Preview container: centers scaled content and darkens sides for tablet/mobile -->
+    <div v-else :class="isScaled ? 'flex justify-center bg-black/10 dark:bg-black/30 min-h-full' : ''">
+      <div class="relative" :class="isScaled ? 'border-2 border-gray-400 dark:border-gray-500 shadow-lg rounded' : ''" :style="scaledWrapperStyle">
+        <div :style="scaleTransformStyle">
+        <div 
+          :class="{'edit-mode-grid': !preview, 'overflow-hidden': true}"
+          :style="[canvasStyle, {
+            fontFamily: tabStyle?.fontFamily,
+            backgroundColor: tabStyle?.backgroundColor || undefined
+          }]"
+          @contextmenu.prevent="handleCanvasOrWidgetContextMenu($event)"
       >
         <!-- Widget Container -->
         <div class="relative w-full h-full p-3">
@@ -163,6 +146,8 @@
           </div>
         </div>
       </div>
+      </div>
+    </div>
     </div>
   </div>
 </template>
@@ -263,10 +248,23 @@ function getScrollParent(): HTMLElement | null {
   return null
 }
 
-const canvasWidth = computed(() => {
+/** Full (non-scaled) canvas width – always the dashboard's native width */
+const fullCanvasWidth = computed(() => props.dashboardWidth || DASHBOARD_WIDTH)
+
+/** Target device preview width (used only for scale computation) */
+const devicePreviewWidth = computed(() => {
   if (props.device === 'mobile') return DEVICE_PREVIEW_WIDTHS.mobile
   if (props.device === 'tablet') return DEVICE_PREVIEW_WIDTHS.tablet
-  return props.dashboardWidth || DASHBOARD_WIDTH
+  return 0 // not used for desktop
+})
+
+/** Whether we should apply a CSS scale transform */
+const isScaled = computed(() => props.device !== 'desktop')
+
+/** Scale factor: ratio of target device width to full canvas width */
+const scaleFactor = computed(() => {
+  if (!isScaled.value) return 1
+  return Math.min(1, devicePreviewWidth.value / fullCanvasWidth.value)
 })
 
 const DASHBOARD_MIN_HEIGHT = 2000
@@ -274,16 +272,16 @@ const DASHBOARD_MIN_HEIGHT = 2000
 const calculatedHeight = computed(() => {
   const maxY = props.layout.reduce((acc, item) => Math.max(acc, item.top + item.height), 0)
   if (props.preview) {
-    // Add a small buffer for shadows or tight borders, but much smaller than edit mode
     return Math.max(10, maxY + 40)
   }
   return Math.max(DASHBOARD_MIN_HEIGHT, maxY + 100)
 })
 
+/** Canvas style – always at full dashboard width, regardless of device */
 const canvasStyle = computed(() => {
   const style: any = {
-    width: `${canvasWidth.value}px`,
-    minWidth: `${canvasWidth.value}px`,
+    width: `${fullCanvasWidth.value}px`,
+    minWidth: `${fullCanvasWidth.value}px`,
     zIndex: 20,
     border: (!props.preview) ? '1px solid #e5e7eb' : 'none'
   }
@@ -297,14 +295,31 @@ const canvasStyle = computed(() => {
   return style
 })
 
-const wrapperStyle = computed(() => {
+/** Transform style applied to the inner scaling wrapper */
+const scaleTransformStyle = computed(() => {
+  if (!isScaled.value) return {}
   return {
-    minWidth: `${canvasWidth.value}px`,
-    height: `${calculatedHeight.value}px`,
+    transform: `scale(${scaleFactor.value})`,
+    transformOrigin: 'top left',
+    width: `${fullCanvasWidth.value}px`,
   }
 })
 
-const leftOverlayWidth = computed(() => `calc((100% - ${canvasWidth.value}px) / 2)`)
+/** Outer wrapper style – sets visual dimensions accounting for scale */
+const scaledWrapperStyle = computed(() => {
+  if (!isScaled.value) {
+    return {
+      minWidth: `${fullCanvasWidth.value}px`,
+      height: `${calculatedHeight.value}px`,
+    }
+  }
+  // When scaled, set the wrapper to the visually scaled dimensions
+  return {
+    width: `${fullCanvasWidth.value * scaleFactor.value}px`,
+    height: `${calculatedHeight.value * scaleFactor.value}px`,
+    overflow: 'hidden',
+  }
+})
 
 // Widget Helpers
 function findWidget(i: string): Widget | undefined {

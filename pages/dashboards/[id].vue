@@ -124,17 +124,44 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <template v-if="false">
-            <UButton :variant="device==='desktop'?'solid':'outline'" color="orange" size="xs" @click="setDevice('desktop')" class="cursor-pointer" title="Desktop preview">
+          <div class="flex items-center border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <button
+                @click="setDevice('desktop')"
+                :class="[
+                  'px-2.5 py-1.5 flex items-center justify-center transition-all duration-200 cursor-pointer',
+                  device === 'desktop'
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
+                ]"
+                title="Desktop preview"
+            >
               <Icon name="i-heroicons-computer-desktop" class="w-4 h-4"/>
-            </UButton>
-            <UButton :variant="device==='tablet'?'solid':'outline'" color="orange" size="xs" @click="setDevice('tablet')" class="cursor-pointer" title="Tablet preview">
+            </button>
+            <button
+                @click="setDevice('tablet')"
+                :class="[
+                  'px-2.5 py-1.5 flex items-center justify-center transition-all duration-200 cursor-pointer border-x border-gray-200 dark:border-gray-700',
+                  device === 'tablet'
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
+                ]"
+                title="Tablet preview"
+            >
               <Icon name="i-heroicons-device-tablet" class="w-4 h-4"/>
-            </UButton>
-            <UButton :variant="device==='mobile'?'solid':'outline'" color="orange" size="xs" @click="setDevice('mobile')" class="cursor-pointer" title="Mobile preview">
+            </button>
+            <button
+                @click="setDevice('mobile')"
+                :class="[
+                  'px-2.5 py-1.5 flex items-center justify-center transition-all duration-200 cursor-pointer',
+                  device === 'mobile'
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
+                ]"
+                title="Mobile preview"
+            >
               <Icon name="i-heroicons-device-phone-mobile" class="w-4 h-4"/>
-            </UButton>
-          </template>
+            </button>
+          </div>
           
           <UButton
               v-if="isEditableSession"

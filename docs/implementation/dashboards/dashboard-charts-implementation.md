@@ -24,6 +24,7 @@ This document outlines the implementation of multi-tab dashboard charts function
 - **Scoped Horizontal Scroll**: Dashboard content scrolls independently while the sidebar and toolbar remain fixed
 - **Canvas Drag-to-Scroll**: Click and drag on empty canvas area to pan the viewport
 - **Canvas Overflow Clipping**: Widgets extending beyond the defined canvas width are visually clipped
+- **Device Preview**: Toggle between desktop, tablet (768px), and mobile (390px) preview modes with CSS scale-to-fit rendering, centered preview zone, dark overlay, and bordered device frame
 
 ## 🗄️ Database Schema
 
@@ -299,7 +300,7 @@ Multi-tab dashboard editor with integrated toolbar and unified widgets. Highligh
 - **Layout**: Custom free-positioning implementation; drag and 8-handle resize handles; dotted grid background for alignment.
 - **Tab Management**: Create, rename, delete tabs; outlined navigation.
 - **Auto-saving**: Dashboard name changes and widget layout changes are automatically saved with 500ms debouncing.
-- **Toolbar**: Edit/Done toggle, device previews, Auto Layout, Add Chart, Add Text, Show Options (sidebar toggle).
+- **Toolbar**: Edit/Done toggle, device preview segmented control (desktop/tablet/mobile with active orange highlight), Auto Layout, Add Chart, Add Text, Show Options (sidebar toggle).
 - **Thumbnails**: Captured with `html-to-image` on save (width/height/thumbnail_url persisted).
 - **Context Menus**: Right-click on widgets or empty canvas for contextual actions (see below).
 - **Widget Z-ordering**: Inline `z-index` based on array position; selected widget gets `z-index: 1000`.
@@ -568,6 +569,7 @@ See: [Multi-Tenant Data Architecture](../optiqoflow/multi-tenant-data-architectu
 **Migration Status**: Comprehensive migration applied, cleanup migration pending
 
 ### Recent Updates (February 13, 2026)
+- **Device Preview**: Segmented control buttons (desktop/tablet/mobile) with orange active state, available in both view and edit modes. Uses CSS `transform: scale()` to render the full dashboard at native width and scale it down to fit the target device width (`DEVICE_PREVIEW_WIDTHS`). Preview zone is centered with a dark overlay (`bg-black/10`) on surrounding area and bordered with `shadow-lg` for clear device frame definition.
 - **Scoped Horizontal Scroll**: Dashboard content scrolls independently; sidebar and toolbar stay fixed. Achieved via `min-w-0` on all flex ancestors and `overflow-x-hidden` on the layout `<main>`.
 - **Canvas Drag-to-Scroll**: Click and drag on empty canvas to pan the viewport. Uses `cursor: grab`/`grabbing` with a `wasPanning` flag to prevent accidental deselect.
 - **Canvas Overflow Clipping**: `overflow: hidden` on the inner canvas div (the one with `canvasStyle` width) clips widgets extending beyond the canvas boundary.
