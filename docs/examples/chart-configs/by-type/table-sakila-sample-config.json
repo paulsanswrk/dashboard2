@@ -1,0 +1,186 @@
+{
+    "description": "Sample Table chart configurations using the Sakila database, demonstrating functionality including Total Row",
+    "version": "1.0.0",
+    "note": "Copy the 'config' object (not the wrapper) to paste into the debug panel",
+    "configs": [
+        {
+            "name": "1. Table: Film Inventory (Basic)",
+            "description": "Simple table listing films with their ratings and rental durations",
+            "config": {
+                "chartType": "table",
+                "chartTitle": "Film Inventory",
+                "xDimensions": [
+                    {
+                        "fieldId": "title",
+                        "name": "title",
+                        "label": "Title",
+                        "type": "varchar",
+                        "table": "film"
+                    },
+                    {
+                        "fieldId": "rating",
+                        "name": "rating",
+                        "label": "Rating",
+                        "type": "enum",
+                        "table": "film"
+                    },
+                    {
+                        "fieldId": "rental_duration",
+                        "name": "rental_duration",
+                        "label": "Rental Days",
+                        "type": "tinyint",
+                        "table": "film"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "rental_rate",
+                        "name": "rental_rate",
+                        "label": "Rate",
+                        "type": "decimal",
+                        "table": "film",
+                        "aggregation": "AVG",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true,
+                    "table": {
+                        "showHeader": true,
+                        "showTotal": false,
+                        "rowHeight": 32,
+                        "borderStyle": "horizontal"
+                    }
+                }
+            }
+        },
+        {
+            "name": "2. Table: Total Payments by Staff (Total Row Demo)",
+            "description": "Demonstrates the Total Row feature summing the Revenue column",
+            "config": {
+                "chartType": "table",
+                "chartTitle": "Total Revenue by Staff",
+                "xDimensions": [
+                    {
+                        "fieldId": "staff_id",
+                        "name": "staff_id",
+                        "label": "Staff ID",
+                        "type": "tinyint",
+                        "table": "payment"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "payment_id",
+                        "name": "payment_id",
+                        "label": "Transactions",
+                        "type": "int",
+                        "table": "payment",
+                        "aggregation": "COUNT",
+                        "isNumeric": true
+                    },
+                    {
+                        "fieldId": "amount",
+                        "name": "amount",
+                        "label": "Total Amount ($)",
+                        "type": "decimal",
+                        "table": "payment",
+                        "aggregation": "SUM",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true,
+                    "table": {
+                        "showTotal": true,
+                        "totalBgColor": "#eef2ff",
+                        "totalFont": {
+                            "bold": true,
+                            "color": "#1e3a8a"
+                        },
+                        "columns": {
+                            "amount": {
+                                "numberFormat": {
+                                    "decimalPlaces": 2,
+                                    "prefix": "$",
+                                    "separator": "comma"
+                                },
+                                "prefix": "$",
+                                "textAlign": "right"
+                            },
+                            "payment_id": {
+                                "textAlign": "center"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "3. Table: Comprehensive Payments Report",
+            "description": "A detailed table showing monthly revenue trends with Total Row enabled",
+            "config": {
+                "chartType": "table",
+                "chartTitle": "Monthly Revenue Report",
+                "xDimensions": [
+                    {
+                        "fieldId": "payment_date",
+                        "name": "payment_date",
+                        "label": "Month",
+                        "type": "datetime",
+                        "table": "payment"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "amount",
+                        "name": "amount",
+                        "label": "Revenue",
+                        "type": "decimal",
+                        "table": "payment",
+                        "aggregation": "SUM",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true,
+                    "table": {
+                        "showTotal": true,
+                        "borderStyle": "all",
+                        "borderColor": "#cbd5e1",
+                        "headerBgColor": "#f1f5f9",
+                        "headerFont": {
+                            "bold": true,
+                            "size": 14
+                        },
+                        "columns": {
+                            "amount": {
+                                "numberFormat": {
+                                    "decimalPlaces": 2,
+                                    "prefix": "$",
+                                    "separator": "comma"
+                                },
+                                "textAlign": "right",
+                                "font": {
+                                    "color": "#0f172a"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

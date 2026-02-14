@@ -30,12 +30,15 @@
         <div v-if="hasActiveFilters" class="text-xs mt-1 text-gray-400">Try adjusting your filters</div>
       </div>
     </div>
-    <div v-else :class="{'pt-6': filterWarning}">
+    <div v-else :class="['h-full overflow-hidden', {'pt-6': filterWarning}]">
       <component :is="chartComponent" :key="chartType"
                  :loading="loading"
                  :columns="columns" :rows="rows"
                  :x-dimensions="xDimensions" :breakdowns="breakdowns" :y-metrics="yMetrics"
-                 :chart-type="chartType" :appearance="appearance" />
+                 :chart-type="chartType" :appearance="appearance"
+                 :interactive="chartType === 'table'"
+                 @header-click="(colIdx: number) => emit('header-click', colIdx)"
+                 @cell-click="(colIdx: number, colKey: string, colLabel: string) => emit('cell-click', colIdx, colKey, colLabel)" />
     </div>
   </div>
 </template>
@@ -70,6 +73,11 @@ const props = defineProps<{
   // New props for progressive loading
   dashboardId?: string
   chartId?: number
+}>()
+
+const emit = defineEmits<{
+  'header-click': [columnIndex: number]
+  'cell-click': [columnIndex: number, columnKey: string, columnLabel: string]
 }>()
 
 const { runPreview, runSql } = useReportingService()

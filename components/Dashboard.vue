@@ -80,7 +80,7 @@
                       @input="onChartNameInput(item.i, $event)"
                   />
                 </div>
-                <div class="h-full">
+                <div class="flex-1 min-h-0">
                   <DashboardChartRenderer
                       :state="findChartState(item.i)"
                       :config-override="findConfigOverride(item.i)"
@@ -91,6 +91,8 @@
                       :preloaded-rows="findPreloadedRows(item.i)"
                       :dashboard-filters="dashboardFilters"
                       :tab-style="tabStyle"
+                      @header-click="(colIdx: number) => handleTableHeaderClick(item.i, colIdx)"
+                      @cell-click="(colIdx: number, colKey: string, colLabel: string) => handleTableCellClick(item.i, colIdx, colKey, colLabel)"
                   />
                 </div>
               </UCard>
@@ -210,6 +212,8 @@ const emit = defineEmits<{
   'deselect': []
   'context-menu': [payload: { widgetId: string; x: number; y: number }]
   'canvas-context-menu': [payload: { x: number; y: number }]
+  'table-header-click': [widgetId: string, columnIndex: number]
+  'table-cell-click': [widgetId: string, columnIndex: number, columnKey: string, columnLabel: string]
 }>()
 
 // Interaction State
@@ -384,7 +388,7 @@ function getChartCardUi(i: string) {
   
   // Base padding config
   const ui: any = {
-    body: { padding: 'sm:p-2 p-2' }
+    body: 'p-2 h-full flex flex-col overflow-hidden'
   }
   
   // Always remove default Nuxt UI styling so our custom border logic applies cleanly
@@ -560,6 +564,16 @@ function handleCanvasOrWidgetContextMenu(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (target.closest('.dashboard-widget')) return // widget handler already fired via stopPropagation
   emit('canvas-context-menu', { x: e.clientX, y: e.clientY })
+}
+
+function handleTableHeaderClick(widgetId: string, colIdx: number) {
+  emit('select-text', widgetId)
+  emit('table-header-click', widgetId, colIdx)
+}
+
+function handleTableCellClick(widgetId: string, colIdx: number, colKey: string, colLabel: string) {
+  emit('select-text', widgetId)
+  emit('table-cell-click', widgetId, colIdx, colKey, colLabel)
 }
 </script>
 

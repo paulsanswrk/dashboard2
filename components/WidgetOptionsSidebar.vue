@@ -55,6 +55,9 @@ const props = defineProps<{
   tabStyle?: TabStyleOptions
   activeTabName?: string
   dashboardWidth?: number
+  chartInitialTab?: string
+  clickedColumnKey?: string
+  clickedColumnLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -105,6 +108,9 @@ const panelProps = computed(() => {
       borderWidth: style.borderWidth ?? 0,
       borderColor: style.borderColor || '#cccccc',
       borderStyle: style.borderStyle || 'solid',
+      initialTab: props.chartInitialTab,
+      clickedColumnKey: props.clickedColumnKey,
+      clickedColumnLabel: props.clickedColumnLabel,
       onEdit: () => emit('edit-chart'),
       onRename: (name: string) => emit('rename-chart', name),
       onDelete: () => emit('delete-chart'),

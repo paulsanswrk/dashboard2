@@ -536,6 +536,8 @@
                 @deselect="handleDeselect"
                 @context-menu="handleContextMenu"
                 @canvas-context-menu="handleCanvasContextMenu"
+                @table-header-click="handleTableHeaderClick"
+                @table-cell-click="handleTableCellClick"
             />
           </div>
         </div>
@@ -611,6 +613,9 @@
               :tab-style="activeTabStyle"
               :active-tab-name="activeTabName"
               :dashboard-width="dashboardWidth"
+              :chart-initial-tab="chartInitialTab"
+              :clicked-column-key="clickedColumnKey"
+              :clicked-column-label="clickedColumnLabel"
               class="flex-1 min-h-0 overflow-auto !rounded-t-none !border-t-0"
               @update-text-form="updateTextForm"
               @update-text-content="updateTextContentInline"
@@ -792,6 +797,9 @@ const { listConnections } = useReportingService()
 // Text widget editor
 const selectedTextWidgetId = ref<string | null>(null)
 const selectedWidgetId = selectedTextWidgetId
+const chartInitialTab = ref<string | undefined>(undefined)
+const clickedColumnKey = ref<string | undefined>(undefined)
+const clickedColumnLabel = ref<string | undefined>(undefined)
 const renameChartTimers: Record<number, ReturnType<typeof setTimeout>> = {}
 const saveChartOverrideTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 let saveDashboardNameTimer: ReturnType<typeof setTimeout> | null = null
@@ -2360,6 +2368,21 @@ function selectWidget(widgetId: string) {
 
 function handleDeselect() {
   selectedWidgetId.value = null
+  chartInitialTab.value = undefined
+  clickedColumnKey.value = undefined
+  clickedColumnLabel.value = undefined
+}
+
+function handleTableHeaderClick(widgetId: string, _colIdx: number) {
+  activePanel.value = 'options'
+  chartInitialTab.value = 'header-total'
+}
+
+function handleTableCellClick(widgetId: string, _colIdx: number, colKey: string, colLabel: string) {
+  activePanel.value = 'options'
+  chartInitialTab.value = 'column-name'
+  clickedColumnKey.value = colKey
+  clickedColumnLabel.value = colLabel
 }
 
 function updateTextForm(partial: Record<string, any>) {

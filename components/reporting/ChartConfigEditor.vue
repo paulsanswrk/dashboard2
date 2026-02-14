@@ -290,6 +290,18 @@
               <option v-for="font in fontFamilies" :key="font" :value="font">{{ font }}</option>
             </select>
           </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-600 dark:text-gray-400 w-20">Font Size</label>
+            <input
+                v-model.number="tableSettings.fontSize"
+                type="number"
+                min="8"
+                max="36"
+                placeholder="14"
+                class="w-20 px-2 py-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            />
+            <span class="text-xs text-gray-400">px</span>
+          </div>
           <div>
             <label class="text-xs text-gray-600 dark:text-gray-400 block mb-2">Text Alignment</label>
             <div class="flex border rounded overflow-hidden dark:border-gray-600">
@@ -430,6 +442,115 @@
           </div>
         </div>
       </ConfigSection>
+
+      <!-- Total Column Section -->
+      <ConfigSection title="Total Column" v-model:expanded="sections.tableTotalColumn">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-gray-600 dark:text-gray-400">Show total column</label>
+            <ToggleSwitch v-model="tableSettings.showTotalColumn"/>
+          </div>
+          <div v-if="tableSettings.showTotalColumn" class="space-y-3">
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-600 dark:text-gray-400 w-20">Aggregation</label>
+              <select
+                  v-model="tableSettings.totalColumnAggregation"
+                  class="flex-1 px-2 py-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              >
+                <option value="sum">Sum</option>
+                <option value="average">Average</option>
+                <option value="count">Count</option>
+                <option value="distinctcount">Distinct</option>
+                <option value="median">Median</option>
+                <option value="minimum">Minimum</option>
+                <option value="maximum">Maximum</option>
+                <option value="stddev">St. Dev.</option>
+                <option value="variance">Variance</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-600 dark:text-gray-400 w-20">Background</label>
+              <ChartConfigColorPicker v-model="tableSettings.totalColumnBgColor" :show-hex="true"/>
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 dark:text-gray-400 block mb-2">Font</label>
+              <ChartConfigFontSettings v-model="tableSettings.totalColumnFont"/>
+            </div>
+          </div>
+        </div>
+      </ConfigSection>
+    </div>
+
+    <!-- COLUMN NAME Tab -->
+    <div v-show="activeTab === 'column-name'" class="space-y-4">
+      <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        Formatting overrides for column: <strong>{{ clickedColumnLabel || clickedColumnKey || '—' }}</strong>
+      </div>
+
+      <!-- Font Section -->
+      <ConfigSection title="Font" v-model:expanded="sections.columnFont">
+        <div class="space-y-3">
+          <ChartConfigFontSettings v-model="columnSettings.font" />
+        </div>
+      </ConfigSection>
+
+      <!-- Alignment Section -->
+      <ConfigSection title="Alignment" v-model:expanded="sections.columnAlignment">
+        <div class="space-y-3">
+          <div class="flex border rounded overflow-hidden dark:border-gray-600">
+            <button
+                v-for="align in textAlignments"
+                :key="align.value"
+                type="button"
+                :class="[
+                'flex-1 px-2 py-1 text-xs border-r last:border-r-0 dark:border-gray-600 cursor-pointer',
+                columnSettings.textAlign === align.value
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+              ]"
+                @click="columnSettings.textAlign = align.value"
+            >{{ align.label }}
+            </button>
+          </div>
+          <button
+              v-if="columnSettings.textAlign"
+              type="button"
+              class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 underline cursor-pointer"
+              @click="columnSettings.textAlign = undefined"
+          >
+            Reset to table default
+          </button>
+        </div>
+      </ConfigSection>
+
+      <!-- Prefix / Suffix Section -->
+      <ConfigSection title="Prefix / Suffix" v-model:expanded="sections.columnPrefixSuffix">
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-600 dark:text-gray-400 w-16">Prefix</label>
+            <input
+                v-model="columnSettings.prefix"
+                type="text"
+                class="flex-1 px-2 py-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                placeholder="e.g. $"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-600 dark:text-gray-400 w-16">Suffix</label>
+            <input
+                v-model="columnSettings.suffix"
+                type="text"
+                class="flex-1 px-2 py-1 text-xs border rounded bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                placeholder="e.g. %"
+            />
+          </div>
+        </div>
+      </ConfigSection>
+
+      <!-- Number Format Section -->
+      <ConfigSection title="Number Format" v-model:expanded="sections.columnNumberFormat">
+        <ChartConfigNumberFormat v-model="columnNumberFormat" />
+      </ConfigSection>
     </div>
   </div>
 </template>
@@ -447,6 +568,11 @@ const props = defineProps<{
   // External mode props (for Dashboard use)
   externalAppearance?: Record<string, any>
   useExternalState?: boolean
+  // Allow parent to control which tab is active (for sidebar switching)
+  initialTab?: string
+  // Per-column config: which column was clicked
+  clickedColumnKey?: string
+  clickedColumnLabel?: string
 }>()
 
 // Emit for external mode updates
@@ -633,15 +759,71 @@ const tableSettings = computed({
   }
 })
 
+// Per-column settings: stored at appearance.table.columns[columnKey]
+const columnSettings = computed({
+  get: () => {
+    const key = props.clickedColumnKey
+    if (!key) return {}
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.table) target.table = {}
+    if (!target.table.columns) target.table.columns = {}
+    if (!target.table.columns[key]) target.table.columns[key] = {}
+    return target.table.columns[key]
+  },
+  set: (val) => {
+    const key = props.clickedColumnKey
+    if (!key) return
+    const target = getTargetAppearance()
+    if (!target) return
+    if (!target.table) target.table = {}
+    if (!target.table.columns) target.table.columns = {}
+    target.table.columns[key] = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
+  }
+})
+
+const columnNumberFormat = computed({
+  get: () => {
+    const key = props.clickedColumnKey
+    if (!key) return {}
+    const target = getTargetAppearance()
+    if (!target) return {}
+    if (!target.table?.columns?.[key]?.numberFormat) {
+      if (!target.table) target.table = {}
+      if (!target.table.columns) target.table.columns = {}
+      if (!target.table.columns[key]) target.table.columns[key] = {}
+      target.table.columns[key].numberFormat = {}
+    }
+    return target.table.columns[key].numberFormat
+  },
+  set: (val) => {
+    const key = props.clickedColumnKey
+    if (!key) return
+    const target = getTargetAppearance()
+    if (!target) return
+    if (!target.table) target.table = {}
+    if (!target.table.columns) target.table.columns = {}
+    if (!target.table.columns[key]) target.table.columns[key] = {}
+    target.table.columns[key].numberFormat = val
+    if (isExternalMode.value) emit('update:appearance', {...localAppearanceForDashboard.value})
+  }
+})
+
 // Tab definitions based on chart type
 const availableTabs = computed(() => {
   const chartType = props.chartType
 
   if (chartType === 'table') {
-    return [
+    const tabs = [
       {id: 'table-style', label: 'TABLE STYLE'},
       {id: 'header-total', label: 'HEADER & TOTAL'}
     ]
+    // Show COLUMN NAME tab when a column is selected
+    if (props.clickedColumnKey) {
+      tabs.push({id: 'column-name', label: props.clickedColumnLabel || 'COLUMN'})
+    }
+    return tabs
   }
 
   // Non-axis charts: No X/Y axis tabs
@@ -671,6 +853,13 @@ watch(() => props.chartType, () => {
   }
 }, {immediate: true})
 
+// Watch for external tab switching (e.g. from dashboard header/cell clicks)
+watch(() => props.initialTab, (newTab) => {
+  if (newTab && availableTabs.value.find(t => t.id === newTab)) {
+    activeTab.value = newTab
+  }
+})
+
 // Chart type helpers
 const isCartesianChart = computed(() => ['bar', 'column', 'line', 'area', 'scatter', 'stacked', 'bubble', 'boxplot', 'waterfall'].includes(props.chartType))
 const isPieChart = computed(() => ['pie', 'donut'].includes(props.chartType))
@@ -697,7 +886,12 @@ const sections = reactive({
   tableOptions: false,
   tableNumberFormat: false,
   tableHeader: true,
-  tableTotal: false
+  tableTotal: false,
+  tableTotalColumn: false,
+  columnFont: true,
+  columnAlignment: false,
+  columnPrefixSuffix: false,
+  columnNumberFormat: false
 })
 
 // Font families

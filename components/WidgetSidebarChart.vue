@@ -19,6 +19,9 @@
         :chart-type="chartType"
         :external-appearance="chartAppearance"
         :use-external-state="true"
+        :initial-tab="initialTab"
+        :clicked-column-key="clickedColumnKey"
+        :clicked-column-label="clickedColumnLabel"
         @update:appearance="emitUpdate"
     />
 
@@ -104,6 +107,9 @@ const props = defineProps<{
   borderWidth?: number
   borderColor?: string
   borderStyle?: string
+  initialTab?: string
+  clickedColumnKey?: string
+  clickedColumnLabel?: string
 }>()
 const emit = defineEmits<{
   rename: [name: string]
