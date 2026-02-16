@@ -1,10 +1,17 @@
 <template>
   <div class="h-screen flex flex-col overflow-hidden">
-    <template v-if="roleLoaded">
-    <!-- Color Scheme for theme management -->
     <ColorScheme/>
 
-      <div class="flex flex-1 min-h-0 bg-gray-50">
+    <!-- Loading State -->
+    <div v-if="!roleLoaded" class="absolute inset-0 z-50 flex items-center justify-center bg-gray-50 dark:bg-neutral-900">
+      <div class="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+        <Icon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin"/>
+        <span>Loading workspace...</span>
+      </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div v-show="roleLoaded" class="flex flex-1 min-h-0 bg-gray-50">
       <!-- Mobile Overlay -->
       <div
           v-if="isMobileMenuOpen"
@@ -55,17 +62,55 @@
           </div>
 
           <!-- Side nav items -->
-          <NuxtLink
-              v-for="item in sideNavItems"
-              :key="item.route"
-              :to="item.route"
-              class="sidebar-item"
-              :class="{ active: isActiveRoute(item.route) }"
-              @click="closeMobileMenu"
-          >
-            <Icon :name="item.icon" class="w-5 h-5"/>
-            {{ item.label }}
-          </NuxtLink>
+          <template v-for="item in sideNavItems" :key="item.label">
+            <!-- Single Item -->
+            <NuxtLink
+                v-if="!item.children && item.route"
+                :to="item.route"
+                class="sidebar-item"
+                :class="{ active: isActiveRoute(item.route) }"
+                @click="closeMobileMenu"
+            >
+              <Icon v-if="item.icon" :name="item.icon" class="w-5 h-5"/>
+              {{ item.label }}
+            </NuxtLink>
+
+            <!-- Group Item -->
+            <div v-else-if="item.children" class="space-y-1">
+              <button
+                  class="sidebar-item w-full justify-between cursor-pointer"
+                  :class="{ 'text-white bg-neutral-700/50': isGroupActive(item) }"
+                  @click="toggleGroup(item.label)"
+              >
+                <div class="flex items-center gap-2">
+              <Icon v-if="item.icon" :name="item.icon" class="w-5 h-5"/>
+              {{ item.label }}
+            </div>
+            <Icon
+                name="i-heroicons-chevron-down"
+                    class="w-4 h-4 transition-transform duration-200"
+                    :class="{ 'rotate-180': expandedGroups.includes(item.label) }"
+                />
+              </button>
+
+              <div
+                  v-show="expandedGroups.includes(item.label)"
+                  class="pl-4 space-y-1 overflow-hidden transition-all duration-300"
+              >
+                <NuxtLink
+                    v-for="child in item.children"
+                    :key="child.route"
+                    :to="child.route"
+                    class="sidebar-item text-sm py-2"
+                    :class="{ active: isActiveRoute(child.route) }"
+                    @click="closeMobileMenu"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-current mr-2 opacity-50"></span>
+                  {{ child.label }}
+                </NuxtLink>
+              </div>
+            </div>
+          </template>
         </nav>
 
         <div class="p-4 border-t border-neutral-600 dark:border-[rgb(64,64,64)]">
@@ -135,15 +180,6 @@
         </footer>
       </div>
     </div>
-    </template>
-    <template v-else>
-      <div class="flex flex-1 items-center justify-center h-screen bg-gray-50 dark:bg-neutral-900">
-        <div class="flex items-center gap-3 text-gray-600 dark:text-gray-300">
-          <Icon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin"/>
-          <span>Loading workspace...</span>
-        </div>
-      </div>
-    </template>
   </div>
 </template>
 
@@ -190,14 +226,36 @@ const topNavItems = computed(() => {
   ]
 })
 
+interface NavItem {
+  label: string
+  icon?: string
+  route: string
+  children?: { label: string; route: string }[]
+}
+
 // Side navigation items by role (admin work)
-const sideNavItems = computed(() => {
+const sideNavItems = computed<NavItem[]>(() => {
   if (isSuperAdmin.value) {
     return [
       {icon: 'i-heroicons-users', label: 'Users', route: '/users'},
       {icon: 'i-heroicons-eye', label: 'Viewers', route: '/viewers'},
       {icon: 'i-heroicons-building-office', label: 'Organizations', route: '/organizations'},
-      {icon: 'i-heroicons-queue-list', label: 'Email Queue', route: '/reports/monitor'}
+      {icon: 'i-heroicons-queue-list', label: 'Email Queue', route: '/reports/monitor'},
+      {
+        icon: 'i-heroicons-arrow-path-rounded-square',
+        label: 'OptiqoFlow Sync',
+        route: '/optiqoflow-sync', // placeholder route
+        children: [
+        {
+          label: 'Demo',
+          route: '/optiqoflow-sync/demo'
+        },
+        {
+          label: 'Logs',
+          route: '/optiqoflow-sync/logs'
+        }
+        ]
+      }
     ]
   }
   if (isAdmin.value) {
@@ -210,9 +268,26 @@ const sideNavItems = computed(() => {
   return []
 })
 
+const expandedGroups = ref<string[]>([])
+
+const toggleGroup = (label: string) => {
+  const index = expandedGroups.value.indexOf(label)
+  if (index === -1) {
+    expandedGroups.value.push(label)
+  } else {
+    expandedGroups.value.splice(index, 1)
+  }
+}
+
+const isGroupActive = (item: any) => {
+  if (!item.children) return false
+  return item.children.some((child: any) => isActiveRoute(child.route))
+}
+
 const showSideNav = computed(() =>
     sideNavItems.value.length > 0 || (isMobileMenuOpen.value && topNavItems.value.length > 0)
 )
+
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
@@ -231,7 +306,10 @@ const isActiveRoute = (routePath: string) => {
 
   // Special handling to avoid multiple active items for nested routes
   // Check if there are navigation items with more specific routes that match the current path
-  const allNavRoutes = sideNavItems.value.map(item => item.route)
+  const allNavRoutes = sideNavItems.value
+      .flatMap(item => [item.route, ...(item.children?.map(c => c.route) || [])])
+      .filter(Boolean) as string[]
+
   const moreSpecificRoutes = allNavRoutes.filter(r =>
       r !== routePath &&
       currentPath.startsWith(r) &&
@@ -266,5 +344,16 @@ const handleSignOut = async () => {
 // Close mobile menu on route change
 watch(() => useRoute().path, () => {
   closeMobileMenu()
-})
+}, {deep: true})
+
+// Auto-expand groups if child is active
+watch([() => route.path, () => sideNavItems.value], () => {
+  sideNavItems.value.forEach((item: any) => {
+    if (item.children && isGroupActive(item)) {
+      if (!expandedGroups.value.includes(item.label)) {
+        expandedGroups.value.push(item.label)
+      }
+    }
+  })
+}, { immediate: true, deep: true })
 </script>

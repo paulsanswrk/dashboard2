@@ -383,6 +383,52 @@ When webhook receives data push:
 > [!NOTE]
 > Chart data caching is fully implemented. Cache entries are created when charts are viewed on dashboards, and automatically invalidated when webhook data pushes occur. See `/server/api/dashboards/[id]/charts/[chartId]/data.get.ts` for the implementation.
 
+## Logging & Auditing
+
+A persistent logging system tracks all webhook operations and data sync events.
+
+### `tenants.webhook_logs`
+
+Logs are stored in the `tenants` schema to ensure they persist even if the `optiqoflow` schema is reset during updates.
+
+```sql
+CREATE TABLE tenants.webhook_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    tenant_id UUID,
+    operation TEXT, -- INSERT, UPDATE, DELETE, FULL_SYNC, MULTI_TABLE_SYNC
+    table_name TEXT,
+    target_table TEXT,
+    success BOOLEAN,
+    error_message TEXT,
+    duration_ms INTEGER,
+    client_ip TEXT,
+    user_agent TEXT,
+    metadata JSONB -- Stores record_count, view_recreated status, error stacks
+);
+```
+
+### Logging Workflow
+
+1. **Request Capture**: The webhook handler (`optiqo-webhook.post.ts`) captures request details (IP, User Agent).
+2. **Execution**: The sync operation is performed (DB updates, view regeneration).
+3. **Log Entry**: A log entry is inserted into `tenants.webhook_logs` regardless of success or failure.
+4. **Metadata**: Detailed context (e.g., number of records synced, whether a view was effectively recreated) is stored in the `metadata` JSONB column.
+
+### Demo Sync Authentication
+
+The "Run Demo Sync" feature (`/api/optiqoflow-sync/run-demo-sync`) uses a **cookie-based authentication** strategy:
+1.  **Frontend**: Triggers the sync request using `useFetch` which automatically forwards the user's session cookies.
+2.  **Backend**: Uses `serverSupabaseUser(event)` to validate the user via the `sb-access-token` cookie.
+3.  **Authorization**: Bypasses the standard generic bearer token check to allow authenticated dashboard users (e.g., Superadmins) to trigger syncs directly securely.
+
+### Logs Visualization
+
+The Logs UI (`pages/optiqoflow-sync/logs/index.vue`) parses the `metadata` JSONB column to provide a user-friendly experience:
+-   **Record Counts**: Displayed as a metric grid (e.g., "Inspections: 12").
+-   **Affected Tables**: Displayed as distinct badges.
+-   **Raw Data**: The full JSON payload is preserved in a collapsed `<details>` section for advanced debugging.
+
 ## Key Files
 
 | File | Purpose |
@@ -391,12 +437,14 @@ When webhook receives data push:
 | `server/utils/query-context.ts` | Tenant context and role utilities |
 | `server/utils/optiqoflowQuery.ts` | Query execution with role switching |
 | `server/api/reporting/chart-data.post.ts` | Cached chart data endpoint |
-| `server/api/optiqo-webhook.post.ts` | Webhook handler with view regeneration |
+| `server/api/optiqo-webhook.post.ts` | Webhook handler with view regeneration and **logging** |
+| `server/api/optiqoflow-sync/logs.get.ts` | **NEW** API endpoint to fetch paginated logs |
 | `server/api/tenants/index.get.ts` | List available tenants (SUPERADMIN) |
 | `server/api/organizations/[id]/tenant.put.ts` | Assign/remove tenant, auto-create connection |
 | `server/api/organizations/index.post.ts` | Create org with optional tenant and connection |
 | `pages/organizations/[id].vue` | Organization details with tenant selector |
 | `pages/data-sources.vue` | Data sources list with schema editing for immutable connections |
+| `pages/optiqoflow-sync/logs/index.vue` | **NEW** Logs viewer UI |
 | `lib/db/tenant-schema.ts` | Drizzle schema for tenant metadata tables |
 | `lib/db/chart-cache-schema.ts` | Drizzle schema for cache tables |
 | `lib/db/optiqoflow-schema.ts` | Drizzle schema for optiqoflow tables |

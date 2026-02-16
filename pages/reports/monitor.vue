@@ -383,7 +383,7 @@ const reports = ref(new Map())
 const currentPage = ref(1)
 const pageSize = 50
 const totalCount = ref(0)
-const statusFilter = ref('')
+const statusFilter = ref('ALL')
 const lastUpdated = ref(null)
 const autoRefreshEnabled = ref(false)
 const autoRefreshInterval = ref(30) // seconds
@@ -396,7 +396,7 @@ const selectedQueueItem = ref(null)
 const totalPages = computed(() => Math.ceil(totalCount.value / pageSize))
 
 const statusFilterOptions = [
-  { label: 'All Statuses', value: '' },
+  { label: 'All Statuses', value: 'ALL' },
   { label: 'Pending', value: 'PENDING' },
   { label: 'Sent', value: 'SENT' },
   { label: 'Failed', value: 'FAILED' },
@@ -472,7 +472,8 @@ const toggleAutoRefresh = () => {
 const fetchQueue = async () => {
   loading.value = true
   try {
-    const { items, total } = await listEmailQueue(statusFilter.value || undefined, currentPage.value, pageSize)
+    const status = statusFilter.value === 'ALL' ? undefined : statusFilter.value
+    const { items, total } = await listEmailQueue(status, currentPage.value, pageSize)
     queueItems.value = items
     totalCount.value = total
     lastUpdated.value = new Date().toISOString()

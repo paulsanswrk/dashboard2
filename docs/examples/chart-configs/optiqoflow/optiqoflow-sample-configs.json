@@ -1,0 +1,235 @@
+{
+    "description": "Sample JSON chart configurations for testing the Optiqo Chart Builder with the OptiqoFlow schema (Multi-Tenant)",
+    "version": "1.0.0",
+    "note": "Copy the 'config' object (not the wrapper) to paste into the debug panel",
+    "configs": [
+        {
+            "name": "1. Work Orders by Priority (Generic)",
+            "description": "Universal chart showing work order distribution by priority. Available to all tenants.",
+            "config": {
+                "chartType": "column",
+                "chartTitle": "Work Orders by Priority",
+                "xDimensions": [
+                    {
+                        "fieldId": "priority",
+                        "name": "priority",
+                        "label": "Priority",
+                        "type": "enum",
+                        "table": "work_orders"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "id",
+                        "name": "id",
+                        "label": "Count",
+                        "type": "uuid",
+                        "table": "work_orders",
+                        "aggregation": "COUNT",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true,
+                    "palette": [
+                        "#3b82f6",
+                        "#ef4444",
+                        "#fbbf24",
+                        "#10b981"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "2. Discharge Cleans by Patient Status (Healthcare Tenant)",
+            "description": "Healthcare-specific chart using 'patient_status' column. Demonstrates vertical-specific data availability.",
+            "config": {
+                "chartType": "bar",
+                "chartTitle": "Discharge Cleans by Patient Status",
+                "xDimensions": [
+                    {
+                        "fieldId": "patient_status",
+                        "name": "patient_status",
+                        "label": "Patient Status",
+                        "type": "varchar",
+                        "table": "rooms"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "id",
+                        "name": "id",
+                        "label": "Work Orders",
+                        "type": "uuid",
+                        "table": "work_orders",
+                        "aggregation": "COUNT",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [
+                    {
+                        "constraintName": "fk_work_orders_rooms",
+                        "sourceTable": "work_orders",
+                        "targetTable": "rooms",
+                        "joinType": "inner",
+                        "columnPairs": [
+                            {
+                                "position": 1,
+                                "sourceColumn": "room_id",
+                                "targetColumn": "id"
+                            }
+                        ]
+                    }
+                ],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true,
+                    "color": "#8b5cf6"
+                }
+            }
+        },
+        {
+            "name": "3. Inspection AQL Analysis (Advanced Quality Tenant)",
+            "description": "Quality-specific chart using 'aql_level' column. Demonstrates feature-specific column availability.",
+            "config": {
+                "chartType": "pie",
+                "chartTitle": "Inspections by AQL Level",
+                "xDimensions": [
+                    {
+                        "fieldId": "aql_level",
+                        "name": "aql_level",
+                        "label": "AQL Level",
+                        "type": "varchar",
+                        "table": "quality_inspections"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "id",
+                        "name": "id",
+                        "label": "Count",
+                        "type": "uuid",
+                        "table": "quality_inspections",
+                        "aggregation": "COUNT",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": true,
+                    "legendPosition": "right",
+                    "showLabels": true
+                }
+            }
+        },
+        {
+            "name": "4. Low Battery Devices (IoT Tenant)",
+            "description": "IoT-specific table showing devices with low battery. Uses 'battery_percent' column.",
+            "config": {
+                "chartType": "table",
+                "chartTitle": "Low Battery Devices",
+                "xDimensions": [
+                    {
+                        "fieldId": "description",
+                        "name": "description",
+                        "label": "Device Name",
+                        "type": "varchar",
+                        "table": "devices"
+                    },
+                    {
+                        "fieldId": "imei",
+                        "name": "imei",
+                        "label": "IMEI",
+                        "type": "varchar",
+                        "table": "devices"
+                    },
+                    {
+                        "fieldId": "last_seen_at",
+                        "name": "last_seen_at",
+                        "label": "Last Seen",
+                        "type": "datetime",
+                        "table": "devices"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "battery_percent",
+                        "name": "battery_percent",
+                        "label": "Battery %",
+                        "type": "int",
+                        "table": "devices",
+                        "aggregation": "SUM",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [
+                    {
+                        "id": "f1",
+                        "type": "AND",
+                        "field": {
+                            "fieldId": "battery_percent",
+                            "name": "battery_percent",
+                            "label": "Battery %",
+                            "type": "int",
+                            "table": "devices"
+                        },
+                        "operator": "lte",
+                        "value": 20
+                    }
+                ],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": true
+                }
+            }
+        },
+        {
+            "name": "5. Work Order Trends (Generic)",
+            "description": "Universal area chart showing work order volume over time.",
+            "config": {
+                "chartType": "area",
+                "chartTitle": "Work Order Volume (Last 30 Days)",
+                "xDimensions": [
+                    {
+                        "fieldId": "created_at",
+                        "name": "created_at",
+                        "label": "Date",
+                        "type": "datetime",
+                        "table": "work_orders",
+                        "grouping": "day"
+                    }
+                ],
+                "yMetrics": [
+                    {
+                        "fieldId": "id",
+                        "name": "id",
+                        "label": "Total Orders",
+                        "type": "uuid",
+                        "table": "work_orders",
+                        "aggregation": "COUNT",
+                        "isNumeric": true
+                    }
+                ],
+                "breakdowns": [],
+                "filters": [],
+                "joins": [],
+                "appearance": {
+                    "showLegend": false,
+                    "showLabels": false,
+                    "color": "#0ea5e9",
+                    "fillOpacity": 0.2
+                }
+            }
+        }
+    ]
+}
