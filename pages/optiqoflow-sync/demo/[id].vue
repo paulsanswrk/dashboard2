@@ -25,14 +25,14 @@
         <h1 class="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-1">
           Demo Sync — {{ tenant.name }}
         </h1>
-        <p class="text-gray-600 dark:text-gray-400">Select which tables to synchronize for this tenant.</p>
+        <p class="text-gray-600 dark:text-gray-400">Select which tables and columns to synchronize for this tenant.</p>
       </div>
 
       <!-- Tables Section -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <!-- Header with actions -->
         <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-center gap-3">
               <Icon name="i-heroicons-circle-stack" class="w-5 h-5 text-gray-500 dark:text-gray-400"/>
               <span class="text-lg font-semibold text-gray-900 dark:text-white">Tables to Sync</span>
@@ -41,20 +41,42 @@
                 {{ formData.tables_to_sync.length }} / {{ SYNCABLE_TABLES.length }} tables
               </UBadge>
             </div>
-            <div class="flex gap-2">
-              <button @click="selectAllTables" class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors">
-                Select All
-              </button>
-              <button @click="deselectAllTables" class="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
-                Deselect All
-              </button>
-              <span class="border-l border-gray-300 dark:border-gray-600 mx-1"></span>
-              <button @click="expandAllCategories" class="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
-                Expand All
-              </button>
-              <button @click="collapseAllCategories" class="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
-                Collapse All
-              </button>
+            
+            <div class="flex flex-col gap-2">
+              <!-- Quick Actions -->
+              <div class="flex gap-2 justify-end">
+                 <button 
+                  @click="applyPreset('acme')"
+                  class="px-2 py-1 text-xs font-medium text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer transition-colors"
+                  title="Apply Acme Cleaning Co preset"
+                >
+                  Acme Preset
+                </button>
+                <button 
+                  @click="applyPreset('beta')"
+                  class="px-2 py-1 text-xs font-medium text-purple-700 dark:text-purple-200 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded hover:bg-purple-100 dark:hover:bg-purple-900/50 cursor-pointer transition-colors"
+                  title="Apply Beta Facilities preset"
+                >
+                  Beta Preset
+                </button>
+              </div>
+
+              <!-- Standard Actions -->
+              <div class="flex gap-2">
+                <button @click="selectAllTables" class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors">
+                  Select All
+                </button>
+                <button @click="deselectAllTables" class="px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
+                  Deselect All
+                </button>
+                <span class="border-l border-gray-300 dark:border-gray-600 mx-1"></span>
+                <button @click="expandAllCategories" class="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
+                  Expand All
+                </button>
+                <button @click="collapseAllCategories" class="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors">
+                  Collapse All
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -91,26 +113,122 @@
             </div>
 
             <!-- Category Tables -->
-            <div v-show="expandedCategories.has(category)" class="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-              <label
+            <div v-show="expandedCategories.has(category)" class="p-3 space-y-2">
+              <div
                 v-for="table in tables"
                 :key="table.name"
-                class="flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors"
+                class="rounded-lg border transition-colors"
                 :class="formData.tables_to_sync.includes(table.name)
                   ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30'"
+                  : 'border-gray-200 dark:border-gray-700'"
               >
-                <input
-                  type="checkbox"
-                  :checked="formData.tables_to_sync.includes(table.name)"
-                  @change="toggleTable(table.name)"
-                  class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
-                />
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ table.label }}</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ table.name }}</p>
+                <!-- Table Row -->
+                <div class="flex items-center gap-3 p-2.5">
+                  <input
+                    type="checkbox"
+                    :checked="formData.tables_to_sync.includes(table.name)"
+                    @change="toggleTable(table.name)"
+                    class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 cursor-pointer"
+                  />
+                  <div
+                    class="flex-1 min-w-0 cursor-pointer"
+                    @click="handleRowClick(table.name)"
+                  >
+                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ table.label }}</p>
+                    <div class="flex items-center gap-1.5">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ table.name }}</p>
+                      <span
+                        v-if="rowCounts[table.name] !== undefined"
+                        class="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                        :class="rowCounts[table.name] > 0
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'"
+                      >
+                        {{ rowCounts[table.name].toLocaleString() }} {{ rowCounts[table.name] === 1 ? 'row' : 'rows' }}
+                      </span>
+                      <!-- Column count badge -->
+                      <span
+                        v-if="formData.tables_to_sync.includes(table.name) && allColumns[table.name]"
+                        class="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                        :class="getColumnBadgeClass(table.name)"
+                      >
+                        {{ getColumnCountLabel(table.name) }}
+                      </span>
+                    </div>
+                  </div>
+                  <!-- Expand columns button (only for selected tables with columns) -->
+                  <button
+                    v-if="formData.tables_to_sync.includes(table.name) && allColumns[table.name]"
+                    @click.stop="toggleColumnPanel(table.name)"
+                    class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                    :title="expandedColumnTables.has(table.name) ? 'Hide columns' : 'Choose columns'"
+                  >
+                    <Icon
+                      :name="expandedColumnTables.has(table.name) ? 'i-heroicons-chevron-up' : 'i-heroicons-view-columns'"
+                      class="w-4 h-4 text-gray-500 dark:text-gray-400"
+                    />
+                  </button>
                 </div>
-              </label>
+
+                <!-- Column Picker (expandable) -->
+                <div
+                  v-if="formData.tables_to_sync.includes(table.name) && expandedColumnTables.has(table.name) && allColumns[table.name]"
+                  class="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 px-3 py-2.5"
+                >
+                  <!-- Column controls -->
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Columns</span>
+                    <div class="flex items-center gap-2">
+                      <button
+                        @click="selectAllColumns(table.name)"
+                        class="text-[11px] px-2 py-0.5 text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                      >
+                        All
+                      </button>
+                      <button
+                        @click="deselectAllColumns(table.name)"
+                        class="text-[11px] px-2 py-0.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                      >
+                        None
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Column grid -->
+                  <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-1">
+                    <label
+                      v-for="col in allColumns[table.name]"
+                      :key="col.name"
+                      class="flex items-center gap-2 px-2 py-1.5 rounded transition-colors group"
+                      :class="[
+                        isColumnSelected(table.name, col.name) ? 'bg-blue-50/50 dark:bg-blue-900/10' : '',
+                        isMandatoryColumn(col.name) ? 'cursor-default' : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/40'
+                      ]"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="isColumnSelected(table.name, col.name)"
+                        :disabled="isMandatoryColumn(col.name)"
+                        @change="toggleColumn(table.name, col.name)"
+                        class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 disabled:opacity-100"
+                        :class="isMandatoryColumn(col.name) ? 'cursor-default' : 'cursor-pointer'"
+                      />
+                      <span 
+                        class="text-xs font-mono truncate"
+                        :class="isMandatoryColumn(col.name) ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-800 dark:text-gray-200'"
+                      >
+                        {{ col.name }}
+                      </span>
+                      <Icon 
+                        v-if="isMandatoryColumn(col.name)" 
+                        name="i-heroicons-lock-closed" 
+                        class="w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0"
+                        title="Mandatory column"
+                      />
+                      <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto flex-shrink-0 group-hover:hidden">{{ col.type }}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -166,6 +284,12 @@ interface TenantWithSync {
   sync_config: SyncConfig | null
 }
 
+interface ColumnMeta {
+  name: string
+  type: string
+  nullable: boolean
+}
+
 // ── Syncable Tables ──
 const SYNCABLE_TABLES = [
   { name: 'tenants', label: 'Tenant Info (id, name)', category: 'Organization' },
@@ -196,7 +320,10 @@ const loading = ref(true)
 const fetchError = ref<string | null>(null)
 const saving = ref(false)
 const tenant = ref<TenantWithSync | null>(null)
+const rowCounts = ref<Record<string, number>>({})
+const allColumns = ref<Record<string, ColumnMeta[]>>({})
 const expandedCategories = ref(new Set<string>())
+const expandedColumnTables = ref(new Set<string>())
 
 const formData = ref({
   tables_to_sync: [] as string[],
@@ -231,9 +358,20 @@ onMounted(async () => {
       return
     }
 
-    const data = await $fetch('/api/optiqoflow-sync/tenants-with-config', {
-      headers: { Authorization: `Bearer ${session.access_token}` }
-    })
+    const [data, countsData, columnsData] = await Promise.all([
+      $fetch('/api/optiqoflow-sync/tenants-with-config', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      }),
+      $fetch('/api/optiqoflow-sync/table-row-counts', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      }).catch(() => ({ counts: {} })),
+      $fetch('/api/optiqoflow-sync/table-columns', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      }).catch(() => ({ columns: {} }))
+    ])
+
+    rowCounts.value = (countsData as any).counts || {}
+    allColumns.value = (columnsData as any).columns || {}
 
     const tenantId = route.params.id as string
     const found = (data as any).tenants.find((t: TenantWithSync) => t.id === tenantId)
@@ -251,6 +389,11 @@ onMounted(async () => {
         tables_to_sync: [...(found.sync_config.tables_to_sync || [])],
         columns_to_sync: { ...(found.sync_config.columns_to_sync || {}) },
       }
+      
+      // Ensure mandatory columns are present in explicit lists
+      Object.keys(formData.value.columns_to_sync).forEach(table => {
+        ensureMandatoryColumns(table)
+      })
     }
   } catch (err: any) {
     fetchError.value = err.data?.statusMessage || err.message || 'Failed to load tenant'
@@ -258,6 +401,81 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+// Ensure mandatory columns are always present in column arrays
+function ensureMandatoryColumns(tableName: string) {
+  const selected = formData.value.columns_to_sync[tableName]
+  if (Array.isArray(selected)) {
+    const tableCols = allColumns.value[tableName]
+    if (!tableCols) return
+    
+    const mandatoryNames = tableCols
+      .map(c => c.name)
+      .filter(name => isMandatoryColumn(name))
+      
+    mandatoryNames.forEach(name => {
+      if (!selected.includes(name)) {
+        selected.push(name)
+      }
+    })
+  }
+}
+
+// ── Presets ──
+function applyPreset(preset: 'acme' | 'beta') {
+  deselectAllTables()
+
+  if (preset === 'acme') {
+    const tables = [
+      'tenants', 'profiles', 'teams', 'team_members', 'customers',
+      'devices', 'device_tenants', 'device_models',
+      'sites', 'rooms', 'work_orders'
+    ]
+    formData.value.tables_to_sync = tables
+
+    // Tenants: Restricted columns
+    if (allColumns.value['tenants']) {
+      formData.value.columns_to_sync['tenants'] = ['id', 'name', 'created_at', 'updated_at']
+    }
+
+    // Rooms: Exclude healthcare columns
+    if (allColumns.value['rooms']) {
+      const excluded = ['patient_status', 'last_patient_checkout_at', 'requires_infection_cleaning', 'hygiene_code', 'bed_count']
+      formData.value.columns_to_sync['rooms'] = allColumns.value['rooms']
+        .map(c => c.name)
+        .filter(n => !excluded.includes(n))
+    }
+
+    // Work Orders: Exclude healthcare columns
+    if (allColumns.value['work_orders']) {
+      const excluded = ['patient_checkout_time', 'infection_protocol_required', 'room_bed_number']
+      formData.value.columns_to_sync['work_orders'] = allColumns.value['work_orders']
+        .map(c => c.name)
+        .filter(n => !excluded.includes(n))
+    }
+  } else if (preset === 'beta') {
+    const tables = [
+      'tenants', 'profiles', 'sites', 'rooms', 'healthcare_metrics', 'shifts'
+    ]
+    formData.value.tables_to_sync = tables
+
+    // Tenants: Restricted columns
+    if (allColumns.value['tenants']) {
+      formData.value.columns_to_sync['tenants'] = ['id', 'name', 'created_at', 'updated_at']
+    }
+    
+    // Others: Default is all columns (null/undefined in columns_to_sync means all)
+  }
+
+  // Ensure mandatory columns are present for all selected tables
+  tables.forEach(t => ensureMandatoryColumns(t))
+
+  toast.add({
+    title: 'Preset Applied',
+    description: `Applied ${preset === 'acme' ? 'Acme Cleaning Co' : 'Beta Facilities'} configuration preset.`,
+    color: 'green'
+  })
+}
 
 // ── Save ──
 async function handleSave() {
@@ -304,7 +522,6 @@ async function handleSave() {
 }
 
 // ── Demo-only sync ──
-// ── Demo-only sync ──
 async function handleFullSync() {
   if (!tenant.value) return
   
@@ -344,10 +561,31 @@ async function handleFullSync() {
 }
 
 // ── Table selection helpers ──
+function handleRowClick(tableName: string) {
+  if (formData.value.tables_to_sync.includes(tableName)) {
+    // Already selected -> toggle columns if available
+    if (allColumns.value[tableName]) {
+      toggleColumnPanel(tableName)
+    }
+  } else {
+    // Not selected -> select it
+    toggleTable(tableName)
+    // Auto-expand columns if available
+    if (allColumns.value[tableName]) {
+      expandedColumnTables.value.add(tableName)
+      expandedColumnTables.value = new Set(expandedColumnTables.value)
+    }
+  }
+}
+
 function toggleTable(tableName: string) {
   const idx = formData.value.tables_to_sync.indexOf(tableName)
   if (idx >= 0) {
     formData.value.tables_to_sync.splice(idx, 1)
+    // Clean up column selection when table is deselected
+    delete formData.value.columns_to_sync[tableName]
+    expandedColumnTables.value.delete(tableName)
+    expandedColumnTables.value = new Set(expandedColumnTables.value)
   } else {
     formData.value.tables_to_sync.push(tableName)
   }
@@ -361,6 +599,7 @@ function selectAllTables() {
 function deselectAllTables() {
   formData.value.tables_to_sync = []
   formData.value.columns_to_sync = {}
+  expandedColumnTables.value = new Set()
 }
 
 function toggleCategoryTables(category: string) {
@@ -371,6 +610,12 @@ function toggleCategoryTables(category: string) {
     formData.value.tables_to_sync = formData.value.tables_to_sync.filter(
       t => !categoryTables.some(ct => ct.name === t)
     )
+    // Clean up column selections for deselected tables
+    categoryTables.forEach(ct => {
+      delete formData.value.columns_to_sync[ct.name]
+      expandedColumnTables.value.delete(ct.name)
+    })
+    expandedColumnTables.value = new Set(expandedColumnTables.value)
   } else {
     const newTables = categoryTables.map(t => t.name).filter(n => !formData.value.tables_to_sync.includes(n))
     formData.value.tables_to_sync.push(...newTables)
@@ -411,5 +656,101 @@ function getCategoryBadgeColor(tables: readonly { name: string }[]) {
   if (isCategoryAllSelected(tables)) return 'green'
   if (isCategorySomeSelected(tables)) return 'blue'
   return 'gray'
+}
+
+// ── Column selection helpers ──
+function toggleColumnPanel(tableName: string) {
+  if (expandedColumnTables.value.has(tableName)) {
+    expandedColumnTables.value.delete(tableName)
+  } else {
+    expandedColumnTables.value.add(tableName)
+  }
+  expandedColumnTables.value = new Set(expandedColumnTables.value)
+}
+
+function isColumnSelected(tableName: string, columnName: string): boolean {
+  if (isMandatoryColumn(columnName)) return true
+  const cols = formData.value.columns_to_sync[tableName]
+  // null or undefined = all columns selected
+  if (cols === null || cols === undefined) return true
+  return cols.includes(columnName)
+}
+
+function isMandatoryColumn(columnName: string): boolean {
+  const mandatory = ['id', 'tenant_id', 'created_at', 'updated_at']
+  return mandatory.includes(columnName) || columnName.endsWith('_id')
+}
+
+function toggleColumn(tableName: string, columnName: string) {
+  if (isMandatoryColumn(columnName)) return
+
+  const tableCols = allColumns.value[tableName]
+  if (!tableCols) return
+
+  let selected = formData.value.columns_to_sync[tableName]
+
+  // If null/undefined (= all), switching to explicit list minus this column
+  if (selected === null || selected === undefined) {
+    selected = tableCols.map(c => c.name).filter(n => n !== columnName)
+  } else {
+    const idx = selected.indexOf(columnName)
+    if (idx >= 0) {
+      selected.splice(idx, 1)
+    } else {
+      selected.push(columnName)
+    }
+  }
+
+  // If all columns are selected (including mandatory ones which are always present in tableCols), reset to null (= all)
+  if (selected.length === tableCols.length) {
+    formData.value.columns_to_sync[tableName] = null
+  } else {
+    formData.value.columns_to_sync[tableName] = [...selected]
+  }
+}
+
+function selectAllColumns(tableName: string) {
+  // null means all columns
+  formData.value.columns_to_sync[tableName] = null
+}
+
+function deselectAllColumns(tableName: string) {
+  const tableCols = allColumns.value[tableName]
+  if (!tableCols) {
+    formData.value.columns_to_sync[tableName] = []
+    return
+  }
+
+  // Only keep mandatory columns
+  formData.value.columns_to_sync[tableName] = tableCols
+    .map(c => c.name)
+    .filter(name => isMandatoryColumn(name))
+}
+
+// Watch for changes to ensure mandatory columns are never lost
+watch(() => formData.value.columns_to_sync, (newVal) => {
+  Object.keys(newVal).forEach(table => {
+    ensureMandatoryColumns(table)
+  })
+}, { deep: true })
+
+function getColumnCountLabel(tableName: string): string {
+  const total = allColumns.value[tableName]?.length || 0
+  const cols = formData.value.columns_to_sync[tableName]
+  if (cols === null || cols === undefined) return `${total} cols`
+  return `${cols.length}/${total} cols`
+}
+
+function getColumnBadgeClass(tableName: string): string {
+  const cols = formData.value.columns_to_sync[tableName]
+  if (cols === null || cols === undefined) {
+    // All selected
+    return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+  }
+  if (cols.length === 0) {
+    return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+  }
+  // Partial selection
+  return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
 }
 </script>

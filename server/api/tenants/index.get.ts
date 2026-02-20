@@ -37,9 +37,12 @@ export default defineEventHandler(async (event) => {
         // Fetch all tenants from optiqoflow.tenants
         const { pgClient } = await import('~/lib/db')
 
-        const tenants = await pgClient.unsafe(
-            'SELECT id, name, short_name FROM optiqoflow.tenants ORDER BY name'
-        ) as Array<{
+        const tenants = await pgClient.unsafe(`
+            SELECT t.id, t.name, COALESCE(tsn.short_name, t.short_name) as short_name 
+            FROM optiqoflow.tenants t
+            LEFT JOIN tenants.tenant_short_names tsn ON t.id = tsn.tenant_id
+            ORDER BY t.name
+        `) as Array<{
             id: string
             name: string
             short_name: string

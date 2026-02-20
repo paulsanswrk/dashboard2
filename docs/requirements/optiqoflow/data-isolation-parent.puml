@@ -1,0 +1,71 @@
+@startuml parent-isolation
+
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+title Data Isolation via parent relation
+
+package "OptiqoFlow Schema" {
+    
+    node "Tenant Context" {
+        [tenant_id = xyz] as Tenant
+    }
+
+    folder "Parent Tables\n(Contains tenant_id)" as Parents {
+        [quality_inspections] as P1
+        [adhoc_work_orders] as P2
+        [quotes] as P3
+        [shift_chats] as P4
+        [direct_chats] as P5
+        [notifications] as P6
+        [zone_floorplans] as P7
+        [task_templates] as P8
+        [site_quality_profiles] as P9
+        [quality_checklists] as P10
+        [budgets] as P11
+        [checklist_libraries] as P12
+        [cost_calculation_profiles] as P13
+    }
+
+    folder "Child Tables\n(Inherits tenant_id via parent)" as Children {
+        [inspection_rooms] as C1
+        [adhoc_work_order_checklists] as C2
+        [quote_line_items\nquote_pricing\nquote_scope] as C3
+        [chat_messages] as C4
+        [direct_messages] as C5
+        [notification_reads\nnotification_team_targets] as C6
+        [floorplan_drawing_metadata\nfloorplan_user_preferences] as C7
+        [template_checklist_mappings] as C8
+        [site_quality_profile_levels] as C9
+        [quality_checklist_key_figures] as C10
+        [budget_allocations] as C11
+        [checklist_library_service_standards] as C12
+        [cost_profile_equipment\ncost_profile_materials\ncost_profile_overhead] as C13
+    }
+}
+
+Tenant -.-> Parents : "Filters directly by tenant_id"
+
+P1 -.-> C1 : "inspection_id"
+P2 -.-> C2 : "work_order_id"
+P3 -.-> C3 : "quote_id"
+P4 -.-> C4 : "chat_id"
+P5 -.-> C5 : "chat_id"
+P6 -.-> C6 : "notification_id"
+P7 -.-> C7 : "floorplan_id"
+P8 -.-> C8 : "template_id"
+P9 -.-> C9 : "site_quality_profile_id"
+P10 -.-> C10 : "checklist_id"
+P11 -.-> C11 : "budget_id"
+P12 -.-> C12 : "checklist_library_id"
+P13 -.-> C13 : "cost_profile_id"
+
+note bottom of Children
+  These tables do not have their own
+  tenant_id column. Access relies on
+  validating the parent record first.
+end note
+
+@enduml

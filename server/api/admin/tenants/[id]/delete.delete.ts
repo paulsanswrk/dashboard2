@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
         const dryRun = query.dry_run !== 'false' // Default to true
         const unlinkOrganizations = query.unlink_organizations !== 'false' // Default to true
         const confirm = query.confirm === 'true'
+        const deleteOptiqoflowData = query.delete_optiqoflow === 'true' // Default to false
 
         // Safety check: require confirmation for actual deletion
         if (!dryRun && !confirm) {
@@ -52,10 +53,10 @@ export default defineEventHandler(async (event) => {
             SELECT tenants.delete_tenant_completely(
                 $1::uuid,
                 $2::boolean,
-                false, -- Never delete optiqoflow data via API
+                $4::boolean, -- Delete optiqoflow data if requested
                 $3::boolean
             ) as result
-        `, [tenantId, unlinkOrganizations, dryRun])
+        `, [tenantId, unlinkOrganizations, dryRun, deleteOptiqoflowData])
 
         const cleanupResult = result[0]?.result
 

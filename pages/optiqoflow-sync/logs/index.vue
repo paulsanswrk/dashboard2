@@ -53,7 +53,9 @@ function openDetails(row: any) {
 
 function formatDate(date: string | Date | null) {
   if (!date) return '-'
-  const dt = typeof date === 'string' ? DateTime.fromISO(date) : DateTime.fromJSDate(date)
+  // Postgres returns format like "2023-10-27 10:00:00+00" which .fromISO() doesn't like (misses T)
+  // .fromSQL() handles it correctly.
+  const dt = typeof date === 'string' ? DateTime.fromSQL(date) : DateTime.fromJSDate(date)
   if (!dt.isValid) return '-'
   return dt.toFormat('MMM d, HH:mm:ss')
 }
@@ -70,6 +72,7 @@ useIntervalFn(() => {
       <h1 class="text-2xl font-bold">OptiqoFlow Sync Logs</h1>
       <UButton icon="i-heroicons-arrow-path" color="gray" variant="ghost" :loading="pending" @click="refresh" />
     </div>
+
 
     <UCard :ui="{ body: { padding: 'p-0' } }">
       <ClientOnly>

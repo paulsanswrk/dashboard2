@@ -247,6 +247,10 @@ const sideNavItems = computed<NavItem[]>(() => {
         route: '/optiqoflow-sync', // placeholder route
         children: [
         {
+          label: 'Tenants',
+          route: '/optiqoflow-sync/tenants'
+        },
+        {
           label: 'Demo',
           route: '/optiqoflow-sync/demo'
         },

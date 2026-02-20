@@ -1,0 +1,61 @@
+@startuml Data Isolation Architecture
+
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam shadowing false
+
+package "Optiqo Platform (Source)" {
+    database "PostgreSQL" {
+        folder "Tables" {
+            [rooms, sites, customers, contracts...] as direct
+            
+            [devices\ndevice_measurements\ndevice_configs\ndevice_network_info] as iot
+            
+            [inspection_rooms\nquote_line_items\nchat_messages\nbudget_allocations...] as child
+        }
+        
+        [Sync Config] as config
+    }
+}
+
+package "Isolation Layers" {
+    node "Row-Level Enforcement" {
+        [tenant_id Filter] as FilterDirect <<Direct>>
+        [device_id Filter] as FilterJunction <<via device_tenants>>
+        [parent_id Filter] as FilterInherited <<via parent table>>
+    }
+
+    node "Column-Level Enforcement" {
+        [Configured Fields] as Whitelist <<Whitelist>>
+        [Sensitive Field Filter] as Strict <<Strict Exclusion>>
+    }
+}
+
+package "Sync Interfaces" {
+    [Webhooks] as webhooks
+}
+
+[External Dashboard] as dashboard
+
+config ..> direct : "columns_to_sync"
+
+direct -down-> FilterDirect
+iot -down-> FilterJunction
+child -down-> FilterInherited
+
+FilterDirect -down-> Whitelist
+FilterJunction -down-> Whitelist
+FilterInherited -down-> Whitelist
+
+Whitelist -down-> Strict
+
+Strict -down-> webhooks
+
+webhooks -down-> dashboard : Push (Unique per-tenant URL)
+
+note right of Strict
+  1. Map only configured columns
+  2. Strict exclusion (e.g. psk_hash)
+end note
+
+@enduml

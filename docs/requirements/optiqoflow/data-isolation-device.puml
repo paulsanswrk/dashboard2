@@ -1,0 +1,43 @@
+@startuml device-isolation
+
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam shadowing false
+
+title Data Isolation via device_id (IoT Tables)
+
+package "OptiqoFlow Schema" {
+    
+    node "Tenant Context" {
+        [tenant_id = xyz] as Tenant
+    }
+
+    database "Junction Table" {
+        [device_tenants\n(device_id, tenant_id, is_current_owner)] as Junction
+    }
+
+    folder "Device Owned Tables" {
+        [devices] as T1
+        [device_measurements] as T2
+        [device_measurements_daily] as T3
+        [device_configs] as T4
+        [device_network_info] as T5
+    }
+
+}
+
+Tenant -.-> Junction : "Matches tenant_id\nWHERE is_current_owner = true"
+Junction ..> T1 : "Filters by authorized device_id"
+Junction ..> T2 : "Filters by authorized device_id"
+Junction ..> T3 : "Filters by authorized device_id"
+Junction ..> T4 : "Filters by authorized device_id"
+Junction ..> T5 : "Filters by authorized device_id"
+
+note bottom of Junction
+  Devices can change owners.
+  This junction table ensures that
+  only the current owner's tenant_id
+  can access the device's data logs.
+end note
+
+@enduml

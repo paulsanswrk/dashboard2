@@ -76,10 +76,12 @@ Only users with the `SUPERADMIN` role can:
 - View the list of available tenants
 - Assign tenants to organizations (both during creation and for existing orgs)
 - Remove tenant associations from organizations
+- Delete tenants, their schemas, and (optionally) external data
 
 **UI Locations:**
 - Organization creation: Tenant selector dropdown (SUPERADMIN only)
 - Organization details page: Tenant selector with "Edit" capability (SUPERADMIN only)
+- OptiqoFlow Sync -> Tenants: Full tenant list and deletion controls (SUPERADMIN only)
 - For non-SUPERADMIN users: Tenant name is displayed as read-only if assigned
 
 ### Immutable OptiqoFlow Connections
@@ -115,7 +117,8 @@ When a tenant is assigned to an organization (either during creation or later), 
 
 | Endpoint | Method | Purpose | Access |
 |----------|--------|---------|--------|
-| `/api/tenants` | GET | List all available tenants | SUPERADMIN |
+| `/api/tenants` | GET | List all available tenants with short names | SUPERADMIN |
+| `/api/admin/tenants/[id]/delete` | DELETE | Delete tenant and related data | SUPERADMIN |
 | `/api/organizations/[id]/tenant` | PUT | Assign/remove tenant from org | SUPERADMIN |
 | `/api/organizations/[id]` | GET | Get org details (includes tenantName) | All authenticated |
 | `/api/organizations` | POST | Create org with optional tenant | ADMIN/SUPERADMIN |
@@ -429,6 +432,25 @@ The Logs UI (`pages/optiqoflow-sync/logs/index.vue`) parses the `metadata` JSONB
 -   **Affected Tables**: Displayed as distinct badges.
 -   **Raw Data**: The full JSON payload is preserved in a collapsed `<details>` section for advanced debugging.
 
+## Tenant Management
+
+A dedicated UI is provided for SUPERADMIN users to manage OptiqoFlow tenants.
+
+### Tenants Page (`/optiqoflow-sync/tenants`)
+
+- Displays all synchronized tenants, their Organization Name, Short Name, and Generated Schema.
+- Allows SUPERADMINs to delete tenants completely.
+
+### Tenant Deletion
+
+The deletion process is highly destructive and includes a safety confirmation modal. When a tenant is deleted, the system removes:
+- All associated dashboard charts and cache entries
+- The generated `tenant_{short_name}` schema and views
+- Unlinks any associated organizations (sets `tenant_id` to NULL)
+- **Optional**: Deletes the external data within the `optiqoflow` schema (if requested via the UI checkbox).
+
+See [Tenant Cleanup Operations](../../operations/tenant-cleanup.md) for full details on the deletion mechanism and safety safeguards.
+
 ## Key Files
 
 | File | Purpose |
@@ -437,14 +459,16 @@ The Logs UI (`pages/optiqoflow-sync/logs/index.vue`) parses the `metadata` JSONB
 | `server/utils/query-context.ts` | Tenant context and role utilities |
 | `server/utils/optiqoflowQuery.ts` | Query execution with role switching |
 | `server/api/reporting/chart-data.post.ts` | Cached chart data endpoint |
-| `server/api/optiqo-webhook.post.ts` | Webhook handler with view regeneration and **logging** |
-| `server/api/optiqoflow-sync/logs.get.ts` | **NEW** API endpoint to fetch paginated logs |
+| `server/api/optiqo-webhook.post.ts` | Webhook handler with view regeneration and logging |
+| `server/api/optiqoflow-sync/logs.get.ts` | API endpoint to fetch paginated logs |
+| `server/api/admin/tenants/[id]/delete.delete.ts` | Delete tenant endpoint |
 | `server/api/tenants/index.get.ts` | List available tenants (SUPERADMIN) |
 | `server/api/organizations/[id]/tenant.put.ts` | Assign/remove tenant, auto-create connection |
 | `server/api/organizations/index.post.ts` | Create org with optional tenant and connection |
 | `pages/organizations/[id].vue` | Organization details with tenant selector |
 | `pages/data-sources.vue` | Data sources list with schema editing for immutable connections |
-| `pages/optiqoflow-sync/logs/index.vue` | **NEW** Logs viewer UI |
+| `pages/optiqoflow-sync/tenants/index.vue` | Tenants management UI |
+| `pages/optiqoflow-sync/logs/index.vue` | Logs viewer UI |
 | `lib/db/tenant-schema.ts` | Drizzle schema for tenant metadata tables |
 | `lib/db/chart-cache-schema.ts` | Drizzle schema for cache tables |
 | `lib/db/optiqoflow-schema.ts` | Drizzle schema for optiqoflow tables |

@@ -65,18 +65,33 @@ The demo configurations are saved in:
 
 ### 6. OptiqoFlow Sync Demo
 *   **Type:** Multi-page sync management interface.
-*   **Purpose:** Demonstrates data synchronization and tenant management capabilities.
+*   **Purpose:** Demonstrates data synchronization, tenant isolation, and administrative control.
 *   **Location:** `/optiqoflow-sync/demo` (Accessible via "OptiqoFlow Sync" -> "Demo" in sidebar).
-*   **Flow:**
-    1.  **Tenant List** (`/optiqoflow-sync/demo`): Overview of all tenants, their sync status (Active/Inactive/Not Configured), number of tables synced, and last synchronization timestamp.
-    2.  **Sync Selection** (`/optiqoflow-sync/demo/[id]`): Dedicated page for selecting specific tables to synchronize for a given tenant.
-    3.  **View Logs** (`/optiqoflow-sync/logs`): (Accessible via "OptiqoFlow Sync" -> "Logs") Detailed inspection of sync operations, including status, duration, client IP, and metadata.
-*   **Key Features:**
-    -   **Table Grouping:** Tables are organized into logical categories (Organization, Devices, Operations, etc.).
-    -   **Simplified Interface:** Focused purely on table synchronization (Webhook and API Access settings are hidden/removed for the demo).
-    -   **Detailed Logging:** Comprehensive logs with an **interactive sidebar** visualizing record counts, affected tables, and raw JSON metadata.
-    -   **Footer Actions:** Centralized controls for "Sync" (manual trigger), "Cancel", and "Save Changes".
-    -   **Security:** Access restricted to **Superadmin** roles via middleware and server-side checks.
+*   **Features:**
+
+    #### A. Tenant Overview & Global Reset
+    The main dashboard (`/optiqoflow-sync/demo`) provides a high-level view of all tenants.
+    -   **Tenant List:** Shows valid tenants, sync status (Active/Inactive), and last sync time.
+    -   **Global Reset:** A destructive action (Red Trash Icon) to **wipe all operational data**.
+        -   **Preserves:** `tenants` (definitions), `webhook_logs` (history).
+        -   **Clears:** All other `optiqoflow` tables (customers, sites, work orders, devices, etc.).
+        -   **Safety:** Protected by a secondary confirmation modal.
+
+    #### B. Quick-Setup Presets
+    Inside a tenant's config page (e.g., `/optiqoflow-sync/demo/[id]`), "Quick Presets" allow for instant configuration:
+    1.  **Beta Facilities (Healthcare):** Auto-selects `rooms` (patient status), `service_types`, `audit_logs`.
+    2.  **Acme Cleaning (Commercial):** Auto-selects `work_orders`, `sites`, `customers`, and standard cleaning tables.
+    
+    #### C. Detailed Sync Logs
+    The logs page (`/optiqoflow-sync/logs`) provides a historical audit trail:
+    -   **Source:** Reads from `tenants.webhook_logs` (centralized logging).
+    -   **Details:** Tracks Status (success/error), Duration, Client IP, and Sync Type.
+    -   **Interactive:** Click any row to see full JSON metadata in a dedicated sidebar.
+    
+    #### D. UX Enhancements
+    -   **Smart Selection:** Clicking a table row automatically selects/deselects it.
+    -   **Mandatory Columns:** Critical columns (`id`, `tenant_id`) are high-contrast and locked to prevent misconfiguration.
+    -   **Visual Feedback:** Status badges, loading spinners, and clear error messages.
 
 ## How to Run the Demo
 

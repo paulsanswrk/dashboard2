@@ -1,9 +1,20 @@
 <template>
   <div class="p-4 lg:p-6 max-w-7xl mx-auto">
     <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-1">OptiqoFlow Sync Demo</h1>
-      <p class="text-gray-600 dark:text-gray-400">View and manage data synchronization for each tenant.</p>
+    <div class="mb-6 flex justify-between items-start">
+      <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-1">OptiqoFlow Sync Demo</h1>
+        <p class="text-gray-600 dark:text-gray-400">View and manage data synchronization for each tenant.</p>
+      </div>
+      <button 
+        @click="openGlobalResetModal"
+        :disabled="isGlobalResetting"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Icon v-if="isGlobalResetting" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
+        <Icon v-else name="i-heroicons-trash" class="w-4 h-4"/>
+        Global Reset
+      </button>
     </div>
 
     <!-- Access Denied -->
@@ -103,6 +114,48 @@
         </table>
       </div>
     </div>
+    <!-- Global Reset Modal -->
+    <!-- Global Reset Modal -->
+    <div v-if="isResetModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <!-- Backdrop -->
+      <div class="fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm transition-opacity" @click="isResetModalOpen = false"></div>
+      
+      <!-- Modal Panel -->
+      <div class="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full p-6 transform transition-all border border-gray-200 dark:border-gray-800">
+        <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/40 rounded-full mb-4">
+          <Icon name="i-heroicons-exclamation-triangle" class="w-6 h-6 text-red-600 dark:text-red-400" />
+        </div>
+        
+        <h3 class="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">
+          Global Data Reset
+        </h3>
+        
+        <p class="text-center text-gray-600 dark:text-gray-300 mb-6">
+          Are you sure you want to delete <strong>ALL synced data</strong>? 
+          <br><br>
+          This will wipe customers, work orders, sites, and logs from the <code class="text-sm bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">optiqoflow</code> schema.
+          <br><br>
+          <span class="text-sm text-gray-500">(Tenants and Webhook Logs will be preserved)</span>
+        </p>
+
+        <div class="flex gap-3 justify-center">
+          <button 
+            @click="isResetModalOpen = false"
+            class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="executeGlobalReset"
+            :disabled="isGlobalResetting"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-sm transition-colors disabled:opacity-50"
+          >
+            <Icon v-if="isGlobalResetting" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
+            Yes, Wipe Everything
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -129,6 +182,35 @@ const loading = ref(true)
 const fetchError = ref<string | null>(null)
 const tenants = ref<TenantWithSync[]>([])
 const resettingTenant = ref<string | null>(null)
+
+// Global Reset State
+const isResetModalOpen = ref(false)
+const isGlobalResetting = ref(false)
+
+function openGlobalResetModal() {
+  isResetModalOpen.value = true
+}
+
+async function executeGlobalReset() {
+  isGlobalResetting.value = true
+  try {
+    const supabase = useSupabaseClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    const result = await $fetch('/api/optiqoflow-sync/reset', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    })
+    
+    isResetModalOpen.value = false
+    alert(`Reset complete. ${(result as any).message}`)
+    await fetchTenants() // Refresh
+  } catch (err: any) {
+    alert(err.data?.statusMessage || err.message || 'Failed to reset global data')
+  } finally {
+    isGlobalResetting.value = false
+  }
+}
 
 watch(() => userProfile.value, (profile) => {
   if (profile) {
