@@ -122,22 +122,28 @@ END $$;
 
 -- 5. Quality Inspections (Puhastusekpert OÜ)
 -- Added missing columns: inspection_type, quality_method, party_size, sample_size, acceptance_number, rejection_number, passed_units, failed_units
-INSERT INTO optiqoflow.quality_inspections (
-    id, tenant_id, site_id, inspection_date, overall_result, aql_level, 
-    inspection_type, quality_method, party_size, sample_size, acceptance_number, rejection_number, passed_units, failed_units,
-    created_at, updated_at
-) VALUES
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW(), 'passed', '1.0', 'INSTA 800', 'random_sampling', 100, 10, 1, 2, 10, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW(), 'passed', '1.0', 'INSTA 800', 'random_sampling', 200, 20, 2, 3, 19, 1, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW(), 'failed', '1.0', 'Visual Check', 'continuous', 50, 5, 0, 1, 3, 2, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '1 day', 'passed', '1.5', 'ISO 2859', 'random_sampling', 150, 15, 1, 2, 15, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '1 day', 'passed', '1.5', 'INSTA 800', 'random_sampling', 100, 10, 1, 2, 10, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '2 days', 'passed', '2.5', 'Sanitation Audit', '100%_inspection', 20, 20, 0, 1, 20, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '2 days', 'passed', '2.5', 'INSTA 800', 'random_sampling', 300, 30, 2, 3, 29, 1, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '2 days', 'passed', '2.5', 'Visual Check', 'random_sampling', 50, 5, 0, 1, 5, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '3 days', 'failed', '2.5', 'INSTA 800', 'random_sampling', 120, 12, 1, 2, 10, 2, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '3 days', 'passed', '4.0', 'Surface Test', 'swab_analysis', 10, 10, 0, 1, 10, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '4 days', 'passed', '4.0', 'INSTA 800', 'random_sampling', 200, 20, 2, 3, 20, 0, NOW(), NOW()),
-(gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '5 days', 'passed', '6.5', 'ATP Swab', 'device_reading', 15, 15, 0, 1, 15, 0, NOW(), NOW());
+WITH new_qi AS (
+    INSERT INTO optiqoflow.quality_inspections (
+        id, tenant_id, site_id, inspection_date, overall_result, aql_level, 
+        inspection_type, quality_method, party_size, sample_size, acceptance_number, rejection_number, passed_units, failed_units,
+        created_at, updated_at
+    ) VALUES
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW(), 'passed', '1.0', 'INSTA 800', 'random_sampling', 100, 10, 1, 2, 10, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW(), 'passed', '1.0', 'INSTA 800', 'random_sampling', 200, 20, 2, 3, 19, 1, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW(), 'failed', '1.0', 'Visual Check', 'continuous', 50, 5, 0, 1, 3, 2, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '1 day', 'passed', '1.5', 'ISO 2859', 'random_sampling', 150, 15, 1, 2, 15, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '1 day', 'passed', '1.5', 'INSTA 800', 'random_sampling', 100, 10, 1, 2, 10, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '2 days', 'passed', '2.5', 'Sanitation Audit', '100%_inspection', 20, 20, 0, 1, 20, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '2 days', 'passed', '2.5', 'INSTA 800', 'random_sampling', 300, 30, 2, 3, 29, 1, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '2 days', 'passed', '2.5', 'Visual Check', 'random_sampling', 50, 5, 0, 1, 5, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '3 days', 'failed', '2.5', 'INSTA 800', 'random_sampling', 120, 12, 1, 2, 10, 2, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '3 days', 'passed', '4.0', 'Surface Test', 'swab_analysis', 10, 10, 0, 1, 10, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '4 days', 'passed', '4.0', 'INSTA 800', 'random_sampling', 200, 20, 2, 3, 20, 0, NOW(), NOW()),
+    (gen_random_uuid(), 'bf8bed36-b204-4d11-8f7e-12b5125d07d0', 'f1000001-0001-0001-0001-000000000001', NOW() - INTERVAL '5 days', 'passed', '6.5', 'ATP Swab', 'device_reading', 15, 15, 0, 1, 15, 0, NOW(), NOW())
+    RETURNING id
+)
+INSERT INTO optiqoflow.inspection_rooms (id, inspection_id, room_id, inspection_status, unit_passed, created_at, updated_at)
+SELECT gen_random_uuid(), id, 'b2010000-0000-0000-0000-000000000000', 'completed', true, NOW(), NOW()
+FROM new_qi;
 
 COMMIT;

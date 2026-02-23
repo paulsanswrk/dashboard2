@@ -74,10 +74,25 @@ export default defineEventHandler(async (event) => {
 
         await pgClient.unsafe(truncateSql)
 
+        // Drop tenant schemas
+        const schemasResult = await pgClient.unsafe(`
+            SELECT schema_name 
+            FROM information_schema.schemata 
+            WHERE schema_name LIKE 'tenant\\_%'
+        `) as { schema_name: string }[]
+
+        const schemasToDrop = schemasResult.map(r => r.schema_name)
+        if (schemasToDrop.length > 0) {
+            console.log('[Global Reset] Dropping schemas:', schemasToDrop.join(', '))
+            const dropSchemaSql = schemasToDrop.map(s => `DROP SCHEMA IF EXISTS "${s}" CASCADE`).join('; ')
+            await pgClient.unsafe(dropSchemaSql)
+        }
+
         return {
             success: true,
-            message: `Cleared ${tablesToTruncate.length} tables`,
-            cleared_tables: tablesToTruncate
+            message: `Cleared ${tablesToTruncate.length} tables and dropped ${schemasToDrop.length} tenant schemas`,
+            cleared_tables: tablesToTruncate,
+            dropped_schemas: schemasToDrop
         }
 
     } catch (error: any) {

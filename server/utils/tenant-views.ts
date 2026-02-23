@@ -37,7 +37,7 @@ const DIRECT_TENANT_TABLES = [
 ]
 
 // Tables that use device-based filtering (via device_tenants junction)
-const DEVICE_BASED_TABLES: Record<string, { joinColumn: string }> = {
+export const DEVICE_BASED_TABLES: Record<string, { joinColumn: string }> = {
     'devices': { joinColumn: 'id' },
     'device_measurements': { joinColumn: 'device_id' },
     'device_measurements_daily': { joinColumn: 'device_id' },
@@ -47,7 +47,7 @@ const DEVICE_BASED_TABLES: Record<string, { joinColumn: string }> = {
 }
 
 // Tables that use parent relation filtering
-const PARENT_RELATION_TABLES: Record<string, { parentTable: string; foreignKey: string }> = {
+export const PARENT_RELATION_TABLES: Record<string, { parentTable: string; foreignKey: string }> = {
     'inspection_rooms': { parentTable: 'quality_inspections', foreignKey: 'inspection_id' },
     'quote_line_items': { parentTable: 'quotes', foreignKey: 'quote_id' },
     'quote_pricing': { parentTable: 'quotes', foreignKey: 'quote_id' },

@@ -31,6 +31,10 @@
           />
         </UFormField>
 
+        <UFormField label="Set Password" hint="Optional — leave empty for magic-link-only login">
+          <UInput v-model="newUser.password" type="password" placeholder="Enter password (optional)" class="w-full"/>
+        </UFormField>
+
         <label class="flex items-center gap-2 pt-2 cursor-pointer">
           <UCheckbox
             v-model="newUser.sendInvitationEmail"
@@ -85,6 +89,7 @@ const newUser = ref({
   firstName: '',
   lastName: '',
   role: 'EDITOR',
+  password: '',
   sendInvitationEmail: true
 })
 
@@ -100,6 +105,7 @@ watch(() => props.isOpen, (isOpen) => {
       firstName: '',
       lastName: '',
       role: 'EDITOR',
+      password: '',
       sendInvitationEmail: true
     }
   }

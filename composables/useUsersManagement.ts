@@ -172,6 +172,7 @@ export const useUsersManagement = (scope: 'organization' | 'admin' = 'organizati
           firstName: userData.firstName,
           lastName: userData.lastName,
           role: userData.role,
+          password: userData.password || undefined,
           sendInvitationEmail: userData.sendInvitationEmail
         }
       })

@@ -3,6 +3,7 @@ import { pgClient } from '../../../lib/db'
 import { sql } from 'drizzle-orm'
 import { TABLE_MAPPING } from '../../utils/optiqoflow-constants'
 import { invalidateCacheForTables } from '../../utils/chart-cache'
+import { getTenantSchemaByTenantId } from '../../utils/tenant-views'
 
 /**
  * POST /api/optiqoflow-sync/reset-demo-sync
@@ -114,7 +115,14 @@ export default defineEventHandler(async (event) => {
         // Actually, let's just use the direct tenant id delete for all and hope for the best.
         // Most parent/child tables in Optiqo also have tenant_id for convenience.
 
-        // 7. Clear Chart Cache
+        // 7. Drop tenant schema (and its views)
+        const schemaName = await getTenantSchemaByTenantId(tenantId)
+        if (schemaName) {
+            console.log(`[ResetDemoSync] Dropping tenant schema: ${schemaName} CASCADE...`)
+            await pgClient.unsafe(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE`)
+        }
+
+        // 8. Clear Chart Cache
         console.log(`[ResetDemoSync] Invalidating chart cache...`)
         await invalidateCacheForTables(publicSupabase as any, tenantId, tablesToClear)
 

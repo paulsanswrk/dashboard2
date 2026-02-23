@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>OptiqoFlow Multi-Tenant Data Isolation Demo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 30px;
+            line-height: 1.7;
+            color: #1a1a2e;
+            font-size: 14px;
+            background: #fafbfc;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #16213e;
+            border-bottom: 3px solid #e94560;
+            padding-bottom: 12px;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 18px;
+            color: #0f3460;
+            margin-top: 32px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 6px;
+        }
+
+        h3 {
+            font-size: 15px;
+            color: #16213e;
+            margin-top: 18px;
+        }
+
+        img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin: 12px 0;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        video {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin: 12px 0;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 14px 0;
+            font-size: 13px;
+        }
+
+        th {
+            background: #0f3460;
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        td {
+            padding: 8px 14px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:nth-child(even) {
+            background: #f4f6f8;
+        }
+
+        code {
+            background: #eef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .note {
+            border-left: 4px solid #3498db;
+            margin: 14px 0;
+            padding: 10px 18px;
+            background: #eef6ff;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+        }
+
+        .note strong {
+            color: #2980b9;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 24px 0;
+        }
+
+        a {
+            color: #0f3460;
+        }
+
+        p {
+            margin: 10px 0;
+        }
+
+        em {
+            color: #555;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .gallery img {
+            margin: 0;
+        }
+
+        .check {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        @media print {
+            body {
+                padding: 20px;
+                background: white;
+            }
+
+            img {
+                max-height: 400px;
+                object-fit: contain;
+                page-break-inside: avoid;
+            }
+
+            table {
+                page-break-inside: avoid;
+            }
+
+            video {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>OptiqoFlow Multi-Tenant Data Isolation Demo</h1>
+    <p>This document demonstrates the complete end-to-end flow for OptiqoFlow's multi-tenant data architecture, showing
+        how data is isolated per-tenant at both the row and column level.</p>
+
+    <hr>
+
+    <h2>1. Code Changes: Password Support for Demo Login</h2>
+    <p>Three files were modified to enable creating users with a password (bypassing magic-link email for demos):</p>
+    <ul>
+        <li><code>server/api/organizations/[id]/users.post.ts</code> — Optional <code>password</code> param in API; sets
+            <code>has_password</code> metadata
+        </li>
+        <li><code>components/AddUserModal.vue</code> — Added "Set Password" field to form</li>
+        <li><code>composables/useUsersManagement.ts</code> — Passes password through to API</li>
+    </ul>
+    <div class="note"><strong>NOTE:</strong> The password field will appear in the UI after a Nuxt server restart. For
+        this demo, the user was created via the Supabase Auth Admin API directly.</div>
+
+    <hr>
+
+    <h2>2. Tenant Configuration &amp; Sync</h2>
+    <p>Selected <strong>4 tables</strong> for the <strong>Beta Facilities</strong> tenant: <code>sites</code> (17 cols),
+        <code>rooms</code> (28 cols), <code>work_orders</code> (36 cols), <code>quality_inspections</code> (43 cols).
+    </p>
+
+    <img src="media/sync_logs.png" alt="Sync completed — Beta Facilities DEMO_SYNC confirmed in logs">
+
+    <p><strong>DB result:</strong> 3 views created in <code>tenant_beta_facilities</code> schema (sites, rooms,
+        quality_inspections). The <code>work_orders</code> view was correctly omitted because Beta Facilities has 0 work
+        order rows — demonstrating <strong>row-level isolation</strong>.</p>
+
+    <details>
+        <summary>▶ Watch: Tenant Config &amp; Sync Flow (video)</summary>
+        <img src="media/run_sync.webp" alt="Tenant Config & Sync Flow recording">
+    </details>
+
+    <hr>
+
+    <h2>3. Organization &amp; Data Connection</h2>
+    <p>Created <strong>"Beta Healthcare Demo"</strong> organization linked to the Beta Facilities tenant.</p>
+
+    <div class="gallery">
+        <img src="media/org_created.png" alt="Organization list showing Beta Healthcare Demo (Active, Feb 22, 2026)">
+        <img src="media/org_details.png" alt="Org details: auto-provisioned OptiqoFlow Data connection">
+    </div>
+
+    <table>
+        <tr>
+            <th>Item</th>
+            <th>Value</th>
+        </tr>
+        <tr>
+            <td><strong>Org Name</strong></td>
+            <td>Beta Healthcare Demo</td>
+        </tr>
+        <tr>
+            <td><strong>Org ID</strong></td>
+            <td><code>a2e83aa1-6aa9-4d8a-b253-d514438c4a5e</code></td>
+        </tr>
+        <tr>
+            <td><strong>Tenant</strong></td>
+            <td>Beta Facilities (<code>22222222-...</code>)</td>
+        </tr>
+        <tr>
+            <td><strong>Data Connection</strong></td>
+            <td>OptiqoFlow Data (Beta Healthcare Demo), immutable, PostgreSQL</td>
+        </tr>
+    </table>
+
+    <details>
+        <summary>▶ Watch: Organization Creation (video)</summary>
+        <img src="media/create_org.webp" alt="Organization Creation recording">
+    </details>
+
+    <hr>
+
+    <h2>4. Demo User Creation &amp; Login</h2>
+    <p>Created <code>demo@beta-healthcare.test</code> with password <code>DemoPass123!</code> (Editor role) via Supabase
+        Auth Admin API.</p>
+
+    <img src="media/demo_dashboard.png"
+        alt="Dashboard: Welcome back, Demo User — Working in Beta Healthcare Demo • Editor">
+
+    <p><strong>Key observations:</strong></p>
+    <ul>
+        <li>Only 1 data source visible: "OptiqoFlow Data (Beta Healthcare Demo)"</li>
+        <li>No SUPERADMIN sidebar items (Users, Organizations, OptiqoFlow Sync, etc.)</li>
+        <li>0 dashboards/reports (fresh account)</li>
+    </ul>
+
+    <details>
+        <summary>▶ Watch: Demo Login Flow (video)</summary>
+        <img src="media/demo_login.webp" alt="Demo Login Flow recording">
+    </details>
+
+    <hr>
+
+    <h2>5. Data Isolation Verified in Chart Builder</h2>
+
+    <div class="gallery">
+        <img src="media/chart_builder.png"
+            alt="Chart Builder shows exactly 3 tables: quality_inspections, rooms, sites">
+        <img src="media/sites_columns.png"
+            alt="Sites table expanded: 17 columns visible, matching tenant column config">
+    </div>
+
+    <h3>Isolation Results</h3>
+    <table>
+        <tr>
+            <th>Isolation Type</th>
+            <th>Expected</th>
+            <th>Actual</th>
+            <th>Status</th>
+        </tr>
+        <tr>
+            <td><strong>Table-level</strong></td>
+            <td>3 tables (no work_orders)</td>
+            <td>3 tables shown</td>
+            <td class="check">✅</td>
+        </tr>
+        <tr>
+            <td><strong>Row-level</strong></td>
+            <td>Only Beta Facilities rows</td>
+            <td>work_orders excluded (0 rows)</td>
+            <td class="check">✅</td>
+        </tr>
+        <tr>
+            <td><strong>Column-level</strong></td>
+            <td>sites: 17 cols</td>
+            <td>17 cols displayed</td>
+            <td class="check">✅</td>
+        </tr>
+        <tr>
+            <td><strong>Org scoping</strong></td>
+            <td>Only "Beta Healthcare Demo" data source</td>
+            <td>Single data source</td>
+            <td class="check">✅</td>
+        </tr>
+    </table>
+
+    <details>
+        <summary>▶ Watch: Chart Builder Verification (video)</summary>
+        <img src="media/chart_builder_verify.webp" alt="Chart Builder Verification recording">
+    </details>
+
+    <hr>
+
+    <h2>6. Advanced: Per-Device Data Isolation (Visera)</h2>
+    <p>This scenario demonstrates isolating tables using a many-to-many junction table, specifically for the
+        <code>devices</code> table using <code>device_tenants</code>.
+    </p>
+
+    <ul>
+        <li><strong>Tenant:</strong> Visera (IoT)</li>
+        <li><strong>Tables Synced:</strong> <code>devices</code>, <code>device_tenants</code></li>
+        <li><strong>Backend Query Strategy:</strong>
+            <code>SELECT * FROM optiqoflow.devices WHERE id IN (SELECT device_id FROM optiqoflow.device_tenants WHERE tenant_id = $1)</code>
+        </li>
+    </ul>
+
+    <p>After creating the <strong>Visera Demo</strong> organization and logging in, the Chart Builder correctly shows
+        only devices assigned to Visera, preventing access to devices from Beta Facilities or Acme.</p>
+
+    <details>
+        <summary>▶ Watch: Visera Device Isolation Check (video)</summary>
+        <img src="media/visera-isolation.webp" alt="Visera device table scoping">
+    </details>
+
+    <hr>
+
+    <h2>7. Advanced: Per-Parent Data Isolation (Puhastusekpert)</h2>
+    <p>Certain tables lack a direct <code>tenant_id</code> and must inherit isolation from a parent table via a foreign
+        key, such as <code>inspection_rooms</code> inheriting from <code>quality_inspections</code>.</p>
+
+    <ul>
+        <li><strong>Tenant:</strong> Puhastusekpert (Quality)</li>
+        <li><strong>Tables Synced:</strong> <code>quality_inspections</code>, <code>inspection_rooms</code></li>
+        <li><strong>Backend Query Strategy:</strong>
+            <code>SELECT * FROM optiqoflow.inspection_rooms WHERE inspection_id IN (SELECT id FROM optiqoflow.quality_inspections WHERE tenant_id = $1)</code>
+        </li>
+    </ul>
+
+    <p>After creating the <strong>Puhastusekpert Demo</strong> organization and logging in, the Chart Builder securely
+        filters the `inspection_rooms` table, ensuring users only see rooms associated with their authorized
+        `quality_inspections`.</p>
+
+    <details>
+        <summary>▶ Watch: Puhastusekpert Parent Isolation Check (video)</summary>
+        <img src="media/puhastus-isolation.webp" alt="Puhastusekpert parent isolation scoping">
+    </details>
+
+</body>
+
+</html>

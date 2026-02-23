@@ -91,7 +91,7 @@
                 <div class="flex justify-end gap-2 text-right">
                   <button
                     v-if="tenant.sync_config"
-                    @click="resetSync(tenant.id)"
+                    @click="openTenantResetModal(tenant.id)"
                     :disabled="resettingTenant === tenant.id"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-200 dark:border-red-900/50 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Clear database and reset sync status"
@@ -114,48 +114,99 @@
         </table>
       </div>
     </div>
-    <!-- Global Reset Modal -->
-    <!-- Global Reset Modal -->
-    <div v-if="isResetModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <!-- Backdrop -->
-      <div class="fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm transition-opacity" @click="isResetModalOpen = false"></div>
-      
-      <!-- Modal Panel -->
-      <div class="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full p-6 transform transition-all border border-gray-200 dark:border-gray-800">
-        <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/40 rounded-full mb-4">
-          <Icon name="i-heroicons-exclamation-triangle" class="w-6 h-6 text-red-600 dark:text-red-400" />
-        </div>
+    <ClientOnly>
+      <!-- Global Reset Modal -->
+      <UModal v-model:open="isResetModalOpen">
+        <!-- Hidden trigger button required by UModal -->
+        <div style="display: none;"></div>
         
-        <h3 class="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">
-          Global Data Reset
-        </h3>
-        
-        <p class="text-center text-gray-600 dark:text-gray-300 mb-6">
-          Are you sure you want to delete <strong>ALL synced data</strong>? 
-          <br><br>
-          This will wipe customers, work orders, sites, and logs from the <code class="text-sm bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">optiqoflow</code> schema.
-          <br><br>
-          <span class="text-sm text-gray-500">(Tenants and Webhook Logs will be preserved)</span>
-        </p>
+        <template #content>
+          <UCard :ui="{ ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800' }">
+            <template #header>
+              <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full">
+                  <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+                  Global Data Reset
+                </h3>
+              </div>
+            </template>
+            
+            <p class="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to delete <strong>ALL synced data</strong>? 
+              <br><br>
+              This will wipe customers, work orders, sites, and logs from the <code class="text-sm bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">optiqoflow</code> schema.
+              <br><br>
+              <span class="text-sm text-gray-500">(Tenants and Webhook Logs will be preserved)</span>
+            </p>
 
-        <div class="flex gap-3 justify-center">
-          <button 
-            @click="isResetModalOpen = false"
-            class="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
-          >
-            Cancel
-          </button>
-          <button 
-            @click="executeGlobalReset"
-            :disabled="isGlobalResetting"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium shadow-sm transition-colors disabled:opacity-50"
-          >
-            <Icon v-if="isGlobalResetting" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin"/>
-            Yes, Wipe Everything
-          </button>
-        </div>
-      </div>
-    </div>
+            <template #footer>
+              <div class="flex gap-3 justify-end">
+                <UButton 
+                  color="gray" 
+                  variant="ghost" 
+                  label="Cancel" 
+                  @click="isResetModalOpen = false" 
+                />
+                <UButton 
+                  color="red" 
+                  variant="solid" 
+                  label="Yes, Wipe Everything" 
+                  :loading="isGlobalResetting"
+                  @click="executeGlobalReset" 
+                />
+              </div>
+            </template>
+          </UCard>
+        </template>
+      </UModal>
+
+      <!-- Tenant Reset Modal -->
+      <UModal v-model:open="isTenantResetModalOpen">
+        <!-- Hidden trigger button required by UModal -->
+        <div style="display: none;"></div>
+        
+        <template #content>
+          <UCard :ui="{ ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800' }">
+            <template #header>
+              <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full">
+                  <Icon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+                  Reset Tenant Sync
+                </h3>
+              </div>
+            </template>
+            
+            <p class="text-gray-600 dark:text-gray-300 mb-6">
+              Are you sure you want to clear <strong>all synced data</strong> and reset sync status for this tenant? 
+              <br><br>
+              This action will completely wipe their operational data and drop their isolated <code class="text-sm bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">tenant_*</code> schema. It cannot be undone.
+            </p>
+
+            <template #footer>
+              <div class="flex gap-3 justify-end">
+                <UButton 
+                  color="gray" 
+                  variant="ghost" 
+                  label="Cancel" 
+                  @click="closeTenantResetModal" 
+                />
+                <UButton 
+                  color="red" 
+                  variant="solid" 
+                  label="Yes, Reset Tenant" 
+                  :loading="resettingTenant !== null"
+                  @click="executeTenantReset" 
+                />
+              </div>
+            </template>
+          </UCard>
+        </template>
+      </UModal>
+    </ClientOnly>
   </div>
 </template>
 
@@ -245,20 +296,34 @@ async function fetchTenants() {
   }
 }
 
-async function resetSync(tenantId: string) {
-  if (!confirm('Are you sure you want to clear all synced data and reset sync status for this tenant? This action cannot be undone.')) return
+const isTenantResetModalOpen = ref(false)
+const tenantToReset = ref<string | null>(null)
 
-  resettingTenant.value = tenantId
+function openTenantResetModal(tenantId: string) {
+  tenantToReset.value = tenantId
+  isTenantResetModalOpen.value = true
+}
+
+function closeTenantResetModal() {
+  isTenantResetModalOpen.value = false
+  tenantToReset.value = null
+}
+
+async function executeTenantReset() {
+  if (!tenantToReset.value) return
+
+  resettingTenant.value = tenantToReset.value
   try {
     const supabase = useSupabaseClient()
     const { data: { session } } = await supabase.auth.getSession()
     
     await $fetch('/api/optiqoflow-sync/reset-demo-sync', {
       method: 'POST',
-      body: { tenantId },
+      body: { tenantId: tenantToReset.value },
       headers: { Authorization: `Bearer ${session?.access_token}` }
     })
     
+    closeTenantResetModal()
     // Refresh the list to show updated status
     await fetchTenants()
   } catch (err: any) {

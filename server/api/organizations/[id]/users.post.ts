@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
 
     // Parse request body
     const body = await readBody(event)
-    const { email, firstName, lastName, role = 'EDITOR', sendInvitationEmail = true } = body
+    const { email, firstName, lastName, role = 'EDITOR', sendInvitationEmail = true, password } = body
 
     // Validate required fields
     if (!email || !firstName || !lastName) {
@@ -110,9 +110,10 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Create a new user in Supabase Auth first (passwordless)
+    // Create a new user in Supabase Auth (with optional password)
     const { data: authData, error: createUserError } = await supabase.auth.admin.createUser({
       email,
+      ...(password ? { password } : {}),
       email_confirm: true, // Auto-confirm email
       user_metadata: {
         first_name: firstName,
@@ -120,7 +121,7 @@ export default defineEventHandler(async (event) => {
       },
       app_metadata: {
         is_invited: true,
-        has_password: false
+        has_password: !!password
       }
     })
 

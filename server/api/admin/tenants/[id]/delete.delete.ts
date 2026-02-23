@@ -16,7 +16,13 @@ import { pgClient } from '~/lib/db'
 export default defineEventHandler(async (event) => {
     try {
         // SUPERADMIN authorization
-        await AuthHelper.requireRole(event, 'SUPERADMIN')
+        const authCtx = await AuthHelper.requireAuthContext(event)
+        if (authCtx.role !== 'SUPERADMIN') {
+            throw createError({
+                statusCode: 403,
+                message: 'Forbidden: SUPERADMIN role required'
+            })
+        }
 
         const tenantId = getRouterParam(event, 'id')
         if (!tenantId) {

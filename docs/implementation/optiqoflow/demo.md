@@ -69,29 +69,31 @@ The demo configurations are saved in:
 *   **Location:** `/optiqoflow-sync/demo` (Accessible via "OptiqoFlow Sync" -> "Demo" in sidebar).
 *   **Features:**
 
-    #### A. Tenant Overview & Global Reset
+    #### A. Tenant Overview & Reset Functions
     The main dashboard (`/optiqoflow-sync/demo`) provides a high-level view of all tenants.
-    -   **Tenant List:** Shows valid tenants, sync status (Active/Inactive), and last sync time.
-    -   **Global Reset:** A destructive action (Red Trash Icon) to **wipe all operational data**.
+    -   **Tenant List:** Shows valid tenants, sync status, selected tables count, and last sync timestamp.
+    -   **Global Data Reset:** A destructive action (Red Button) to **wipe all operational data**.
         -   **Preserves:** `tenants` (definitions), `webhook_logs` (history).
-        -   **Clears:** All other `optiqoflow` tables (customers, sites, work orders, devices, etc.).
-        -   **Safety:** Protected by a secondary confirmation modal.
+        -   **Clears:** All other `optiqoflow` synced tables. (Note: does not drop tenant schemas).
+    -   **Per-Tenant Reset:** A targeted destructive action for individual tenants.
+        -   **Clears:** All synchronized data for the specific tenant.
+        -   **Drops Schema:** Completely drops the isolated `tenant_xx` schema to simulate a full tenant removal/reset.
+        -   **Safety:** Both reset actions are protected by Nuxt UI modal confirmations.
 
     #### B. Quick-Setup Presets
-    Inside a tenant's config page (e.g., `/optiqoflow-sync/demo/[id]`), "Quick Presets" allow for instant configuration:
-    1.  **Beta Facilities (Healthcare):** Auto-selects `rooms` (patient status), `service_types`, `audit_logs`.
-    2.  **Acme Cleaning (Commercial):** Auto-selects `work_orders`, `sites`, `customers`, and standard cleaning tables.
+    Inside a tenant's config page (e.g., `/optiqoflow-sync/demo/[id]`), "Quick-Setup Presets" allow for instant, realistic configuration:
+    1.  **Beta Healthcare Preset:** Simulates a hospital environment. Auto-selects `rooms` (with healthcare metrics), `service_types`, `quality_inspections`, and `audit_logs`.
+    2.  **Acme Cleaning Preset:** Simulates a commercial cleaning company. Auto-selects core operational tables like `work_orders`, `sites`, `customers`, and standard cleaning data.
     
-    #### C. Detailed Sync Logs
+    #### C. Column Selection & Mandatory Fields
+    -   **Smart UX:** Clicking any row automatically toggles its selection state.
+    -   **Mandatory Columns:** Critical columns (`id`, `tenant_id`, `created_at`, `updated_at`, etc., as defined by the isolation configurations) are **visually distinct** (high contrast, checked by default, and fully locked/disabled) to prevent misconfiguration causing sync failures.
+
+    #### D. Detailed Sync Logs
     The logs page (`/optiqoflow-sync/logs`) provides a historical audit trail:
     -   **Source:** Reads from `tenants.webhook_logs` (centralized logging).
-    -   **Details:** Tracks Status (success/error), Duration, Client IP, and Sync Type.
-    -   **Interactive:** Click any row to see full JSON metadata in a dedicated sidebar.
-    
-    #### D. UX Enhancements
-    -   **Smart Selection:** Clicking a table row automatically selects/deselects it.
-    -   **Mandatory Columns:** Critical columns (`id`, `tenant_id`) are high-contrast and locked to prevent misconfiguration.
-    -   **Visual Feedback:** Status badges, loading spinners, and clear error messages.
+    -   **Details:** Tracks Status (Success/Error), Timestamp, Duration, Client IP, and Sync Type.
+    -   **Interactive:** Clicking any row opens a slide-out sidebar displaying the full JSON metadata payload.
 
 ## How to Run the Demo
 
